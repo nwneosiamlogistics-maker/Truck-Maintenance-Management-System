@@ -1,0 +1,5 @@
+{
+  "name": "Truck Maintenance Management System",
+  "description": "A comprehensive, modern web application for managing truck and trailer maintenance schedules, repair orders, spare parts inventory, and technician assignments. Features a dashboard overview, detailed reporting, and proactive maintenance planning.",
+  "requestFramePermissions": []
+}
