@@ -1,0 +1,132 @@
+
+import React, { useState, useEffect } from 'react';
+import type { StockItem } from '../types';
+
+interface StockModalProps {
+    item: StockItem | null;
+    onSave: (item: StockItem) => void;
+    onClose: () => void;
+}
+
+const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
+    const initialFormState: StockItem = {
+        id: '',
+        name: '',
+        category: 'น้ำมัน',
+        quantity: 0,
+        unit: 'ลิตร',
+        minStock: 0,
+        maxStock: 0,
+        price: 0,
+        sellingPrice: 0,
+        storageLocation: '',
+        supplier: '',
+        status: 'ปกติ'
+    };
+
+    const [formData, setFormData] = useState<StockItem>(item || initialFormState);
+
+    useEffect(() => {
+        if (item) {
+            setFormData(item);
+        } else {
+            setFormData(initialFormState);
+        }
+    }, [item]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        const parsedValue = ['quantity', 'minStock', 'maxStock', 'price', 'sellingPrice'].includes(name) ? parseFloat(value) || 0 : value;
+        setFormData(prev => ({ ...prev, [name]: parsedValue }));
+    };
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        let newStatus: StockItem['status'] = 'ปกติ';
+        if (formData.quantity <= 0) {
+            newStatus = 'หมดสต๊อก';
+        } else if (formData.quantity <= formData.minStock) {
+            newStatus = 'สต๊อกต่ำ';
+        } else if (formData.maxStock && formData.quantity > formData.maxStock) {
+            newStatus = 'สต๊อกเกิน';
+        }
+        
+        onSave({ ...formData, status: newStatus });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b flex justify-between items-center">
+                    <h3 className="text-2xl font-bold text-gray-800">{item ? 'แก้ไข' : 'เพิ่ม'}รายการอะไหล่</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <form id="stock-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">ชื่ออะไหล่</label>
+                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">หมวดหมู่</label>
+                            <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
+                                <option>น้ำมัน</option>
+                                <option>เบรก</option>
+                                <option>เครื่องยนต์</option>
+                                <option>ไฟฟ้า</option>
+                                <option>อื่นๆ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">จำนวนคงเหลือ</label>
+                            <input type="number" name="quantity" value={formData.quantity} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">หน่วยนับ</label>
+                            <input type="text" name="unit" value={formData.unit} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">สต็อกขั้นต่ำ (Min)</label>
+                            <input type="number" name="minStock" value={formData.minStock} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">สต็อกสูงสุด (Max)</label>
+                            <input type="number" name="maxStock" value={formData.maxStock || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                    </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">ราคาทุนต่อหน่วย</label>
+                            <input type="number" name="price" value={formData.price} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">ราคาขายต่อหน่วย</label>
+                            <input type="number" name="sellingPrice" value={formData.sellingPrice || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                    </div>
+                     <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">ตำแหน่งจัดเก็บ</label>
+                        <input type="text" name="storageLocation" value={formData.storageLocation || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    </div>
+                     <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">ผู้จัดจำหน่าย</label>
+                        <input type="text" name="supplier" value={formData.supplier} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    </div>
+                </form>
+                <div className="p-6 border-t flex justify-end space-x-4">
+                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                    <button type="submit" form="stock-form" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default StockModal;
