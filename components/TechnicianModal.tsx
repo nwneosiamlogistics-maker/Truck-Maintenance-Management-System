@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { Technician, Repair } from '../types';
 
@@ -22,6 +23,9 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
         }
     };
     
+    const safeRepairs = Array.isArray(repairs) ? repairs : [];
+    const safeSkills = Array.isArray(technician.skills) ? technician.skills : [];
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -46,7 +50,7 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
                             <p><strong>งานปัจจุบัน:</strong> {technician.currentJobs}</p>
                         </div>
                          <div className="mt-3">
-                            <p><strong>ทักษะ:</strong> {technician.skills.join(', ')}</p>
+                            <p><strong>ทักษะ:</strong> {safeSkills.join(', ')}</p>
                         </div>
                     </div>
 
@@ -63,8 +67,8 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {repairs.length > 0 ? (
-                                        repairs.slice(0, 5).map(job => (
+                                    {safeRepairs.length > 0 ? (
+                                        safeRepairs.slice(0, 5).map(job => (
                                             <tr key={job.id}>
                                                 <td className="px-4 py-3 text-base">{new Date(job.createdAt).toLocaleDateString('th-TH')}</td>
                                                 <td className="px-4 py-3 text-base font-semibold">{job.licensePlate}</td>

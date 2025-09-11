@@ -1,4 +1,3 @@
-
 import type { Tab } from './types';
 
 export const TABS: Record<Tab, { title: string; subtitle: string }> = {
@@ -21,6 +20,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
     stock: {
         title: 'จัดการสต๊อกอะไหล่',
         subtitle: 'ควบคุมสต๊อกและการเบิกจ่ายอะไหล่'
+    },
+    requisitions: {
+        title: 'ใบขอซื้อ',
+        subtitle: 'จัดการการสั่งซื้อ, เติมสต็อก และลบใบขอซื้อ'
     },
     reports: {
         title: 'รายงานและสถิติ',

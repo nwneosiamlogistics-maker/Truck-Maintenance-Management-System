@@ -1,9 +1,20 @@
-export type Tab = 'dashboard' | 'form' | 'list' | 'history' | 'stock' | 'reports' | 'technicians' | 'estimation' | 'maintenance' | 'technicianPerformance';
+
+export type Tab =
+  | 'dashboard'
+  | 'form'
+  | 'list'
+  | 'history'
+  | 'stock'
+  | 'requisitions'
+  | 'reports'
+  | 'technicians'
+  | 'technicianPerformance'
+  | 'estimation'
+  | 'maintenance';
 
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
-export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
-export type UsedPartCondition = 'ดี' | 'พอใช้' | 'ชำรุด';
-export type UsedPartStatus = 'รอจำหน่าย' | 'รอทำลาย' | 'เก็บไว้ใช้ต่อ' | 'จำหน่ายแล้ว' | 'ทำลายแล้ว';
+export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
+export type DispatchType = 'ภายใน' | 'ภายนอก';
 
 export interface FileAttachment {
     name: string;
@@ -29,47 +40,49 @@ export interface Repair {
     vehicleType: string;
     vehicleMake: string;
     vehicleModel: string;
-    currentMileage: string;
+    currentMileage: string; // Kept as string to match form handling, parsed to number where needed
     reportedBy: string;
     repairCategory: string;
+    priority: Priority;
     problemDescription: string;
-    priority: 'ปกติ' | 'เร่งด่วน' | 'ฉุกเฉิน';
-    status: RepairStatus;
-    createdAt: string; // ISO string
-    updatedAt: string; // ISO string
-    approvalDate?: string | null;
     assignedTechnician: string;
-    repairStartDate?: string | null;
-    repairEndDate?: string | null;
-    dispatchType: 'ภายใน' | 'ภายนอก';
-    repairLocation?: string;
-    repairCost?: number;
-    partsVat?: number;
+    notes: string;
+    dispatchType: DispatchType;
+    repairLocation: string;
+    coordinator: string;
+    returnDate: string;
+    repairResult: string;
+    repairCost: number;
+    partsVat: number;
     parts: PartRequisitionItem[];
     attachments: FileAttachment[];
-    notes?: string;
-    coordinator?: string;
-    returnDate?: string | null;
-    repairResult?: string;
-    requisitionNumber?: string;
-    invoiceNumber?: string;
-
-    // New fields for estimation
-    estimatedStartDate?: string | null;
-    estimatedEndDate?: string | null;
-    estimatedLaborHours?: number | null;
+    estimatedStartDate: string | null;
+    estimatedEndDate: string | null;
+    estimatedLaborHours: number | null;
+    createdAt: string;
+    updatedAt: string;
+    status: RepairStatus;
+    approvalDate: string | null;
+    repairStartDate: string | null;
+    repairEndDate: string | null;
+    requisitionNumber: string;
+    invoiceNumber: string;
 }
+
+export type TechnicianStatus = 'ว่าง' | 'ไม่ว่าง' | 'ลา';
 
 export interface Technician {
     id: string;
     name: string;
     skills: string[];
     experience: number;
-    status: 'ว่าง' | 'ไม่ว่าง' | 'ลา';
+    status: TechnicianStatus;
     rating: number;
     completedJobs: number;
     currentJobs: number;
 }
+
+export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
 
 export interface StockItem {
     id: string;
@@ -79,48 +92,42 @@ export interface StockItem {
     quantity: number;
     unit: string;
     minStock: number;
-    maxStock?: number;
+    maxStock: number | null;
     price: number;
-    sellingPrice?: number;
+    sellingPrice: number | null;
     storageLocation: string;
     supplier: string;
     status: StockStatus;
-    notes?: string;
 }
+
+export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า';
 
 export interface StockTransaction {
     id: string;
     stockItemId: string;
     stockItemName: string;
-    type: 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า';
-    quantity: number; // positive for additions, negative for subtractions
-    transactionDate: string; // ISO string
+    type: StockTransactionType;
+    quantity: number;
+    transactionDate: string;
     actor: string;
     notes?: string;
     relatedRepairOrder?: string;
     pricePerUnit?: number;
 }
 
-export interface Report {
-    id: string;
-    name: string;
-    type: 'PDF' | 'Excel' | 'CSV';
-    filename: string;
-    createdAt: string; // ISO string
-    status: 'พร้อมใช้' | 'กำลังสร้าง';
-    size: string;
-}
-
 export interface MaintenancePlan {
     id: string;
     vehicleLicensePlate: string;
     planName: string;
-    lastServiceDate: string; // YYYY-MM-DD
+    lastServiceDate: string;
     frequencyValue: number;
     frequencyUnit: 'days' | 'weeks' | 'months';
     lastServiceMileage: number;
     mileageFrequency: number;
 }
+
+export type UsedPartCondition = 'ดี' | 'พอใช้' | 'ชำรุด';
+export type UsedPartStatus = 'รอจำหน่าย' | 'รอทำลาย' | 'เก็บไว้ใช้ต่อ' | 'จำหน่ายแล้ว' | 'ทำลายแล้ว';
 
 export interface UsedPart {
     id: string;
@@ -129,18 +136,60 @@ export interface UsedPart {
     fromRepairId: string;
     fromRepairOrderNo: string;
     fromLicensePlate: string;
-    dateRemoved: string; // ISO String
+    dateRemoved: string;
     condition: UsedPartCondition;
     status: UsedPartStatus;
-    notes?: string;
+    notes: string;
 }
 
 export interface Notification {
     id: string;
-    message: string;
-    type: 'warning' | 'danger' | 'info' | 'success';
-    createdAt: string; // ISO string
+    createdAt: string;
     isRead: boolean;
+    message: string;
+    type: 'danger' | 'warning' | 'info' | 'success';
     linkTo?: Tab;
-    relatedId?: string;
+    relatedId: string;
+}
+
+export type PurchaseRequisitionStatus = 'ฉบับร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'สั่งซื้อแล้ว' | 'รับของแล้ว' | 'ยกเลิก';
+export type PurchaseRequestType = 'Product' | 'Service' | 'Equipment' | 'Asset' | 'Others';
+export type PurchaseBudgetType = 'Have Budget' | 'No Budget';
+
+
+export interface PurchaseRequisitionItem {
+    stockId: string; // Will be empty for non-stock items
+    stockCode: string; // Will be empty for non-stock items
+    name: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    deliveryOrServiceDate: string;
+}
+
+export interface PurchaseRequisition {
+    id: string;
+    prNumber: string;
+    createdAt: string;
+    updatedAt: string;
+    requesterName: string;
+    dateNeeded: string;
+    supplier: string;
+    status: PurchaseRequisitionStatus;
+    items: PurchaseRequisitionItem[];
+    totalAmount: number;
+    notes?: string;
+    approverName?: string;
+    approvalDate: string | null;
+    // New fields
+    requestType: PurchaseRequestType;
+    otherRequestTypeDetail?: string;
+    budgetStatus: PurchaseBudgetType;
+}
+
+export interface Report {
+    id: string;
+    title: string;
+    data: any;
+    createdAt: string;
 }

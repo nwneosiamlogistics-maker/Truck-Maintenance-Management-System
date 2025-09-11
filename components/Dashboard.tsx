@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import type { Repair, StockItem, Tab } from '../types';
 import StatCard from './StatCard';
@@ -9,10 +10,13 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) => {
-  const totalRepairs = repairs.length;
-  const completedRepairs = repairs.filter(r => r.status === 'ซ่อมเสร็จ').length;
-  const inProgressRepairs = repairs.filter(r => r.status === 'กำลังซ่อม').length;
-  const totalVehicles = useMemo(() => new Set(repairs.map(r => r.licensePlate)).size, [repairs]);
+  const safeRepairs = useMemo(() => Array.isArray(repairs) ? repairs : [], [repairs]);
+  const safeStock = useMemo(() => Array.isArray(stock) ? stock : [], [stock]);
+  
+  const totalRepairs = safeRepairs.length;
+  const completedRepairs = safeRepairs.filter(r => r.status === 'ซ่อมเสร็จ').length;
+  const inProgressRepairs = safeRepairs.filter(r => r.status === 'กำลังซ่อม').length;
+  const totalVehicles = useMemo(() => new Set(safeRepairs.map(r => r.licensePlate)).size, [safeRepairs]);
 
   const alerts = [
     {
@@ -27,7 +31,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
       type: 'danger',
       icon: '🔴',
       title: 'สต๊อกอะไหล่ต่ำ',
-      description: `มี ${stock.filter(s => s.quantity <= s.minStock).length} รายการที่สต๊อกต่ำกว่าจุดสั่งซื้อ`,
+      description: `มี ${safeStock.filter(s => s.quantity <= s.minStock).length} รายการที่สต๊อกต่ำกว่าจุดสั่งซื้อ`,
       tab: 'stock',
       buttonText: 'ตรวจสอบ'
     },
@@ -35,7 +39,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
       type: 'info',
       icon: 'ℹ️',
       title: 'งานซ่อมรอดำเนินการ',
-      description: `มี ${repairs.filter(r => r.status === 'รอซ่อม').length} ใบแจ้งซ่อมที่รอการมอบหมายช่าง`,
+      description: `มี ${safeRepairs.filter(r => r.status === 'รอซ่อม').length} ใบแจ้งซ่อมที่รอการมอบหมายช่าง`,
       tab: 'list',
       buttonText: 'จัดการ'
     }
@@ -43,14 +47,14 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
   
   const vehicleTypeStats = useMemo(() => {
     const stats: Record<string, number> = {};
-    const uniqueRepairs = Array.from(new Map(repairs.map(r => [r.licensePlate, r])).values());
+    const uniqueRepairs = Array.from(new Map(safeRepairs.map(r => [r.licensePlate, r])).values());
 
     uniqueRepairs.forEach(repair => {
         stats[repair.vehicleType] = (stats[repair.vehicleType] || 0) + 1;
     });
 
     return Object.entries(stats).sort((a, b) => b[1] - a[1]);
-  }, [repairs]);
+  }, [safeRepairs]);
 
   const getVehicleIcon = (type: string) => {
       if (!type) return '🚗';

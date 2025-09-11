@@ -1,3 +1,4 @@
+
 import React, { useState, ChangeEvent, FormEvent, useMemo } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment } from '../types';
@@ -173,7 +174,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
     };
 
     const { totalPartsCost, grandTotal } = useMemo(() => {
-        const partsCost = (formData.parts || []).reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
+        const safeParts = Array.isArray(formData.parts) ? formData.parts : [];
+        const partsCost = safeParts.reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
         const total = partsCost + (formData.partsVat || 0) + (formData.repairCost || 0);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);
@@ -378,7 +380,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                             <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง</label>
                             <select name="assignedTechnician" value={formData.assignedTechnician} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
                                 <option value="">-- เลือกช่าง --</option>
-                                {technicians.filter(t => t.status === 'ว่าง').map(tech => (
+                                {(Array.isArray(technicians) ? technicians : []).filter(t => t.status === 'ว่าง').map(tech => (
                                     <option key={tech.id} value={tech.id}>{tech.name}</option>
                                 ))}
                             </select>

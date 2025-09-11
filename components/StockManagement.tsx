@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartStatus } from '../types';
+import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartStatus, PurchaseRequisition, PurchaseRequisitionItem } from '../types';
 import StockModal from './StockModal';
 import AddStockModal from './AddStockModal';
 import StockWithdrawalModal from './StockWithdrawalModal';
 import ReturnStockModal from './ReturnStockModal';
 import PrintLabelModal from './PrintLabelModal';
 import UpdateUsedPartStatusModal from './UpdateUsedPartStatusModal';
+import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
 
 interface StockManagementProps {
@@ -15,9 +16,11 @@ interface StockManagementProps {
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     usedParts: UsedPart[];
     updateUsedPart: (part: UsedPart) => void;
+    setPurchaseRequisitions: React.Dispatch<React.SetStateAction<PurchaseRequisition[]>>;
+    purchaseRequisitions: PurchaseRequisition[];
 }
 
-const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, transactions, setTransactions, usedParts, updateUsedPart }) => {
+const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, transactions, setTransactions, usedParts, updateUsedPart, setPurchaseRequisitions, purchaseRequisitions }) => {
     const [activeTab, setActiveTab] = useState<'new' | 'used'>('new');
 
     // New Stock States
@@ -34,6 +37,11 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const [usedPartSearchTerm, setUsedPartSearchTerm] = useState('');
     const [usedPartStatusFilter, setUsedPartStatusFilter] = useState<UsedPartStatus | 'all'>('all');
     const [editingUsedPart, setEditingUsedPart] = useState<UsedPart | null>(null);
+
+    // Purchase Requisition States
+    const [requisitionModalOpen, setRequisitionModalOpen] = useState(false);
+    const [initialRequisitionItem, setInitialRequisitionItem] = useState<PurchaseRequisitionItem | null>(null);
+
 
     const { addToast } = useToast();
 
@@ -74,8 +82,8 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         }
         setEditModalOpen(false);
     };
-    // ... other handlers for new stock (add, withdraw, return) remain the same ...
-        const handleAddStock = (data: { stockItem: StockItem; quantityAdded: number; pricePerUnit?: number; notes?: string; sourceRepairOrderNo?: string; requisitionNumber?: string; invoiceNumber?: string; }) => {
+    
+    const handleAddStock = (data: { stockItem: StockItem; quantityAdded: number; pricePerUnit?: number; notes?: string; sourceRepairOrderNo?: string; requisitionNumber?: string; invoiceNumber?: string; }) => {
         const { stockItem, quantityAdded, pricePerUnit, notes, sourceRepairOrderNo } = data;
         setStock(prev => prev.map(s => {
             if (s.id === stockItem.id) {
@@ -162,6 +170,51 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         updateUsedPart(part);
         setEditingUsedPart(null);
     }
+
+    // Handler for Purchase Requisition
+    const handleCreateRequisition = (item: StockItem) => {
+        const suggestedQuantity = item.maxStock ? item.maxStock - item.quantity : item.minStock;
+        const initialItem: PurchaseRequisitionItem = {
+            stockId: item.id,
+            stockCode: item.code,
+            name: item.name,
+            quantity: Math.max(1, suggestedQuantity),
+            unit: item.unit,
+            unitPrice: item.price,
+            // FIX: Property 'deliveryOrServiceDate' is missing in type 'PurchaseRequisitionItem'.
+            deliveryOrServiceDate: new Date().toISOString().split('T')[0],
+        };
+        setInitialRequisitionItem(initialItem);
+        setRequisitionModalOpen(true);
+    };
+
+    const handleSaveRequisition = (requisition: Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'>) => {
+        const now = new Date();
+        const year = now.getFullYear();
+
+        // New PR numbering logic
+        const currentYearPrs = (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
+            .filter(pr => new Date(pr.createdAt).getFullYear() === year);
+        const lastPrNumber = currentYearPrs
+            .map(pr => {
+                const parts = pr.prNumber.split('-');
+                return parts.length === 3 ? parseInt(parts[2], 10) : 0;
+            })
+            .reduce((max, num) => Math.max(max, num), 0);
+        const newSequence = lastPrNumber + 1;
+        const newPrNumber = `PR-${year}-${String(newSequence).padStart(5, '0')}`;
+        
+        const newRequisition: PurchaseRequisition = {
+            ...requisition,
+            id: `PR-${Date.now()}`,
+            prNumber: newPrNumber,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+        };
+        setPurchaseRequisitions(prev => [newRequisition, ...prev]);
+        setRequisitionModalOpen(false);
+        addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
+    };
 
     // Badge Styles
     const getNewStockStatusBadge = (status: StockItem['status']) => {
@@ -260,6 +313,9 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getNewStockStatusBadge(item.status)}`}>{item.status}</span></td>
                                 <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
                                     <button onClick={() => setAddingStockItem(item)} className="text-green-600 hover:text-green-800 font-medium">เพิ่ม</button>
+                                    {(item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') && 
+                                        <button onClick={() => handleCreateRequisition(item)} className="text-indigo-600 hover:text-indigo-800 font-medium">ขอซื้อ</button>
+                                    }
                                     <button onClick={() => { setEditingItem(item); setEditModalOpen(true); }} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
                                     <button onClick={() => setPrintingLabelItem(item)} className="text-blue-600 hover:text-blue-800 font-medium">ฉลาก</button>
                                 </td>
@@ -328,6 +384,15 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             {isReturnModalOpen && <ReturnStockModal stock={stock} onSave={handleReturn} onClose={() => setReturnModalOpen(false)} />}
             {printingLabelItem && <PrintLabelModal item={printingLabelItem} onClose={() => setPrintingLabelItem(null)} />}
             {editingUsedPart && <UpdateUsedPartStatusModal usedPart={editingUsedPart} onSave={handleUpdateUsedPart} onClose={() => setEditingUsedPart(null)} />}
+            {requisitionModalOpen && (
+                <PurchaseRequisitionModal
+                    isOpen={requisitionModalOpen}
+                    onClose={() => setRequisitionModalOpen(false)}
+                    onSave={handleSaveRequisition}
+                    stockItems={stock}
+                    initialItem={initialRequisitionItem}
+                />
+            )}
         </div>
     );
 };

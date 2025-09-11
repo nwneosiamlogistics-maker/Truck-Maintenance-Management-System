@@ -65,6 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         ]},
         { section: 'คลังสินค้า', items: [
             { id: 'stock', icon: '📦', label: 'จัดการสต๊อกอะไหล่', badge: stats.lowStock, badgeColor: 'yellow' },
+            { id: 'requisitions', icon: '🛒', label: 'ใบขอซื้อ' },
         ]},
         { section: 'บุคลากร', items: [
             { id: 'technicians', icon: '👨‍🔧', label: 'จัดการช่าง' },

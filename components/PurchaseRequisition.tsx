@@ -1,0 +1,201 @@
+
+import React, { useState, useMemo } from 'react';
+import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction } from '../types';
+import PurchaseRequisitionModal from './PurchaseRequisitionModal';
+import { useToast } from '../context/ToastContext';
+
+interface PurchaseRequisitionProps {
+    purchaseRequisitions: PurchaseRequisition[];
+    setPurchaseRequisitions: React.Dispatch<React.SetStateAction<PurchaseRequisition[]>>;
+    stock: StockItem[];
+    setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
+}
+
+const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions }) => {
+    const [statusFilter, setStatusFilter] = useState<PurchaseRequisitionStatus | 'all'>('all');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingRequisition, setEditingRequisition] = useState<PurchaseRequisition | null>(null);
+    const { addToast } = useToast();
+
+    const filteredRequisitions = useMemo(() => {
+        return (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
+            .filter(pr => statusFilter === 'all' || pr.status === statusFilter)
+            .filter(pr => searchTerm === '' || pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase()) || pr.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [purchaseRequisitions, statusFilter, searchTerm]);
+
+    const handleOpenModal = (requisition: PurchaseRequisition | null = null) => {
+        setEditingRequisition(requisition);
+        setIsModalOpen(true);
+    };
+
+    const handleSaveRequisition = (requisitionData: Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'> | PurchaseRequisition) => {
+        const now = new Date();
+        const year = now.getFullYear();
+
+        if ('id' in requisitionData) { // Editing existing one
+            const updatedRequisition = { ...requisitionData, updatedAt: now.toISOString() };
+            setPurchaseRequisitions(prev => prev.map(pr => pr.id === updatedRequisition.id ? updatedRequisition : pr));
+            addToast(`อัปเดตใบขอซื้อ ${updatedRequisition.prNumber} สำเร็จ`, 'success');
+
+            // Logic for receiving stock only if status changed to 'รับของแล้ว'
+            const originalRequisition = purchaseRequisitions.find(pr => pr.id === updatedRequisition.id);
+            if (originalRequisition?.status !== 'รับของแล้ว' && updatedRequisition.status === 'รับของแล้ว') {
+                handleReceiveStock(updatedRequisition);
+            }
+
+        } else { // Creating new one
+            // New PR numbering logic
+            const currentYearPrs = (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
+                .filter(pr => new Date(pr.createdAt).getFullYear() === year);
+            const lastPrNumber = currentYearPrs
+                .map(pr => {
+                    const parts = pr.prNumber.split('-');
+                    return parts.length === 3 ? parseInt(parts[2], 10) : 0;
+                })
+                .reduce((max, num) => Math.max(max, num), 0);
+            const newSequence = lastPrNumber + 1;
+            const newPrNumber = `PR-${year}-${String(newSequence).padStart(5, '0')}`;
+            
+            const newRequisition: PurchaseRequisition = {
+                ...requisitionData,
+                id: `PR-${Date.now()}`,
+                prNumber: newPrNumber,
+                createdAt: now.toISOString(),
+                updatedAt: now.toISOString(),
+            };
+            setPurchaseRequisitions(prev => [newRequisition, ...prev]);
+            addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
+        }
+        setIsModalOpen(false);
+    };
+
+    const handleDeleteRequisition = (prId: string, prNumber: string) => {
+        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบขอซื้อ ${prNumber}?`)) {
+            setPurchaseRequisitions(prev => prev.filter(pr => pr.id !== prId));
+            addToast(`ลบใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
+        }
+    };
+    
+    const handleReceiveStock = (pr: PurchaseRequisition) => {
+        // Only update stock for 'Product' type requisitions. For others, just mark as complete.
+        if (pr.requestType === 'Product') {
+            const safeItems = Array.isArray(pr.items) ? pr.items : [];
+            setStock(prevStock => {
+                const newStock = [...prevStock];
+                safeItems.forEach(item => {
+                    const stockIndex = newStock.findIndex(s => s.id === item.stockId);
+                    if (stockIndex > -1) {
+                        newStock[stockIndex].quantity += item.quantity;
+                    }
+                });
+                return newStock;
+            });
+
+            const newTransactions: StockTransaction[] = safeItems.map(item => ({
+                id: `TXN-${Date.now()}-${item.stockId}`,
+                stockItemId: item.stockId,
+                stockItemName: item.name,
+                type: 'รับเข้า',
+                quantity: item.quantity,
+                transactionDate: new Date().toISOString(),
+                actor: 'ระบบ (จากใบขอซื้อ)',
+                notes: `รับของตามใบขอซื้อ ${pr.prNumber}`,
+                relatedRepairOrder: '',
+                pricePerUnit: item.unitPrice,
+            }));
+
+            setTransactions(prev => [...newTransactions, ...prev]);
+            addToast(`รับของจาก ${pr.prNumber} เข้าสต็อกเรียบร้อย`, 'info');
+        } else {
+             addToast(`ปิดงานใบขอซื้อ ${pr.prNumber} (${pr.requestType}) เรียบร้อย`, 'info');
+        }
+    };
+
+    const getStatusBadge = (status: PurchaseRequisitionStatus) => {
+        switch (status) {
+            case 'ฉบับร่าง': return 'bg-gray-200 text-gray-800';
+            case 'รออนุมัติ': return 'bg-yellow-100 text-yellow-800';
+            case 'อนุมัติแล้ว': return 'bg-green-100 text-green-800';
+            case 'สั่งซื้อแล้ว': return 'bg-blue-100 text-blue-800';
+            case 'รับของแล้ว': return 'bg-purple-100 text-purple-800';
+            case 'ยกเลิก': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100';
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                    <input
+                        type="text"
+                        placeholder="ค้นหา (เลขที่, ผู้จำหน่าย)..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-72 p-2 border border-gray-300 rounded-lg text-base"
+                    />
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
+                        <option value="all">สถานะทั้งหมด</option>
+                        <option value="ฉบับร่าง">ฉบับร่าง</option>
+                        <option value="รออนุมัติ">รออนุมัติ</option>
+                        <option value="อนุมัติแล้ว">อนุมัติแล้ว</option>
+                        <option value="สั่งซื้อแล้ว">สั่งซื้อแล้ว</option>
+                        <option value="รับของแล้ว">รับของแล้ว</option>
+                        <option value="ยกเลิก">ยกเลิก</option>
+                    </select>
+                </div>
+                <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                    + สร้างใบขอซื้อใหม่
+                </button>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / วันที่</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้จำหน่าย</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ขอซื้อ</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ยอดรวม</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredRequisitions.map(pr => (
+                            <tr key={pr.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3"><div className="font-semibold">{pr.prNumber}</div><div className="text-sm text-gray-500">{new Date(pr.createdAt).toLocaleDateString('th-TH')}</div></td>
+                                <td className="px-4 py-3 text-base">{pr.supplier}</td>
+                                <td className="px-4 py-3 text-base">{pr.requesterName}</td>
+                                <td className="px-4 py-3 text-right text-base font-bold">{pr.totalAmount.toLocaleString()} บาท</td>
+                                <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(pr.status)}`}>{pr.status}</span></td>
+                                <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
+                                    <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">ดู/แก้ไข</button>
+                                    {pr.status === 'ฉบับร่าง' && (
+                                        <button onClick={() => handleDeleteRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                        {filteredRequisitions.length === 0 && ( <tr><td colSpan={6} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr> )}
+                    </tbody>
+                </table>
+            </div>
+
+            {isModalOpen && (
+                <PurchaseRequisitionModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={handleSaveRequisition}
+                    stockItems={stock}
+                    initialRequisition={editingRequisition}
+                />
+            )}
+        </div>
+    );
+};
+
+export default PurchaseRequisitionPage;

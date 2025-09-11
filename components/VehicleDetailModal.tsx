@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Repair, Technician } from '../types';
 
@@ -10,7 +11,7 @@ interface VehicleDetailModalProps {
 
 const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepairs, technicians, onClose }) => {
     
-    const repairHistory = allRepairs
+    const repairHistory = (Array.isArray(allRepairs) ? allRepairs : [])
         .filter(r => r.licensePlate === repair.licensePlate && r.status === 'ซ่อมเสร็จ' && r.id !== repair.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -19,11 +20,13 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
     };
     
     const calculateTotalCost = (repairItem: Repair) => {
-        // FIX: Explicitly cast values to Number to prevent arithmetic errors with mixed types.
-        const partsCost = (repairItem.parts || []).reduce((acc, part) => acc + (Number(part.quantity) * Number(part.unitPrice)), 0);
-        const laborCost = Number(repairItem.repairCost) || 0;
+        const repairParts = Array.isArray(repairItem.parts) ? repairItem.parts : [];
+        const partsCost = repairParts.reduce((acc, part) => acc + (part.quantity * part.unitPrice), 0);
+        const laborCost = repairItem.repairCost || 0;
         return partsCost + laborCost;
     };
+
+    const safeParts = Array.isArray(repair.parts) ? repair.parts : [];
 
     return (
         <div 
@@ -72,8 +75,8 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                     
                     {/* Parts List */}
                     <div>
-                        <h4 className="text-xl font-semibold text-gray-700 mb-3">รายการอะไหล่ที่ใช้ ({(repair.parts || []).length} รายการ)</h4>
-                        {repair.parts && repair.parts.length > 0 ? (
+                        <h4 className="text-xl font-semibold text-gray-700 mb-3">รายการอะไหล่ที่ใช้ ({safeParts.length} รายการ)</h4>
+                        {safeParts.length > 0 ? (
                             <div className="border rounded-lg overflow-hidden max-h-60 overflow-y-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50 sticky top-0">
@@ -86,7 +89,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {repair.parts.map((part, index) => (
+                                        {safeParts.map((part, index) => (
                                             <tr key={index}>
                                                 <td className="px-4 py-2 text-sm font-medium">{part.name}</td>
                                                 <td className="px-4 py-2 text-sm">{part.source}</td>

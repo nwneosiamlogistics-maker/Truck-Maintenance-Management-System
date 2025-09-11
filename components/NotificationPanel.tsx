@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Notification, Tab } from '../types';
 
@@ -58,7 +59,8 @@ const NotificationItem: React.FC<{
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, setNotifications, onClose, onNavigate }) => {
     
-    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+    const unreadCount = safeNotifications.filter(n => !n.isRead).length;
 
     const handleMarkAsRead = (id: string) => {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
@@ -92,8 +94,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, se
                 )}
             </div>
             <ul className="max-h-96 overflow-y-auto divide-y">
-                {notifications.length > 0 ? (
-                    notifications.map(notification => (
+                {safeNotifications.length > 0 ? (
+                    safeNotifications.map(notification => (
                         <NotificationItem 
                             key={notification.id}
                             notification={notification}

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Technician, Repair } from '../types';
 import TechnicianModal from './TechnicianModal';
@@ -24,7 +25,9 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
 
     const { addToast } = useToast();
 
-    const allSkills = useMemo(() => Array.from(new Set(technicians.flatMap(t => t.skills))).sort(), [technicians]);
+    const safeTechnicians = useMemo(() => Array.isArray(technicians) ? technicians : [], [technicians]);
+
+    const allSkills = useMemo(() => Array.from(new Set(safeTechnicians.flatMap(t => t.skills))).sort(), [safeTechnicians]);
 
     const handleSkillToggle = (skill: string) => {
         setSkillFilter(prev =>
@@ -33,9 +36,9 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
     };
 
     const filteredAndSortedTechnicians = useMemo(() => {
-        return technicians
+        return safeTechnicians
             .filter(tech => statusFilter === 'all' || tech.status === statusFilter)
-            .filter(tech => skillFilter.length === 0 || skillFilter.every(skill => tech.skills.includes(skill)))
+            .filter(tech => skillFilter.length === 0 || skillFilter.every(skill => (Array.isArray(tech.skills) ? tech.skills : []).includes(skill)))
             .sort((a, b) => {
                 switch (sortBy) {
                     case 'rating-desc': return b.rating - a.rating;
@@ -45,7 +48,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                     default: return 0;
                 }
             });
-    }, [technicians, statusFilter, skillFilter, sortBy]);
+    }, [safeTechnicians, statusFilter, skillFilter, sortBy]);
 
     const getStatusBadge = (status: Technician['status']) => {
         switch (status) {
@@ -143,7 +146,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                             </div>
                             <p className="text-gray-500 text-sm">ID: {tech.id} | ประสบการณ์ {tech.experience} ปี</p>
                             <div className="mt-4 flex flex-wrap gap-2 h-12 overflow-y-auto">
-                                {tech.skills.map(skill => (
+                                {(Array.isArray(tech.skills) ? tech.skills : []).map(skill => (
                                     <span key={skill} className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full">{skill}</span>
                                 ))}
                             </div>

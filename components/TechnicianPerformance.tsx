@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician } from '../types';
 import StatCard from './StatCard';
@@ -79,7 +80,8 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             });
             
             const totalValue = techRepairs.reduce((sum, r) => {
-                const partsCost = (r.parts || []).reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
+                const repairParts = Array.isArray(r.parts) ? r.parts : [];
+                const partsCost = repairParts.reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
                 return sum + (r.repairCost || 0) + partsCost + (r.partsVat || 0);
             }, 0);
 

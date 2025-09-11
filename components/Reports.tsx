@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import type { Report, Repair, StockItem, Technician } from '../types';
 import StatCard from './StatCard';
@@ -11,19 +12,21 @@ interface ReportsProps {
 const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
 
     const repairStats = useMemo(() => {
-        const totalRepairs = repairs.length;
-        const totalCost = repairs.reduce((acc, r) => {
-            // FIX: Explicitly cast values to Number to prevent arithmetic errors with mixed types.
-            const partsCost = (r.parts || []).reduce((pAcc, p) => pAcc + (Number(p.quantity) * Number(p.unitPrice)), 0);
-            return acc + (Number(r.repairCost) || 0) + partsCost;
+        const safeRepairs = Array.isArray(repairs) ? repairs : [];
+        const totalRepairs = safeRepairs.length;
+
+        const totalCost = safeRepairs.reduce((acc, r) => {
+            const repairParts = Array.isArray(r.parts) ? r.parts : [];
+            const partsCost = repairParts.reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0);
+            return acc + (r.repairCost || 0) + partsCost;
         }, 0);
 
-        const repairsByType = repairs.reduce((acc, r) => {
+        const repairsByType = safeRepairs.reduce((acc, r) => {
             acc[r.repairCategory] = (acc[r.repairCategory] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
 
-        const repairsByVehicle = repairs.reduce((acc, r) => {
+        const repairsByVehicle = safeRepairs.reduce((acc, r) => {
             acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
@@ -38,7 +41,7 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
             mostCommonRepair: mostCommonRepair ? `${mostCommonRepair[0]} (${mostCommonRepair[1]} ครั้ง)` : 'N/A',
             busiestVehicle: busiestVehicle ? `${busiestVehicle[0]} (${busiestVehicle[1]} ครั้ง)` : 'N/A',
             repairsByType: Object.entries(repairsByType).sort((a,b) => b[1] - a[1]),
-            repairsByDispatch: repairs.reduce((acc, r) => {
+            repairsByDispatch: safeRepairs.reduce((acc, r) => {
                 const dispatchType = r.dispatchType as 'ภายใน' | 'ภายนอก';
                 acc[dispatchType] = (acc[dispatchType] || 0) + 1;
                 return acc;

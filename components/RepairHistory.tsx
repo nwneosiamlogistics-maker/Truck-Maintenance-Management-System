@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
@@ -84,9 +85,9 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const getTechnicianName = (id: string) => technicians.find(t => t.id === id)?.name || 'N/A';
     
     const calculateTotalCost = (repair: Repair) => {
-        // FIX: Explicitly cast values to Number to prevent arithmetic errors with mixed types.
-        const partsTotal = (repair.parts || []).reduce((sum, part) => sum + (Number(part.quantity) * Number(part.unitPrice)), 0);
-        return (Number(repair.repairCost) || 0) + partsTotal + (Number(repair.partsVat) || 0);
+        const repairParts = Array.isArray(repair.parts) ? repair.parts : [];
+        const partsTotal = repairParts.reduce((sum, part) => sum + (part.quantity * part.unitPrice), 0);
+        return (repair.repairCost || 0) + partsTotal + (repair.partsVat || 0);
     };
 
     // New selection handlers

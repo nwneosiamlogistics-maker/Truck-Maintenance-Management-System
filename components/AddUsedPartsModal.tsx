@@ -15,17 +15,29 @@ interface AddUsedPartsModalProps {
 }
 
 const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, onClose }) => {
-    const initialFormState = repair.parts.reduce((acc, part) => {
-        acc[part.partId] = {
-            isSelected: true,
-            condition: 'พอใช้' as UsedPartCondition,
-            status: 'รอจำหน่าย' as UsedPartStatus,
-            notes: '',
-        };
-        return acc;
-    }, {} as Record<string, UsedPartFormData>);
+    
+    const getInitialFormState = () => {
+        const state: Record<string, UsedPartFormData> = {};
+        // Use optional chaining and check for array to handle all edge cases
+        const partsSource = repair?.parts;
 
-    const [formData, setFormData] = useState(initialFormState);
+        if (Array.isArray(partsSource)) {
+            for (const part of partsSource) {
+                // Ensure part and part.partId exist before creating an entry
+                if (part && part.partId) {
+                    state[part.partId] = {
+                        isSelected: true,
+                        condition: 'พอใช้' as UsedPartCondition,
+                        status: 'รอจำหน่าย' as UsedPartStatus,
+                        notes: '',
+                    };
+                }
+            }
+        }
+        return state;
+    };
+
+    const [formData, setFormData] = useState(getInitialFormState());
 
     const handleFormChange = (partId: string, field: keyof UsedPartFormData, value: any) => {
         setFormData(prev => ({
@@ -38,8 +50,8 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
     };
 
     const handleSubmit = () => {
-        const partsToSave: Omit<UsedPart, 'id'>[] = repair.parts
-            .filter(part => formData[part.partId]?.isSelected)
+        const partsToSave: Omit<UsedPart, 'id'>[] = (Array.isArray(repair?.parts) ? repair.parts : [])
+            .filter(part => part && formData[part.partId]?.isSelected)
             .map(part => {
                 const partData = formData[part.partId];
                 return {
@@ -57,6 +69,9 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
         
         onSave(partsToSave);
     };
+    
+    // Create a safe array for rendering
+    const partsArrayForRender = Array.isArray(repair?.parts) ? repair.parts : [];
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[102] flex justify-center items-center p-4">
@@ -71,7 +86,9 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
                 <div className="p-6 space-y-4 overflow-y-auto flex-1">
                     <p className="text-base">เลือกอะไหล่ที่ถูกเปลี่ยนและต้องการบันทึกเก็บไว้ในคลังของเก่า</p>
                     <div className="space-y-3">
-                        {repair.parts.map(part => (
+                        {partsArrayForRender.map(part => {
+                            if (!part) return null; // Defensive check
+                            return (
                             <div key={part.partId} className={`p-4 border rounded-lg transition-colors ${formData[part.partId]?.isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="flex items-start gap-4">
                                     <input 
@@ -111,7 +128,7 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                        )})}
                     </div>
                 </div>
 

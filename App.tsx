@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -6,16 +7,20 @@ import RepairForm from './components/RepairForm';
 import RepairList from './components/RepairList';
 import RepairHistory from './components/RepairHistory';
 import StockManagement from './components/StockManagement';
+// FIX: Renamed component import to avoid type name collision
+import PurchaseRequisitionPage from './components/PurchaseRequisition';
 import Reports from './components/Reports';
 import TechnicianManagement from './components/TechnicianManagement';
+// FIX: Import the missing TechnicianPerformance component.
+import TechnicianPerformance from './components/TechnicianPerformance';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
-import TechnicianPerformance from './components/TechnicianPerformance';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import { useFirebase } from './hooks/useFirebase';
 
-import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification } from './types';
+// FIX: Importing all necessary types from the newly defined types.ts
+import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification, PurchaseRequisition } from './types';
 import { TABS } from './constants';
 import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultStockTransactions, getDefaultMaintenancePlans } from './data/defaultData';
 
@@ -32,10 +37,11 @@ const App: React.FC = () => {
   const [maintenancePlans, setMaintenancePlans] = useFirebase<MaintenancePlan[]>('maintenancePlans', getDefaultMaintenancePlans);
   const [usedParts, setUsedParts] = useFirebase<UsedPart[]>('usedParts', () => []);
   const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
+  const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', () => []);
   
   const stats = useMemo(() => {
     // Calculate due maintenance plans
-    const dueMaintenancePlans = maintenancePlans.filter(plan => {
+    const dueMaintenancePlans = (Array.isArray(maintenancePlans) ? maintenancePlans : []).filter(plan => {
         const lastDate = new Date(plan.lastServiceDate);
         let nextServiceDate = new Date(lastDate);
         if (plan.frequencyUnit === 'days') {
@@ -48,7 +54,7 @@ const App: React.FC = () => {
         const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
 
         const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
-        const latestRepair = repairs
+        const latestRepair = (Array.isArray(repairs) ? repairs : [])
             .filter(r => r.licensePlate === plan.vehicleLicensePlate)
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
@@ -61,8 +67,8 @@ const App: React.FC = () => {
     }).length;
 
     return {
-      pendingRepairs: repairs.filter(r => r.status === 'รอซ่อม' || r.status === 'รออะไหล่').length,
-      lowStock: stock.filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length,
+      pendingRepairs: (Array.isArray(repairs) ? repairs : []).filter(r => r.status === 'รอซ่อม' || r.status === 'รออะไหล่').length,
+      lowStock: (Array.isArray(stock) ? stock : []).filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length,
       dueMaintenance: dueMaintenancePlans,
     };
 }, [repairs, stock, maintenancePlans]);
@@ -92,7 +98,7 @@ const App: React.FC = () => {
 }, [setNotifications]);
 
 useEffect(() => {
-    stock.forEach(item => {
+    (Array.isArray(stock) ? stock : []).forEach(item => {
         if (item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') {
             addNotification({
                 message: `อะไหล่ "${item.name}" อยู่ในสถานะ${item.status}`,
@@ -103,7 +109,7 @@ useEffect(() => {
         }
     });
 
-    maintenancePlans.forEach(plan => {
+    (Array.isArray(maintenancePlans) ? maintenancePlans : []).forEach(plan => {
         const lastDate = new Date(plan.lastServiceDate);
         let nextServiceDate = new Date(lastDate);
         if (plan.frequencyUnit === 'days') {
@@ -136,7 +142,7 @@ useEffect(() => {
   const generateRepairOrderNo = useCallback(() => {
       const now = new Date();
       const year = now.getFullYear();
-      const count = repairs.filter(r => new Date(r.createdAt).getFullYear() === year).length + 1;
+      const count = (Array.isArray(repairs) ? repairs : []).filter(r => new Date(r.createdAt).getFullYear() === year).length + 1;
       return `RO-${year}-${String(count).padStart(5, '0')}`;
   }, [repairs]);
 
@@ -168,7 +174,7 @@ useEffect(() => {
   }, [setRepairs, generateRepairOrderNo, addNotification]);
   
   const addUsedParts = useCallback((parts: Omit<UsedPart, 'id'>[]) => {
-      const newUsedParts: UsedPart[] = parts.map(p => ({ ...p, id: `UP-${Date.now()}-${Math.random()}` }));
+      const newUsedParts: UsedPart[] = (Array.isArray(parts) ? parts : []).map(p => ({ ...p, id: `UP-${Date.now()}-${Math.random()}` }));
       setUsedParts(prev => [...newUsedParts, ...prev]);
   }, [setUsedParts]);
   
@@ -180,7 +186,7 @@ useEffect(() => {
     setMaintenancePlans(prev => prev.filter(p => p.id !== planId));
   }, [setMaintenancePlans]);
 
-  const unreadNotificationsCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
+  const unreadNotificationsCount = useMemo(() => (Array.isArray(notifications) ? notifications : []).filter(n => !n.isRead).length, [notifications]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -193,7 +199,10 @@ useEffect(() => {
       case 'history':
         return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} />;
       case 'stock':
-        return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} />;
+        return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} />;
+      case 'requisitions':
+        // FIX: Use renamed component to avoid naming conflict
+        return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} />;
       case 'reports':
         return <Reports repairs={repairs} stock={stock} technicians={technicians} />;
       case 'technicians':
