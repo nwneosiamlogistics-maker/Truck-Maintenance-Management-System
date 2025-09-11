@@ -1,4 +1,3 @@
-
 export type Tab =
   | 'dashboard'
   | 'form'
@@ -152,7 +151,7 @@ export interface Notification {
     relatedId: string;
 }
 
-export type PurchaseRequisitionStatus = 'ฉบับร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'สั่งซื้อแล้ว' | 'รับของแล้ว' | 'ยกเลิก';
+export type PurchaseRequisitionStatus = 'ฉบับร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'รอสินค้า' | 'รับของแล้ว' | 'ยกเลิก';
 export type PurchaseRequestType = 'Product' | 'Service' | 'Equipment' | 'Asset' | 'Others';
 export type PurchaseBudgetType = 'Have Budget' | 'No Budget';
 
@@ -173,6 +172,7 @@ export interface PurchaseRequisition {
     createdAt: string;
     updatedAt: string;
     requesterName: string;
+    department: string;
     dateNeeded: string;
     supplier: string;
     status: PurchaseRequisitionStatus;

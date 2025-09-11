@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction } from '../types';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
@@ -31,56 +30,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
         setIsModalOpen(true);
     };
 
-    const handleSaveRequisition = (requisitionData: Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'> | PurchaseRequisition) => {
-        const now = new Date();
-        const year = now.getFullYear();
-
-        if ('id' in requisitionData) { // Editing existing one
-            const updatedRequisition = { ...requisitionData, updatedAt: now.toISOString() };
-            setPurchaseRequisitions(prev => prev.map(pr => pr.id === updatedRequisition.id ? updatedRequisition : pr));
-            addToast(`อัปเดตใบขอซื้อ ${updatedRequisition.prNumber} สำเร็จ`, 'success');
-
-            // Logic for receiving stock only if status changed to 'รับของแล้ว'
-            const originalRequisition = purchaseRequisitions.find(pr => pr.id === updatedRequisition.id);
-            if (originalRequisition?.status !== 'รับของแล้ว' && updatedRequisition.status === 'รับของแล้ว') {
-                handleReceiveStock(updatedRequisition);
-            }
-
-        } else { // Creating new one
-            // New PR numbering logic
-            const currentYearPrs = (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
-                .filter(pr => new Date(pr.createdAt).getFullYear() === year);
-            const lastPrNumber = currentYearPrs
-                .map(pr => {
-                    const parts = pr.prNumber.split('-');
-                    return parts.length === 3 ? parseInt(parts[2], 10) : 0;
-                })
-                .reduce((max, num) => Math.max(max, num), 0);
-            const newSequence = lastPrNumber + 1;
-            const newPrNumber = `PR-${year}-${String(newSequence).padStart(5, '0')}`;
-            
-            const newRequisition: PurchaseRequisition = {
-                ...requisitionData,
-                id: `PR-${Date.now()}`,
-                prNumber: newPrNumber,
-                createdAt: now.toISOString(),
-                updatedAt: now.toISOString(),
-            };
-            setPurchaseRequisitions(prev => [newRequisition, ...prev]);
-            addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
-        }
-        setIsModalOpen(false);
-    };
-
-    const handleDeleteRequisition = (prId: string, prNumber: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบขอซื้อ ${prNumber}?`)) {
-            setPurchaseRequisitions(prev => prev.filter(pr => pr.id !== prId));
-            addToast(`ลบใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
-        }
-    };
-    
     const handleReceiveStock = (pr: PurchaseRequisition) => {
-        // Only update stock for 'Product' type requisitions. For others, just mark as complete.
         if (pr.requestType === 'Product') {
             const safeItems = Array.isArray(pr.items) ? pr.items : [];
             setStock(prevStock => {
@@ -114,15 +64,124 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
         }
     };
 
+    const handleSaveRequisition = (requisitionData: Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'> | PurchaseRequisition) => {
+        const now = new Date();
+        const year = now.getFullYear();
+
+        if ('id' in requisitionData) { // Editing existing one
+            const updatedRequisition = { ...requisitionData, updatedAt: now.toISOString() };
+            setPurchaseRequisitions(prev => prev.map(pr => pr.id === updatedRequisition.id ? updatedRequisition : pr));
+            addToast(`อัปเดตใบขอซื้อ ${updatedRequisition.prNumber} สำเร็จ`, 'success');
+
+            const originalRequisition = purchaseRequisitions.find(pr => pr.id === updatedRequisition.id);
+            if (originalRequisition?.status !== 'รับของแล้ว' && updatedRequisition.status === 'รับของแล้ว') {
+                handleReceiveStock(updatedRequisition);
+            }
+
+        } else { // Creating new one
+            const currentYearPrs = (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
+                .filter(pr => new Date(pr.createdAt).getFullYear() === year);
+            const lastPrNumber = currentYearPrs
+                .map(pr => {
+                    const parts = pr.prNumber.split('-');
+                    return parts.length === 3 ? parseInt(parts[2], 10) : 0;
+                })
+                .reduce((max, num) => Math.max(max, num), 0);
+            const newSequence = lastPrNumber + 1;
+            const newPrNumber = `PR-${year}-${String(newSequence).padStart(5, '0')}`;
+            
+            const newRequisition: PurchaseRequisition = {
+                ...requisitionData,
+                id: `PR-${Date.now()}`,
+                prNumber: newPrNumber,
+                createdAt: now.toISOString(),
+                updatedAt: now.toISOString(),
+            };
+            setPurchaseRequisitions(prev => [newRequisition, ...prev]);
+            addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
+        }
+        setIsModalOpen(false);
+    };
+
+    const handleDeleteRequisition = (prId: string, prNumber: string) => {
+        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบขอซื้อ ${prNumber}?`)) {
+            setPurchaseRequisitions(prev => prev.filter(pr => pr.id !== prId));
+            addToast(`ลบใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
+        }
+    };
+
+    const handleQuickStatusUpdate = (pr: PurchaseRequisition, newStatus: PurchaseRequisitionStatus) => {
+        const prompts = {
+            'อนุมัติแล้ว': `คุณต้องการอนุมัติใบขอซื้อ ${pr.prNumber} ใช่หรือไม่?`,
+            'รอสินค้า': `ยืนยันการสั่งซื้อสำหรับ ${pr.prNumber} ใช่หรือไม่?`,
+            'รับของแล้ว': `ยืนยันการรับของสำหรับ ${pr.prNumber} ใช่หรือไม่?`
+        };
+        const promptMessage = prompts[newStatus];
+        if (promptMessage && !window.confirm(promptMessage)) return;
+
+        let updatedRequisition: PurchaseRequisition = { ...pr, status: newStatus, updatedAt: new Date().toISOString() };
+
+        if (newStatus === 'อนุมัติแล้ว' && !pr.approvalDate) {
+            updatedRequisition.approverName = 'ผู้จัดการ'; // Placeholder for user system
+            updatedRequisition.approvalDate = new Date().toISOString();
+        }
+        
+        setPurchaseRequisitions(prev => prev.map(p => p.id === updatedRequisition.id ? updatedRequisition : p));
+        
+        if (newStatus === 'รับของแล้ว') {
+            handleReceiveStock(updatedRequisition);
+        } else {
+            addToast(`อัปเดตสถานะ ${pr.prNumber} เป็น "${newStatus}" เรียบร้อย`, 'success');
+        }
+    };
+    
     const getStatusBadge = (status: PurchaseRequisitionStatus) => {
         switch (status) {
             case 'ฉบับร่าง': return 'bg-gray-200 text-gray-800';
             case 'รออนุมัติ': return 'bg-yellow-100 text-yellow-800';
             case 'อนุมัติแล้ว': return 'bg-green-100 text-green-800';
-            case 'สั่งซื้อแล้ว': return 'bg-blue-100 text-blue-800';
+            case 'รอสินค้า': return 'bg-blue-100 text-blue-800';
             case 'รับของแล้ว': return 'bg-purple-100 text-purple-800';
             case 'ยกเลิก': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100';
+        }
+    };
+
+    const renderActions = (pr: PurchaseRequisition) => {
+        switch (pr.status) {
+            case 'ฉบับร่าง':
+                return (
+                    <>
+                        <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">ดู/แก้ไข</button>
+                        <button onClick={() => handleDeleteRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                    </>
+                );
+            case 'รออนุมัติ':
+                return (
+                    <>
+                        <button onClick={() => handleQuickStatusUpdate(pr, 'อนุมัติแล้ว')} className="text-white bg-green-500 hover:bg-green-600 font-medium px-3 py-1 rounded-md text-sm">อนุมัติ</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                    </>
+                );
+            case 'อนุมัติแล้ว':
+                return (
+                     <>
+                        <button onClick={() => handleQuickStatusUpdate(pr, 'รอสินค้า')} className="text-white bg-blue-500 hover:bg-blue-600 font-medium px-3 py-1 rounded-md text-sm">ยืนยันสั่งซื้อ</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                    </>
+                );
+            case 'รอสินค้า':
+                 return (
+                     <>
+                        <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                    </>
+                );
+            case 'รับของแล้ว':
+            case 'ยกเลิก':
+                 return <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">ดู</button>;
+            default:
+                return null;
         }
     };
 
@@ -142,7 +201,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                         <option value="ฉบับร่าง">ฉบับร่าง</option>
                         <option value="รออนุมัติ">รออนุมัติ</option>
                         <option value="อนุมัติแล้ว">อนุมัติแล้ว</option>
-                        <option value="สั่งซื้อแล้ว">สั่งซื้อแล้ว</option>
+                        <option value="รอสินค้า">รอสินค้า</option>
                         <option value="รับของแล้ว">รับของแล้ว</option>
                         <option value="ยกเลิก">ยกเลิก</option>
                     </select>
@@ -173,10 +232,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                                 <td className="px-4 py-3 text-right text-base font-bold">{pr.totalAmount.toLocaleString()} บาท</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(pr.status)}`}>{pr.status}</span></td>
                                 <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
-                                    <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">ดู/แก้ไข</button>
-                                    {pr.status === 'ฉบับร่าง' && (
-                                        <button onClick={() => handleDeleteRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
-                                    )}
+                                    {renderActions(pr)}
                                 </td>
                             </tr>
                         ))}

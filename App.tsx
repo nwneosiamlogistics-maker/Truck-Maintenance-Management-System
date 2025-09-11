@@ -22,7 +22,7 @@ import { useFirebase } from './hooks/useFirebase';
 // FIX: Importing all necessary types from the newly defined types.ts
 import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification, PurchaseRequisition } from './types';
 import { TABS } from './constants';
-import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultStockTransactions, getDefaultMaintenancePlans } from './data/defaultData';
+import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultStockTransactions, getDefaultMaintenancePlans, getDefaultPurchaseRequisitions } from './data/defaultData';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -37,7 +37,7 @@ const App: React.FC = () => {
   const [maintenancePlans, setMaintenancePlans] = useFirebase<MaintenancePlan[]>('maintenancePlans', getDefaultMaintenancePlans);
   const [usedParts, setUsedParts] = useFirebase<UsedPart[]>('usedParts', () => []);
   const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
-  const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', () => []);
+  const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', getDefaultPurchaseRequisitions);
   
   const stats = useMemo(() => {
     // Calculate due maintenance plans

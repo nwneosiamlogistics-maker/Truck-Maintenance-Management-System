@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType } from '../types';
+
+// NOTE: Print functionality was removed due to persistent import errors with the 'react-to-print' library.
 
 // Define temporary item type with a unique rowId for UI management
 type PRItemWithRowId = PurchaseRequisitionItem & { rowId: string };
@@ -104,9 +106,10 @@ interface PurchaseRequisitionModalProps {
 
 const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isOpen, onClose, onSave, stockItems, initialRequisition, initialItem }) => {
     
-    const getInitialState = (): PRDataWithRowIdItems => {
+    const getInitialState = useCallback((): PRDataWithRowIdItems => {
         const base = initialRequisition || {
             requesterName: 'ผู้จัดการคลัง',
+            department: 'แผนกคลังสินค้า',
             dateNeeded: new Date().toISOString().split('T')[0],
             supplier: '',
             status: 'ฉบับร่าง' as PurchaseRequisitionStatus,
@@ -133,14 +136,16 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         }));
 
         return { ...base, items: itemsWithId };
-    };
+    }, [initialRequisition, initialItem, stockItems]);
 
     const [prData, setPrData] = useState(getInitialState());
     const [selectedStockId, setSelectedStockId] = useState('');
 
     useEffect(() => {
-        setPrData(getInitialState());
-    }, [initialRequisition, initialItem]);
+        if (isOpen) {
+            setPrData(getInitialState());
+        }
+    }, [isOpen, getInitialState]);
 
     const totalAmount = useMemo(() => {
         const items = Array.isArray(prData.items) ? prData.items : [];
@@ -149,7 +154,16 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setPrData(prev => ({ ...prev, [name]: value }));
+        setPrData(prev => {
+            switch (name) {
+                case 'requestType':
+                    return { ...prev, requestType: value as PurchaseRequestType };
+                case 'budgetStatus':
+                    return { ...prev, budgetStatus: value as PurchaseBudgetType };
+                default:
+                    return { ...prev, [name]: value };
+            }
+        });
     };
 
     const handleItemChange = useCallback((rowId: string, field: keyof PurchaseRequisitionItem, value: any) => {
@@ -243,8 +257,8 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     </div>
                 );
             case 'อนุมัติแล้ว':
-                 return <button onClick={() => handleStatusChange('สั่งซื้อแล้ว')} className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700">ทำเครื่องหมายว่าสั่งซื้อแล้ว</button>;
-            case 'สั่งซื้อแล้ว':
+                 return <button onClick={() => handleStatusChange('รอสินค้า')} className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700">ยืนยันการสั่งซื้อ</button>;
+            case 'รอสินค้า':
                  return <button onClick={() => handleStatusChange('รับของแล้ว')} className="px-4 py-2 text-white bg-purple-600 rounded-lg hover:bg-purple-700">รับของเข้าสต็อก</button>;
             default:
                 return null;
@@ -257,7 +271,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     const budgetTypeLabels: Record<PurchaseBudgetType, string> = { 'Have Budget': 'มีงบประมาณ', 'No Budget': 'ไม่มีงบประมาณ' };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4 no-print">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="text-2xl font-bold text-gray-800">{initialRequisition ? `ใบขอซื้อ ${initialRequisition.prNumber}` : 'สร้างใบขอซื้อใหม่'}</h3>
@@ -294,8 +308,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                             </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div><label className="block text-sm font-medium">ผู้ขอซื้อ</label><input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
+                        <div><label className="block text-sm font-medium">ฝ่าย/แผนก</label><input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                         <div><label className="block text-sm font-medium">วันที่ต้องการใช้</label><input type="date" name="dateNeeded" value={prData.dateNeeded} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                         <div><label className="block text-sm font-medium">ผู้จำหน่าย</label><input type="text" name="supplier" value={prData.supplier} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                     </div>
@@ -358,7 +373,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     <div>
                        {renderWorkflowButtons()}
                     </div>
-                    <div className="space-x-4">
+                    <div className="space-x-4 flex items-center">
                         <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
                         <button onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">บันทึก</button>
                     </div>
