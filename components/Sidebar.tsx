@@ -43,7 +43,7 @@ interface SidebarProps {
     setCollapsed: (collapsed: boolean) => void;
     isMobileOpen: boolean;
     setMobileOpen: (open: boolean) => void;
-    stats: { pendingRepairs: number, lowStock: number };
+    stats: { pendingRepairs: number, lowStock: number, dueMaintenance: number };
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed, setCollapsed, isMobileOpen, setMobileOpen, stats }) => {
@@ -61,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         ]},
         { section: 'การวางแผน', items: [
             { id: 'estimation', icon: '⏱️', label: 'ระบบประมาณการณ์' },
-            { id: 'maintenance', icon: '📅', label: 'วางแผนซ่อมบำรุง', badge: 18, badgeColor: 'yellow' },
+            { id: 'maintenance', icon: '📅', label: 'วางแผนซ่อมบำรุง', badge: stats.dueMaintenance, badgeColor: 'yellow' },
         ]},
         { section: 'คลังสินค้า', items: [
             { id: 'stock', icon: '📦', label: 'จัดการสต๊อกอะไหล่', badge: stats.lowStock, badgeColor: 'yellow' },

@@ -8,9 +8,10 @@ interface MaintenancePlannerProps {
     plans: MaintenancePlan[];
     setPlans: React.Dispatch<React.SetStateAction<MaintenancePlan[]>>;
     repairs: Repair[];
+    deletePlan: (planId: string) => void;
 }
 
-const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans, repairs }) => {
+const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans, repairs, deletePlan }) => {
     const [isAddModalOpen, setAddModalOpen] = useState(false);
     const [loggingPlan, setLoggingPlan] = useState<MaintenancePlan | null>(null);
     const { addToast } = useToast();
@@ -32,6 +33,13 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
         ));
         addToast(`บันทึกการซ่อมบำรุงสำเร็จ`, 'success');
         setLoggingPlan(null);
+    };
+
+    const handleDelete = (plan: MaintenancePlan) => {
+        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบแผน "${plan.planName}" สำหรับรถ ${plan.vehicleLicensePlate}?`)) {
+            deletePlan(plan.id);
+            addToast('ลบแผนสำเร็จ', 'info');
+        }
     };
 
     const plansWithNextService = useMemo(() => {
@@ -114,8 +122,9 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                                         {p.status === 'overdue' ? 'เกินกำหนด' : p.status === 'due' ? 'ใกล้ถึงกำหนด' : 'ปกติ'}
                                     </span>
                                 </td>
-                                <td className="px-4 py-3 text-center">
+                                <td className="px-4 py-3 text-center space-x-2">
                                     <button onClick={() => setLoggingPlan(p)} className="text-blue-600 hover:text-blue-800 font-medium">บันทึก</button>
+                                    <button onClick={() => handleDelete(p)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}

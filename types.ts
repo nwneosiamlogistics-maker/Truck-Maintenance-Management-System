@@ -37,10 +37,10 @@ export interface Repair {
     status: RepairStatus;
     createdAt: string; // ISO string
     updatedAt: string; // ISO string
-    approvalDate?: string;
+    approvalDate?: string | null;
     assignedTechnician: string;
-    repairStartDate?: string;
-    repairEndDate?: string;
+    repairStartDate?: string | null;
+    repairEndDate?: string | null;
     dispatchType: 'ภายใน' | 'ภายนอก';
     repairLocation?: string;
     repairCost?: number;
@@ -49,10 +49,15 @@ export interface Repair {
     attachments: FileAttachment[];
     notes?: string;
     coordinator?: string;
-    returnDate?: string;
+    returnDate?: string | null;
     repairResult?: string;
     requisitionNumber?: string;
     invoiceNumber?: string;
+
+    // New fields for estimation
+    estimatedStartDate?: string | null;
+    estimatedEndDate?: string | null;
+    estimatedLaborHours?: number | null;
 }
 
 export interface Technician {
@@ -128,4 +133,14 @@ export interface UsedPart {
     condition: UsedPartCondition;
     status: UsedPartStatus;
     notes?: string;
+}
+
+export interface Notification {
+    id: string;
+    message: string;
+    type: 'warning' | 'danger' | 'info' | 'success';
+    createdAt: string; // ISO string
+    isRead: boolean;
+    linkTo?: Tab;
+    relatedId?: string;
 }

@@ -1,12 +1,19 @@
 import React, { useState, ChangeEvent, FormEvent, useMemo } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
 import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
+import { useToast } from '../context/ToastContext';
 
 interface RepairFormProps {
     technicians: Technician[];
     stock: StockItem[];
     addRepair: (repair: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => void;
+}
+
+interface EstimationResult {
+    laborHours: number;
+    reasoning: string;
 }
 
 const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }) => {
@@ -33,18 +40,26 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
         partsVat: 0,
         parts: [] as PartRequisitionItem[],
         attachments: [] as FileAttachment[],
+        estimatedStartDate: '',
+        estimatedEndDate: '',
+        estimatedLaborHours: 0,
     });
 
     const [formData, setFormData] = useState(getInitialState());
     const [otherVehicleType, setOtherVehicleType] = useState('');
     const [openSections, setOpenSections] = useState({
         basic: true,
+        estimation: true,
         dispatch: true,
         parts: true,
         files: true,
     });
     const [isStockModalOpen, setStockModalOpen] = useState(false);
     const [isExternalPartModalOpen, setExternalPartModalOpen] = useState(false);
+    const [isEstimating, setIsEstimating] = useState(false);
+    const [estimationResult, setEstimationResult] = useState<EstimationResult | null>(null);
+    const [isManualEstimation, setIsManualEstimation] = useState(false);
+    const { addToast } = useToast();
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -54,10 +69,76 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
     const resetForm = () => {
         setFormData(getInitialState());
         setOtherVehicleType('');
+        setEstimationResult(null);
+        setIsManualEstimation(false);
     };
 
     const toggleSection = (section: keyof typeof openSections) => {
         setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    // --- AI Estimation ---
+    const handleEstimate = async () => {
+        setIsEstimating(true);
+        setEstimationResult(null);
+
+        const prompt = `
+            Vehicle Type: ${formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}
+            Make: ${formData.vehicleMake}
+            Model: ${formData.vehicleModel}
+            Repair Category: ${formData.repairCategory}
+            Problem Description: ${formData.problemDescription}
+            
+            Based on the information above, estimate the labor hours required for the repair.
+        `;
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            laborHours: { type: Type.NUMBER, description: "Estimated labor hours" },
+                            reasoning: { type: Type.STRING, description: "Brief reason for the estimation" }
+                        },
+                        required: ["laborHours", "reasoning"]
+                    }
+                }
+            });
+            const result = JSON.parse(response.text);
+            setEstimationResult(result);
+        } catch (error) {
+            console.error("Error calling Gemini API:", error);
+            addToast("ไม่สามารถประมาณการณ์ได้", "error");
+        } finally {
+            setIsEstimating(false);
+        }
+    };
+    
+    const applyEstimate = () => {
+        if (!estimationResult) return;
+        
+        const now = new Date();
+        const start = new Date(now);
+        const end = new Date(start.getTime() + estimationResult.laborHours * 60 * 60 * 1000);
+
+        const toLocalISOString = (date: Date) => {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
+            return localISOTime;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            estimatedStartDate: toLocalISOString(start),
+            estimatedEndDate: toLocalISOString(end),
+            estimatedLaborHours: estimationResult.laborHours
+        }));
+        setIsManualEstimation(true); // show the fields
     };
 
     // --- Parts Management ---
@@ -113,7 +194,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         if (!formData.licensePlate || !formData.problemDescription) {
-            alert('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (ทะเบียนรถ, อาการเสีย)');
+            addToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (ทะเบียนรถ, อาการเสีย)', 'warning');
             return;
         }
 
@@ -121,13 +202,14 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
         
         if (repairData.vehicleType === 'อื่นๆ') {
              if (!otherVehicleType.trim()) {
-                alert('กรุณาระบุประเภทรถ');
+                addToast('กรุณาระบุประเภทรถ', 'warning');
                 return;
             }
             repairData.vehicleType = otherVehicleType.trim();
         }
 
         addRepair(repairData as Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>);
+        addToast('สร้างใบแจ้งซ่อมสำเร็จ', 'success');
         resetForm();
     };
 
@@ -146,6 +228,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                 <SectionHeader title="1. ข้อมูลพื้นฐาน" sectionId="basic" />
                 {openSections.basic && (
                 <div className="p-6 space-y-4">
+                    {/* ... (existing basic info fields) ... */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          <div>
                             <label className="block text-sm font-medium text-gray-700">เลขที่ใบแจ้งซ่อม</label>
@@ -214,11 +297,63 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                 )}
             </div>
 
+            {/* Estimation Section */}
+            <div className="bg-white rounded-lg shadow-sm">
+                <SectionHeader title="2. การประมาณการณ์" sectionId="estimation" />
+                {openSections.estimation && (
+                    <div className="p-6 space-y-4">
+                        <button
+                            type="button"
+                            onClick={handleEstimate}
+                            disabled={!formData.licensePlate || !formData.problemDescription || isEstimating}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        >
+                            🤖 ประมาณการเวลาซ่อมด้วย AI
+                        </button>
+
+                        {isEstimating && (
+                            <div className="text-center p-4 bg-gray-100 rounded-lg">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                                <p className="mt-2 text-gray-600">กำลังวิเคราะห์ข้อมูลจาก AI...</p>
+                            </div>
+                        )}
+
+                        {estimationResult && !isEstimating && (
+                             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center space-y-3">
+                                <p className="text-lg">
+                                    <span className="font-medium text-gray-700">เวลาทำงานของช่าง (โดยประมาณ):</span>
+                                    <span className="ml-2 text-2xl font-bold text-blue-600">{estimationResult.laborHours} ชั่วโมง</span>
+                                </p>
+                                <p className="text-sm text-gray-600 italic">"{estimationResult.reasoning}"</p>
+                                <div className="flex justify-center gap-4 pt-2">
+                                    <button type="button" onClick={applyEstimate} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">ใช้เวลาประมาณการณ์นี้</button>
+                                    <button type="button" onClick={() => setIsManualEstimation(true)} className="px-5 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">แก้ไขด้วยตนเอง</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {isManualEstimation && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
+                                    <input type="datetime-local" name="estimatedStartDate" value={formData.estimatedStartDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ</label>
+                                    <input type="datetime-local" name="estimatedEndDate" value={formData.estimatedEndDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
             {/* Dispatch Info */}
             <div className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="2. ข้อมูลการส่งซ่อม" sectionId="dispatch" />
+                <SectionHeader title="3. ข้อมูลการส่งซ่อม" sectionId="dispatch" />
                  {openSections.dispatch && (
                 <div className="p-6 space-y-4">
+                     {/* ... (existing dispatch fields) ... */}
                      <div>
                         <label className="block text-sm font-medium text-gray-700">ประเภทการส่งซ่อม</label>
                         <div className="mt-2 flex space-x-4">
@@ -259,9 +394,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
 
             {/* Parts Requisition */}
             <div className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="3. รายการเบิกอะไหล่" sectionId="parts" />
+                <SectionHeader title="4. รายการเบิกอะไหล่" sectionId="parts" />
                  {openSections.parts && (
                 <div className="p-6 space-y-4">
+                    {/* ... (existing parts section) ... */}
                     <div className="space-y-3">
                         {formData.parts.length > 0 && (
                              <div className="grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
@@ -330,9 +466,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
             
             {/* File Attachments */}
             <div className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="4. ไฟล์แนบและรูปภาพ" sectionId="files" />
+                <SectionHeader title="5. ไฟล์แนบและรูปภาพ" sectionId="files" />
                 {openSections.files && (
                 <div className="p-6">
+                     {/* ... (existing files section) ... */}
                     <div className="border-2 border-dashed rounded-lg p-6 text-center">
                         <label htmlFor="file-upload" className="cursor-pointer text-blue-600 font-semibold">
                             เลือกไฟล์เพื่ออัปโหลด

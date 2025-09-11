@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -14,7 +14,7 @@ import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import { useFirebase } from './hooks/useFirebase';
 
-import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart } from './types';
+import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification } from './types';
 import { TABS } from './constants';
 import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultStockTransactions, getDefaultMaintenancePlans } from './data/defaultData';
 
@@ -30,11 +30,107 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useFirebase<StockTransaction[]>('stockTransactions', getDefaultStockTransactions);
   const [maintenancePlans, setMaintenancePlans] = useFirebase<MaintenancePlan[]>('maintenancePlans', getDefaultMaintenancePlans);
   const [usedParts, setUsedParts] = useFirebase<UsedPart[]>('usedParts', () => []);
+  const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
   
-  const stats = useMemo(() => ({
-    pendingRepairs: repairs.filter(r => r.status === 'รอซ่อม' || r.status === 'รออะไหล่').length,
-    lowStock: stock.filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length,
-  }), [repairs, stock]);
+  const stats = useMemo(() => {
+    // Calculate due maintenance plans
+    const dueMaintenancePlans = maintenancePlans.filter(plan => {
+        const lastDate = new Date(plan.lastServiceDate);
+        let nextServiceDate = new Date(lastDate);
+        if (plan.frequencyUnit === 'days') {
+            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
+        } else if (plan.frequencyUnit === 'weeks') {
+            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
+        } else { // months
+            nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
+        }
+        const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+
+        const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
+        const latestRepair = repairs
+            .filter(r => r.licensePlate === plan.vehicleLicensePlate)
+            .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
+        const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
+
+        const isDue = daysUntilNextService <= 7 || (kmUntilNextService !== null && kmUntilNextService <= 1000);
+        const isOverdue = daysUntilNextService < 0 || (kmUntilNextService !== null && kmUntilNextService < 0);
+
+        return isDue || isOverdue;
+    }).length;
+
+    return {
+      pendingRepairs: repairs.filter(r => r.status === 'รอซ่อม' || r.status === 'รออะไหล่').length,
+      lowStock: stock.filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length,
+      dueMaintenance: dueMaintenancePlans,
+    };
+}, [repairs, stock, maintenancePlans]);
+
+ const addNotification = useCallback((newNotification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
+    const notificationToAdd: Notification = {
+        ...newNotification,
+        id: `NOTIF-${Date.now()}-${Math.random()}`,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+    };
+
+    setNotifications(prevNotifications => {
+        const existing = prevNotifications.find(n => 
+            !n.isRead && 
+            n.relatedId === notificationToAdd.relatedId &&
+            n.type === notificationToAdd.type
+        );
+        if (existing) {
+            return prevNotifications;
+        }
+        const updatedNotifications = [notificationToAdd, ...prevNotifications]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        return updatedNotifications.slice(0, 50);
+    });
+}, [setNotifications]);
+
+useEffect(() => {
+    stock.forEach(item => {
+        if (item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') {
+            addNotification({
+                message: `อะไหล่ "${item.name}" อยู่ในสถานะ${item.status}`,
+                type: 'danger',
+                linkTo: 'stock',
+                relatedId: `stock-${item.id}`
+            });
+        }
+    });
+
+    maintenancePlans.forEach(plan => {
+        const lastDate = new Date(plan.lastServiceDate);
+        let nextServiceDate = new Date(lastDate);
+        if (plan.frequencyUnit === 'days') {
+            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
+        } else if (plan.frequencyUnit === 'weeks') {
+            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
+        } else {
+            nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
+        }
+        const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+        if (daysUntilNextService <= 7 && daysUntilNextService >= 0) {
+             addNotification({
+                message: `แผน "${plan.planName}" สำหรับรถ ${plan.vehicleLicensePlate} ใกล้ถึงกำหนด`,
+                type: 'warning',
+                linkTo: 'maintenance',
+                relatedId: `maint-due-${plan.id}`
+            });
+        } else if (daysUntilNextService < 0) {
+            addNotification({
+                message: `แผน "${plan.planName}" สำหรับรถ ${plan.vehicleLicensePlate} เกินกำหนดแล้ว!`,
+                type: 'danger',
+                linkTo: 'maintenance',
+                relatedId: `maint-overdue-${plan.id}`
+            });
+        }
+    });
+
+}, [stock, maintenancePlans, addNotification]);
 
   const generateRepairOrderNo = useCallback(() => {
       const now = new Date();
@@ -46,6 +142,14 @@ const App: React.FC = () => {
   const addRepair = useCallback((newRepairData: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => {
       const now = new Date().toISOString();
       const newRepair: Repair = {
+          approvalDate: null,
+          repairStartDate: null,
+          repairEndDate: null,
+          requisitionNumber: '',
+          invoiceNumber: '',
+          estimatedStartDate: null,
+          estimatedEndDate: null,
+          estimatedLaborHours: null,
           ...newRepairData,
           id: `MR-${Date.now()}`,
           createdAt: now,
@@ -54,7 +158,13 @@ const App: React.FC = () => {
           repairOrderNo: generateRepairOrderNo(),
       };
       setRepairs(prev => [newRepair, ...prev]);
-  }, [setRepairs, generateRepairOrderNo]);
+      addNotification({
+        message: `มีใบแจ้งซ่อมใหม่สำหรับรถ ${newRepair.licensePlate}`,
+        type: 'info',
+        linkTo: 'list',
+        relatedId: `repair-${newRepair.id}`
+      });
+  }, [setRepairs, generateRepairOrderNo, addNotification]);
   
   const addUsedParts = useCallback((parts: Omit<UsedPart, 'id'>[]) => {
       const newUsedParts: UsedPart[] = parts.map(p => ({ ...p, id: `UP-${Date.now()}-${Math.random()}` }));
@@ -64,6 +174,12 @@ const App: React.FC = () => {
   const updateUsedPart = useCallback((partToUpdate: UsedPart) => {
       setUsedParts(prev => prev.map(p => p.id === partToUpdate.id ? partToUpdate : p));
   }, [setUsedParts]);
+
+  const deleteMaintenancePlan = useCallback((planId: string) => {
+    setMaintenancePlans(prev => prev.filter(p => p.id !== planId));
+  }, [setMaintenancePlans]);
+
+  const unreadNotificationsCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -82,9 +198,9 @@ const App: React.FC = () => {
       case 'technicians':
         return <TechnicianManagement technicians={technicians} setTechnicians={setTechnicians} repairs={repairs} />;
       case 'estimation':
-        return <Estimation />;
+        return <Estimation repairs={repairs} />;
       case 'maintenance':
-        return <MaintenancePlanner plans={maintenancePlans} setPlans={setMaintenancePlans} repairs={repairs} />;
+        return <MaintenancePlanner plans={maintenancePlans} setPlans={setMaintenancePlans} repairs={repairs} deletePlan={deleteMaintenancePlan} />;
       default:
         return <div>Page not found</div>;
     }
@@ -107,6 +223,10 @@ const App: React.FC = () => {
             pageTitle={TABS[activeTab].title}
             pageSubtitle={TABS[activeTab].subtitle}
             toggleMobileSidebar={() => setMobileSidebarOpen(!isMobileSidebarOpen)}
+            notifications={notifications}
+            setNotifications={setNotifications}
+            unreadCount={unreadNotificationsCount}
+            setActiveTab={setActiveTab}
           />
           <main className="flex-1 p-6 overflow-y-auto">
             {renderContent()}

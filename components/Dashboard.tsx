@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { Repair, StockItem, Tab } from '../types';
 import StatCard from './StatCard';
 
@@ -11,17 +10,16 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) => {
   const totalRepairs = repairs.length;
-  // FIX: Changed status from 'เสร็จแล้ว' to 'ซ่อมเสร็จ' to match the type definition.
   const completedRepairs = repairs.filter(r => r.status === 'ซ่อมเสร็จ').length;
   const inProgressRepairs = repairs.filter(r => r.status === 'กำลังซ่อม').length;
-  const totalVehicles = 48; // Sample data
+  const totalVehicles = useMemo(() => new Set(repairs.map(r => r.licensePlate)).size, [repairs]);
 
   const alerts = [
     {
       type: 'warning',
       icon: '⚠️',
       title: 'แผนบำรุงรักษาใกล้ถึงกำหนด',
-      description: 'มี 18 รายการที่ต้องดำเนินการภายใน 7 วัน',
+      description: 'มีรายการที่ต้องดำเนินการภายใน 7 วัน หรือใกล้ถึงระยะ',
       tab: 'maintenance',
       buttonText: 'ดูรายละเอียด'
     },
@@ -37,12 +35,41 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
       type: 'info',
       icon: 'ℹ️',
       title: 'งานซ่อมรอดำเนินการ',
-      // FIX: Changed status from 'รอดำเนินการ' to 'รอซ่อม' to match the type definition.
       description: `มี ${repairs.filter(r => r.status === 'รอซ่อม').length} ใบแจ้งซ่อมที่รอการมอบหมายช่าง`,
       tab: 'list',
       buttonText: 'จัดการ'
     }
   ];
+  
+  const vehicleTypeStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    const uniqueRepairs = Array.from(new Map(repairs.map(r => [r.licensePlate, r])).values());
+
+    uniqueRepairs.forEach(repair => {
+        stats[repair.vehicleType] = (stats[repair.vehicleType] || 0) + 1;
+    });
+
+    return Object.entries(stats).sort((a, b) => b[1] - a[1]);
+  }, [repairs]);
+
+  const getVehicleIcon = (type: string) => {
+      if (!type) return '🚗';
+      if (type.includes('4 ล้อ')) return '🚐';
+      if (type.includes('6 ล้อ')) return '🚛';
+      if (type.includes('10 ล้อ')) return '🚚';
+      if (type.includes('หัวลาก') || type.includes('หางพ่วง')) return '🚜';
+      return '🚗';
+  };
+
+  const getVehicleColor = (index: number) => {
+      const colors = [
+          { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+          { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+          { bg: 'bg-amber-50', text: 'text-amber-600' },
+          { bg: 'bg-rose-50', text: 'text-rose-600' },
+      ];
+      return colors[index % colors.length];
+  };
 
   const getAlertClasses = (type: string) => {
     switch(type) {
@@ -67,21 +94,34 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
     <div className="space-y-6">
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard title="งานซ่อมทั้งหมด" value={totalRepairs} bgColor="bg-blue-50" textColor="text-blue-600" trend="+12%" trendDirection="up" />
-        <StatCard title="ซ่อมเสร็จแล้ว" value={completedRepairs} bgColor="bg-green-50" textColor="text-green-600" trend="+8%" trendDirection="up" />
-        <StatCard title="กำลังซ่อม" value={inProgressRepairs} bgColor="bg-yellow-50" textColor="text-yellow-600" trend="-5%" trendDirection="down" />
-        <StatCard title="รถทั้งหมด" value={totalVehicles} bgColor="bg-purple-50" textColor="text-purple-600" trend="+2" trendDirection="up" />
+        <StatCard title="งานซ่อมทั้งหมด" value={totalRepairs} bgColor="bg-blue-50" textColor="text-blue-600" />
+        <StatCard title="ซ่อมเสร็จแล้ว" value={completedRepairs} bgColor="bg-green-50" textColor="text-green-600" />
+        <StatCard title="กำลังซ่อม" value={inProgressRepairs} bgColor="bg-yellow-50" textColor="text-yellow-600" />
+        <StatCard title="รถทั้งหมด" value={totalVehicles} bgColor="bg-purple-50" textColor="text-purple-600" />
       </div>
 
       {/* Vehicle Type Stats */}
       <div className="bg-white p-6 rounded-2xl shadow-sm">
         <h2 className="text-xl font-bold text-gray-800 mb-4">🚛 สถิติตามประเภทรถ</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            <StatCard title="กระบะ 4 ล้อ" value="12" icon="🚐" bgColor="bg-indigo-50" textColor="text-indigo-600" />
-            <StatCard title="รถบรรทุก 6 ล้อ" value="18" icon="🚛" bgColor="bg-emerald-50" textColor="text-emerald-600" />
-            <StatCard title="รถบรรทุก 10 ล้อ" value="8" icon="🚚" bgColor="bg-amber-50" textColor="text-amber-600" />
-            <StatCard title="รถหัวลาก & หางพ่วง" value="10" icon="🚜" bgColor="bg-rose-50" textColor="text-rose-600" />
-        </div>
+        {vehicleTypeStats.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              {vehicleTypeStats.map(([type, count], index) => {
+                  const colors = getVehicleColor(index);
+                  return (
+                      <StatCard 
+                          key={type} 
+                          title={type} 
+                          value={count} 
+                          icon={getVehicleIcon(type)} 
+                          bgColor={colors.bg} 
+                          textColor={colors.text} 
+                      />
+                  );
+              })}
+          </div>
+        ) : (
+            <p className="text-gray-500 text-center py-4">ยังไม่มีข้อมูลรถเพื่อแสดงสถิติ</p>
+        )}
       </div>
 
       {/* Quick Menu */}
