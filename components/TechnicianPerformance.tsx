@@ -1,0 +1,209 @@
+import React, { useState, useMemo } from 'react';
+import type { Repair, Technician } from '../types';
+import StatCard from './StatCard';
+
+interface TechnicianPerformanceProps {
+    repairs: Repair[];
+    technicians: Technician[];
+}
+
+type SortKey = 'name' | 'jobs' | 'avgTime' | 'onTimeRate' | 'value';
+type SortOrder = 'asc' | 'desc';
+type DateRange = 'all' | '7d' | '30d' | 'this_month' | 'last_month';
+
+const BarChart: React.FC<{ title: string, data: { label: string, value: number, formattedValue: string }[] }> = ({ title, data }) => {
+    const maxValue = Math.max(...data.map(d => d.value), 0);
+    return (
+        <div className="bg-white p-6 rounded-2xl shadow-sm">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">{title}</h3>
+            <div className="space-y-3">
+                {data.map(item => (
+                    <div key={item.label} className="flex items-center gap-4">
+                        <div className="w-32 text-sm font-semibold text-gray-600 truncate">{item.label}</div>
+                        <div className="flex-1 bg-gray-200 rounded-full h-6">
+                            <div
+                                className="bg-blue-500 h-6 rounded-full flex items-center justify-end px-2"
+                                style={{ width: `${(item.value / maxValue) * 100}%` }}
+                            >
+                                <span className="text-white text-xs font-bold">{item.formattedValue}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, technicians }) => {
+    const [dateRange, setDateRange] = useState<DateRange>('30d');
+    const [sortBy, setSortBy] = useState<SortKey>('jobs');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+    const performanceData = useMemo(() => {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        const filteredRepairs = repairs.filter(r => {
+            if (r.status !== 'ซ่อมเสร็จ' || !r.repairEndDate) return false;
+            const endDate = new Date(r.repairEndDate);
+            switch (dateRange) {
+                case '7d': return endDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                case '30d': return endDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                case 'this_month': return endDate >= startOfMonth;
+                case 'last_month': return endDate >= startOfLastMonth && endDate <= endOfLastMonth;
+                case 'all': default: return true;
+            }
+        });
+
+        const techStats = technicians.map(tech => {
+            const techRepairs = filteredRepairs.filter(r => r.assignedTechnician === tech.id);
+            if (techRepairs.length === 0) return null;
+
+            let totalRepairMillis = 0;
+            let onTimeJobs = 0;
+            let estimatedJobsCount = 0;
+
+            techRepairs.forEach(r => {
+                if (r.repairStartDate && r.repairEndDate) {
+                    totalRepairMillis += new Date(r.repairEndDate).getTime() - new Date(r.repairStartDate).getTime();
+                }
+                if (r.estimatedEndDate && r.repairEndDate) {
+                    estimatedJobsCount++;
+                    if (new Date(r.repairEndDate) <= new Date(r.estimatedEndDate)) {
+                        onTimeJobs++;
+                    }
+                }
+            });
+            
+            const totalValue = techRepairs.reduce((sum, r) => {
+                const partsCost = (r.parts || []).reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
+                return sum + (r.repairCost || 0) + partsCost + (r.partsVat || 0);
+            }, 0);
+
+            return {
+                id: tech.id,
+                name: tech.name,
+                jobs: techRepairs.length,
+                avgTime: techRepairs.length > 0 ? (totalRepairMillis / techRepairs.length) / (1000 * 60 * 60) : 0,
+                onTimeRate: estimatedJobsCount > 0 ? (onTimeJobs / estimatedJobsCount) * 100 : 0,
+                value: totalValue
+            };
+        }).filter((t): t is NonNullable<typeof t> => t !== null);
+
+        // Sorting
+        techStats.sort((a, b) => {
+            if (a[sortBy] < b[sortBy]) return sortOrder === 'asc' ? -1 : 1;
+            if (a[sortBy] > b[sortBy]) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        const totalJobs = techStats.reduce((sum, t) => sum + t.jobs, 0);
+        const totalValue = techStats.reduce((sum, t) => sum + t.value, 0);
+        const overallAvgTime = totalJobs > 0 ? techStats.reduce((sum, t) => sum + (t.avgTime * t.jobs), 0) / totalJobs : 0;
+        const overallOnTimeRate = totalJobs > 0 ? techStats.reduce((sum, t) => sum + (t.onTimeRate * t.jobs), 0) / totalJobs : 0;
+
+
+        return {
+            stats: techStats,
+            kpis: {
+                totalJobs,
+                totalValue,
+                avgTime: overallAvgTime,
+                onTimeRate: overallOnTimeRate
+            }
+        };
+
+    }, [repairs, technicians, dateRange, sortBy, sortOrder]);
+
+    const handleSort = (key: SortKey) => {
+        if (sortBy === key) {
+            setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(key);
+            setSortOrder('desc');
+        }
+    };
+
+    const SortableHeader: React.FC<{ headerKey: SortKey, title: string }> = ({ headerKey, title }) => (
+        <th
+            className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase cursor-pointer"
+            onClick={() => handleSort(headerKey)}
+        >
+            <div className="flex items-center">
+                <span>{title}</span>
+                {sortBy === headerKey && <span className="ml-2">{sortOrder === 'desc' ? '▼' : '▲'}</span>}
+            </div>
+        </th>
+    );
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-800">สรุปประสิทธิภาพทีมช่าง</h2>
+                <div className="flex items-center gap-2">
+                    <label htmlFor="date-range-filter" className="font-medium text-gray-700 text-base">ช่วงเวลา:</label>
+                    <select id="date-range-filter" value={dateRange} onChange={e => setDateRange(e.target.value as DateRange)} className="p-2 border border-gray-300 rounded-lg text-base">
+                        <option value="7d">7 วันล่าสุด</option>
+                        <option value="30d">30 วันล่าสุด</option>
+                        <option value="this_month">เดือนนี้</option>
+                        <option value="last_month">เดือนที่แล้ว</option>
+                        <option value="all">ทั้งหมด</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <StatCard title="งานเสร็จสิ้นทั้งหมด" value={performanceData.kpis.totalJobs} bgColor="bg-blue-50" textColor="text-blue-600" />
+                <StatCard title="เวลาซ่อมเฉลี่ย" value={`${performanceData.kpis.avgTime.toFixed(1)} ชม.`} bgColor="bg-yellow-50" textColor="text-yellow-600" />
+                <StatCard title="อัตราตรงต่อเวลา" value={`${performanceData.kpis.onTimeRate.toFixed(1)}%`} bgColor="bg-green-50" textColor="text-green-600" />
+                <StatCard title="มูลค่าซ่อมรวม" value={`${performanceData.kpis.totalValue.toLocaleString()} ฿`} bgColor="bg-purple-50" textColor="text-purple-600" />
+            </div>
+
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <BarChart
+                    title="จำนวนงานที่เสร็จสิ้น (รายบุคคล)"
+                    data={performanceData.stats.slice(0, 5).map(t => ({ label: t.name, value: t.jobs, formattedValue: `${t.jobs} งาน` }))}
+                />
+                <BarChart
+                    title="เวลาซ่อมเฉลี่ย (รายบุคคล)"
+                    data={performanceData.stats.slice(0, 5).map(t => ({ label: t.name, value: t.avgTime, formattedValue: `${t.avgTime.toFixed(1)} ชม.` }))}
+                />
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+                 <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <SortableHeader headerKey="name" title="ชื่อช่าง" />
+                            <SortableHeader headerKey="jobs" title="งานที่เสร็จสิ้น" />
+                            <SortableHeader headerKey="avgTime" title="เวลาซ่อมเฉลี่ย (ชม.)" />
+                            <SortableHeader headerKey="onTimeRate" title="อัตราตรงต่อเวลา" />
+                            <SortableHeader headerKey="value" title="มูลค่าซ่อมรวม (บาท)" />
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {performanceData.stats.map(tech => (
+                            <tr key={tech.id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 font-semibold text-base">{tech.name}</td>
+                                <td className="px-6 py-4 text-base">{tech.jobs}</td>
+                                <td className="px-6 py-4 text-base">{tech.avgTime.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-base">{tech.onTimeRate.toFixed(1)}%</td>
+                                <td className="px-6 py-4 text-base font-bold">{tech.value.toLocaleString()}</td>
+                            </tr>
+                        ))}
+                         {performanceData.stats.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูลในช่วงเวลาที่เลือก</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+export default TechnicianPerformance;

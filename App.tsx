@@ -10,6 +10,7 @@ import Reports from './components/Reports';
 import TechnicianManagement from './components/TechnicianManagement';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
+import TechnicianPerformance from './components/TechnicianPerformance';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import { useFirebase } from './hooks/useFirebase';
@@ -197,6 +198,8 @@ useEffect(() => {
         return <Reports repairs={repairs} stock={stock} technicians={technicians} />;
       case 'technicians':
         return <TechnicianManagement technicians={technicians} setTechnicians={setTechnicians} repairs={repairs} />;
+      case 'technicianPerformance':
+        return <TechnicianPerformance technicians={technicians} repairs={repairs} />;
       case 'estimation':
         return <Estimation repairs={repairs} />;
       case 'maintenance':

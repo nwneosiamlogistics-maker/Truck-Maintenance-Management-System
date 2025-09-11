@@ -1,4 +1,4 @@
-export type Tab = 'dashboard' | 'form' | 'list' | 'history' | 'stock' | 'reports' | 'technicians' | 'estimation' | 'maintenance';
+export type Tab = 'dashboard' | 'form' | 'list' | 'history' | 'stock' | 'reports' | 'technicians' | 'estimation' | 'maintenance' | 'technicianPerformance';
 
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
 export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
