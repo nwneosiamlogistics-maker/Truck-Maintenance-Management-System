@@ -4,6 +4,7 @@ export type Tab =
   | 'list'
   | 'history'
   | 'stock'
+  | 'stock-history'
   | 'requisitions'
   | 'reports'
   | 'technicians'

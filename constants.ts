@@ -21,6 +21,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'จัดการสต๊อกอะไหล่',
         subtitle: 'ควบคุมสต๊อกและการเบิกจ่ายอะไหล่'
     },
+    'stock-history': {
+        title: 'ประวัติการเบิกจ่าย',
+        subtitle: 'ตรวจสอบการเคลื่อนไหวของสต๊อกอะไหล่ทั้งหมด'
+    },
     requisitions: {
         title: 'ใบขอซื้อ',
         subtitle: 'จัดการการสั่งซื้อ, เติมสต็อก และลบใบขอซื้อ'

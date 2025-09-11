@@ -15,6 +15,7 @@ import TechnicianManagement from './components/TechnicianManagement';
 import TechnicianPerformance from './components/TechnicianPerformance';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
+import StockHistory from './components/StockHistory';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import { useFirebase } from './hooks/useFirebase';
@@ -200,6 +201,8 @@ useEffect(() => {
         return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} />;
       case 'stock':
         return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} />;
+      case 'stock-history':
+        return <StockHistory transactions={transactions} />;
       case 'requisitions':
         // FIX: Use renamed component to avoid naming conflict
         return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} />;
