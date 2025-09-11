@@ -1,16 +1,16 @@
-
 import React, { useState, useEffect } from 'react';
 import type { StockItem } from '../types';
 
 interface StockModalProps {
     item: StockItem | null;
-    onSave: (item: StockItem) => void;
+    onSave: (item: StockItem, extras: { sourceRepairOrderNo?: string }) => void;
     onClose: () => void;
 }
 
 const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
     const initialFormState: StockItem = {
         id: '',
+        code: '',
         name: '',
         category: 'น้ำมัน',
         quantity: 0,
@@ -25,12 +25,14 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
     };
 
     const [formData, setFormData] = useState<StockItem>(item || initialFormState);
+    const [sourceRepairOrderNo, setSourceRepairOrderNo] = useState('');
 
     useEffect(() => {
         if (item) {
             setFormData(item);
         } else {
             setFormData(initialFormState);
+            setSourceRepairOrderNo('');
         }
     }, [item]);
 
@@ -52,7 +54,7 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
             newStatus = 'สต๊อกเกิน';
         }
         
-        onSave({ ...formData, status: newStatus });
+        onSave({ ...formData, status: newStatus }, { sourceRepairOrderNo });
     };
 
     return (
@@ -67,9 +69,15 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
                 <form id="stock-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ชื่ออะไหล่</label>
+                            <label className="block text-base font-medium text-gray-700 mb-1">รหัสสินค้า *</label>
+                            <input type="text" name="code" value={formData.code} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">ชื่ออะไหล่ *</label>
                             <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
+                    </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">หมวดหมู่</label>
                             <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
@@ -80,36 +88,42 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
                                 <option>อื่นๆ</option>
                             </select>
                         </div>
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">จำนวนเริ่มต้น</label>
+                            <input type="number" name="quantity" value={formData.quantity} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" disabled={!!item}/>
+                        </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">จำนวนคงเหลือ</label>
-                            <input type="number" name="quantity" value={formData.quantity} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
-                        </div>
-                        <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">หน่วยนับ</label>
                             <input type="text" name="unit" value={formData.unit} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">สต็อกขั้นต่ำ (Min)</label>
                             <input type="number" name="minStock" value={formData.minStock} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">สต็อกสูงสุด (Max)</label>
                             <input type="number" name="maxStock" value={formData.maxStock || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
-                    </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">ราคาทุนต่อหน่วย</label>
                             <input type="number" name="price" value={formData.price} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
+                    </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">ราคาขายต่อหน่วย</label>
                             <input type="number" name="sellingPrice" value={formData.sellingPrice || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
+                        {!item && (
+                         <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1">ที่มาจากใบซ่อม (ถ้ามี)</label>
+                            <input type="text" name="sourceRepairOrderNo" value={sourceRepairOrderNo} onChange={(e) => setSourceRepairOrderNo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" placeholder="เช่น RO-2024-00123" />
+                        </div>
+                        )}
                     </div>
                      <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">ตำแหน่งจัดเก็บ</label>

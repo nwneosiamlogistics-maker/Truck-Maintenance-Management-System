@@ -1,155 +1,162 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician } from '../types';
-import VehicleDetailModal from './VehicleDetailModal';
+import type { Repair, Technician, StockItem, RepairStatus, UsedPart } from '../types';
 import RepairEditModal from './RepairEditModal';
+import VehicleDetailModal from './VehicleDetailModal';
+import AddUsedPartsModal from './AddUsedPartsModal';
+import { useToast } from '../context/ToastContext';
 
 interface RepairListProps {
     repairs: Repair[];
+    setRepairs: React.Dispatch<React.SetStateAction<Repair[]>>;
     technicians: Technician[];
-    updateRepair: (repair: Repair) => void;
-    deleteRepair: (repairId: string) => void;
+    stock: StockItem[];
+    setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    addUsedParts: (parts: Omit<UsedPart, 'id'>[]) => void;
 }
 
-const RepairList: React.FC<RepairListProps> = ({ repairs, technicians, updateRepair, deleteRepair }) => {
+const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, addUsedParts }) => {
+    const [statusFilter, setStatusFilter] = useState<RepairStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [priorityFilter, setPriorityFilter] = useState('all');
-    const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
-    const [isDetailModalOpen, setDetailModalOpen] = useState(false);
-    const [isEditModalOpen, setEditModalOpen] = useState(false);
+    const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
+    const [viewingRepair, setViewingRepair] = useState<Repair | null>(null);
+    const [repairForUsedParts, setRepairForUsedParts] = useState<Repair | null>(null);
+    const { addToast } = useToast();
 
     const filteredRepairs = useMemo(() => {
         return repairs
-            .filter(repair => statusFilter === 'all' || repair.status === statusFilter)
-            .filter(repair => priorityFilter === 'all' || repair.priority === priorityFilter)
-            .filter(repair =>
-                repair.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                repair.vehicleMake.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                repair.vehicleModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                repair.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-    }, [repairs, searchTerm, statusFilter, priorityFilter]);
+            .filter(r => statusFilter === 'all' || r.status === statusFilter)
+            .filter(r => 
+                searchTerm === '' ||
+                r.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                r.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                r.vehicleMake.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [repairs, statusFilter, searchTerm]);
 
-    const getStatusBadge = (status: Repair['status']) => {
+    const handleSaveRepair = (updatedRepair: Repair, statusChangedToCompleted: boolean) => {
+        setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
+        setEditingRepair(null);
+        addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
+
+        if (statusChangedToCompleted && updatedRepair.parts && updatedRepair.parts.length > 0) {
+            setRepairForUsedParts(updatedRepair);
+        }
+    };
+    
+    const handleDeleteRepair = (repairId: string, repairOrderNo: string) => {
+        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+            setRepairs(prev => prev.filter(r => r.id !== repairId));
+            addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
+        }
+    };
+
+    const handleAddUsedParts = (parts: Omit<UsedPart, 'id'>[]) => {
+        addUsedParts(parts);
+        setRepairForUsedParts(null);
+    };
+
+    const getStatusBadge = (status: RepairStatus) => {
         switch (status) {
             case 'รอซ่อม': return 'bg-gray-200 text-gray-800';
             case 'กำลังซ่อม': return 'bg-blue-100 text-blue-800';
             case 'รออะไหล่': return 'bg-yellow-100 text-yellow-800';
             case 'ซ่อมเสร็จ': return 'bg-green-100 text-green-800';
+            case 'ยกเลิก': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
         }
     };
     
-    const getPriorityBadge = (priority: Repair['priority']) => {
-        switch (priority) {
-            case 'ฉุกเฉิน': return 'border-red-500 text-red-600';
-            case 'เร่งด่วน': return 'border-yellow-500 text-yellow-600';
-            case 'ปกติ': return 'border-green-500 text-green-600';
-            default: return 'border-gray-400 text-gray-500';
-        }
-    };
-
-    const openDetailModal = (repair: Repair) => {
-        setSelectedRepair(repair);
-        setDetailModalOpen(true);
-    };
-
-    const openEditModal = (repair: Repair) => {
-        setSelectedRepair(repair);
-        setEditModalOpen(true);
-    };
-
-    const handleUpdateRepair = (updatedRepair: Repair) => {
-        updateRepair(updatedRepair);
-        setEditModalOpen(false);
-        setSelectedRepair(null);
-    };
-
     const getTechnicianName = (id: string) => technicians.find(t => t.id === id)?.name || 'N/A';
     
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-2xl shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                     <input
                         type="text"
-                        placeholder="ค้นหา (ทะเบียน, ยี่ห้อ, รุ่น, เลขที่)..."
+                        placeholder="ค้นหา (ทะเบียน, เลขที่)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base"
+                        className="w-72 p-2 border border-gray-300 rounded-lg text-base"
                     />
-                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base">
-                        <option value="all">สถานะทั้งหมด</option>
-                        <option value="รอซ่อม">รอซ่อม</option>
-                        <option value="กำลังซ่อม">กำลังซ่อม</option>
-                        <option value="รออะไหล่">รออะไหล่</option>
-                        <option value="ซ่อมเสร็จ">ซ่อมเสร็จ</option>
-                    </select>
-                     <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base">
-                        <option value="all">ความสำคัญทั้งหมด</option>
-                        <option value="ปกติ">ปกติ</option>
-                        <option value="เร่งด่วน">เร่งด่วน</option>
-                        <option value="ฉุกเฉิน">ฉุกเฉิน</option>
-                    </select>
+                    <div>
+                        <label className="font-medium text-gray-700 mr-2 text-base">สถานะ:</label>
+                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="รอซ่อม">รอซ่อม</option>
+                            <option value="กำลังซ่อม">กำลังซ่อม</option>
+                            <option value="รออะไหล่">รออะไหล่</option>
+                            <option value="ซ่อมเสร็จ">ซ่อมเสร็จ</option>
+                            <option value="ยกเลิก">ยกเลิก</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / ทะเบียน</th>
-                            <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ยี่ห้อ / รุ่น</th>
-                            <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">อาการ</th>
-                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ความสำคัญ</th>
-                            <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
-                            <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง</th>
-                            <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 uppercase">จัดการ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / ทะเบียน</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รถ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อาการ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่แจ้ง</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredRepairs.map(repair => (
                             <tr key={repair.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4">
-                                    <div className="text-base font-semibold text-blue-600 cursor-pointer" onClick={() => openDetailModal(repair)}>{repair.licensePlate}</div>
-                                    <div className="text-sm text-gray-500">{repair.repairOrderNo}</div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="text-base">{repair.vehicleMake} {repair.vehicleModel}</div>
-                                    <div className="text-sm text-gray-500">{repair.vehicleType}</div>
-                                </td>
-                                <td className="px-6 py-4 text-base max-w-xs truncate">{repair.problemDescription}</td>
-                                <td className="px-6 py-4"><span className={`px-3 py-1 text-sm font-semibold rounded-full border-2 ${getPriorityBadge(repair.priority)}`}>{repair.priority}</span></td>
-                                <td className="px-6 py-4"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
-                                <td className="px-6 py-4 text-base">{getTechnicianName(repair.assignedTechnician)}</td>
-                                <td className="px-6 py-4 text-right space-x-4">
-                                    <button onClick={() => openEditModal(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">แก้ไข</button>
-                                    <button onClick={() => deleteRepair(repair.id)} className="text-red-600 hover:text-red-800 text-base font-medium">ลบ</button>
+                                <td className="px-4 py-3"><div className="font-semibold">{repair.repairOrderNo}</div><div className="text-sm text-gray-500">{repair.licensePlate}</div></td>
+                                <td className="px-4 py-3"><div className="font-medium">{repair.vehicleMake} {repair.vehicleModel}</div><div className="text-sm text-gray-500">{repair.vehicleType}</div></td>
+                                <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
+                                <td className="px-4 py-3 text-base">{getTechnicianName(repair.assignedTechnician)}</td>
+                                <td className="px-4 py-3 text-base">{new Date(repair.createdAt).toLocaleDateString('th-TH')}</td>
+                                <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
+                                <td className="px-4 py-3 text-center space-x-2">
+                                    <button onClick={() => setEditingRepair(repair)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
+                                    <button onClick={() => setViewingRepair(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดู</button>
+                                    <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}
+                         {filteredRepairs.length === 0 && (
+                            <tr>
+                                <td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
+                            </tr>
+                        )}
                     </tbody>
-                </table>
+                 </table>
             </div>
             
-            {isDetailModalOpen && selectedRepair && (
-                <VehicleDetailModal 
-                    repair={selectedRepair} 
-                    allRepairs={repairs} 
-                    technicians={technicians} 
-                    onClose={() => setDetailModalOpen(false)} 
-                />
-            )}
-
-            {isEditModalOpen && selectedRepair && (
+            {editingRepair && (
                 <RepairEditModal 
-                    repair={selectedRepair} 
-                    technicians={technicians} 
-                    onSave={handleUpdateRepair} 
-                    onClose={() => setEditModalOpen(false)} 
+                    repair={editingRepair}
+                    onSave={handleSaveRepair}
+                    onClose={() => setEditingRepair(null)}
+                    technicians={technicians}
+                    stock={stock}
+                    setStock={setStock}
                 />
             )}
-
+            {viewingRepair && (
+                <VehicleDetailModal
+                    repair={viewingRepair}
+                    allRepairs={repairs}
+                    technicians={technicians}
+                    onClose={() => setViewingRepair(null)}
+                />
+            )}
+            {repairForUsedParts && (
+                <AddUsedPartsModal
+                    repair={repairForUsedParts}
+                    onSave={handleAddUsedParts}
+                    onClose={() => setRepairForUsedParts(null)}
+                />
+            )}
         </div>
     );
 };

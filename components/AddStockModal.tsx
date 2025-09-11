@@ -10,6 +10,7 @@ interface AddStockModalProps {
       requisitionNumber?: string;
       invoiceNumber?: string;
       notes?: string;
+      sourceRepairOrderNo?: string;
     }) => void;
     onClose: () => void;
 }
@@ -19,6 +20,7 @@ const AddStockModal: React.FC<AddStockModalProps> = ({ item, onSave, onClose }) 
     const [pricePerUnit, setPricePerUnit] = useState(item.price);
     const [requisitionNumber, setRequisitionNumber] = useState('');
     const [invoiceNumber, setInvoiceNumber] = useState('');
+    const [sourceRepairOrderNo, setSourceRepairOrderNo] = useState('');
     const [notes, setNotes] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -33,6 +35,7 @@ const AddStockModal: React.FC<AddStockModalProps> = ({ item, onSave, onClose }) 
             pricePerUnit,
             requisitionNumber,
             invoiceNumber,
+            sourceRepairOrderNo,
             notes,
         });
         onClose();
@@ -93,6 +96,16 @@ const AddStockModal: React.FC<AddStockModalProps> = ({ item, onSave, onClose }) 
                                 className="w-full p-2 border border-gray-300 rounded-lg"
                             />
                         </div>
+                    </div>
+                     <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">ที่มาจากใบซ่อม (ถ้ามี)</label>
+                        <input 
+                            type="text" 
+                            value={sourceRepairOrderNo} 
+                            onChange={(e) => setSourceRepairOrderNo(e.target.value)} 
+                            placeholder="เช่น RO-2024-00123"
+                            className="w-full p-2 border border-gray-300 rounded-lg"
+                        />
                     </div>
                      <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">หมายเหตุ</label>

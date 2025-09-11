@@ -13,8 +13,9 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
     const repairStats = useMemo(() => {
         const totalRepairs = repairs.length;
         const totalCost = repairs.reduce((acc, r) => {
-            const partsCost = (r.parts || []).reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0);
-            return acc + (r.repairCost || 0) + partsCost;
+            // FIX: Explicitly cast values to Number to prevent arithmetic errors with mixed types.
+            const partsCost = (r.parts || []).reduce((pAcc, p) => pAcc + (Number(p.quantity) * Number(p.unitPrice)), 0);
+            return acc + (Number(r.repairCost) || 0) + partsCost;
         }, 0);
 
         const repairsByType = repairs.reduce((acc, r) => {
@@ -38,9 +39,10 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
             busiestVehicle: busiestVehicle ? `${busiestVehicle[0]} (${busiestVehicle[1]} ครั้ง)` : 'N/A',
             repairsByType: Object.entries(repairsByType).sort((a,b) => b[1] - a[1]),
             repairsByDispatch: repairs.reduce((acc, r) => {
-                acc[r.dispatchType] = (acc[r.dispatchType] || 0) + 1;
+                const dispatchType = r.dispatchType as 'ภายใน' | 'ภายนอก';
+                acc[dispatchType] = (acc[dispatchType] || 0) + 1;
                 return acc;
-            }, {} as Record<string, number>),
+            }, {} as Record<'ภายใน' | 'ภายนอก', number>),
         }
     }, [repairs]);
 

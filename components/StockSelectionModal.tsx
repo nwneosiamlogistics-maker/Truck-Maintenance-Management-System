@@ -50,7 +50,8 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                 return {
                     partId: stockItem.id,
                     name: stockItem.name,
-                    code: stockItem.id,
+                    // FIX: Use stockItem.code instead of stockItem.id for the part code.
+                    code: stockItem.code,
                     quantity: quantity,
                     unit: stockItem.unit, // <-- Add unit from stock
                     unitPrice: stockItem.price,

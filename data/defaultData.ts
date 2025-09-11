@@ -9,12 +9,12 @@ export const getDefaultTechnicians = (): Technician[] => [
 ];
 
 export const getDefaultStock = (): StockItem[] => [
-    { id: 'P001', name: 'น้ำมันเครื่องดีเซล 15W-40', category: 'น้ำมัน', quantity: 50, unit: 'ลิตร', minStock: 20, maxStock: 100, price: 180, sellingPrice: 250, storageLocation: 'A1-01', supplier: 'บจก. สยามออยล์', status: 'ปกติ', notes: 'สำหรับรถบรรทุกหนัก' },
-    { id: 'P002', name: 'ไส้กรองน้ำมันเครื่อง', category: 'เครื่องยนต์', quantity: 15, unit: 'ชิ้น', minStock: 10, maxStock: 50, price: 250, sellingPrice: 350, storageLocation: 'A1-02', supplier: 'บจก. ออโต้พาร์ท', status: 'สต๊อกต่ำ' },
-    { id: 'P003', name: 'ผ้าเบรกหน้า', category: 'เบรก', quantity: 5, unit: 'ชุด', minStock: 5, maxStock: 20, price: 1200, sellingPrice: 1800, storageLocation: 'B2-05', supplier: 'บจก. เบรกดี', status: 'สต๊อกต่ำ' },
-    { id: 'P004', name: 'หลอดไฟหน้า H4', category: 'ไฟฟ้า', quantity: 100, unit: 'หลอด', minStock: 50, maxStock: 200, price: 80, sellingPrice: 150, storageLocation: 'C1-11', supplier: 'บจก. ไลท์ติ้ง', status: 'ปกติ' },
-    { id: 'P005', name: 'แบตเตอรี่ 12V 100Ah', category: 'ไฟฟ้า', quantity: 8, unit: 'ลูก', minStock: 5, maxStock: 15, price: 2500, sellingPrice: 3200, storageLocation: 'C1-12', supplier: 'บจก. พลังงานไฟฟ้า', status: 'ปกติ' },
-    { id: 'P006', name: 'ยางรถบรรทุก 11R22.5', category: 'ยาง', quantity: 2, unit: 'เส้น', minStock: 4, maxStock: 10, price: 8500, sellingPrice: 10000, storageLocation: 'D3-01', supplier: 'บจก. กู๊ดไทร์', status: 'หมดสต๊อก' },
+    { id: 'P001', code: 'SKU-OIL-001', name: 'น้ำมันเครื่องดีเซล 15W-40', category: 'น้ำมัน', quantity: 50, unit: 'ลิตร', minStock: 20, maxStock: 100, price: 180, sellingPrice: 250, storageLocation: 'A1-01', supplier: 'บจก. สยามออยล์', status: 'ปกติ', notes: 'สำหรับรถบรรทุกหนัก' },
+    { id: 'P002', code: 'SKU-FIL-001', name: 'ไส้กรองน้ำมันเครื่อง', category: 'เครื่องยนต์', quantity: 15, unit: 'ชิ้น', minStock: 10, maxStock: 50, price: 250, sellingPrice: 350, storageLocation: 'A1-02', supplier: 'บจก. ออโต้พาร์ท', status: 'สต๊อกต่ำ' },
+    { id: 'P003', code: 'SKU-BRK-001', name: 'ผ้าเบรกหน้า', category: 'เบรก', quantity: 5, unit: 'ชุด', minStock: 5, maxStock: 20, price: 1200, sellingPrice: 1800, storageLocation: 'B2-05', supplier: 'บจก. เบรกดี', status: 'สต๊อกต่ำ' },
+    { id: 'P004', code: 'SKU-LGT-001', name: 'หลอดไฟหน้า H4', category: 'ไฟฟ้า', quantity: 100, unit: 'หลอด', minStock: 50, maxStock: 200, price: 80, sellingPrice: 150, storageLocation: 'C1-11', supplier: 'บจก. ไลท์ติ้ง', status: 'ปกติ' },
+    { id: 'P005', code: 'SKU-ELE-001', name: 'แบตเตอรี่ 12V 100Ah', category: 'ไฟฟ้า', quantity: 8, unit: 'ลูก', minStock: 5, maxStock: 15, price: 2500, sellingPrice: 3200, storageLocation: 'C1-12', supplier: 'บจก. พลังงานไฟฟ้า', status: 'ปกติ' },
+    { id: 'P006', code: 'SKU-TYR-001', name: 'ยางรถบรรทุก 11R22.5', category: 'ยาง', quantity: 2, unit: 'เส้น', minStock: 4, maxStock: 10, price: 8500, sellingPrice: 10000, storageLocation: 'D3-01', supplier: 'บจก. กู๊ดไทร์', status: 'หมดสต๊อก' },
 ];
 
 export const getDefaultStockTransactions = (): StockTransaction[] => [];
@@ -45,7 +45,7 @@ export const getDefaultRepairs = (): Repair[] => {
             dispatchType: 'ภายใน',
             repairCost: 1500,
             parts: [
-                { partId: 'P003', name: 'ผ้าเบรกหน้า', code: 'P003', quantity: 1, unit: 'ชุด', unitPrice: 1200, source: 'สต๊อกอู่' }
+                { partId: 'P003', name: 'ผ้าเบรกหน้า', code: 'SKU-BRK-001', quantity: 1, unit: 'ชุด', unitPrice: 1200, source: 'สต๊อกอู่' }
             ],
             attachments: [],
         },
@@ -91,8 +91,8 @@ export const getDefaultRepairs = (): Repair[] => {
             assignedTechnician: '',
             dispatchType: 'ภายใน',
             parts: [
-                { partId: 'P001', name: 'น้ำมันเครื่องดีเซล 15W-40', code: 'P001', quantity: 7, unit: 'ลิตร', unitPrice: 180, source: 'สต๊อกอู่' },
-                { partId: 'P002', name: 'ไส้กรองน้ำมันเครื่อง', code: 'P002', quantity: 1, unit: 'ชิ้น', unitPrice: 250, source: 'สต๊อกอู่' }
+                { partId: 'P001', name: 'น้ำมันเครื่องดีเซล 15W-40', code: 'SKU-OIL-001', quantity: 7, unit: 'ลิตร', unitPrice: 180, source: 'สต๊อกอู่' },
+                { partId: 'P002', name: 'ไส้กรองน้ำมันเครื่อง', code: 'SKU-FIL-001', quantity: 1, unit: 'ชิ้น', unitPrice: 250, source: 'สต๊อกอู่' }
             ],
             attachments: [],
         },

@@ -1,129 +1,131 @@
-export type Tab = 'dashboard' | 'form' | 'list' | 'stock' | 'reports' | 'technicians' | 'estimation' | 'maintenance' | 'history';
+export type Tab = 'dashboard' | 'form' | 'list' | 'history' | 'stock' | 'reports' | 'technicians' | 'estimation' | 'maintenance';
+
+export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
+export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
+export type UsedPartCondition = 'ดี' | 'พอใช้' | 'ชำรุด';
+export type UsedPartStatus = 'รอจำหน่าย' | 'รอทำลาย' | 'เก็บไว้ใช้ต่อ' | 'จำหน่ายแล้ว' | 'ทำลายแล้ว';
 
 export interface FileAttachment {
-  name: string;
-  size: number;
+    name: string;
+    size: number;
 }
 
 export interface PartRequisitionItem {
-  partId: string; // from stock, or 'new' for external
-  name: string;
-  code: string;
-  quantity: number;
-  unit: string; // Added from PDF analysis
-  unitPrice: number;
-  source: 'สต๊อกอู่' | 'ร้านค้า';
-  supplierName?: string; // For external purchases
-  purchaseDate?: string; // Added for external parts
+    partId: string;
+    name: string;
+    code: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    source: 'สต๊อกอู่' | 'ร้านค้า';
+    supplierName?: string;
+    purchaseDate?: string;
 }
 
 export interface Repair {
-  id: string; // Auto-generated unique ID
-  repairOrderNo: string; // User-facing ID
-  requisitionNumber?: string; // Added from PDF: ใบเบิกสินค้า
-  invoiceNumber?: string; // Added from PDF: Invoice
-  licensePlate: string;
-  vehicleType: string;
-  vehicleMake: string; // Added from PDF: ยี่ห้อ
-  vehicleModel: string; // Was combination, now just model (รุ่น)
-  currentMileage: string;
-  reportedBy: string; 
-  repairCategory: string; // 'เปลี่ยนอะไหล่', 'ซ่อมทั่วไป', 'ตรวจเช็ก'
-  problemDescription: string;
-  notes?: string;
-  
-  priority: 'ปกติ' | 'เร่งด่วน' | 'ฉุกเฉิน';
-  status: 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ';
-  createdAt: string; // Report date
-  updatedAt: string;
-  
-  // Assignment & Timeline
-  approvalDate?: string; // Added for repair approval date
-  assignedTechnician: string;
-  repairStartDate?: string;
-  repairEndDate?: string;
-  
-  // Dispatch Info (optional section)
-  dispatchType: 'ภายใน' | 'ภายนอก';
-  repairLocation?: string; // Name of garage
-  coordinator?: string;
-  returnDate?: string;
-  repairResult?: string;
-  
-  // Costs
-  repairCost?: number; // Labor/external cost
-  partsVat?: number; // VAT for externally purchased parts
-
-  // Parts & Files
-  parts: PartRequisitionItem[];
-  attachments: FileAttachment[];
+    id: string;
+    repairOrderNo: string;
+    licensePlate: string;
+    vehicleType: string;
+    vehicleMake: string;
+    vehicleModel: string;
+    currentMileage: string;
+    reportedBy: string;
+    repairCategory: string;
+    problemDescription: string;
+    priority: 'ปกติ' | 'เร่งด่วน' | 'ฉุกเฉิน';
+    status: RepairStatus;
+    createdAt: string; // ISO string
+    updatedAt: string; // ISO string
+    approvalDate?: string;
+    assignedTechnician: string;
+    repairStartDate?: string;
+    repairEndDate?: string;
+    dispatchType: 'ภายใน' | 'ภายนอก';
+    repairLocation?: string;
+    repairCost?: number;
+    partsVat?: number;
+    parts: PartRequisitionItem[];
+    attachments: FileAttachment[];
+    notes?: string;
+    coordinator?: string;
+    returnDate?: string;
+    repairResult?: string;
+    requisitionNumber?: string;
+    invoiceNumber?: string;
 }
 
-
 export interface Technician {
-  id: string;
-  name: string;
-  skills: string[];
-  experience: number;
-  status: 'ว่าง' | 'ไม่ว่าง' | 'ลา';
-  rating: number;
-  completedJobs: number;
-  currentJobs: number;
+    id: string;
+    name: string;
+    skills: string[];
+    experience: number;
+    status: 'ว่าง' | 'ไม่ว่าง' | 'ลา';
+    rating: number;
+    completedJobs: number;
+    currentJobs: number;
 }
 
 export interface StockItem {
-  id: string;
-  name: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  minStock: number;
-  maxStock?: number;
-  price: number; // Cost price
-  sellingPrice?: number;
-  storageLocation?: string;
-  supplier: string;
-  status: 'ปกติ' | 'สต๊อกต่ำ' | 'สต๊อกเกิน' | 'หมดสต๊อก';
-  notes?: string;
+    id: string;
+    code: string;
+    name: string;
+    category: string;
+    quantity: number;
+    unit: string;
+    minStock: number;
+    maxStock?: number;
+    price: number;
+    sellingPrice?: number;
+    storageLocation: string;
+    supplier: string;
+    status: StockStatus;
+    notes?: string;
 }
 
 export interface StockTransaction {
-  id: string;
-  stockItemId: string;
-  stockItemName: string; 
-  type: 'in' | 'out';
-  quantityChange: number;
-  newQuantity: number;
-  date: string; // ISO string
-  requisitionNumber?: string;
-  invoiceNumber?: string;
-  pricePerUnit?: number;
-  notes?: string;
-  // For 'out' transactions
-  technicianId?: string; 
-  repairOrderNo?: string; 
+    id: string;
+    stockItemId: string;
+    stockItemName: string;
+    type: 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า';
+    quantity: number; // positive for additions, negative for subtractions
+    transactionDate: string; // ISO string
+    actor: string;
+    notes?: string;
+    relatedRepairOrder?: string;
+    pricePerUnit?: number;
 }
 
-
 export interface Report {
-  id: string;
-  name: string;
-  type: string;
-  filename: string;
-  createdAt: string;
-  status: 'พร้อมใช้' | 'กำลังสร้าง';
-  size: string;
+    id: string;
+    name: string;
+    type: 'PDF' | 'Excel' | 'CSV';
+    filename: string;
+    createdAt: string; // ISO string
+    status: 'พร้อมใช้' | 'กำลังสร้าง';
+    size: string;
 }
 
 export interface MaintenancePlan {
-  id: string;
-  vehicleLicensePlate: string;
-  planName: string;
-  // Time-based tracking
-  lastServiceDate: string; // 'YYYY-MM-DD'
-  frequencyValue: number;
-  frequencyUnit: 'days' | 'weeks' | 'months';
-  // Mileage-based tracking
-  lastServiceMileage: number;
-  mileageFrequency: number; // e.g., service every 10000 km
+    id: string;
+    vehicleLicensePlate: string;
+    planName: string;
+    lastServiceDate: string; // YYYY-MM-DD
+    frequencyValue: number;
+    frequencyUnit: 'days' | 'weeks' | 'months';
+    lastServiceMileage: number;
+    mileageFrequency: number;
+}
+
+export interface UsedPart {
+    id: string;
+    originalPartId: string;
+    name: string;
+    fromRepairId: string;
+    fromRepairOrderNo: string;
+    fromLicensePlate: string;
+    dateRemoved: string; // ISO String
+    condition: UsedPartCondition;
+    status: UsedPartStatus;
+    notes?: string;
 }

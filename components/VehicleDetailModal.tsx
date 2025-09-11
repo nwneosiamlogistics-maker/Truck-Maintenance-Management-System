@@ -19,14 +19,15 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
     };
     
     const calculateTotalCost = (repairItem: Repair) => {
-        const partsCost = (repairItem.parts || []).reduce((acc, part) => acc + (part.quantity * part.unitPrice), 0);
-        const laborCost = repairItem.repairCost || 0;
+        // FIX: Explicitly cast values to Number to prevent arithmetic errors with mixed types.
+        const partsCost = (repairItem.parts || []).reduce((acc, part) => acc + (Number(part.quantity) * Number(part.unitPrice)), 0);
+        const laborCost = Number(repairItem.repairCost) || 0;
         return partsCost + laborCost;
     };
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4"
+            className="fixed inset-0 bg-black bg-opacity-60 z-[100] flex justify-center items-center p-4"
             onClick={onClose}
         >
             <div 
@@ -71,7 +72,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                     
                     {/* Parts List */}
                     <div>
-                        <h4 className="text-xl font-semibold text-gray-700 mb-3">รายการอะไหล่ที่ใช้ ({repair.parts.length} รายการ)</h4>
+                        <h4 className="text-xl font-semibold text-gray-700 mb-3">รายการอะไหล่ที่ใช้ ({(repair.parts || []).length} รายการ)</h4>
                         {repair.parts && repair.parts.length > 0 ? (
                             <div className="border rounded-lg overflow-hidden max-h-60 overflow-y-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -128,8 +129,14 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={4} className="text-center py-8 text-gray-500 text-base">
-                                                ไม่พบประวัติการซ่อมสำหรับรถคันนี้
+                                            <td colSpan={4} className="text-center py-8 text-gray-500">
+                                                 <div className="flex flex-col items-center">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    </svg>
+                                                    <span className="font-semibold text-base">ไม่พบประวัติการซ่อมสำหรับรถคันนี้</span>
+                                                    <span className="text-sm text-gray-400">นี่อาจเป็นการซ่อมครั้งแรกที่ถูกบันทึกในระบบ</span>
+                                                </div>
                                             </td>
                                         </tr>
                                     )}

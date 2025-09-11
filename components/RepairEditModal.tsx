@@ -1,32 +1,99 @@
 import React, { useState, useEffect } from 'react';
-import type { Repair, Technician } from '../types';
+import type { Repair, Technician, StockItem, RepairStatus, PartRequisitionItem } from '../types';
+import StockSelectionModal from './StockSelectionModal';
+import { useToast } from '../context/ToastContext';
 
 interface RepairEditModalProps {
     repair: Repair;
-    technicians: Technician[];
-    onSave: (repair: Repair) => void;
+    onSave: (repair: Repair, statusChangedToCompleted: boolean) => void;
     onClose: () => void;
+    technicians: Technician[];
+    stock: StockItem[];
+    setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
 }
 
-const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, technicians, onSave, onClose }) => {
-    const [formData, setFormData] = useState<Repair>(repair);
+const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock }) => {
+    const [formData, setFormData] = useState<Repair>({
+        ...repair,
+        parts: repair.parts || [],
+        attachments: repair.attachments || [],
+    });
+    const { addToast } = useToast();
+    const [isStockModalOpen, setStockModalOpen] = useState(false);
 
     useEffect(() => {
-        setFormData(repair);
+        setFormData({
+            ...repair,
+            parts: repair.parts || [],
+            attachments: repair.attachments || [],
+        });
     }, [repair]);
+
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newStatus = e.target.value as RepairStatus;
+        const now = new Date().toISOString();
+        const updates: Partial<Repair> = { status: newStatus };
+
+        if (newStatus === 'กำลังซ่อม' && !formData.repairStartDate) {
+            updates.repairStartDate = now;
+        }
+        if (newStatus === 'ซ่อมเสร็จ') {
+            updates.repairEndDate = now;
+        }
+
+        setFormData(prev => ({ ...prev, ...updates }));
+    };
+
+    const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
+        const partsToAdd = newParts.filter(np => !(formData.parts || []).some(p => p.partId === np.partId));
+        setFormData(prev => ({ ...prev, parts: [...(prev.parts || []), ...partsToAdd]}));
+        setStockModalOpen(false);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+        const statusChangedToCompleted = repair.status !== 'ซ่อมเสร็จ' && formData.status === 'ซ่อมเสร็จ';
+
+        // Stock adjustment logic on completion
+        if (statusChangedToCompleted) {
+            let canComplete = true;
+            const stockUpdates = new Map<string, number>();
+
+            (formData.parts || []).forEach(part => {
+                if (part.source === 'สต๊อกอู่') {
+                    const stockItem = stock.find(s => s.id === part.partId);
+                    if (!stockItem || stockItem.quantity < part.quantity) {
+                        addToast(`สต็อกไม่พอสำหรับ ${part.name}`, 'error');
+                        canComplete = false;
+                    } else {
+                        stockUpdates.set(part.partId, part.quantity);
+                    }
+                }
+            });
+
+            if (!canComplete) return;
+
+            setStock(prevStock => {
+                return prevStock.map(s => {
+                    if (stockUpdates.has(s.id)) {
+                        const newQuantity = s.quantity - (stockUpdates.get(s.id) || 0);
+                        return { ...s, quantity: newQuantity };
+                    }
+                    return s;
+                });
+            });
+        }
+        onSave(formData, statusChangedToCompleted);
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="text-2xl font-bold text-gray-800">แก้ไขใบแจ้งซ่อม: {repair.repairOrderNo}</h3>
@@ -34,92 +101,49 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, technicians, 
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
-                <form id="edit-repair-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <form id="repair-edit-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+                    {/* Form fields for editing repair */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ทะเบียนรถ</label>
-                            <input type="text" value={formData.licensePlate} disabled className="w-full p-2 border border-gray-300 rounded-lg bg-gray-100" />
-                        </div>
-                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ยี่ห้อ</label>
-                            <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">รุ่น</label>
-                            <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                    </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">เลขที่ใบเบิก</label>
-                            <input type="text" name="requisitionNumber" value={formData.requisitionNumber || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">เลขที่ Invoice</label>
-                            <input type="text" name="invoiceNumber" value={formData.invoiceNumber || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">สถานะ</label>
-                            <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
+                            <label className="block text-sm font-medium">สถานะ</label>
+                            <select name="status" value={formData.status} onChange={handleStatusChange} className="w-full p-2 border rounded-lg mt-1">
                                 <option value="รอซ่อม">รอซ่อม</option>
                                 <option value="กำลังซ่อม">กำลังซ่อม</option>
                                 <option value="รออะไหล่">รออะไหล่</option>
                                 <option value="ซ่อมเสร็จ">ซ่อมเสร็จ</option>
+                                <option value="ยกเลิก">ยกเลิก</option>
                             </select>
                         </div>
-                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">วันที่อนุมัติซ่อม</label>
-                            <input type="date" name="approvalDate" value={formData.approvalDate ? formData.approvalDate.split('T')[0] : ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
-                        </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ความสำคัญ</label>
-                             <select name="priority" value={formData.priority} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
-                                <option value="ปกติ">ปกติ</option>
-                                <option value="เร่งด่วน">เร่งด่วน</option>
-                                <option value="ฉุกเฉิน">ฉุกเฉิน</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">วันที่เริ่มซ่อม</label>
-                            <input type="date" name="repairStartDate" value={formData.repairStartDate ? formData.repairStartDate.split('T')[0] : ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
-                        </div>
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">วันที่ซ่อมเสร็จ</label>
-                            <input type="date" name="repairEndDate" value={formData.repairEndDate ? formData.repairEndDate.split('T')[0] : ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">มอบหมายช่าง</label>
-                            <select name="assignedTechnician" value={formData.assignedTechnician} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
-                                <option value="">-- ไม่ระบุ --</option>
-                                {technicians.map(tech => (
-                                    <option key={tech.id} value={tech.id}>{tech.name} ({tech.status})</option>
+                            <label className="block text-sm font-medium">มอบหมายช่าง</label>
+                            <select name="assignedTechnician" value={formData.assignedTechnician} onChange={handleInputChange} className="w-full p-2 border rounded-lg mt-1">
+                                <option value="">-- เลือกช่าง --</option>
+                                {technicians.filter(t => t.status === 'ว่าง' || t.id === formData.assignedTechnician).map(tech => (
+                                    <option key={tech.id} value={tech.id}>{tech.name}</option>
                                 ))}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ค่าใช้จ่ายซ่อม (บาท)</label>
-                            <input type="number" name="repairCost" value={formData.repairCost || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
                     </div>
-
+                    <div>
+                        <label className="block text-sm font-medium">รายละเอียดปัญหา</label>
+                        <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={3} className="w-full p-2 border rounded-lg mt-1" />
+                    </div>
                      <div>
-                        <label className="block text-base font-medium text-gray-700 mb-1">หมายเหตุ</label>
-                        <textarea name="notes" value={formData.notes || ''} onChange={handleInputChange} rows={3} className="w-full p-2 border border-gray-300 rounded-lg"></textarea>
+                        <label className="block text-sm font-medium">ผลการซ่อม</label>
+                        <textarea name="repairResult" value={formData.repairResult || ''} onChange={handleInputChange} rows={3} className="w-full p-2 border rounded-lg mt-1" />
                     </div>
-
+                    <button type="button" onClick={() => setStockModalOpen(true)} className="w-full text-blue-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-blue-500 hover:bg-blue-50">
+                           + เพิ่มอะไหล่จากสต็อก
+                    </button>
+                    {/* Display parts */}
                 </form>
-                 <div className="p-6 border-t flex justify-end space-x-4">
+                <div className="p-6 border-t flex justify-end space-x-4">
                     <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button type="submit" form="edit-repair-form" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
+                    <button type="submit" form="repair-edit-form" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
                 </div>
+                {isStockModalOpen && (
+                    <StockSelectionModal stock={stock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} />
+                )}
             </div>
         </div>
     );

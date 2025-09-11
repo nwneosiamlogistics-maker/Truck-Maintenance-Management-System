@@ -1,6 +1,5 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getDatabase } from "firebase/database";
+import firebase from "firebase/compat/app";
+import "firebase/compat/database";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -13,6 +12,7 @@ const firebaseConfig = {
   appId: "1:655666667957:web:e577f257d966e4c0f3b9fc"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const database = getDatabase(app);
+// FIX: Switched to the Firebase compatibility library to resolve a module resolution error with 'initializeApp'.
+// The compat library provides the v8 API surface on top of the v9 SDK.
+const app = firebase.initializeApp(firebaseConfig);
+export const database = firebase.database();

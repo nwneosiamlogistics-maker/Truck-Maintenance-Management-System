@@ -1,13 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician } from '../types';
+import type { Repair, Technician, StockItem } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
+import RepairEditModal from './RepairEditModal';
+import { useToast } from '../context/ToastContext';
 
 interface RepairHistoryProps {
     repairs: Repair[];
+    setRepairs: React.Dispatch<React.SetStateAction<Repair[]>>;
     technicians: Technician[];
+    stock: StockItem[];
+    setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
 }
 
-const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, technicians }) => {
+const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -15,7 +20,9 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, technicians }) =
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
     const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
+    const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
     const [isDetailModalOpen, setDetailModalOpen] = useState(false);
+    const { addToast } = useToast();
 
     const filteredRepairs = useMemo(() => {
         const completedRepairs = repairs
@@ -60,11 +67,25 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, technicians }) =
         setDetailModalOpen(true);
     };
 
+    const handleSaveRepair = (updatedRepair: Repair) => {
+        setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
+        setEditingRepair(null);
+        addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
+    };
+
+    const handleDeleteRepair = (repairId: string, repairOrderNo: string) => {
+        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+            setRepairs(prev => prev.filter(r => r.id !== repairId));
+            addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
+        }
+    };
+
     const getTechnicianName = (id: string) => technicians.find(t => t.id === id)?.name || 'N/A';
     
     const calculateTotalCost = (repair: Repair) => {
-        const partsTotal = (repair.parts || []).reduce((sum, part) => sum + (part.quantity * part.unitPrice), 0);
-        return (repair.repairCost || 0) + partsTotal + (repair.partsVat || 0);
+        // FIX: Explicitly cast values to Number to prevent arithmetic errors with mixed types.
+        const partsTotal = (repair.parts || []).reduce((sum, part) => sum + (Number(part.quantity) * Number(part.unitPrice)), 0);
+        return (Number(repair.repairCost) || 0) + partsTotal + (Number(repair.partsVat) || 0);
     };
 
     return (
@@ -117,8 +138,10 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, technicians }) =
                                 <td className="px-6 py-4 text-base">{repair.repairCategory}</td>
                                 <td className="px-6 py-4 text-base">{getTechnicianName(repair.assignedTechnician)}</td>
                                 <td className="px-6 py-4 text-right text-base font-bold">{calculateTotalCost(repair).toLocaleString()}</td>
-                                <td className="px-6 py-4 text-center">
-                                    <button onClick={() => openDetailModal(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดูรายละเอียด</button>
+                                <td className="px-6 py-4 text-center whitespace-nowrap space-x-2">
+                                    <button onClick={() => openDetailModal(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดู</button>
+                                    <button onClick={() => setEditingRepair(repair)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
+                                    <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}
@@ -158,6 +181,16 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, technicians }) =
                     allRepairs={repairs} 
                     technicians={technicians} 
                     onClose={() => setDetailModalOpen(false)} 
+                />
+            )}
+            {editingRepair && (
+                <RepairEditModal 
+                    repair={editingRepair}
+                    onSave={handleSaveRepair}
+                    onClose={() => setEditingRepair(null)}
+                    technicians={technicians}
+                    stock={stock}
+                    setStock={setStock}
                 />
             )}
         </div>
