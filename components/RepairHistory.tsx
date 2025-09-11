@@ -23,6 +23,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
     const [isDetailModalOpen, setDetailModalOpen] = useState(false);
     const { addToast } = useToast();
+    const [selectedRepairIds, setSelectedRepairIds] = useState<string[]>([]);
 
     const filteredRepairs = useMemo(() => {
         const completedRepairs = repairs
@@ -88,6 +89,42 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         return (Number(repair.repairCost) || 0) + partsTotal + (Number(repair.partsVat) || 0);
     };
 
+    // New selection handlers
+    const handleSelect = (repairId: string) => {
+        setSelectedRepairIds(prev =>
+            prev.includes(repairId)
+                ? prev.filter(id => id !== repairId)
+                : [...prev, repairId]
+        );
+    };
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            const idsToSelect = paginatedRepairs.map(r => r.id);
+            setSelectedRepairIds(idsToSelect);
+        } else {
+            setSelectedRepairIds([]);
+        }
+    };
+
+    const handleDeleteSelected = () => {
+        if (selectedRepairIds.length === 0) return;
+
+        const password = window.prompt("เพื่อยืนยันการลบ โปรดกรอกรหัส: 1234");
+        
+        if (password === null) { // User clicked cancel
+            return;
+        }
+
+        if (password === "1234") {
+            setRepairs(prev => prev.filter(r => !selectedRepairIds.includes(r.id)));
+            addToast(`ลบประวัติการซ่อม ${selectedRepairIds.length} รายการสำเร็จ`, 'success');
+            setSelectedRepairIds([]);
+        } else {
+            addToast("รหัสไม่ถูกต้อง การลบถูกยกเลิก", "error");
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm space-y-4">
@@ -111,10 +148,40 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                 </div>
             </div>
 
+            {selectedRepairIds.length > 0 && (
+                <div className="bg-blue-100 border border-blue-300 p-3 rounded-xl shadow-sm flex justify-between items-center transition-all duration-300">
+                    <span className="font-semibold text-blue-800">
+                        เลือกแล้ว {selectedRepairIds.length} รายการ
+                    </span>
+                    <button
+                        onClick={handleDeleteSelected}
+                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                        </svg>
+                        ลบทั้งหมด
+                    </button>
+                </div>
+            )}
+
             <div className="bg-white p-6 rounded-2xl shadow-sm overflow-x-auto">
                  <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
+                            <th className="px-4 py-3 w-12">
+                                <input
+                                    type="checkbox"
+                                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    onChange={handleSelectAll}
+                                    checked={paginatedRepairs.length > 0 && selectedRepairIds.length === paginatedRepairs.length}
+                                    ref={el => {
+                                        if (el) {
+                                            el.indeterminate = selectedRepairIds.length > 0 && selectedRepairIds.length < paginatedRepairs.length;
+                                        }
+                                    }}
+                                />
+                            </th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่แจ้งซ่อม</th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่อนุมัติ</th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ซ่อมเสร็จ</th>
@@ -127,7 +194,15 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedRepairs.map(repair => (
-                            <tr key={repair.id} className="hover:bg-gray-50">
+                            <tr key={repair.id} className={`hover:bg-gray-50 ${selectedRepairIds.includes(repair.id) ? 'bg-blue-50' : ''}`}>
+                                <td className="px-4 py-4">
+                                     <input
+                                        type="checkbox"
+                                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        checked={selectedRepairIds.includes(repair.id)}
+                                        onChange={() => handleSelect(repair.id)}
+                                    />
+                                </td>
                                 <td className="px-6 py-4 text-base">{new Date(repair.createdAt).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                 <td className="px-6 py-4 text-base">{repair.approvalDate ? new Date(repair.approvalDate).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
                                 <td className="px-6 py-4 text-base">{repair.repairEndDate ? new Date(repair.repairEndDate).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
@@ -147,7 +222,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                         ))}
                          {paginatedRepairs.length === 0 && (
                             <tr>
-                                <td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
+                                <td colSpan={9} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
                             </tr>
                         )}
                     </tbody>

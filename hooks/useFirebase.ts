@@ -8,22 +8,21 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
   const initialValueRef = useRef(initialValue);
 
   useEffect(() => {
-    // FIX: Switched from modular API to v8 compat API to align with firebase.ts
     const dbRef = database.ref(key);
-    const initial = initialValueRef.current;
+    const resolvedInitial = initialValueRef.current instanceof Function ? initialValueRef.current() : initialValueRef.current;
     
     const listener = dbRef.on('value', (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         // Firebase returns objects for arrays, so we need to convert them back.
-        if (Array.isArray(initial) && data && typeof data === 'object' && !Array.isArray(data)) {
+        if (Array.isArray(resolvedInitial) && data && typeof data === 'object' && !Array.isArray(data)) {
             setValueState(Object.values(data) as T);
         } else {
-            setValueState(data ?? (initial instanceof Function ? initial() : initial));
+            setValueState(data ?? resolvedInitial);
         }
       } else {
         // Path doesn't exist, initialize it.
-        const dataToSet = initial instanceof Function ? initial() : initial;
+        const dataToSet = resolvedInitial;
         dbRef.set(dataToSet);
         setValueState(dataToSet); // Set local state immediately
       }
@@ -38,27 +37,28 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
   }, [key]);
 
   const setValue: SetValue<T> = useCallback((newValue) => {
-    // FIX: Switched from modular API to v8 compat API
     const dbRef = database.ref(key);
     
     if (newValue instanceof Function) {
       // For functional updates, get the current value from Firebase first
       dbRef.get().then((snapshot) => {
         let currentValue: T;
-        const initial = initialValueRef.current;
+        const resolvedInitial = initialValueRef.current instanceof Function ? initialValueRef.current() : initialValueRef.current;
+        
         if (snapshot.exists()) {
           const data = snapshot.val();
           // Ensure data from Firebase is converted to an array if necessary before applying functional update.
-          if (Array.isArray(initial) && data && typeof data === 'object' && !Array.isArray(data)) {
+          if (Array.isArray(resolvedInitial) && data && typeof data === 'object' && !Array.isArray(data)) {
             currentValue = Object.values(data) as T;
           } else {
             currentValue = data;
           }
         } else {
-          currentValue = initial instanceof Function ? initial() : initial;
+          currentValue = resolvedInitial;
         }
-
-        const resolvedValue = newValue(currentValue);
+        
+        const valueForUpdater = currentValue ?? resolvedInitial;
+        const resolvedValue = newValue(valueForUpdater);
         dbRef.set(resolvedValue)
           .catch(error => console.error(`Firebase set failed for key "${key}":`, error));
       }).catch(error => {
