@@ -1,6 +1,6 @@
-import React, { useState, ChangeEvent, FormEvent, useMemo, useEffect } from 'react';
+import React, { useState, ChangeEvent, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
@@ -12,6 +12,7 @@ interface RepairFormProps {
     addRepair: (repair: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => void;
     repairs: Repair[];
     setActiveTab: (tab: Tab) => void;
+    vehicles: Vehicle[];
 }
 
 interface EstimationResult {
@@ -19,7 +20,7 @@ interface EstimationResult {
     reasoning: string;
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles }) => {
     
     const toLocalISOString = (date: Date) => {
         if (isNaN(date.getTime())) return '';
@@ -79,7 +80,17 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [durationValue, setDurationValue] = useState<number>(8);
     const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
 
+    const [suggestions, setSuggestions] = useState<Vehicle[]>([]);
+    const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+    const suggestionsRef = useRef<HTMLDivElement>(null);
+
+
     const { addToast } = useToast();
+    
+    const uniqueVehicleTypes = useMemo(() => {
+        const types = new Set(vehicles.map(v => v.vehicleType).filter(Boolean));
+        return Array.from(types).sort();
+    }, [vehicles]);
     
     const activeEstimation = formData.estimations[formData.estimations.length - 1];
 
@@ -102,6 +113,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [estimationMode, durationValue, durationUnit, activeEstimation.estimatedStartDate]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+                setIsSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     const getPriorityClass = (priority: Priority) => {
         switch (priority) {
@@ -127,6 +150,51 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+
+        if (name === 'licensePlate') {
+            if (value) {
+                const filteredSuggestions = vehicles.filter(v =>
+                    v.licensePlate.toLowerCase().includes(value.toLowerCase())
+                );
+                setSuggestions(filteredSuggestions);
+                setIsSuggestionsOpen(true);
+            } else {
+                setSuggestions([]);
+                setIsSuggestionsOpen(false);
+            }
+        }
+    };
+
+    const handleSuggestionClick = (vehicle: Vehicle) => {
+        const selectedType = vehicle.vehicleType || '';
+        
+        // Determine the state for the dropdown and the "other" text input
+        let newVehicleTypeState = '';
+        let newOtherVehicleTypeState = '';
+    
+        if (uniqueVehicleTypes.includes(selectedType)) {
+            newVehicleTypeState = selectedType;
+            newOtherVehicleTypeState = ''; // Clear other field
+        } else if (selectedType) { // The type is not in the standard list
+            newVehicleTypeState = 'อื่นๆ';
+            newOtherVehicleTypeState = selectedType;
+        } else { // The vehicle has no type specified
+            newVehicleTypeState = 'รถกระบะ 4 ล้อ'; // fallback to default
+            newOtherVehicleTypeState = '';
+        }
+    
+        setFormData(prev => ({
+            ...prev,
+            licensePlate: vehicle.licensePlate,
+            vehicleMake: vehicle.make || '',
+            vehicleModel: vehicle.model || '',
+            vehicleType: newVehicleTypeState, // Update the dropdown value
+        }));
+    
+        setOtherVehicleType(newOtherVehicleTypeState); // Update the text input value
+    
+        setSuggestions([]);
+        setIsSuggestionsOpen(false);
     };
     
     const resetForm = () => {
@@ -312,9 +380,32 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <label className="block text-sm font-medium text-gray-700">วันที่แจ้งซ่อม</label>
                             <input type="text" value={new Date().toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" disabled />
                         </div>
-                        <div>
+                        <div ref={suggestionsRef}>
                             <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ *</label>
-                            <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required />
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    name="licensePlate" 
+                                    value={formData.licensePlate} 
+                                    onChange={handleInputChange} 
+                                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg" 
+                                    required 
+                                    autoComplete="off"
+                                />
+                                {isSuggestionsOpen && suggestions.length > 0 && (
+                                    <ul className="absolute z-10 w-full bg-white border rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                                        {suggestions.map(vehicle => (
+                                            <li 
+                                                key={vehicle.id} 
+                                                onClick={() => handleSuggestionClick(vehicle)} 
+                                                className="p-2 hover:bg-gray-100 cursor-pointer"
+                                            >
+                                                {vehicle.licensePlate}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
@@ -327,11 +418,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         <div>
                             <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
                             <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
-                                <option>รถกระบะ 4 ล้อ</option>
-                                <option>รถบรรทุก 6 ล้อ</option>
-                                <option>รถบรรทุก 10 ล้อ</option>
-                                <option>รถหัวลาก</option>
-                                <option>หางพ่วง</option>
+                                {uniqueVehicleTypes.map(type => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
                                 <option value="อื่นๆ">อื่นๆ...</option>
                             </select>
                              {formData.vehicleType === 'อื่นๆ' && (

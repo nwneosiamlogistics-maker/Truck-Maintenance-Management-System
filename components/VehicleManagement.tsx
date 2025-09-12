@@ -1,4 +1,3 @@
-
 // FIX: Implemented the VehicleManagement component which was previously a placeholder.
 import React, { useState, useMemo } from 'react';
 import type { Vehicle } from '../types';
@@ -98,26 +97,26 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
     };
 
     const getExpiryDisplay = (dateString: string | null, type: 'insurance' | 'act') => {
-        if (!dateString) return { date: 'N/A', statusText: 'ไม่มีข้อมูล', color: 'text-gray-500' };
+        if (!dateString || dateString === 'N/A') return { date: 'ไม่มีข้อมูล', statusText: '', color: 'text-gray-500' };
         
         const expiryDate = new Date(dateString);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        if (isNaN(expiryDate.getTime())) return { date: 'N/A', statusText: 'ข้อมูลผิดพลาด', color: 'text-gray-500' };
+        if (isNaN(expiryDate.getTime())) return { date: 'ข้อมูลผิดพลาด', statusText: '', color: 'text-gray-500' };
 
         const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-        const formattedDate = expiryDate.toLocaleDateString('th-TH');
+        const formattedDate = expiryDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
         
         const warningDays = type === 'act' ? 90 : 30;
 
         if (diffDays < 0) {
-            return { date: formattedDate, statusText: `หมดอายุ`, color: 'text-red-600 font-bold' };
+            return { date: formattedDate, statusText: `(หมดอายุ)`, color: 'text-red-600 font-bold' };
         }
         if (diffDays <= warningDays) {
             return { date: formattedDate, statusText: `(อีก ${diffDays} วัน)`, color: 'text-yellow-600 font-semibold' };
         }
-        return { date: formattedDate, statusText: 'ปกติ', color: 'text-green-600' };
+        return { date: formattedDate, statusText: '', color: 'text-green-600' };
     };
 
     return (
@@ -147,11 +146,9 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียน</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภท</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ยี่ห้อ/รุ่น</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อายุรถ</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันหมดอายุประกัน</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันหมดอายุ พ.ร.บ.</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ข้อมูลรถ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประกันภัยหลัก</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">พ.ร.บ. / อื่นๆ</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                         </tr>
                     </thead>
@@ -163,26 +160,34 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
 
                             return (
                                 <tr key={vehicle.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-semibold text-base">{vehicle.licensePlate}</td>
-                                    <td className="px-4 py-3 text-base">{vehicle.vehicleType}</td>
-                                    <td className="px-4 py-3 text-base">{vehicle.make} {vehicle.model}</td>
-                                    <td className="px-4 py-3 text-base font-medium">{vehicleAge}</td>
-                                    <td className={`px-4 py-3 text-base ${insuranceStatus.color}`}>
-                                        {insuranceStatus.date}
-                                        <div className="text-xs">{insuranceStatus.statusText}</div>
+                                    <td className="px-4 py-3 font-semibold text-base align-top">{vehicle.licensePlate}</td>
+                                    <td className="px-4 py-3 align-top">
+                                        <div className="text-base font-medium">{vehicle.vehicleType || '-'}</div>
+                                        <div className="text-sm text-gray-600">{vehicle.make} {vehicle.model}</div>
+                                        <div className="text-sm text-gray-500">อายุ: {vehicleAge}</div>
                                     </td>
-                                    <td className={`px-4 py-3 text-base ${actStatus.color}`}>
-                                        {actStatus.date}
-                                        <div className="text-xs">{actStatus.statusText}</div>
+                                    <td className="px-4 py-3 align-top">
+                                        <div className="text-base font-semibold">{vehicle.insuranceCompany || '-'}</div>
+                                        <div className="text-sm text-gray-600">ประเภท: {vehicle.insuranceType || '-'}</div>
+                                        <div className={`text-sm ${insuranceStatus.color}`}>
+                                            หมดอายุ: {insuranceStatus.date} {insuranceStatus.statusText}
+                                        </div>
                                     </td>
-                                    <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
+                                    <td className="px-4 py-3 align-top">
+                                         <div className="text-base font-semibold">พ.ร.บ.: {vehicle.actCompany || '-'}</div>
+                                         <div className={`text-sm ${actStatus.color}`}>
+                                            หมดอายุ: {actStatus.date} {actStatus.statusText}
+                                        </div>
+                                        <div className="text-sm text-gray-600 mt-1">ประกันสินค้า: {vehicle.cargoInsuranceCompany || '-'}</div>
+                                    </td>
+                                    <td className="px-4 py-3 text-center align-top whitespace-nowrap space-x-2">
                                         <button onClick={() => handleOpenModal(vehicle)} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
                                         <button onClick={() => handleDeleteVehicle(vehicle.id, vehicle.licensePlate)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
                                     </td>
                                 </tr>
                             );
                         })}
-                        {filteredVehicles.length === 0 && ( <tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูลรถ</td></tr> )}
+                        {filteredVehicles.length === 0 && ( <tr><td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูลรถ</td></tr> )}
                     </tbody>
                  </table>
             </div>
