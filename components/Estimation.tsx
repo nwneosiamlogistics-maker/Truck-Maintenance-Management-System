@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Repair } from '../types';
+import type { Repair, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
 
 interface EstimationProps {
@@ -8,13 +8,59 @@ interface EstimationProps {
 
 const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
     const estimationStats = useMemo(() => {
-        const estimatedRepairs = repairs.filter(r => 
+        const safeRepairs = Array.isArray(repairs) ? repairs : [];
+
+        const completedRepairs = safeRepairs.filter(r => 
             r.status === 'ซ่อมเสร็จ' && 
-            r.estimatedStartDate && r.estimatedEndDate &&
-            r.repairStartDate && r.repairEndDate
+            r.repairStartDate && 
+            r.repairEndDate &&
+            r.estimations &&
+            r.estimations.length > 0
         );
 
-        if (estimatedRepairs.length === 0) {
+        const list = completedRepairs.flatMap(r => {
+            let finalEstimation: EstimationAttempt | undefined = r.estimations.find(e => e.status === 'Completed');
+            
+            if (!finalEstimation && r.estimations.length > 0) {
+                finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
+            }
+            
+            if (!finalEstimation) {
+                return []; 
+            }
+
+            const estimatedEnd = new Date(finalEstimation.estimatedEndDate).getTime();
+            const actualEnd = new Date(r.repairEndDate!).getTime();
+
+            const estimatedStart = new Date(finalEstimation.estimatedStartDate).getTime();
+            const actualStart = new Date(r.repairStartDate!).getTime();
+            
+            const estimatedDuration = estimatedEnd - estimatedStart;
+            const actualDuration = actualEnd - actualStart;
+
+            let accuracy: number | null = null;
+            if (estimatedDuration > 0) {
+                const diff = Math.abs(actualDuration - estimatedDuration);
+                accuracy = Math.max(0, (1 - (diff / estimatedDuration))) * 100;
+            }
+
+            const isDelayed = actualEnd > estimatedEnd;
+            const deviation = actualDuration - estimatedDuration; // Negative means early, positive means late
+
+            return [{
+                id: `${r.id}-${finalEstimation.sequence}`,
+                repairOrderNo: r.repairOrderNo,
+                vehicle: r.licensePlate,
+                repair: r.problemDescription,
+                estimated: `${(estimatedDuration / (1000 * 3600)).toFixed(1)} ชั่วโมง (ครั้งที่ ${finalEstimation.sequence})`,
+                actual: `${(actualDuration / (1000 * 3600)).toFixed(1)} ชั่วโมง`,
+                accuracy: accuracy,
+                isDelayed,
+                deviation,
+            }];
+        });
+        
+        if (list.length === 0) {
             return {
                 totalEstimations: 0,
                 onTime: 0,
@@ -24,56 +70,41 @@ const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
             };
         }
 
-        let totalAccuracy = 0;
-        let onTimeCount = 0;
-
-        const list = estimatedRepairs.map(r => {
-            const estimatedStart = new Date(r.estimatedStartDate!).getTime();
-            const estimatedEnd = new Date(r.estimatedEndDate!).getTime();
-            const actualStart = new Date(r.repairStartDate!).getTime();
-            const actualEnd = new Date(r.repairEndDate!).getTime();
-
-            const estimatedDuration = estimatedEnd - estimatedStart;
-            const actualDuration = actualEnd - actualStart;
-
-            let accuracy: number | null = null;
-            if (estimatedDuration > 0) {
-                const diff = Math.abs(actualDuration - estimatedDuration);
-                accuracy = Math.max(0, (1 - (diff / estimatedDuration))) * 100;
-                totalAccuracy += accuracy;
-            }
-
-            const isDelayed = actualEnd > estimatedEnd;
-            if (!isDelayed) {
-                onTimeCount++;
-            }
-
-            return {
-                id: r.id,
-                repairOrderNo: r.repairOrderNo,
-                vehicle: r.licensePlate,
-                repair: r.problemDescription,
-                estimated: `${(estimatedDuration / (1000 * 3600)).toFixed(1)} ชั่วโมง`,
-                actual: `${(actualDuration / (1000 * 3600)).toFixed(1)} ชั่วโมง`,
-                accuracy: accuracy,
-                status: r.status,
-            };
-        });
-
+        const onTimeCount = list.filter(item => !item.isDelayed).length;
+        const totalAccuracy = list.reduce((sum, item) => sum + (item.accuracy || 0), 0);
+        
         return {
-            totalEstimations: estimatedRepairs.length,
+            totalEstimations: list.length,
             onTime: onTimeCount,
-            delayed: estimatedRepairs.length - onTimeCount,
-            avgAccuracy: estimatedRepairs.length > 0 ? totalAccuracy / estimatedRepairs.length : 0,
+            delayed: list.length - onTimeCount,
+            avgAccuracy: list.length > 0 ? totalAccuracy / list.length : 0,
             list,
         };
     }, [repairs]);
 
-    const getAccuracyColor = (accuracy: number | null) => {
-        if (accuracy === null) return 'text-gray-500';
-        if (accuracy >= 90) return 'text-green-600';
-        if (accuracy >= 80) return 'text-yellow-600';
-        return 'text-red-600';
+    const AccuracyDisplay: React.FC<{ accuracy: number | null, isDelayed: boolean, deviation: number }> = ({ accuracy, isDelayed, deviation }) => {
+        if (accuracy === null) return <span className="text-gray-500">-</span>;
+
+        const isEarly = !isDelayed && accuracy < 99.9;
+        let colorClass = 'text-gray-700';
+        let contextText = '';
+
+        if (isDelayed) {
+            colorClass = 'text-red-600';
+            contextText = '(ล่าช้า)';
+        } else {
+            colorClass = 'text-green-600';
+            if (isEarly) {
+                contextText = '(เร็วกว่า)';
+            }
+        }
+
+        return (
+            <div className={`text-center font-bold ${colorClass}`}>
+                <span>{accuracy.toFixed(1)}%</span>
+                {contextText && <span className="text-xs font-normal ml-1">{contextText}</span>}
+            </div>
+        );
     };
 
     return (
@@ -85,13 +116,13 @@ const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
                 <StatCard title="ความแม่นยำเฉลี่ย" value={`${estimationStats.avgAccuracy.toFixed(1)}%`} bgColor="bg-indigo-50" textColor="text-indigo-600" />
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">รายการประมาณการณ์</h2>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">รายการประมาณการณ์ (เฉพาะงานที่เสร็จสิ้น)</h2>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียนรถ</th>
-                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประมาณการ</th>
+                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประมาณการ (ครั้งล่าสุด)</th>
                                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใช้จริง</th>
                                 <th className="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase">ความแม่นยำ</th>
                             </tr>
@@ -105,7 +136,13 @@ const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
                                     </td>
                                     <td className="px-6 py-4 text-base">{item.estimated}</td>
                                     <td className="px-6 py-4 text-base">{item.actual}</td>
-                                    <td className={`px-6 py-4 text-base text-center font-bold ${getAccuracyColor(item.accuracy)}`}>{item.accuracy ? `${item.accuracy.toFixed(1)}%` : '-'}</td>
+                                    <td className="px-6 py-4 text-base">
+                                        <AccuracyDisplay 
+                                            accuracy={item.accuracy} 
+                                            isDelayed={item.isDelayed} 
+                                            deviation={item.deviation} 
+                                        />
+                                    </td>
                                 </tr>
                             )) : (
                                 <tr>

@@ -68,7 +68,7 @@ const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExt
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[110] flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b">
                     <h3 className="text-2xl font-bold text-gray-800">เพิ่มรายการเบิกอะไหล่จากร้านค้า</h3>

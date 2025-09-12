@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent, useMemo, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
@@ -21,11 +21,8 @@ interface EstimationResult {
 
 const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab }) => {
     
-    // Helper to get local ISO string for datetime-local input
     const toLocalISOString = (date: Date) => {
-        if (isNaN(date.getTime())) {
-            return '';
-        }
+        if (isNaN(date.getTime())) return '';
         const tzoffset = date.getTimezoneOffset() * 60000;
         const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
         return localISOTime;
@@ -53,10 +50,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         partsVat: 0,
         parts: [] as PartRequisitionItem[],
         attachments: [] as FileAttachment[],
-        // Default start time to now
-        estimatedStartDate: toLocalISOString(new Date()),
-        estimatedEndDate: '',
-        estimatedLaborHours: 0,
+        estimations: [{
+            sequence: 1,
+            createdAt: new Date().toISOString(),
+            estimatedStartDate: toLocalISOString(new Date()),
+            estimatedEndDate: '',
+            estimatedLaborHours: 0,
+            status: 'Active' as const,
+            failureReason: null,
+            aiReasoning: null,
+        }] as EstimationAttempt[],
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -71,59 +74,64 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [isStockModalOpen, setStockModalOpen] = useState(false);
     const [isExternalPartModalOpen, setExternalPartModalOpen] = useState(false);
     
-    // --- New Estimation States ---
     const [isEstimating, setIsEstimating] = useState(false);
-    const [estimationReason, setEstimationReason] = useState<string | null>(null);
     const [estimationMode, setEstimationMode] = useState<'duration' | 'date'>('duration');
     const [durationValue, setDurationValue] = useState<number>(8);
     const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
 
     const { addToast } = useToast();
+    
+    const activeEstimation = formData.estimations[formData.estimations.length - 1];
 
-    // Effect to calculate end date based on duration
     useEffect(() => {
         if (estimationMode === 'duration') {
-            const startDate = new Date(formData.estimatedStartDate || Date.now());
+            const startDate = new Date(activeEstimation.estimatedStartDate || Date.now());
             if (isNaN(startDate.getTime())) return;
 
             const multiplier = durationUnit === 'hours' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
             const endDate = new Date(startDate.getTime() + (durationValue * multiplier));
-            
-            const laborHours = durationUnit === 'hours' ? durationValue : durationValue * 8; // Assuming 8 hours per day
+            const laborHours = durationUnit === 'hours' ? durationValue : durationValue * 8; 
 
-            setFormData(prev => ({ 
-                ...prev, 
+            const newEstimations = [...formData.estimations];
+            newEstimations[newEstimations.length - 1] = {
+                ...activeEstimation,
                 estimatedEndDate: toLocalISOString(endDate),
                 estimatedLaborHours: laborHours
-            }));
+            };
+            setFormData(prev => ({ ...prev, estimations: newEstimations }));
         }
-    }, [estimationMode, durationValue, durationUnit, formData.estimatedStartDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [estimationMode, durationValue, durationUnit, activeEstimation.estimatedStartDate]);
 
     const getPriorityClass = (priority: Priority) => {
         switch (priority) {
-            case 'ด่วน':
-                return 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold';
-            case 'ด่วนที่สุด':
-                return 'bg-red-50 border-red-400 text-red-800 font-semibold';
-            default:
-                return 'bg-white border-gray-300';
+            case 'ด่วน': return 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold';
+            case 'ด่วนที่สุด': return 'bg-red-50 border-red-400 text-red-800 font-semibold';
+            default: return 'bg-white border-gray-300';
+        }
+    };
+    
+    const handleEstimationChange = (field: keyof EstimationAttempt, value: any) => {
+        const newEstimations = [...formData.estimations];
+        newEstimations[newEstimations.length - 1] = {
+            ...activeEstimation,
+            [field]: value
+        };
+        setFormData(prev => ({ ...prev, estimations: newEstimations }));
+
+        if (field === 'estimatedEndDate') {
+            setEstimationMode('date');
         }
     };
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-
-        // If user manually changes end date, switch to date mode
-        if (name === 'estimatedEndDate') {
-            setEstimationMode('date');
-        }
     };
     
     const resetForm = () => {
         setFormData(getInitialState());
         setOtherVehicleType('');
-        setEstimationReason(null);
         setEstimationMode('duration');
         setDurationValue(8);
         setDurationUnit('hours');
@@ -133,10 +141,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
 
-    // --- AI Estimation ---
     const handleEstimate = async () => {
         setIsEstimating(true);
-        setEstimationReason(null);
+        handleEstimationChange('aiReasoning', null);
 
         const prompt = `
             Vehicle Type: ${formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}
@@ -144,7 +151,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             Model: ${formData.vehicleModel}
             Repair Category: ${formData.repairCategory}
             Problem Description: ${formData.problemDescription}
-            
             Based on the information above, estimate the labor hours required for the repair.
         `;
 
@@ -167,11 +173,11 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             });
             const result: EstimationResult = JSON.parse(response.text);
             
-            // Set state to update the duration fields, let the useEffect handle the rest
             setEstimationMode('duration');
             setDurationUnit('hours');
-            setDurationValue(Math.round(result.laborHours) || 1); // Round and ensure at least 1
-            setEstimationReason(result.reasoning);
+            setDurationValue(Math.round(result.laborHours) || 1);
+            handleEstimationChange('aiReasoning', result.reasoning);
+
             addToast('AI ประมาณการณ์สำเร็จ', 'success');
 
         } catch (error) {
@@ -182,12 +188,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         }
     };
     
-    // --- Parts Management ---
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
-        setFormData(prev => ({
-            ...prev,
-            parts: [...prev.parts, ...newParts]
-        }));
+        setFormData(prev => ({ ...prev, parts: [...prev.parts, ...newParts] }));
         setStockModalOpen(false);
     };
 
@@ -199,28 +201,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             addToast('มีบางรายการซ้ำซ้อนและถูกข้ามไป', 'info');
         }
 
-        setFormData(prev => ({
-            ...prev,
-            parts: [...prev.parts, ...newParts],
-            partsVat: (prev.partsVat || 0) + data.vat
-        }));
+        setFormData(prev => ({ ...prev, parts: [...prev.parts, ...newParts], partsVat: (prev.partsVat || 0) + data.vat }));
         setExternalPartModalOpen(false);
     };
 
     const updatePart = (partId: string, field: keyof PartRequisitionItem, value: any) => {
-        setFormData(prev => ({
-            ...prev,
-            parts: prev.parts.map(p => 
-                p.partId === partId ? { ...p, [field]: value } : p
-            )
-        }));
+        setFormData(prev => ({ ...prev, parts: prev.parts.map(p => p.partId === partId ? { ...p, [field]: value } : p)}));
     };
     
     const removePart = (partId: string) => {
-        setFormData(prev => ({
-            ...prev,
-            parts: prev.parts.filter(p => p.partId !== partId)
-        }));
+        setFormData(prev => ({ ...prev, parts: prev.parts.filter(p => p.partId !== partId) }));
     };
 
     const { totalPartsCost, grandTotal } = useMemo(() => {
@@ -230,7 +220,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);
     
-    // --- File Management ---
     const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const newFiles = Array.from(e.target.files).map(file => ({ name: file.name, size: file.size }));
@@ -242,7 +231,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setFormData(prev => ({...prev, attachments: prev.attachments.filter((_, i) => i !== index)}));
     };
 
-    // --- Form Submission ---
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         if (!formData.licensePlate || !formData.problemDescription) {
@@ -250,33 +238,26 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             return;
         }
 
-        // --- New Estimation Validation ---
-        if (!formData.estimatedEndDate) {
+        if (!activeEstimation.estimatedEndDate) {
             addToast('กรุณากรอกข้อมูลการประมาณการณ์เวลาซ่อมให้ครบถ้วน', 'warning');
             const estimationSection = document.getElementById('estimation-section');
             if (estimationSection) {
                 estimationSection.scrollIntoView({ behavior: 'smooth' });
-                if (!openSections.estimation) {
-                    toggleSection('estimation');
-                }
+                if (!openSections.estimation) toggleSection('estimation');
             }
             return;
         }
 
-        // --- Assigned Technician Validation ---
         if (formData.assignedTechnicians.length === 0) {
             addToast('กรุณามอบหมายช่างอย่างน้อย 1 คน', 'warning');
             const dispatchSection = document.getElementById('dispatch-section');
             if (dispatchSection) {
                 dispatchSection.scrollIntoView({ behavior: 'smooth' });
-                if (!openSections.dispatch) {
-                    toggleSection('dispatch');
-                }
+                if (!openSections.dispatch) toggleSection('dispatch');
             }
             return;
         }
 
-        // --- Duplicate Repair Order Check ---
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const normalizedProblem = formData.problemDescription.trim().toLowerCase();
         const potentialDuplicate = (Array.isArray(repairs) ? repairs : []).find(r => 
@@ -290,9 +271,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 `ตรวจพบใบแจ้งซ่อมที่คล้ายกันสำหรับรถคันนี้ (${potentialDuplicate.repairOrderNo}) ที่สร้างขึ้นเมื่อไม่นานมานี้ 
 คุณแน่ใจหรือไม่ว่าต้องการสร้างใบแจ้งซ่อมใบใหม่?`
             );
-            if (!proceed) {
-                return; // Stop submission
-            }
+            if (!proceed) return;
         }
 
         const { repairOrderNo, ...repairData } = formData;
@@ -320,12 +299,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     return (
         <>
         <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Info */}
             <div className="bg-white rounded-lg shadow-sm">
                 <SectionHeader title="1. ข้อมูลพื้นฐาน" sectionId="basic" />
                 {openSections.basic && (
                 <div className="p-6 space-y-4">
-                    {/* ... (existing basic info fields) ... */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          <div>
                             <label className="block text-sm font-medium text-gray-700">เลขที่ใบแจ้งซ่อม</label>
@@ -402,7 +379,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 )}
             </div>
 
-            {/* Estimation Section */}
             <div id="estimation-section" className="bg-white rounded-lg shadow-sm">
                 <SectionHeader title="2. การประมาณการณ์" sectionId="estimation" />
                 {openSections.estimation && (
@@ -419,15 +395,13 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                                         <span>กำลังวิเคราะห์...</span>
                                     </>
-                                ) : (
-                                    "🤖 ประมาณการด้วย AI (แนะนำ)"
-                                )}
+                                ) : ( "🤖 ประมาณการด้วย AI (แนะนำ)" )}
                             </button>
                         </div>
                         
-                        {estimationReason && (
+                        {activeEstimation.aiReasoning && (
                              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center text-sm text-blue-800 italic">
-                                <p>"{estimationReason}"</p>
+                                <p>"{activeEstimation.aiReasoning}"</p>
                             </div>
                         )}
 
@@ -462,15 +436,14 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
-                                    <input type="datetime-local" name="estimatedStartDate" value={formData.estimatedStartDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                    <input type="datetime-local" value={activeEstimation.estimatedStartDate || ''} onChange={(e) => handleEstimationChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ *</label>
                                     <input 
                                         type="datetime-local" 
-                                        name="estimatedEndDate" 
-                                        value={formData.estimatedEndDate || ''} 
-                                        onChange={handleInputChange} 
+                                        value={activeEstimation.estimatedEndDate || ''} 
+                                        onChange={(e) => handleEstimationChange('estimatedEndDate', e.target.value)} 
                                         className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
                                         readOnly={estimationMode === 'duration'}
                                         required
@@ -482,13 +455,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 )}
             </div>
 
-
-            {/* Dispatch Info */}
             <div id="dispatch-section" className="bg-white rounded-lg shadow-sm">
                 <SectionHeader title="3. ข้อมูลการส่งซ่อม" sectionId="dispatch" />
                  {openSections.dispatch && (
                 <div className="p-6 space-y-4">
-                     {/* ... (existing dispatch fields) ... */}
                      <div>
                         <label className="block text-sm font-medium text-gray-700">ประเภทการส่งซ่อม</label>
                         <div className="mt-2 flex space-x-4">
@@ -529,12 +499,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                  )}
             </div>
 
-            {/* Parts Requisition */}
             <div className="bg-white rounded-lg shadow-sm">
                 <SectionHeader title="4. รายการเบิกอะไหล่" sectionId="parts" />
                  {openSections.parts && (
                 <div className="p-6 space-y-4">
-                    {/* ... (existing parts section) ... */}
                     <div className="space-y-3">
                         {formData.parts.length > 0 && (
                              <div className="grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
@@ -601,12 +569,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                  )}
             </div>
             
-            {/* File Attachments */}
             <div className="bg-white rounded-lg shadow-sm">
                 <SectionHeader title="5. ไฟล์แนบและรูปภาพ" sectionId="files" />
                 {openSections.files && (
                 <div className="p-6">
-                     {/* ... (existing files section) ... */}
                     <div className="border-2 border-dashed rounded-lg p-6 text-center">
                         <label htmlFor="file-upload" className="cursor-pointer text-blue-600 font-semibold">
                             เลือกไฟล์เพื่ออัปโหลด

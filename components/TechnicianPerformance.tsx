@@ -1,7 +1,5 @@
-
-
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician } from '../types';
+import type { Repair, Technician, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
 
 interface TechnicianPerformanceProps {
@@ -72,9 +70,20 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                 if (r.repairStartDate && r.repairEndDate) {
                     totalRepairMillis += new Date(r.repairEndDate).getTime() - new Date(r.repairStartDate).getTime();
                 }
-                if (r.estimatedEndDate && r.repairEndDate) {
+                
+                // --- MODIFIED LOGIC FOR FINDING FINAL ESTIMATION ---
+                // 1. Try to find the 'Completed' estimation first (for new data).
+                let finalEstimation: EstimationAttempt | undefined = (r.estimations || []).find(e => e.status === 'Completed');
+                
+                // 2. Fallback for legacy data: if no 'Completed' one is found, use the latest one by sequence.
+                if (!finalEstimation && r.estimations && r.estimations.length > 0) {
+                    finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
+                }
+                // --- END MODIFIED LOGIC ---
+
+                if (finalEstimation && r.repairEndDate) {
                     estimatedJobsCount++;
-                    if (new Date(r.repairEndDate) <= new Date(r.estimatedEndDate)) {
+                    if (new Date(r.repairEndDate) <= new Date(finalEstimation.estimatedEndDate)) {
                         onTimeJobs++;
                     }
                 }
@@ -96,7 +105,6 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             };
         }).filter((t): t is NonNullable<typeof t> => t !== null);
 
-        // Sorting
         techStats.sort((a, b) => {
             if (a[sortBy] < b[sortBy]) return sortOrder === 'asc' ? -1 : 1;
             if (a[sortBy] > b[sortBy]) return sortOrder === 'asc' ? 1 : -1;
@@ -106,7 +114,32 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         const totalJobs = techStats.reduce((sum, t) => sum + t.jobs, 0);
         const totalValue = techStats.reduce((sum, t) => sum + t.value, 0);
         const overallAvgTime = totalJobs > 0 ? techStats.reduce((sum, t) => sum + (t.avgTime * t.jobs), 0) / totalJobs : 0;
-        const overallOnTimeRate = totalJobs > 0 ? techStats.reduce((sum, t) => sum + (t.onTimeRate * t.jobs), 0) / totalJobs : 0;
+        
+        const totalWeightedOnTime = techStats.reduce((sum, t) => {
+            const techRepairs = filteredRepairs.filter(r => (r.assignedTechnicians || []).includes(t.id));
+            const estimatedJobsCount = techRepairs.filter(r => {
+                let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
+                if (!finalEstimation && r.estimations && r.estimations.length > 0) {
+                     finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
+                }
+                return !!finalEstimation;
+            }).length;
+            
+            return sum + (t.onTimeRate * estimatedJobsCount / 100);
+        }, 0);
+
+        const totalEstimatedJobs = techStats.reduce((sum, t) => {
+             const techRepairs = filteredRepairs.filter(r => (r.assignedTechnicians || []).includes(t.id));
+             return sum + techRepairs.filter(r => {
+                let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
+                if (!finalEstimation && r.estimations && r.estimations.length > 0) {
+                     finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
+                }
+                return !!finalEstimation;
+            }).length;
+        }, 0);
+
+        const overallOnTimeRate = totalEstimatedJobs > 0 ? (totalWeightedOnTime / totalEstimatedJobs) * 100 : 0;
 
 
         return {

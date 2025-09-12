@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
@@ -93,7 +92,6 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         return (repair.repairCost || 0) + partsTotal + (repair.partsVat || 0);
     };
 
-    // New selection handlers
     const handleSelect = (repairId: string) => {
         setSelectedRepairIds(prev =>
             prev.includes(repairId)
@@ -116,9 +114,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
 
         const password = window.prompt("เพื่อยืนยันการลบ โปรดกรอกรหัส: 1234");
         
-        if (password === null) { // User clicked cancel
-            return;
-        }
+        if (password === null) return;
 
         if (password === "1234") {
             setRepairs(prev => prev.filter(r => !selectedRepairIds.includes(r.id)));

@@ -26,15 +26,10 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
 
     const handleSavePlan = (planData: Omit<MaintenancePlan, 'id'>) => {
         if (editingPlan) {
-            // Edit
             setPlans(prev => prev.map(p => p.id === editingPlan.id ? { ...editingPlan, ...planData } : p));
             addToast('อัปเดตแผนสำเร็จ', 'success');
         } else {
-            // Add
-            const newPlan: MaintenancePlan = {
-                ...planData,
-                id: `MP-${Date.now()}`,
-            };
+            const newPlan: MaintenancePlan = { ...planData, id: `MP-${Date.now()}` };
             setPlans(prev => [newPlan, ...prev]);
             addToast('เพิ่มแผนใหม่สำเร็จ', 'success');
         }
@@ -116,8 +111,12 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
     
     const scheduledRepairs = useMemo(() => {
         return (Array.isArray(repairs) ? repairs : [])
-            .filter(r => r.estimatedStartDate && !['ซ่อมเสร็จ', 'ยกเลิก'].includes(r.status))
-            .sort((a, b) => new Date(a.estimatedStartDate!).getTime() - new Date(b.estimatedStartDate!).getTime());
+            .map(r => {
+                const activeEstimation = (r.estimations || []).find(e => e.status === 'Active');
+                return { ...r, activeEstimation };
+            })
+            .filter(r => r.activeEstimation && !['ซ่อมเสร็จ', 'ยกเลิก'].includes(r.status))
+            .sort((a, b) => new Date(a.activeEstimation!.estimatedStartDate).getTime() - new Date(b.activeEstimation!.estimatedStartDate).getTime());
     }, [repairs]);
     
     const getTechnicianNames = (ids: string[]) => {
@@ -167,7 +166,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {scheduledRepairs.map(repair => (
                                     <tr key={repair.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-semibold">{new Date(repair.estimatedStartDate!).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                                        <td className="px-4 py-3 font-semibold">{new Date(repair.activeEstimation!.estimatedStartDate).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
                                         <td className="px-4 py-3 font-medium">{repair.licensePlate}</td>
                                         <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
                                         <td className="px-4 py-3 text-sm">{getTechnicianNames(repair.assignedTechnicians)}</td>

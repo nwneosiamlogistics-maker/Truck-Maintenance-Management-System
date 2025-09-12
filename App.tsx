@@ -6,11 +6,9 @@ import RepairForm from './components/RepairForm';
 import RepairList from './components/RepairList';
 import RepairHistory from './components/RepairHistory';
 import StockManagement from './components/StockManagement';
-// FIX: Renamed component import to avoid type name collision
 import PurchaseRequisitionPage from './components/PurchaseRequisition';
 import Reports from './components/Reports';
 import TechnicianManagement from './components/TechnicianManagement';
-// FIX: Import the missing TechnicianPerformance component.
 import TechnicianPerformance from './components/TechnicianPerformance';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
@@ -19,8 +17,7 @@ import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import { useFirebase } from './hooks/useFirebase';
 
-// FIX: Importing all necessary types from the newly defined types.ts
-import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification, PurchaseRequisition, TechnicianStatus } from './types';
+import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification, PurchaseRequisition, TechnicianStatus, EstimationAttempt } from './types';
 import { TABS } from './constants';
 import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultStockTransactions, getDefaultMaintenancePlans, getDefaultPurchaseRequisitions } from './data/defaultData';
 
@@ -58,7 +55,6 @@ const App: React.FC = () => {
         const currentJobs = activeJobsByTechnician[tech.id] || 0;
         let newStatus: TechnicianStatus = tech.status;
         
-        // Preserve 'On Leave' status, otherwise update based on jobs
         if (tech.status !== 'ลา') {
             newStatus = currentJobs > 0 ? 'ไม่ว่าง' : 'ว่าง';
         }
@@ -66,7 +62,6 @@ const App: React.FC = () => {
         return { ...tech, currentJobs, status: newStatus };
     });
     
-    // Only update state if there are actual changes to prevent infinite loops
     if (JSON.stringify(technicians) !== JSON.stringify(updatedTechnicians)) {
         setTechnicians(updatedTechnicians);
     }
@@ -74,7 +69,6 @@ const App: React.FC = () => {
 
 
   const stats = useMemo(() => {
-    // Calculate due maintenance plans
     const dueMaintenancePlans = (Array.isArray(maintenancePlans) ? maintenancePlans : []).filter(plan => {
         const lastDate = new Date(plan.lastServiceDate);
         let nextServiceDate = new Date(lastDate);
@@ -102,6 +96,7 @@ const App: React.FC = () => {
 
     return {
       pendingRepairs: (Array.isArray(repairs) ? repairs : []).filter(r => r.status === 'รอซ่อม' || r.status === 'รออะไหล่').length,
+      // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
       lowStock: (Array.isArray(stock) ? stock : []).filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length,
       dueMaintenance: dueMaintenancePlans,
     };
@@ -133,6 +128,7 @@ const App: React.FC = () => {
 
 useEffect(() => {
     (Array.isArray(stock) ? stock : []).forEach(item => {
+        // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
         if (item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') {
             addNotification({
                 message: `อะไหล่ "${item.name}" อยู่ในสถานะ${item.status}`,
@@ -182,21 +178,19 @@ useEffect(() => {
 
   const addRepair = useCallback((newRepairData: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => {
       const now = new Date().toISOString();
+      
       const newRepair: Repair = {
-          approvalDate: null,
-          repairStartDate: null,
-          repairEndDate: null,
-          requisitionNumber: '',
-          invoiceNumber: '',
-          estimatedStartDate: null,
-          estimatedEndDate: null,
-          estimatedLaborHours: null,
           ...newRepairData,
           id: `MR-${Date.now()}`,
           createdAt: now,
           updatedAt: now,
           status: 'รอซ่อม',
           repairOrderNo: generateRepairOrderNo(),
+          approvalDate: null,
+          repairStartDate: null,
+          repairEndDate: null,
+          requisitionNumber: '',
+          invoiceNumber: '',
       };
       setRepairs(prev => [newRepair, ...prev]);
       addNotification({
@@ -241,7 +235,6 @@ useEffect(() => {
       case 'stock-history':
         return <StockHistory transactions={transactions} />;
       case 'requisitions':
-        // FIX: Use renamed component to avoid naming conflict
         return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} />;
       case 'reports':
         return <Reports repairs={repairs} stock={stock} technicians={technicians} />;

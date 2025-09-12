@@ -60,7 +60,7 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                     quantity: quantity,
                     unit: stockItem.unit, // <-- Add unit from stock
                     unitPrice: stockItem.price,
-                    source: 'สต๊อกอู่',
+                    source: 'สต็อกอู่',
                 };
             })
             .filter((p): p is PartRequisitionItem => p !== null);
@@ -71,11 +71,11 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
     const selectionCount = Object.keys(selectedParts).length;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[110] flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-2xl font-bold text-gray-800">เลือกอะไหล่จากสต๊อก</h3>
+                        <h3 className="text-2xl font-bold text-gray-800">เลือกอะไหล่จากสต็อก</h3>
                          <input
                             type="text"
                             placeholder="ค้นหาชื่อ หรือ รหัสอะไหล่..."

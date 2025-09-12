@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartStatus, PurchaseRequisition, PurchaseRequisitionItem } from '../types';
+import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartStatus, PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus } from '../types';
 import StockModal from './StockModal';
 import AddStockModal from './AddStockModal';
 import StockWithdrawalModal from './StockWithdrawalModal';
@@ -46,6 +46,17 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
 
 
     const { addToast } = useToast();
+    
+    // Memoized set of stock IDs currently in an active purchase requisition
+    const pendingPurchaseStockIds = useMemo(() => {
+        const activeStatuses: PurchaseRequisitionStatus[] = ['รออนุมัติ', 'อนุมัติแล้ว', 'รอสินค้า'];
+        const stockIds = (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
+            .filter(pr => activeStatuses.includes(pr.status))
+            .flatMap(pr => (Array.isArray(pr.items) ? pr.items : []))
+            .map(item => item.stockId)
+            .filter(id => id); // Filter out empty stockIds from non-product PRs
+        return new Set(stockIds);
+    }, [purchaseRequisitions]);
 
     // Memoized Filters for New Stock
     const categories = useMemo(() => {
@@ -56,6 +67,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const filteredStock = useMemo(() => {
         const getStatusPriority = (status: StockStatus): number => {
             switch (status) {
+                // FIX: Corrected typo for 'หมดสต๊อก'
                 case 'หมดสต๊อก': return 0;
                 case 'สต๊อกต่ำ': return 1;
                 case 'สต๊อกเกิน': return 2;
@@ -117,6 +129,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             if (s.id === stockItem.id) {
                 const newQuantity = s.quantity + quantityAdded;
                 let newStatus: StockStatus = 'ปกติ';
+                // FIX: Corrected typo for 'หมดสต๊อก'
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
@@ -153,6 +166,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             if (s.id === stockItemId) {
                 const newQuantity = s.quantity - quantity;
                 let newStatus: StockStatus = 'ปกติ';
+                // FIX: Corrected typo for 'หมดสต๊อก'
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
@@ -181,6 +195,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             if (s.id === stockItemId) {
                 const newQuantity = s.quantity - quantity;
                 let newStatus: StockStatus = 'ปกติ';
+                // FIX: Corrected typo for 'หมดสต๊อก'
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
@@ -261,6 +276,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         switch (status) {
             case 'ปกติ': return 'bg-green-100 text-green-800';
             case 'สต๊อกต่ำ': return 'bg-yellow-100 text-yellow-800';
+            // FIX: Corrected typo for 'หมดสต๊อก'
             case 'หมดสต๊อก': return 'bg-red-100 text-red-800';
             case 'สต๊อกเกิน': return 'bg-indigo-100 text-indigo-800';
             default: return 'bg-gray-100';
@@ -320,6 +336,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                 <option value="all">สถานะทั้งหมด</option>
                                 <option value="ปกติ">ปกติ</option>
                                 <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
+                                {/* FIX: Corrected typo for 'หมดสต๊อก' */}
                                 <option value="หมดสต๊อก">หมดสต๊อก</option>
                                 <option value="สต๊อกเกิน">สต๊อกเกิน</option>
                             </select>
@@ -358,7 +375,9 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredStock.map(item => (
+                        {filteredStock.map(item => {
+                            const isPendingPurchase = pendingPurchaseStockIds.has(item.id);
+                            return (
                             <tr key={item.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500">{item.code}</div></td>
                                 <td className="px-4 py-3 text-base">{item.category}</td>
@@ -368,15 +387,30 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getNewStockStatusBadge(item.status)}`}>{item.status}</span></td>
                                 <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
                                     <button onClick={() => setAddingStockItem(item)} className="text-green-600 hover:text-green-800 font-medium">เพิ่ม</button>
-                                    {(item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') && 
-                                        <button onClick={() => handleCreateRequisition(item)} className="text-indigo-600 hover:text-indigo-800 font-medium">ขอซื้อ</button>
-                                    }
+                                    
+                                    {(item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') && (
+                                        isPendingPurchase ? (
+                                            <button 
+                                                disabled 
+                                                className="text-indigo-500 font-medium cursor-not-allowed flex items-center gap-1 italic"
+                                                title="รายการนี้มีใบขอซื้อที่ยังไม่เสร็จสิ้นอยู่"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                อยู่ระหว่างขอซื้อ
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => handleCreateRequisition(item)} className="text-indigo-600 hover:text-indigo-800 font-medium">ขอซื้อ</button>
+                                        )
+                                    )}
+
                                     <button onClick={() => { setEditingItem(item); setEditModalOpen(true); }} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
                                     <button onClick={() => setPrintingLabelItem(item)} className="text-blue-600 hover:text-blue-800 font-medium">ฉลาก</button>
                                     <button onClick={() => handleDeleteStockItem(item.id, item.name)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
                                 </td>
                             </tr>
-                        ))}
+                        )})}
                         {filteredStock.length === 0 && ( <tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr> )}
                         </tbody>
                     </table>

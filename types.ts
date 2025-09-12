@@ -1,3 +1,6 @@
+
+
+// FIX: Removed self-referencing import of 'Tab' which caused a declaration conflict.
 export type Tab =
   | 'dashboard'
   | 'form'
@@ -33,6 +36,19 @@ export interface PartRequisitionItem {
     purchaseDate?: string;
 }
 
+export type EstimationStatus = 'Active' | 'Completed' | 'Failed';
+
+export interface EstimationAttempt {
+    sequence: number;
+    createdAt: string;
+    estimatedStartDate: string;
+    estimatedEndDate: string;
+    estimatedLaborHours: number;
+    status: EstimationStatus;
+    failureReason: string | null;
+    aiReasoning: string | null;
+}
+
 export interface Repair {
     id: string;
     repairOrderNo: string;
@@ -40,7 +56,7 @@ export interface Repair {
     vehicleType: string;
     vehicleMake: string;
     vehicleModel: string;
-    currentMileage: string; // Kept as string to match form handling, parsed to number where needed
+    currentMileage: string; 
     reportedBy: string;
     repairCategory: string;
     priority: Priority;
@@ -56,9 +72,7 @@ export interface Repair {
     partsVat: number;
     parts: PartRequisitionItem[];
     attachments: FileAttachment[];
-    estimatedStartDate: string | null;
-    estimatedEndDate: string | null;
-    estimatedLaborHours: number | null;
+    estimations: EstimationAttempt[]; // Replaced single estimation fields
     createdAt: string;
     updatedAt: string;
     status: RepairStatus;
@@ -158,8 +172,8 @@ export type PurchaseBudgetType = 'Have Budget' | 'No Budget';
 
 
 export interface PurchaseRequisitionItem {
-    stockId: string; // Will be empty for non-stock items
-    stockCode: string; // Will be empty for non-stock items
+    stockId: string; 
+    stockCode: string; 
     name: string;
     quantity: number;
     unit: string;
@@ -182,7 +196,6 @@ export interface PurchaseRequisition {
     notes?: string;
     approverName?: string;
     approvalDate: string | null;
-    // New fields
     requestType: PurchaseRequestType;
     otherRequestTypeDetail?: string;
     budgetStatus: PurchaseBudgetType;
