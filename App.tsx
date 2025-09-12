@@ -183,6 +183,10 @@ useEffect(() => {
       setUsedParts(prev => prev.map(p => p.id === partToUpdate.id ? partToUpdate : p));
   }, [setUsedParts]);
 
+  const deleteUsedPart = useCallback((partId: string) => {
+    setUsedParts(prev => prev.filter(p => p.id !== partId));
+  }, [setUsedParts]);
+
   const deleteMaintenancePlan = useCallback((planId: string) => {
     setMaintenancePlans(prev => prev.filter(p => p.id !== planId));
   }, [setMaintenancePlans]);
@@ -200,7 +204,7 @@ useEffect(() => {
       case 'history':
         return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} />;
       case 'stock':
-        return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} />;
+        return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} />;
       case 'stock-history':
         return <StockHistory transactions={transactions} />;
       case 'requisitions':

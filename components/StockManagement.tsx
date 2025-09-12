@@ -16,11 +16,12 @@ interface StockManagementProps {
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     usedParts: UsedPart[];
     updateUsedPart: (part: UsedPart) => void;
+    deleteUsedPart: (partId: string) => void;
     setPurchaseRequisitions: React.Dispatch<React.SetStateAction<PurchaseRequisition[]>>;
     purchaseRequisitions: PurchaseRequisition[];
 }
 
-const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, transactions, setTransactions, usedParts, updateUsedPart, setPurchaseRequisitions, purchaseRequisitions }) => {
+const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, transactions, setTransactions, usedParts, updateUsedPart, deleteUsedPart, setPurchaseRequisitions, purchaseRequisitions }) => {
     const [activeTab, setActiveTab] = useState<'new' | 'used'>('new');
 
     // New Stock States
@@ -109,6 +110,13 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         setAddingStockItem(null);
     };
 
+    const handleDeleteStockItem = (itemId: string, itemName: string) => {
+        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ '${itemName}'? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+            setStock(prev => prev.filter(s => s.id !== itemId));
+            addToast(`ลบ '${itemName}' สำเร็จ`, 'success');
+        }
+    };
+
     const handleWithdraw = (data: { stockItemId: string; quantity: number; reason: string; withdrawnBy?: string; notes?: string; }) => {
         const { stockItemId, quantity, reason, withdrawnBy, notes } = data;
         const stockItem = stock.find(s => s.id === stockItemId);
@@ -170,6 +178,13 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         updateUsedPart(part);
         setEditingUsedPart(null);
     }
+
+    const handleDeleteUsedPart = (partId: string, partName: string) => {
+        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบประวัติอะไหล่เก่า '${partName}'? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+            deleteUsedPart(partId);
+            addToast(`ลบอะไหล่เก่า '${partName}' สำเร็จ`, 'success');
+        }
+    };
 
     // Handler for Purchase Requisition
     const handleCreateRequisition = (item: StockItem) => {
@@ -318,6 +333,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                     }
                                     <button onClick={() => { setEditingItem(item); setEditModalOpen(true); }} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
                                     <button onClick={() => setPrintingLabelItem(item)} className="text-blue-600 hover:text-blue-800 font-medium">ฉลาก</button>
+                                    <button onClick={() => handleDeleteStockItem(item.id, item.name)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}
@@ -366,8 +382,9 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                 <td className="px-4 py-3"><div className="font-medium">{part.fromRepairOrderNo}</div><div className="text-sm text-gray-500">{part.fromLicensePlate}</div></td>
                                 <td className={`px-4 py-3 text-base font-semibold ${getUsedPartConditionBadge(part.condition)}`}>{part.condition}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
-                                <td className="px-4 py-3 text-center">
+                                <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
                                     <button onClick={() => setEditingUsedPart(part)} className="text-yellow-600 hover:text-yellow-800 font-medium">อัปเดตสถานะ</button>
+                                    <button onClick={() => handleDeleteUsedPart(part.id, part.name)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}
@@ -378,7 +395,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             </>
             )}
 
-            {isEditModalOpen && <StockModal item={editingItem} onSave={handleSaveItem} onClose={() => setEditModalOpen(false)} />}
+            {isEditModalOpen && <StockModal item={editingItem} onSave={handleSaveItem} onClose={() => setEditModalOpen(false)} existingStock={stock} />}
             {addingStockItem && <AddStockModal item={addingStockItem} onSave={handleAddStock} onClose={() => setAddingStockItem(null)} />}
             {isWithdrawModalOpen && <StockWithdrawalModal stock={stock} onSave={handleWithdraw} onClose={() => setWithdrawModalOpen(false)} />}
             {isReturnModalOpen && <ReturnStockModal stock={stock} onSave={handleReturn} onClose={() => setReturnModalOpen(false)} />}

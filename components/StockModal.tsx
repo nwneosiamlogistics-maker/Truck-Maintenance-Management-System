@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import type { StockItem } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface StockModalProps {
     item: StockItem | null;
     onSave: (item: StockItem, extras: { sourceRepairOrderNo?: string }) => void;
     onClose: () => void;
+    existingStock: StockItem[];
 }
 
-const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
+const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existingStock }) => {
     const initialFormState: StockItem = {
         id: '',
         code: '',
@@ -26,6 +28,7 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
 
     const [formData, setFormData] = useState<StockItem>(item || initialFormState);
     const [sourceRepairOrderNo, setSourceRepairOrderNo] = useState('');
+    const { addToast } = useToast();
 
     useEffect(() => {
         if (item) {
@@ -44,6 +47,27 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose }) => {
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // --- Duplicate Check Logic (only for new items) ---
+        if (!item) {
+            const codeToCheck = formData.code.trim().toLowerCase();
+            const nameToCheck = formData.name.trim().toLowerCase();
+
+            if (!codeToCheck || !nameToCheck) {
+                addToast('กรุณากรอกรหัสและชื่ออะไหล่', 'warning');
+                return;
+            }
+
+            const isDuplicate = existingStock.some(s => 
+                s.code.trim().toLowerCase() === codeToCheck || 
+                s.name.trim().toLowerCase() === nameToCheck
+            );
+
+            if (isDuplicate) {
+                addToast('รหัสหรือชื่ออะไหล่นี้มีอยู่แล้ว', 'error');
+                return; // Stop submission
+            }
+        }
         
         let newStatus: StockItem['status'] = 'ปกติ';
         if (formData.quantity <= 0) {
