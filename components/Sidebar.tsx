@@ -93,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                     {!isCollapsed && (
                         <div>
                             <h1 className="font-bold text-lg leading-tight">ระบบซ่อมบำรุง</h1>
-                            <p className="text-sm text-slate-400">รถบรรทุก & หางพ่วง</p>
+                            <p className="text-sm text-slate-400">NEOSIAM LOGISTICS & TRANSPORT</p>
                         </div>
                     )}
                 </div>
