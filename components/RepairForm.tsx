@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, FormEvent, useMemo } from 'react';
+import React, { useState, ChangeEvent, FormEvent, useMemo, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab } from '../types';
 import StockSelectionModal from './StockSelectionModal';
@@ -20,6 +20,16 @@ interface EstimationResult {
 }
 
 const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab }) => {
+    
+    // Helper to get local ISO string for datetime-local input
+    const toLocalISOString = (date: Date) => {
+        if (isNaN(date.getTime())) {
+            return '';
+        }
+        const tzoffset = date.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
+        return localISOTime;
+    };
     
     const getInitialState = () => ({
         repairOrderNo: 'จะถูกสร้างอัตโนมัติ',
@@ -43,7 +53,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         partsVat: 0,
         parts: [] as PartRequisitionItem[],
         attachments: [] as FileAttachment[],
-        estimatedStartDate: '',
+        // Default start time to now
+        estimatedStartDate: toLocalISOString(new Date()),
         estimatedEndDate: '',
         estimatedLaborHours: 0,
     });
@@ -59,21 +70,53 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     });
     const [isStockModalOpen, setStockModalOpen] = useState(false);
     const [isExternalPartModalOpen, setExternalPartModalOpen] = useState(false);
+    
+    // --- New Estimation States ---
     const [isEstimating, setIsEstimating] = useState(false);
-    const [estimationResult, setEstimationResult] = useState<EstimationResult | null>(null);
-    const [isManualEstimation, setIsManualEstimation] = useState(false);
+    const [estimationReason, setEstimationReason] = useState<string | null>(null);
+    const [estimationMode, setEstimationMode] = useState<'duration' | 'date'>('duration');
+    const [durationValue, setDurationValue] = useState<number>(8);
+    const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
+
     const { addToast } = useToast();
+
+    // Effect to calculate end date based on duration
+    useEffect(() => {
+        if (estimationMode === 'duration') {
+            const startDate = new Date(formData.estimatedStartDate || Date.now());
+            if (isNaN(startDate.getTime())) return;
+
+            const multiplier = durationUnit === 'hours' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+            const endDate = new Date(startDate.getTime() + (durationValue * multiplier));
+            
+            const laborHours = durationUnit === 'hours' ? durationValue : durationValue * 8; // Assuming 8 hours per day
+
+            setFormData(prev => ({ 
+                ...prev, 
+                estimatedEndDate: toLocalISOString(endDate),
+                estimatedLaborHours: laborHours
+            }));
+        }
+    }, [estimationMode, durationValue, durationUnit, formData.estimatedStartDate]);
+
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+
+        // If user manually changes end date, switch to date mode
+        if (name === 'estimatedEndDate') {
+            setEstimationMode('date');
+        }
     };
     
     const resetForm = () => {
         setFormData(getInitialState());
         setOtherVehicleType('');
-        setEstimationResult(null);
-        setIsManualEstimation(false);
+        setEstimationReason(null);
+        setEstimationMode('duration');
+        setDurationValue(8);
+        setDurationUnit('hours');
     };
 
     const toggleSection = (section: keyof typeof openSections) => {
@@ -83,7 +126,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     // --- AI Estimation ---
     const handleEstimate = async () => {
         setIsEstimating(true);
-        setEstimationResult(null);
+        setEstimationReason(null);
 
         const prompt = `
             Vehicle Type: ${formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}
@@ -112,8 +155,15 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                     }
                 }
             });
-            const result = JSON.parse(response.text);
-            setEstimationResult(result);
+            const result: EstimationResult = JSON.parse(response.text);
+            
+            // Set state to update the duration fields, let the useEffect handle the rest
+            setEstimationMode('duration');
+            setDurationUnit('hours');
+            setDurationValue(Math.round(result.laborHours) || 1); // Round and ensure at least 1
+            setEstimationReason(result.reasoning);
+            addToast('AI ประมาณการณ์สำเร็จ', 'success');
+
         } catch (error) {
             console.error("Error calling Gemini API:", error);
             addToast("ไม่สามารถประมาณการณ์ได้", "error");
@@ -122,28 +172,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         }
     };
     
-    const applyEstimate = () => {
-        if (!estimationResult) return;
-        
-        const now = new Date();
-        const start = new Date(now);
-        const end = new Date(start.getTime() + estimationResult.laborHours * 60 * 60 * 1000);
-
-        const toLocalISOString = (date: Date) => {
-            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
-            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
-            return localISOTime;
-        }
-
-        setFormData(prev => ({
-            ...prev,
-            estimatedStartDate: toLocalISOString(start),
-            estimatedEndDate: toLocalISOString(end),
-            estimatedLaborHours: estimationResult.laborHours
-        }));
-        setIsManualEstimation(true); // show the fields
-    };
-
     // --- Parts Management ---
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
         setFormData(prev => ({
@@ -206,6 +234,19 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         e.preventDefault();
         if (!formData.licensePlate || !formData.problemDescription) {
             addToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (ทะเบียนรถ, อาการเสีย)', 'warning');
+            return;
+        }
+
+        // --- New Estimation Validation ---
+        if (!formData.estimatedEndDate) {
+            addToast('กรุณากรอกข้อมูลการประมาณการณ์เวลาซ่อมให้ครบถ้วน', 'warning');
+            const estimationSection = document.getElementById('estimation-section');
+            if (estimationSection) {
+                estimationSection.scrollIntoView({ behavior: 'smooth' });
+                if (!openSections.estimation) {
+                    toggleSection('estimation');
+                }
+            }
             return;
         }
 
@@ -328,55 +369,85 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             </div>
 
             {/* Estimation Section */}
-            <div className="bg-white rounded-lg shadow-sm">
+            <div id="estimation-section" className="bg-white rounded-lg shadow-sm">
                 <SectionHeader title="2. การประมาณการณ์" sectionId="estimation" />
                 {openSections.estimation && (
                     <div className="p-6 space-y-4">
-                        <button
-                            type="button"
-                            onClick={handleEstimate}
-                            disabled={!formData.licensePlate || !formData.problemDescription || isEstimating}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            🤖 ประมาณการเวลาซ่อมด้วย AI
-                        </button>
-
-                        {isEstimating && (
-                            <div className="text-center p-4 bg-gray-100 rounded-lg">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                                <p className="mt-2 text-gray-600">กำลังวิเคราะห์ข้อมูลจาก AI...</p>
+                        <div className="flex justify-center mb-4">
+                            <button
+                                type="button"
+                                onClick={handleEstimate}
+                                disabled={!formData.licensePlate || !formData.problemDescription || isEstimating}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                {isEstimating ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                        <span>กำลังวิเคราะห์...</span>
+                                    </>
+                                ) : (
+                                    "🤖 ประมาณการด้วย AI (แนะนำ)"
+                                )}
+                            </button>
+                        </div>
+                        
+                        {estimationReason && (
+                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center text-sm text-blue-800 italic">
+                                <p>"{estimationReason}"</p>
                             </div>
                         )}
 
-                        {estimationResult && !isEstimating && (
-                             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center space-y-3">
-                                <p className="text-lg">
-                                    <span className="font-medium text-gray-700">เวลาทำงานของช่าง (โดยประมาณ):</span>
-                                    <span className="ml-2 text-2xl font-bold text-blue-600">{estimationResult.laborHours} ชั่วโมง</span>
-                                </p>
-                                <p className="text-sm text-gray-600 italic">"{estimationResult.reasoning}"</p>
-                                <div className="flex justify-center gap-4 pt-2">
-                                    <button type="button" onClick={applyEstimate} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">ใช้เวลาประมาณการณ์นี้</button>
-                                    <button type="button" onClick={() => setIsManualEstimation(true)} className="px-5 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">แก้ไขด้วยตนเอง</button>
+                        <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
+                            <div className="flex items-center gap-6">
+                                <label className="flex items-center cursor-pointer">
+                                    <input type="radio" name="estimationMode" value="duration" checked={estimationMode === 'duration'} onChange={() => setEstimationMode('duration')} className="mr-2 h-4 w-4"/>
+                                    <span className="font-semibold text-gray-700">ระบุระยะเวลา</span>
+                                </label>
+                                <label className="flex items-center cursor-pointer">
+                                    <input type="radio" name="estimationMode" value="date" checked={estimationMode === 'date'} onChange={() => setEstimationMode('date')} className="mr-2 h-4 w-4"/>
+                                     <span className="font-semibold text-gray-700">กำหนดวันเสร็จ</span>
+                                </label>
+                            </div>
+
+                            {estimationMode === 'duration' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                         <label className="block text-sm font-medium text-gray-700">ระยะเวลา</label>
+                                         <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                    </div>
+                                    <div>
+                                         <label className="block text-sm font-medium text-gray-700">หน่วย</label>
+                                         <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                             <option value="hours">ชั่วโมง</option>
+                                             <option value="days">วัน</option>
+                                         </select>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {isManualEstimation && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                            )}
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
                                     <input type="datetime-local" name="estimatedStartDate" value={formData.estimatedStartDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ</label>
-                                    <input type="datetime-local" name="estimatedEndDate" value={formData.estimatedEndDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                    <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ *</label>
+                                    <input 
+                                        type="datetime-local" 
+                                        name="estimatedEndDate" 
+                                        value={formData.estimatedEndDate || ''} 
+                                        onChange={handleInputChange} 
+                                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                        readOnly={estimationMode === 'duration'}
+                                        required
+                                    />
                                 </div>
                             </div>
-                        )}
+                        </div>
                     </div>
                 )}
             </div>
+
 
             {/* Dispatch Info */}
             <div className="bg-white rounded-lg shadow-sm">

@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import type { MaintenancePlan, Repair } from '../types';
+import type { MaintenancePlan, Repair, Technician } from '../types';
 import MaintenancePlanModal from './MaintenancePlanModal';
 import LogMaintenanceModal from './LogMaintenanceModal';
 import { useToast } from '../context/ToastContext';
@@ -10,9 +9,10 @@ interface MaintenancePlannerProps {
     setPlans: React.Dispatch<React.SetStateAction<MaintenancePlan[]>>;
     repairs: Repair[];
     deletePlan: (planId: string) => void;
+    technicians: Technician[];
 }
 
-const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans, repairs, deletePlan }) => {
+const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans, repairs, deletePlan, technicians }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<MaintenancePlan | null>(null);
     const [loggingPlan, setLoggingPlan] = useState<MaintenancePlan | null>(null);
@@ -110,6 +110,17 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
             };
         }).filter(p => searchTerm === '' || p.planName.toLowerCase().includes(searchTerm.toLowerCase()) || p.vehicleLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [plans, repairs, searchTerm]);
+    
+    const scheduledRepairs = useMemo(() => {
+        return (Array.isArray(repairs) ? repairs : [])
+            .filter(r => r.estimatedStartDate && !['ซ่อมเสร็จ', 'ยกเลิก'].includes(r.status))
+            .sort((a, b) => new Date(a.estimatedStartDate!).getTime() - new Date(b.estimatedStartDate!).getTime());
+    }, [repairs]);
+    
+    const getTechnicianNames = (ids: string[]) => {
+        if (!ids || ids.length === 0) return 'ยังไม่มอบหมาย';
+        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+    };
 
     const getStatusBadge = (status: 'ok' | 'due' | 'overdue') => {
         switch (status) {
@@ -135,48 +146,85 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                 </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
-                 <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียนรถ / ชื่อแผน</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">กำหนดครั้งถัดไป (ตามเวลา)</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">กำหนดครั้งถัดไป (ตามระยะ)</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {planDetails.map(plan => (
-                            <tr key={plan.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3"><div className="font-semibold">{plan.vehicleLicensePlate}</div><div className="text-sm text-gray-500">{plan.planName}</div></td>
-                                <td className="px-4 py-3">
-                                    <div className="font-medium">{plan.nextServiceDate.toLocaleDateString('th-TH')}</div>
-                                    <div className="text-sm text-gray-500">{plan.daysUntilNextService >= 0 ? `(อีก ${plan.daysUntilNextService} วัน)` : `(เลยมา ${Math.abs(plan.daysUntilNextService)} วัน)`}</div>
-                                </td>
-                                 <td className="px-4 py-3">
-                                     <div className="font-medium">{plan.nextServiceMileage.toLocaleString()} กม.</div>
-                                     <div className="text-sm text-gray-500">
-                                         {plan.kmUntilNextService !== null ? 
-                                            plan.kmUntilNextService >= 0 ? `(อีก ${plan.kmUntilNextService.toLocaleString()} กม.)` : `(เลยมา ${Math.abs(plan.kmUntilNextService).toLocaleString()} กม.)`
-                                            : '(ไม่มีข้อมูลไมล์ปัจจุบัน)'}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(plan.status)}`}>{plan.statusText}</span></td>
-                                <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
-                                    <button onClick={() => setLoggingPlan(plan)} className="text-green-600 hover:text-green-800 font-medium">บันทึก</button>
-                                    <button onClick={() => handleOpenModal(plan)} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
-                                    <button onClick={() => handleDeletePlan(plan.id, plan.planName)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
-                                </td>
-                            </tr>
-                        ))}
-                         {planDetails.length === 0 && (
+            <div className="bg-white rounded-2xl shadow-sm">
+                <div className="p-4 border-b">
+                     <h2 className="text-xl font-bold text-gray-800">🗓️ งานซ่อมที่กำหนดเวลาแล้ว (จากใบแจ้งซ่อม)</h2>
+                </div>
+                {scheduledRepairs.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">กำหนดเริ่มซ่อม</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียนรถ</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อาการ</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่างที่รับผิดชอบ</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {scheduledRepairs.map(repair => (
+                                    <tr key={repair.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 font-semibold">{new Date(repair.estimatedStartDate!).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                                        <td className="px-4 py-3 font-medium">{repair.licensePlate}</td>
+                                        <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
+                                        <td className="px-4 py-3 text-sm">{getTechnicianNames(repair.assignedTechnicians)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="p-6 text-center text-gray-500">ไม่มีงานซ่อมที่กำหนดเวลาไว้ในขณะนี้</p>
+                )}
+            </div>
+            
+            <div className="bg-white rounded-2xl shadow-sm">
+                <div className="p-4 border-b">
+                    <h2 className="text-xl font-bold text-gray-800">🔁 แผนบำรุงรักษาตามรอบ</h2>
+                </div>
+                <div className="overflow-x-auto">
+                     <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
                             <tr>
-                                <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูลแผนบำรุงรักษา</td>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียนรถ / ชื่อแผน</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">กำหนดครั้งถัดไป (ตามเวลา)</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">กำหนดครั้งถัดไป (ตามระยะ)</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                             </tr>
-                        )}
-                    </tbody>
-                 </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {planDetails.map(plan => (
+                                <tr key={plan.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3"><div className="font-semibold">{plan.vehicleLicensePlate}</div><div className="text-sm text-gray-500">{plan.planName}</div></td>
+                                    <td className="px-4 py-3">
+                                        <div className="font-medium">{plan.nextServiceDate.toLocaleDateString('th-TH')}</div>
+                                        <div className="text-sm text-gray-500">{plan.daysUntilNextService >= 0 ? `(อีก ${plan.daysUntilNextService} วัน)` : `(เลยมา ${Math.abs(plan.daysUntilNextService)} วัน)`}</div>
+                                    </td>
+                                     <td className="px-4 py-3">
+                                         <div className="font-medium">{plan.nextServiceMileage.toLocaleString()} กม.</div>
+                                         <div className="text-sm text-gray-500">
+                                             {plan.kmUntilNextService !== null ? 
+                                                plan.kmUntilNextService >= 0 ? `(อีก ${plan.kmUntilNextService.toLocaleString()} กม.)` : `(เลยมา ${Math.abs(plan.kmUntilNextService).toLocaleString()} กม.)`
+                                                : '(ไม่มีข้อมูลไมล์ปัจจุบัน)'}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(plan.status)}`}>{plan.statusText}</span></td>
+                                    <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
+                                        <button onClick={() => setLoggingPlan(plan)} className="text-green-600 hover:text-green-800 font-medium">บันทึก</button>
+                                        <button onClick={() => handleOpenModal(plan)} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
+                                        <button onClick={() => handleDeletePlan(plan.id, plan.planName)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                                    </td>
+                                </tr>
+                            ))}
+                             {planDetails.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูลแผนบำรุงรักษา</td>
+                                </tr>
+                            )}
+                        </tbody>
+                     </table>
+                </div>
             </div>
             
             {isModalOpen && (

@@ -252,7 +252,7 @@ useEffect(() => {
       case 'estimation':
         return <Estimation repairs={repairs} />;
       case 'maintenance':
-        return <MaintenancePlanner plans={maintenancePlans} setPlans={setMaintenancePlans} repairs={repairs} deletePlan={deleteMaintenancePlan} />;
+        return <MaintenancePlanner plans={maintenancePlans} setPlans={setMaintenancePlans} repairs={repairs} deletePlan={deleteMaintenancePlan} technicians={technicians} />;
       default:
         return <div>Page not found</div>;
     }
