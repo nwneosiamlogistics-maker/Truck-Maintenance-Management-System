@@ -116,7 +116,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                 return { ...r, activeEstimation };
             })
             .filter(r => r.activeEstimation && !['ซ่อมเสร็จ', 'ยกเลิก'].includes(r.status))
-            .sort((a, b) => new Date(a.activeEstimation!.estimatedStartDate).getTime() - new Date(b.activeEstimation!.estimatedStartDate).getTime());
+            .sort((a, b) => new Date(a.activeEstimation!.estimatedEndDate).getTime() - new Date(b.activeEstimation!.estimatedEndDate).getTime());
     }, [repairs]);
     
     const getTechnicianNames = (ids: string[]) => {
@@ -157,7 +157,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">กำหนดเริ่มซ่อม</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่คาดว่าจะซ่อมเสร็จ</th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียนรถ</th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อาการ</th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่างที่รับผิดชอบ</th>
@@ -166,7 +166,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {scheduledRepairs.map(repair => (
                                     <tr key={repair.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-semibold">{new Date(repair.activeEstimation!.estimatedStartDate).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                                        <td className="px-4 py-3 font-semibold">{new Date(repair.activeEstimation!.estimatedEndDate).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
                                         <td className="px-4 py-3 font-medium">{repair.licensePlate}</td>
                                         <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
                                         <td className="px-4 py-3 text-sm">{getTechnicianNames(repair.assignedTechnicians)}</td>

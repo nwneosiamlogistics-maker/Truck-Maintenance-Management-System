@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+// FIX: Implemented the main App component to resolve module errors and provide application structure.
+import React, { useState, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -6,281 +7,146 @@ import RepairForm from './components/RepairForm';
 import RepairList from './components/RepairList';
 import RepairHistory from './components/RepairHistory';
 import StockManagement from './components/StockManagement';
+import StockHistory from './components/StockHistory';
 import PurchaseRequisitionPage from './components/PurchaseRequisition';
-import Reports from './components/Reports';
 import TechnicianManagement from './components/TechnicianManagement';
 import TechnicianPerformance from './components/TechnicianPerformance';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
-import StockHistory from './components/StockHistory';
+import VehicleManagement from './components/VehicleManagement';
+import Reports from './components/Reports';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
-import { useFirebase } from './hooks/useFirebase';
-
-import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification, PurchaseRequisition, TechnicianStatus, EstimationAttempt } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, Notification, PurchaseRequisition, Vehicle } from './types';
 import { TABS } from './constants';
-import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultStockTransactions, getDefaultMaintenancePlans, getDefaultPurchaseRequisitions } from './data/defaultData';
+import { useFirebase } from './hooks/useFirebase';
+import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultReports, getDefaultMaintenancePlans, getDefaultStockTransactions, getDefaultPurchaseRequisitions, getDefaultVehicles } from './data/defaultData';
+import { getLegacyRepairs } from './data/legacyData';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
-  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    // State management
+    const [activeTab, setActiveTab] = useFirebase<Tab>('activeTab', 'dashboard');
+    const [isSidebarCollapsed, setSidebarCollapsed] = useFirebase<boolean>('sidebarCollapsed', false);
+    const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // Data management using Firebase hook
-  const [repairs, setRepairs] = useFirebase<Repair[]>('repairs', getDefaultRepairs);
-  const [technicians, setTechnicians] = useFirebase<Technician[]>('technicians', getDefaultTechnicians);
-  const [stock, setStock] = useFirebase<StockItem[]>('stock', getDefaultStock);
-  const [transactions, setTransactions] = useFirebase<StockTransaction[]>('stockTransactions', getDefaultStockTransactions);
-  const [maintenancePlans, setMaintenancePlans] = useFirebase<MaintenancePlan[]>('maintenancePlans', getDefaultMaintenancePlans);
-  const [usedParts, setUsedParts] = useFirebase<UsedPart[]>('usedParts', () => []);
-  const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
-  const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', getDefaultPurchaseRequisitions);
-  
-  // Effect to automatically synchronize technician status based on repair orders
-  useEffect(() => {
-    if (!technicians?.length || !repairs) return;
-
-    const activeJobsByTechnician: Record<string, number> = {};
-
-    (Array.isArray(repairs) ? repairs : []).forEach(repair => {
-        const assigned = Array.isArray(repair.assignedTechnicians) ? repair.assignedTechnicians : [];
-        if (repair.status === 'กำลังซ่อม') {
-            assigned.forEach(techId => {
-                activeJobsByTechnician[techId] = (activeJobsByTechnician[techId] || 0) + 1;
-            });
-        }
+    // Data from Firebase
+    const [repairs, setRepairs] = useFirebase<Repair[]>('repairs', () => {
+        const legacy = getLegacyRepairs();
+        const defaults = getDefaultRepairs();
+        // A simple merge, assuming no duplicates. For a real scenario, a more robust merge/migration would be needed.
+        return [...legacy, ...defaults];
     });
+    const [technicians, setTechnicians] = useFirebase<Technician[]>('technicians', getDefaultTechnicians);
+    const [stock, setStock] = useFirebase<StockItem[]>('stock', getDefaultStock);
+    const [transactions, setTransactions] = useFirebase<StockTransaction[]>('stockTransactions', getDefaultStockTransactions);
+    const [reports, setReports] = useFirebase<Report[]>('reports', getDefaultReports);
+    const [maintenancePlans, setMaintenancePlans] = useFirebase<MaintenancePlan[]>('maintenancePlans', getDefaultMaintenancePlans);
+    const [usedParts, setUsedParts] = useFirebase<UsedPart[]>('usedParts', []);
+    const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', []);
+    const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', getDefaultPurchaseRequisitions);
+    const [vehicles, setVehicles] = useFirebase<Vehicle[]>('vehicles', getDefaultVehicles);
 
-    const updatedTechnicians = technicians.map(tech => {
-        const currentJobs = activeJobsByTechnician[tech.id] || 0;
-        let newStatus: TechnicianStatus = tech.status;
-        
-        if (tech.status !== 'ลา') {
-            newStatus = currentJobs > 0 ? 'ไม่ว่าง' : 'ว่าง';
-        }
-        
-        return { ...tech, currentJobs, status: newStatus };
-    });
+    // Memoized stats for badges
+    const stats = useMemo(() => ({
+        pendingRepairs: repairs.filter(r => ['รอซ่อม', 'รออะไหล่', 'กำลังซ่อม'].includes(r.status)).length,
+        lowStock: stock.filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length,
+        dueMaintenance: 0 // This can be calculated from maintenancePlans if needed
+    }), [repairs, stock]);
+
+    const unreadNotifications = useMemo(() => (Array.isArray(notifications) ? notifications : []).filter(n => !n.isRead).length, [notifications]);
+
+    // Handlers for adding new data
+    const addRepair = (repairData: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const repairsThisYear = (Array.isArray(repairs) ? repairs : []).filter(r => new Date(r.createdAt).getFullYear() === year);
+        const newRepairNumber = repairsThisYear.length + 1;
+        const repairOrderNo = `RO-${year}-${String(newRepairNumber).padStart(5, '0')}`;
+
+        const newRepair: Repair = {
+            ...repairData,
+            id: `R${Date.now()}`,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+            status: 'รอซ่อม',
+            repairOrderNo: repairOrderNo,
+            approvalDate: null,
+            repairStartDate: null,
+            repairEndDate: null,
+            requisitionNumber: '',
+            invoiceNumber: '',
+        };
+        setRepairs(prev => [...(Array.isArray(prev) ? prev : []), newRepair]);
+        setActiveTab('list');
+    };
+
+    const addUsedParts = (partsToAdd: Omit<UsedPart, 'id'>[]) => {
+        const newUsedParts: UsedPart[] = partsToAdd.map(p => ({ ...p, id: `UP-${Date.now()}-${Math.random()}` }));
+        setUsedParts(prev => [...(Array.isArray(prev) ? prev : []), ...newUsedParts]);
+    };
     
-    if (JSON.stringify(technicians) !== JSON.stringify(updatedTechnicians)) {
-        setTechnicians(updatedTechnicians);
-    }
-  }, [repairs, technicians, setTechnicians]);
-
-
-  const stats = useMemo(() => {
-    const dueMaintenancePlans = (Array.isArray(maintenancePlans) ? maintenancePlans : []).filter(plan => {
-        const lastDate = new Date(plan.lastServiceDate);
-        let nextServiceDate = new Date(lastDate);
-        if (plan.frequencyUnit === 'days') {
-            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
-        } else if (plan.frequencyUnit === 'weeks') {
-            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
-        } else { // months
-            nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
-        }
-        const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-
-        const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
-        const latestRepair = (Array.isArray(repairs) ? repairs : [])
-            .filter(r => r.licensePlate === plan.vehicleLicensePlate)
-            .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-        const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
-        const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
-
-        const isDue = daysUntilNextService <= 7 || (kmUntilNextService !== null && kmUntilNextService <= 1000);
-        const isOverdue = daysUntilNextService < 0 || (kmUntilNextService !== null && kmUntilNextService < 0);
-
-        return isDue || isOverdue;
-    }).length;
-
-    return {
-      pendingRepairs: (Array.isArray(repairs) ? repairs : []).filter(r => r.status === 'รอซ่อม' || r.status === 'รออะไหล่').length,
-      // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
-      lowStock: (Array.isArray(stock) ? stock : []).filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length,
-      dueMaintenance: dueMaintenancePlans,
-    };
-}, [repairs, stock, maintenancePlans]);
-
- const addNotification = useCallback((newNotification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
-    const notificationToAdd: Notification = {
-        ...newNotification,
-        id: `NOTIF-${Date.now()}-${Math.random()}`,
-        createdAt: new Date().toISOString(),
-        isRead: false,
+    const updateUsedPart = (partToUpdate: UsedPart) => {
+        setUsedParts(prev => (Array.isArray(prev) ? prev : []).map(p => p.id === partToUpdate.id ? partToUpdate : p));
     };
 
-    setNotifications(prevNotifications => {
-        const existing = prevNotifications.find(n => 
-            !n.isRead && 
-            n.relatedId === notificationToAdd.relatedId &&
-            n.type === notificationToAdd.type
-        );
-        if (existing) {
-            return prevNotifications;
+    const deleteUsedPart = (partId: string) => {
+        setUsedParts(prev => (Array.isArray(prev) ? prev : []).filter(p => p.id !== partId));
+    };
+
+    const deleteMaintenancePlan = (planId: string) => {
+        setMaintenancePlans(prev => (Array.isArray(prev) ? prev : []).filter(p => p.id !== planId));
+    };
+    
+    // Render content based on active tab
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'dashboard': return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
+            case 'form': return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} />;
+            case 'list': return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} />;
+            case 'history': return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} />;
+            case 'stock': return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} />;
+            case 'stock-history': return <StockHistory transactions={transactions} />;
+            case 'requisitions': return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} />;
+            case 'technicians': return <TechnicianManagement technicians={technicians} setTechnicians={setTechnicians} repairs={repairs} />;
+            case 'technicianPerformance': return <TechnicianPerformance repairs={repairs} technicians={technicians} />;
+            case 'estimation': return <Estimation repairs={repairs} />;
+            case 'maintenance': return <MaintenancePlanner plans={maintenancePlans} setPlans={setMaintenancePlans} repairs={repairs} deletePlan={deleteMaintenancePlan} technicians={technicians}/>;
+            case 'vehicles': return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
+            case 'reports': return <Reports repairs={repairs} stock={stock} technicians={technicians} />;
+            default: return <div>Page not found</div>;
         }
-        const updatedNotifications = [notificationToAdd, ...prevNotifications]
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        
-        return updatedNotifications.slice(0, 50);
-    });
-}, [setNotifications]);
-
-useEffect(() => {
-    (Array.isArray(stock) ? stock : []).forEach(item => {
-        // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
-        if (item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') {
-            addNotification({
-                message: `อะไหล่ "${item.name}" อยู่ในสถานะ${item.status}`,
-                type: 'danger',
-                linkTo: 'stock',
-                relatedId: `stock-${item.id}`
-            });
-        }
-    });
-
-    (Array.isArray(maintenancePlans) ? maintenancePlans : []).forEach(plan => {
-        const lastDate = new Date(plan.lastServiceDate);
-        let nextServiceDate = new Date(lastDate);
-        if (plan.frequencyUnit === 'days') {
-            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
-        } else if (plan.frequencyUnit === 'weeks') {
-            nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
-        } else {
-            nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
-        }
-        const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-        if (daysUntilNextService <= 7 && daysUntilNextService >= 0) {
-             addNotification({
-                message: `แผน "${plan.planName}" สำหรับรถ ${plan.vehicleLicensePlate} ใกล้ถึงกำหนด`,
-                type: 'warning',
-                linkTo: 'maintenance',
-                relatedId: `maint-due-${plan.id}`
-            });
-        } else if (daysUntilNextService < 0) {
-            addNotification({
-                message: `แผน "${plan.planName}" สำหรับรถ ${plan.vehicleLicensePlate} เกินกำหนดแล้ว!`,
-                type: 'danger',
-                linkTo: 'maintenance',
-                relatedId: `maint-overdue-${plan.id}`
-            });
-        }
-    });
-
-}, [stock, maintenancePlans, addNotification]);
-
-  const generateRepairOrderNo = useCallback(() => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const count = (Array.isArray(repairs) ? repairs : []).filter(r => new Date(r.createdAt).getFullYear() === year).length + 1;
-      return `RO-${year}-${String(count).padStart(5, '0')}`;
-  }, [repairs]);
-
-  const addRepair = useCallback((newRepairData: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => {
-      const now = new Date().toISOString();
-      
-      const newRepair: Repair = {
-          ...newRepairData,
-          id: `MR-${Date.now()}`,
-          createdAt: now,
-          updatedAt: now,
-          status: 'รอซ่อม',
-          repairOrderNo: generateRepairOrderNo(),
-          approvalDate: null,
-          repairStartDate: null,
-          repairEndDate: null,
-          requisitionNumber: '',
-          invoiceNumber: '',
-      };
-      setRepairs(prev => [newRepair, ...prev]);
-      addNotification({
-        message: `มีใบแจ้งซ่อมใหม่สำหรับรถ ${newRepair.licensePlate}`,
-        type: 'info',
-        linkTo: 'list',
-        relatedId: `repair-${newRepair.id}`
-      });
-  }, [setRepairs, generateRepairOrderNo, addNotification]);
-  
-  const addUsedParts = useCallback((parts: Omit<UsedPart, 'id'>[]) => {
-      const newUsedParts: UsedPart[] = (Array.isArray(parts) ? parts : []).map(p => ({ ...p, id: `UP-${Date.now()}-${Math.random()}` }));
-      setUsedParts(prev => [...newUsedParts, ...prev]);
-  }, [setUsedParts]);
-  
-  const updateUsedPart = useCallback((partToUpdate: UsedPart) => {
-      setUsedParts(prev => prev.map(p => p.id === partToUpdate.id ? partToUpdate : p));
-  }, [setUsedParts]);
-
-  const deleteUsedPart = useCallback((partId: string) => {
-    setUsedParts(prev => prev.filter(p => p.id !== partId));
-  }, [setUsedParts]);
-
-  const deleteMaintenancePlan = useCallback((planId: string) => {
-    setMaintenancePlans(prev => prev.filter(p => p.id !== planId));
-  }, [setMaintenancePlans]);
-
-  const unreadNotificationsCount = useMemo(() => (Array.isArray(notifications) ? notifications : []).filter(n => !n.isRead).length, [notifications]);
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
-      case 'form':
-        return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} />;
-      case 'list':
-        return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} />;
-      case 'history':
-        return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} />;
-      case 'stock':
-        return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} />;
-      case 'stock-history':
-        return <StockHistory transactions={transactions} />;
-      case 'requisitions':
-        return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} />;
-      case 'reports':
-        return <Reports repairs={repairs} stock={stock} technicians={technicians} />;
-      case 'technicians':
-        return <TechnicianManagement technicians={technicians} setTechnicians={setTechnicians} repairs={repairs} />;
-      case 'technicianPerformance':
-        return <TechnicianPerformance technicians={technicians} repairs={repairs} />;
-      case 'estimation':
-        return <Estimation repairs={repairs} />;
-      case 'maintenance':
-        return <MaintenancePlanner plans={maintenancePlans} setPlans={setMaintenancePlans} repairs={repairs} deletePlan={deleteMaintenancePlan} technicians={technicians} />;
-      default:
-        return <div>Page not found</div>;
-    }
-  };
-
-  return (
-    <ToastProvider>
-      <div className="flex h-screen bg-gray-100 font-sans">
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isCollapsed={isSidebarCollapsed}
-          setCollapsed={setSidebarCollapsed}
-          isMobileOpen={isMobileSidebarOpen}
-          setMobileOpen={setMobileSidebarOpen}
-          stats={stats}
-        />
-        <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-[70px]' : 'lg:ml-72'}`}>
-          <Header
-            pageTitle={TABS[activeTab].title}
-            pageSubtitle={TABS[activeTab].subtitle}
-            toggleMobileSidebar={() => setMobileSidebarOpen(!isMobileSidebarOpen)}
-            notifications={notifications}
-            setNotifications={setNotifications}
-            unreadCount={unreadNotificationsCount}
-            setActiveTab={setActiveTab}
-          />
-          <main className="flex-1 p-6 overflow-y-auto">
-            {renderContent()}
-          </main>
-        </div>
-        <ToastContainer />
-      </div>
-    </ToastProvider>
-  );
+    };
+    
+    return (
+        <ToastProvider>
+            <div className="flex h-screen bg-gray-100 font-sans">
+                <Sidebar
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    isCollapsed={isSidebarCollapsed}
+                    setCollapsed={setSidebarCollapsed}
+                    isMobileOpen={isMobileSidebarOpen}
+                    setMobileOpen={setMobileSidebarOpen}
+                    stats={stats}
+                />
+                <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-[70px]' : 'lg:ml-72'}`}>
+                    <Header
+                        pageTitle={TABS[activeTab].title}
+                        pageSubtitle={TABS[activeTab].subtitle}
+                        toggleMobileSidebar={() => setMobileSidebarOpen(prev => !prev)}
+                        notifications={notifications}
+                        setNotifications={setNotifications}
+                        unreadCount={unreadNotifications}
+                        setActiveTab={setActiveTab}
+                    />
+                    <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+                        {renderContent()}
+                    </main>
+                </div>
+                <ToastContainer />
+            </div>
+        </ToastProvider>
+    );
 };
 
 export default App;

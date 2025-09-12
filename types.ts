@@ -1,5 +1,4 @@
 
-
 // FIX: Removed self-referencing import of 'Tab' which caused a declaration conflict.
 export type Tab =
   | 'dashboard'
@@ -13,7 +12,8 @@ export type Tab =
   | 'technicians'
   | 'technicianPerformance'
   | 'estimation'
-  | 'maintenance';
+  | 'maintenance'
+  | 'vehicles';
 
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
@@ -206,4 +206,19 @@ export interface Report {
     title: string;
     data: any;
     createdAt: string;
+}
+
+export interface Vehicle {
+  id: string;
+  licensePlate: string;
+  vehicleType: string;
+  make: string;
+  model: string;
+  registrationDate: string | null;
+  insuranceCompany: string | null;
+  insuranceExpiryDate: string | null;
+  insuranceType: string | null;
+  actCompany: string | null;
+  actExpiryDate: string | null;
+  cargoInsuranceCompany: string | null;
 }

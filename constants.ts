@@ -48,5 +48,9 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
     maintenance: {
         title: 'วางแผนซ่อมบำรุง',
         subtitle: 'จัดการแผนบำรุงรักษาตามกำหนด'
+    },
+    vehicles: {
+        title: 'ข้อมูลรถและประกันภัย',
+        subtitle: 'จัดการข้อมูลยานพาหนะและเอกสารสำคัญ'
     }
 };
