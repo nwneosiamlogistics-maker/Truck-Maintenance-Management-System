@@ -43,11 +43,21 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         const now = new Date().toISOString();
         const updates: Partial<Repair> = { status: newStatus };
 
+        // If status is "In Progress" and no start date, set it.
         if (newStatus === 'กำลังซ่อม' && !formData.repairStartDate) {
             updates.repairStartDate = now;
         }
-        if (newStatus === 'ซ่อมเสร็จ' && !formData.repairEndDate) {
-            updates.repairEndDate = now;
+        
+        // If status is "Completed"...
+        if (newStatus === 'ซ่อมเสร็จ') {
+            // ... and no start date is set yet (e.g., skipped "In Progress"), set it now.
+            if (!formData.repairStartDate) {
+                updates.repairStartDate = now;
+            }
+            // ... and no end date is set, set it now.
+            if (!formData.repairEndDate) {
+                updates.repairEndDate = now;
+            }
         }
 
         setFormData(prev => ({ ...prev, ...updates }));
@@ -93,7 +103,8 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                 });
             });
         }
-        onSave(formData);
+        // FIX: Merge original repair data with form data to preserve fields not in the edit form (e.g., estimated dates).
+        onSave({ ...repair, ...formData });
     };
 
     return (
