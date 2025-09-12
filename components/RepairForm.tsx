@@ -197,16 +197,19 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setExternalPartModalOpen(false);
     };
 
-    const updatePart = (index: number, field: keyof PartRequisitionItem, value: any) => {
-        const newParts = [...formData.parts];
-        (newParts[index] as any)[field] = value;
-        setFormData(prev => ({ ...prev, parts: newParts }));
-    };
-    
-    const removePart = (index: number) => {
+    const updatePart = (partId: string, field: keyof PartRequisitionItem, value: any) => {
         setFormData(prev => ({
             ...prev,
-            parts: prev.parts.filter((_, i) => i !== index)
+            parts: prev.parts.map(p => 
+                p.partId === partId ? { ...p, [field]: value } : p
+            )
+        }));
+    };
+    
+    const removePart = (partId: string) => {
+        setFormData(prev => ({
+            ...prev,
+            parts: prev.parts.filter(p => p.partId !== partId)
         }));
     };
 
@@ -512,8 +515,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <div className="col-span-2 text-right">ราคารวม</div>
                             </div>
                         )}
-                        {formData.parts.map((part, index) => (
-                            <div key={index} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
+                        {formData.parts.map((part) => (
+                            <div key={part.partId} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
                                 <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
                                 <div className="col-span-4">
                                     <p className="font-medium">{part.name}</p>
@@ -522,17 +525,17 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     )}
                                 </div>
                                 <div className="col-span-2">
-                                    <input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(index, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" />
+                                    <input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" />
                                 </div>
                                 <div className="col-span-1 text-center">{part.unit}</div>
                                 <div className="col-span-2">
-                                     <input type="number" value={part.unitPrice} onChange={(e) => updatePart(index, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} />
+                                     <input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} />
                                 </div>
                                 <div className="col-span-1 font-semibold text-right">
                                     {(part.quantity * part.unitPrice).toLocaleString()}
                                 </div>
                                 <div className="col-span-1 text-center">
-                                    <button type="button" onClick={() => removePart(index)} className="text-red-500 hover:text-red-700 font-bold">×</button>
+                                    <button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold">×</button>
                                 </div>
                             </div>
                         ))}
