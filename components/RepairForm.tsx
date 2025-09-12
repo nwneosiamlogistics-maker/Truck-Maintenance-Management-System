@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent, useMemo, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
@@ -99,6 +99,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         }
     }, [estimationMode, durationValue, durationUnit, formData.estimatedStartDate]);
 
+    const getPriorityClass = (priority: Priority) => {
+        switch (priority) {
+            case 'ด่วน':
+                return 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold';
+            case 'ด่วนที่สุด':
+                return 'bg-red-50 border-red-400 text-red-800 font-semibold';
+            default:
+                return 'bg-white border-gray-300';
+        }
+    };
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -357,6 +367,14 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         <div>
                             <label className="block text-sm font-medium text-gray-700">เลขไมล์</label>
                             <input type="number" name="currentMileage" value={formData.currentMileage} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">ความสำคัญ</label>
+                            <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-2 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`}>
+                                <option value="ปกติ">ปกติ</option>
+                                <option value="ด่วน">ด่วน</option>
+                                <option value="ด่วนที่สุด">ด่วนที่สุด</option>
+                            </select>
                         </div>
                          <div className="md:col-span-3">
                             <label className="block text-sm font-medium text-gray-700">ชื่อผู้แจ้งซ่อม</label>

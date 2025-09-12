@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, StockItem, RepairStatus, UsedPart } from '../types';
+import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
@@ -13,6 +14,15 @@ interface RepairListProps {
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
     addUsedParts: (parts: Omit<UsedPart, 'id'>[]) => void;
 }
+
+const getPriorityValue = (priority: Priority) => {
+    switch (priority) {
+        case 'ด่วนที่สุด': return 0;
+        case 'ด่วน': return 1;
+        case 'ปกติ': return 2;
+        default: return 3;
+    }
+};
 
 const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, addUsedParts }) => {
     const [statusFilter, setStatusFilter] = useState<RepairStatus | 'all'>('all');
@@ -31,7 +41,17 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                 r.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.vehicleMake.toLowerCase().includes(searchTerm.toLowerCase())
             )
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            .sort((a, b) => {
+                const priorityA = getPriorityValue(a.priority);
+                const priorityB = getPriorityValue(b.priority);
+
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB;
+                }
+
+                // If priorities are the same, sort by newest first
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
     }, [repairs, statusFilter, searchTerm]);
 
     const handleSaveRepair = (updatedRepair: Repair) => {

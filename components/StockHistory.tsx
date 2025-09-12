@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import type { StockTransaction, StockTransactionType } from '../types';
 
@@ -86,9 +85,9 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
                 </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                 <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่</th>

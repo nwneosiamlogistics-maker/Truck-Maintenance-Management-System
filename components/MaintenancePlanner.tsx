@@ -59,56 +59,59 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
     };
 
     const planDetails = useMemo(() => {
-        return (Array.isArray(plans) ? plans : []).map(plan => {
-            const lastDate = new Date(plan.lastServiceDate);
-            let nextServiceDate = new Date(lastDate);
+        return (Array.isArray(plans) ? plans : [])
+            .map(plan => {
+                const lastDate = new Date(plan.lastServiceDate);
+                let nextServiceDate = new Date(lastDate);
 
-            if (plan.frequencyUnit === 'days') {
-                nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
-            } else if (plan.frequencyUnit === 'weeks') {
-                nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
-            } else { // months
-                nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
-            }
+                if (plan.frequencyUnit === 'days') {
+                    nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
+                } else if (plan.frequencyUnit === 'weeks') {
+                    nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
+                } else { // months
+                    nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
+                }
 
-            const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
 
-            const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
-            const latestRepair = (Array.isArray(repairs) ? repairs : [])
-                .filter(r => r.licensePlate === plan.vehicleLicensePlate)
-                .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-            
-            const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
-            const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
+                const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
+                const latestRepair = (Array.isArray(repairs) ? repairs : [])
+                    .filter(r => r.licensePlate === plan.vehicleLicensePlate)
+                    .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+                
+                const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
+                const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
 
-            let status: 'ok' | 'due' | 'overdue' = 'ok';
-            let statusText = '';
-            
-            const isDue = daysUntilNextService <= 7 || (kmUntilNextService !== null && kmUntilNextService <= 1000);
-            const isOverdue = daysUntilNextService < 0 || (kmUntilNextService !== null && kmUntilNextService < 0);
+                let status: 'ok' | 'due' | 'overdue' = 'ok';
+                let statusText = '';
+                
+                const isDue = daysUntilNextService <= 7 || (kmUntilNextService !== null && kmUntilNextService <= 1000);
+                const isOverdue = daysUntilNextService < 0 || (kmUntilNextService !== null && kmUntilNextService < 0);
 
-            if (isOverdue) {
-                status = 'overdue';
-                statusText = 'เกินกำหนด';
-            } else if (isDue) {
-                status = 'due';
-                statusText = 'ใกล้ถึงกำหนด';
-            } else {
-                status = 'ok';
-                statusText = 'ปกติ';
-            }
+                if (isOverdue) {
+                    status = 'overdue';
+                    statusText = 'เกินกำหนด';
+                } else if (isDue) {
+                    status = 'due';
+                    statusText = 'ใกล้ถึงกำหนด';
+                } else {
+                    status = 'ok';
+                    statusText = 'ปกติ';
+                }
 
-            return {
-                ...plan,
-                nextServiceDate,
-                daysUntilNextService,
-                nextServiceMileage,
-                currentMileage,
-                kmUntilNextService,
-                status,
-                statusText
-            };
-        }).filter(p => searchTerm === '' || p.planName.toLowerCase().includes(searchTerm.toLowerCase()) || p.vehicleLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()));
+                return {
+                    ...plan,
+                    nextServiceDate,
+                    daysUntilNextService,
+                    nextServiceMileage,
+                    currentMileage,
+                    kmUntilNextService,
+                    status,
+                    statusText
+                };
+            })
+            .filter(p => searchTerm === '' || p.planName.toLowerCase().includes(searchTerm.toLowerCase()) || p.vehicleLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()))
+            .sort((a, b) => a.daysUntilNextService - b.daysUntilNextService);
     }, [plans, repairs, searchTerm]);
     
     const scheduledRepairs = useMemo(() => {

@@ -54,11 +54,30 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     }, [stock]);
 
     const filteredStock = useMemo(() => {
+        const getStatusPriority = (status: StockStatus): number => {
+            switch (status) {
+                case 'หมดสต๊อก': return 0;
+                case 'สต๊อกต่ำ': return 1;
+                case 'สต๊อกเกิน': return 2;
+                case 'ปกติ': return 3;
+                default: return 4;
+            }
+        };
+
         return stock
             .filter(item => activeCategory === 'ทั้งหมด' || item.category === activeCategory)
             .filter(item => newStockStatusFilter === 'all' || item.status === newStockStatusFilter)
             .filter(item => newStockSearchTerm === '' || item.name.toLowerCase().includes(newStockSearchTerm.toLowerCase()) || item.code.toLowerCase().includes(newStockSearchTerm.toLowerCase()))
-            .sort((a,b) => a.name.localeCompare(b.name));
+            .sort((a, b) => {
+                const priorityA = getStatusPriority(a.status);
+                const priorityB = getStatusPriority(b.status);
+
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB;
+                }
+                
+                return a.name.localeCompare(b.name);
+            });
     }, [stock, activeCategory, newStockSearchTerm, newStockStatusFilter]);
 
     // Memoized Filters for Used Parts
