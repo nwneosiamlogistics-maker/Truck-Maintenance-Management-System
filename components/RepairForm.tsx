@@ -263,6 +263,19 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             return;
         }
 
+        // --- Assigned Technician Validation ---
+        if (formData.assignedTechnicians.length === 0) {
+            addToast('กรุณามอบหมายช่างอย่างน้อย 1 คน', 'warning');
+            const dispatchSection = document.getElementById('dispatch-section');
+            if (dispatchSection) {
+                dispatchSection.scrollIntoView({ behavior: 'smooth' });
+                if (!openSections.dispatch) {
+                    toggleSection('dispatch');
+                }
+            }
+            return;
+        }
+
         // --- Duplicate Repair Order Check ---
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const normalizedProblem = formData.problemDescription.trim().toLowerCase();
@@ -471,7 +484,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
 
             {/* Dispatch Info */}
-            <div className="bg-white rounded-lg shadow-sm">
+            <div id="dispatch-section" className="bg-white rounded-lg shadow-sm">
                 <SectionHeader title="3. ข้อมูลการส่งซ่อม" sectionId="dispatch" />
                  {openSections.dispatch && (
                 <div className="p-6 space-y-4">
@@ -498,7 +511,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                             <div className="flex items-center justify-between mb-1">
-                                <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง</label>
+                                <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง *</label>
                                 <button type="button" onClick={() => setActiveTab('technicians')} className="text-sm text-blue-600 hover:underline">จัดการช่าง</button>
                             </div>
                            <TechnicianMultiSelect
