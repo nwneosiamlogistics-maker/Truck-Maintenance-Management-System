@@ -28,7 +28,7 @@ export interface PartRequisitionItem {
     quantity: number;
     unit: string;
     unitPrice: number;
-    source: 'สต๊อกอู่' | 'ร้านค้า';
+    source: 'สต็อกอู่' | 'ร้านค้า';
     supplierName?: string;
     purchaseDate?: string;
 }
@@ -45,7 +45,7 @@ export interface Repair {
     repairCategory: string;
     priority: Priority;
     problemDescription: string;
-    assignedTechnician: string;
+    assignedTechnicians: string[];
     notes: string;
     dispatchType: DispatchType;
     repairLocation: string;

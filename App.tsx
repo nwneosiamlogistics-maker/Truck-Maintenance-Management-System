@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -21,7 +20,7 @@ import ToastContainer from './components/ToastContainer';
 import { useFirebase } from './hooks/useFirebase';
 
 // FIX: Importing all necessary types from the newly defined types.ts
-import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification, PurchaseRequisition } from './types';
+import type { Tab, Repair, Technician, StockItem, StockTransaction, MaintenancePlan, UsedPart, Notification, PurchaseRequisition, TechnicianStatus } from './types';
 import { TABS } from './constants';
 import { getDefaultRepairs, getDefaultTechnicians, getDefaultStock, getDefaultStockTransactions, getDefaultMaintenancePlans, getDefaultPurchaseRequisitions } from './data/defaultData';
 
@@ -40,6 +39,40 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
   const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', getDefaultPurchaseRequisitions);
   
+  // Effect to automatically synchronize technician status based on repair orders
+  useEffect(() => {
+    if (!technicians?.length || !repairs) return;
+
+    const activeJobsByTechnician: Record<string, number> = {};
+
+    (Array.isArray(repairs) ? repairs : []).forEach(repair => {
+        const assigned = Array.isArray(repair.assignedTechnicians) ? repair.assignedTechnicians : [];
+        if (repair.status === 'กำลังซ่อม') {
+            assigned.forEach(techId => {
+                activeJobsByTechnician[techId] = (activeJobsByTechnician[techId] || 0) + 1;
+            });
+        }
+    });
+
+    const updatedTechnicians = technicians.map(tech => {
+        const currentJobs = activeJobsByTechnician[tech.id] || 0;
+        let newStatus: TechnicianStatus = tech.status;
+        
+        // Preserve 'On Leave' status, otherwise update based on jobs
+        if (tech.status !== 'ลา') {
+            newStatus = currentJobs > 0 ? 'ไม่ว่าง' : 'ว่าง';
+        }
+        
+        return { ...tech, currentJobs, status: newStatus };
+    });
+    
+    // Only update state if there are actual changes to prevent infinite loops
+    if (JSON.stringify(technicians) !== JSON.stringify(updatedTechnicians)) {
+        setTechnicians(updatedTechnicians);
+    }
+  }, [repairs, technicians, setTechnicians]);
+
+
   const stats = useMemo(() => {
     // Calculate due maintenance plans
     const dueMaintenancePlans = (Array.isArray(maintenancePlans) ? maintenancePlans : []).filter(plan => {
@@ -198,7 +231,7 @@ useEffect(() => {
       case 'dashboard':
         return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
       case 'form':
-        return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} />;
+        return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} />;
       case 'list':
         return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} />;
       case 'history':

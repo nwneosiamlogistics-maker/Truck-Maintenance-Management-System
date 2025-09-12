@@ -27,6 +27,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     // New Stock States
     const [newStockSearchTerm, setNewStockSearchTerm] = useState('');
     const [newStockStatusFilter, setNewStockStatusFilter] = useState('all');
+    const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
     const [editingItem, setEditingItem] = useState<StockItem | null>(null);
     const [isEditModalOpen, setEditModalOpen] = useState(false);
     const [addingStockItem, setAddingStockItem] = useState<StockItem | null>(null);
@@ -46,14 +47,21 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
 
     const { addToast } = useToast();
 
-    // Memoized Filters
+    // Memoized Filters for New Stock
+    const categories = useMemo(() => {
+        const allCats = new Set(stock.map(item => item.category));
+        return ['ทั้งหมด', ...Array.from(allCats).sort()];
+    }, [stock]);
+
     const filteredStock = useMemo(() => {
         return stock
+            .filter(item => activeCategory === 'ทั้งหมด' || item.category === activeCategory)
             .filter(item => newStockStatusFilter === 'all' || item.status === newStockStatusFilter)
             .filter(item => newStockSearchTerm === '' || item.name.toLowerCase().includes(newStockSearchTerm.toLowerCase()) || item.code.toLowerCase().includes(newStockSearchTerm.toLowerCase()))
             .sort((a,b) => a.name.localeCompare(b.name));
-    }, [stock, newStockSearchTerm, newStockStatusFilter]);
+    }, [stock, activeCategory, newStockSearchTerm, newStockStatusFilter]);
 
+    // Memoized Filters for Used Parts
     const filteredUsedParts = useMemo(() => {
         return usedParts
             .filter(part => usedPartStatusFilter === 'all' || part.status === usedPartStatusFilter)
@@ -196,7 +204,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             quantity: Math.max(1, suggestedQuantity),
             unit: item.unit,
             unitPrice: item.price,
-            // FIX: Property 'deliveryOrServiceDate' is missing in type 'PurchaseRequisitionItem'.
             deliveryOrServiceDate: new Date().toISOString().split('T')[0],
         };
         setInitialRequisitionItem(initialItem);
@@ -207,7 +214,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         const now = new Date();
         const year = now.getFullYear();
 
-        // New PR numbering logic
         const currentYearPrs = (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
             .filter(pr => new Date(pr.createdAt).getFullYear() === year);
         const lastPrNumber = currentYearPrs
@@ -283,38 +289,53 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             </div>
 
             {activeTab === 'new' && (
-            <>
-                <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        <input
-                            type="text" placeholder="ค้นหา (ชื่อ, รหัส)..." value={newStockSearchTerm}
-                            onChange={(e) => setNewStockSearchTerm(e.target.value)} className="w-72 p-2 border border-gray-300 rounded-lg text-base"
-                        />
-                        <select value={newStockStatusFilter} onChange={e => setNewStockStatusFilter(e.target.value)} className="p-2 border border-gray-300 rounded-lg text-base">
-                            <option value="all">สถานะทั้งหมด</option>
-                            <option value="ปกติ">ปกติ</option>
-                            <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
-                            <option value="หมดสต๊อก">หมดสต๊อก</option>
-                            <option value="สต๊อกเกิน">สต๊อกเกิน</option>
-                        </select>
+            <div className="bg-white rounded-b-2xl shadow-sm -mt-6">
+                <div className="p-4 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <input
+                                type="text" placeholder="ค้นหา (ชื่อ, รหัส)..." value={newStockSearchTerm}
+                                onChange={(e) => setNewStockSearchTerm(e.target.value)} className="w-72 p-2 border border-gray-300 rounded-lg text-base"
+                            />
+                            <select value={newStockStatusFilter} onChange={e => setNewStockStatusFilter(e.target.value)} className="p-2 border border-gray-300 rounded-lg text-base">
+                                <option value="all">สถานะทั้งหมด</option>
+                                <option value="ปกติ">ปกติ</option>
+                                <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
+                                <option value="หมดสต๊อก">หมดสต๊อก</option>
+                                <option value="สต๊อกเกิน">สต๊อกเกิน</option>
+                            </select>
+                        </div>
+                        <div className="space-x-2">
+                            <button onClick={() => { setEditingItem(null); setEditModalOpen(true); }} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">+ เพิ่มอะไหล่ใหม่</button>
+                            <button onClick={() => setWithdrawModalOpen(true)} className="px-4 py-2 text-base font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">- เบิก (ทั่วไป)</button>
+                            <button onClick={() => setReturnModalOpen(true)} className="px-4 py-2 text-base font-medium text-white bg-indigo-500 rounded-lg hover:bg-indigo-600">↩️ คืนร้านค้า</button>
+                        </div>
                     </div>
-                    <div className="space-x-2">
-                        <button onClick={() => { setEditingItem(null); setEditModalOpen(true); }} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">+ เพิ่มอะไหล่ใหม่</button>
-                        <button onClick={() => setWithdrawModalOpen(true)} className="px-4 py-2 text-base font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">- เบิก (ทั่วไป)</button>
-                        <button onClick={() => setReturnModalOpen(true)} className="px-4 py-2 text-base font-medium text-white bg-indigo-500 rounded-lg hover:bg-indigo-600">↩️ คืนร้านค้า</button>
+                    <div className="border-b -mx-4"></div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <span className="font-semibold text-gray-700">หมวดหมู่:</span>
+                        {categories.map(cat => (
+                            <button 
+                                key={cat}
+                                onClick={() => setActiveCategory(cat)}
+                                className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${activeCategory === cat ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+                <div className="max-h-[60vh] overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รหัส / ชื่อ</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">คงเหลือ</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ราคา/หน่วย</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ตำแหน่ง</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase bg-gray-50">รหัส / ชื่อ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase bg-gray-50">หมวดหมู่</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase bg-gray-50">คงเหลือ</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase bg-gray-50">ราคา/หน่วย</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase bg-gray-50">ตำแหน่ง</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase bg-gray-50">สถานะ</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase bg-gray-50">จัดการ</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -341,7 +362,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                         </tbody>
                     </table>
                 </div>
-            </>
+            </div>
             )}
 
             {activeTab === 'used' && (

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician } from '../types';
 import StatCard from './StatCard';
@@ -60,7 +61,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         });
 
         const techStats = technicians.map(tech => {
-            const techRepairs = filteredRepairs.filter(r => r.assignedTechnician === tech.id);
+            const techRepairs = filteredRepairs.filter(r => (r.assignedTechnicians || []).includes(tech.id));
             if (techRepairs.length === 0) return null;
 
             let totalRepairMillis = 0;

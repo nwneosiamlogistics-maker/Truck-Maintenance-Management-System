@@ -1,15 +1,17 @@
-
 import React, { useState, ChangeEvent, FormEvent, useMemo } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
+import TechnicianMultiSelect from './TechnicianMultiSelect';
 
 interface RepairFormProps {
     technicians: Technician[];
     stock: StockItem[];
     addRepair: (repair: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => void;
+    repairs: Repair[];
+    setActiveTab: (tab: Tab) => void;
 }
 
 interface EstimationResult {
@@ -17,7 +19,7 @@ interface EstimationResult {
     reasoning: string;
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab }) => {
     
     const getInitialState = () => ({
         repairOrderNo: 'จะถูกสร้างอัตโนมัติ',
@@ -30,7 +32,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
         repairCategory: 'ซ่อมทั่วไป',
         priority: 'ปกติ' as const,
         problemDescription: '',
-        assignedTechnician: '',
+        assignedTechnicians: [] as string[],
         notes: '',
         dispatchType: 'ภายใน' as 'ภายใน' | 'ภายนอก',
         repairLocation: '',
@@ -152,9 +154,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
     };
 
     const handleAddExternalParts = (data: { parts: PartRequisitionItem[], vat: number }) => {
+        const existingPartNames = new Set(formData.parts.map(p => p.name.trim().toLowerCase()));
+        const newParts = data.parts.filter(p => !existingPartNames.has(p.name.trim().toLowerCase()));
+        
+        if (newParts.length < data.parts.length) {
+            addToast('มีบางรายการซ้ำซ้อนและถูกข้ามไป', 'info');
+        }
+
         setFormData(prev => ({
             ...prev,
-            parts: [...prev.parts, ...data.parts],
+            parts: [...prev.parts, ...newParts],
             partsVat: (prev.partsVat || 0) + data.vat
         }));
         setExternalPartModalOpen(false);
@@ -198,6 +207,25 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
         if (!formData.licensePlate || !formData.problemDescription) {
             addToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (ทะเบียนรถ, อาการเสีย)', 'warning');
             return;
+        }
+
+        // --- Duplicate Repair Order Check ---
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const normalizedProblem = formData.problemDescription.trim().toLowerCase();
+        const potentialDuplicate = (Array.isArray(repairs) ? repairs : []).find(r => 
+            new Date(r.createdAt) > twentyFourHoursAgo &&
+            r.licensePlate.trim().toLowerCase() === formData.licensePlate.trim().toLowerCase() &&
+            r.problemDescription.trim().toLowerCase() === normalizedProblem
+        );
+
+        if (potentialDuplicate) {
+            const proceed = window.confirm(
+`ตรวจพบใบแจ้งซ่อมที่คล้ายกันสำหรับรถคันนี้ (${potentialDuplicate.repairOrderNo}) ที่สร้างขึ้นเมื่อไม่นานมานี้ 
+คุณแน่ใจหรือไม่ว่าต้องการสร้างใบแจ้งซ่อมใบใหม่?`
+            );
+            if (!proceed) {
+                return; // Stop submission
+            }
         }
 
         const { repairOrderNo, ...repairData } = formData;
@@ -376,14 +404,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                         </div>
                     )}
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง</label>
-                            <select name="assignedTechnician" value={formData.assignedTechnician} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
-                                <option value="">-- เลือกช่าง --</option>
-                                {(Array.isArray(technicians) ? technicians : []).filter(t => t.status === 'ว่าง').map(tech => (
-                                    <option key={tech.id} value={tech.id}>{tech.name}</option>
-                                ))}
-                            </select>
+                        <div className="md:col-span-2">
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง</label>
+                                <button type="button" onClick={() => setActiveTab('technicians')} className="text-sm text-blue-600 hover:underline">จัดการช่าง</button>
+                            </div>
+                           <TechnicianMultiSelect
+                                allTechnicians={technicians}
+                                selectedTechnicianIds={formData.assignedTechnicians}
+                                onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))}
+                           />
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ไม่รวมอะไหล่)</label>
@@ -413,7 +443,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                         )}
                         {formData.parts.map((part, index) => (
                             <div key={index} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
-                                <div className="col-span-1 text-xl">{part.source === 'สต๊อกอู่' ? '📦' : '🏪'}</div>
+                                <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
                                 <div className="col-span-4">
                                     <p className="font-medium">{part.name}</p>
                                      {part.source === 'ร้านค้า' && part.supplierName && (
@@ -425,7 +455,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                                 </div>
                                 <div className="col-span-1 text-center">{part.unit}</div>
                                 <div className="col-span-2">
-                                     <input type="number" value={part.unitPrice} onChange={(e) => updatePart(index, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต๊อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต๊อกอู่' ? 'bg-gray-100' : ''}`} />
+                                     <input type="number" value={part.unitPrice} onChange={(e) => updatePart(index, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} />
                                 </div>
                                 <div className="col-span-1 font-semibold text-right">
                                     {(part.quantity * part.unitPrice).toLocaleString()}
@@ -456,7 +486,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <button type="button" onClick={() => setStockModalOpen(true)} className="w-full text-blue-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-blue-500 hover:bg-blue-50 flex items-center justify-center gap-2">
-                           📦 + เลือกจากสต๊อกอู่
+                           📦 + เลือกจากสต็อกอู่
                         </button>
                          <button type="button" onClick={() => setExternalPartModalOpen(true)} className="w-full text-green-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-green-500 hover:bg-green-50 flex items-center justify-center gap-2">
                            🏪 + เพิ่มรายการจากร้านค้า
@@ -502,6 +532,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair }
                 stock={stock}
                 onClose={() => setStockModalOpen(false)}
                 onAddParts={handleAddPartsFromStock}
+                existingParts={formData.parts}
             />
         )}
         {isExternalPartModalOpen && (

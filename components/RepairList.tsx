@@ -34,7 +34,10 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [repairs, statusFilter, searchTerm]);
 
-    const handleSaveRepair = (updatedRepair: Repair, statusChangedToCompleted: boolean) => {
+    const handleSaveRepair = (updatedRepair: Repair) => {
+        const originalStatus = repairs.find(r => r.id === updatedRepair.id)?.status;
+        const statusChangedToCompleted = originalStatus !== 'ซ่อมเสร็จ' && updatedRepair.status === 'ซ่อมเสร็จ';
+
         setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
         setEditingRepair(null);
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
@@ -67,7 +70,10 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
         }
     };
     
-    const getTechnicianName = (id: string) => technicians.find(t => t.id === id)?.name || 'N/A';
+    const getTechnicianNames = (ids: string[]) => {
+        if (!ids || ids.length === 0) return 'N/A';
+        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+    }
     
     return (
         <div className="space-y-6">
@@ -113,7 +119,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                                 <td className="px-4 py-3"><div className="font-semibold">{repair.repairOrderNo}</div><div className="text-sm text-gray-500">{repair.licensePlate}</div></td>
                                 <td className="px-4 py-3"><div className="font-medium">{repair.vehicleMake} {repair.vehicleModel}</div><div className="text-sm text-gray-500">{repair.vehicleType}</div></td>
                                 <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
-                                <td className="px-4 py-3 text-base">{getTechnicianName(repair.assignedTechnician)}</td>
+                                <td className="px-4 py-3 text-base">{getTechnicianNames(repair.assignedTechnicians)}</td>
                                 <td className="px-4 py-3 text-base">{new Date(repair.createdAt).toLocaleDateString('th-TH')}</td>
                                 <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
                                 <td className="px-4 py-3 text-center space-x-2">

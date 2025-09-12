@@ -5,11 +5,16 @@ interface StockSelectionModalProps {
     stock: StockItem[];
     onClose: () => void;
     onAddParts: (parts: PartRequisitionItem[]) => void;
+    existingParts: PartRequisitionItem[];
 }
 
-const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClose, onAddParts }) => {
+const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClose, onAddParts, existingParts }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedParts, setSelectedParts] = useState<Record<string, number>>({});
+
+    const existingPartIds = useMemo(() => {
+        return new Set((Array.isArray(existingParts) ? existingParts : []).map(p => p.partId));
+    }, [existingParts]);
 
     const filteredStock = useMemo(() => {
         return stock.filter(item =>
@@ -95,19 +100,21 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredStock.map(item => {
                                 const isSelected = !!selectedParts[item.id];
+                                const isAlreadyAdded = existingPartIds.has(item.id);
                                 return (
-                                    <tr key={item.id} className={`hover:bg-blue-50 ${isSelected ? 'bg-blue-100' : ''}`}>
+                                    <tr key={item.id} className={`transition-colors ${isAlreadyAdded ? 'bg-gray-200 opacity-60' : (isSelected ? 'bg-blue-100' : 'hover:bg-blue-50')}`}>
                                         <td className="px-4 py-2 text-center">
                                             <input
                                                 type="checkbox"
                                                 checked={isSelected}
                                                 onChange={() => handleToggleSelection(item.id)}
-                                                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                disabled={isAlreadyAdded}
+                                                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
                                             />
                                         </td>
                                         <td className="px-4 py-2">
                                             <div className="text-base font-semibold">{item.name}</div>
-                                            <div className="text-sm text-gray-500">{item.id}</div>
+                                            <div className="text-sm text-gray-500">{item.id}{isAlreadyAdded && <span className="text-red-500 font-semibold ml-2">(มีในรายการแล้ว)</span>}</div>
                                         </td>
                                         <td className="px-4 py-2 text-right text-base">{item.price.toLocaleString()}</td>
                                         <td className="px-4 py-2 text-right text-base font-bold">{item.quantity} {item.unit}</td>
@@ -118,7 +125,7 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                                                 max={item.quantity}
                                                 value={selectedParts[item.id] || ''}
                                                 onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value), item.quantity)}
-                                                disabled={!isSelected}
+                                                disabled={!isSelected || isAlreadyAdded}
                                                 className="w-full p-1 border border-gray-300 rounded-md text-center disabled:bg-gray-100"
                                             />
                                         </td>

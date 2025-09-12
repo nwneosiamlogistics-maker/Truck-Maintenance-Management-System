@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import type { Repair, Technician, StockItem, RepairStatus, PartRequisitionItem } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import { useToast } from '../context/ToastContext';
+import TechnicianMultiSelect from './TechnicianMultiSelect';
 
 interface RepairEditModalProps {
     repair: Repair;
-    onSave: (repair: Repair, statusChangedToCompleted: boolean) => void;
+    onSave: (repair: Repair) => void;
     onClose: () => void;
     technicians: Technician[];
     stock: StockItem[];
@@ -17,6 +18,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         ...repair,
         parts: repair.parts || [],
         attachments: repair.attachments || [],
+        assignedTechnicians: repair.assignedTechnicians || [],
     });
     const { addToast } = useToast();
     const [isStockModalOpen, setStockModalOpen] = useState(false);
@@ -26,6 +28,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             ...repair,
             parts: repair.parts || [],
             attachments: repair.attachments || [],
+            assignedTechnicians: repair.assignedTechnicians || [],
         });
     }, [repair]);
 
@@ -43,7 +46,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         if (newStatus === 'กำลังซ่อม' && !formData.repairStartDate) {
             updates.repairStartDate = now;
         }
-        if (newStatus === 'ซ่อมเสร็จ') {
+        if (newStatus === 'ซ่อมเสร็จ' && !formData.repairEndDate) {
             updates.repairEndDate = now;
         }
 
@@ -58,15 +61,16 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const statusChangedToCompleted = repair.status !== 'ซ่อมเสร็จ' && formData.status === 'ซ่อมเสร็จ';
-
+        const originalStatus = repair.status;
+        const newStatus = formData.status;
+        
         // Stock adjustment logic on completion
-        if (statusChangedToCompleted) {
+        if (originalStatus !== 'ซ่อมเสร็จ' && newStatus === 'ซ่อมเสร็จ') {
             let canComplete = true;
             const stockUpdates = new Map<string, number>();
 
             (formData.parts || []).forEach(part => {
-                if (part.source === 'สต๊อกอู่') {
+                if (part.source === 'สต็อกอู่') {
                     const stockItem = stock.find(s => s.id === part.partId);
                     if (!stockItem || stockItem.quantity < part.quantity) {
                         addToast(`สต็อกไม่พอสำหรับ ${part.name}`, 'error');
@@ -89,7 +93,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                 });
             });
         }
-        onSave(formData, statusChangedToCompleted);
+        onSave(formData);
     };
 
     return (
@@ -116,12 +120,11 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                         </div>
                         <div>
                             <label className="block text-sm font-medium">มอบหมายช่าง</label>
-                            <select name="assignedTechnician" value={formData.assignedTechnician} onChange={handleInputChange} className="w-full p-2 border rounded-lg mt-1">
-                                <option value="">-- เลือกช่าง --</option>
-                                {technicians.filter(t => t.status === 'ว่าง' || t.id === formData.assignedTechnician).map(tech => (
-                                    <option key={tech.id} value={tech.id}>{tech.name}</option>
-                                ))}
-                            </select>
+                            <TechnicianMultiSelect
+                                allTechnicians={technicians}
+                                selectedTechnicianIds={formData.assignedTechnicians}
+                                onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))}
+                           />
                         </div>
                     </div>
                     <div>
@@ -142,7 +145,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                     <button type="submit" form="repair-edit-form" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
                 </div>
                 {isStockModalOpen && (
-                    <StockSelectionModal stock={stock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} />
+                    <StockSelectionModal stock={stock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />
                 )}
             </div>
         </div>

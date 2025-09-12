@@ -19,11 +19,14 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
             case 'รออะไหล่': return 'bg-yellow-100 text-yellow-800';
             // FIX: Corrected status from 'เสร็จแล้ว' to 'ซ่อมเสร็จ' to match the type.
             case 'ซ่อมเสร็จ': return 'bg-green-100 text-green-800';
+            case 'ยกเลิก': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
         }
     };
     
-    const safeRepairs = Array.isArray(repairs) ? repairs : [];
+    const safeRepairs = (Array.isArray(repairs) ? repairs : []).filter(r => 
+        (Array.isArray(r.assignedTechnicians) ? r.assignedTechnicians : []).includes(technician.id)
+    );
     const safeSkills = Array.isArray(technician.skills) ? technician.skills : [];
 
     return (
