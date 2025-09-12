@@ -24,6 +24,18 @@ const getPriorityValue = (priority: Priority) => {
     }
 };
 
+const getStatusValue = (status: RepairStatus) => {
+    switch (status) {
+        case 'กำลังซ่อม': return 0;
+        case 'รออะไหล่': return 1;
+        case 'รอซ่อม': return 2;
+        case 'ซ่อมเสร็จ': return 3;
+        case 'ยกเลิก': return 4;
+        default: return 5;
+    }
+};
+
+
 const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, addUsedParts }) => {
     const [statusFilter, setStatusFilter] = useState<RepairStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -42,14 +54,21 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                 r.vehicleMake.toLowerCase().includes(searchTerm.toLowerCase())
             )
             .sort((a, b) => {
+                // 1. Sort by Status
+                const statusA = getStatusValue(a.status);
+                const statusB = getStatusValue(b.status);
+                if (statusA !== statusB) {
+                    return statusA - statusB;
+                }
+
+                // 2. Sort by Priority
                 const priorityA = getPriorityValue(a.priority);
                 const priorityB = getPriorityValue(b.priority);
-
                 if (priorityA !== priorityB) {
                     return priorityA - priorityB;
                 }
 
-                // If priorities are the same, sort by newest first
+                // 3. Sort by Newest First
                 return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             });
     }, [repairs, statusFilter, searchTerm]);
@@ -120,9 +139,9 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / ทะเบียน</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รถ</th>
