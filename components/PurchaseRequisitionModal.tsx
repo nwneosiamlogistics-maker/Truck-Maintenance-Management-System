@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType } from '../types';
+import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
+import { useToast } from '../context/ToastContext';
 
-// NOTE: Print functionality was removed due to persistent import errors with the 'react-to-print' library.
 
 // Define temporary item type with a unique rowId for UI management
 type PRItemWithRowId = PurchaseRequisitionItem & { rowId: string };
@@ -64,7 +65,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, onItemChange, onRem
                     type="number" 
                     value={item.unitPrice} 
                     onChange={e => onItemChange(item.rowId, 'unitPrice', Number(e.target.value))} 
-                    disabled={!isEditable || isProductFromStock} 
+                    disabled={!isEditable} 
                     className="w-24 p-1 border rounded text-right disabled:bg-gray-100 disabled:border-transparent"
                     min="0"
                 />
@@ -108,8 +109,8 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     
     const getInitialState = useCallback((): PRDataWithRowIdItems => {
         const base = initialRequisition || {
-            requesterName: 'ผู้จัดการคลัง',
-            department: 'แผนกคลังสินค้า',
+            requesterName: 'เจ้าหน้าที่ธุรการซ่อมบำรุง',
+            department: 'แผนกซ่อมบำรุง',
             dateNeeded: new Date().toISOString().split('T')[0],
             supplier: '',
             status: 'ฉบับร่าง' as PurchaseRequisitionStatus,
@@ -140,10 +141,14 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const [prData, setPrData] = useState(getInitialState());
     const [selectedStockId, setSelectedStockId] = useState('');
+    const [isPrinting, setIsPrinting] = useState(false);
+    const { addToast } = useToast();
+
 
     useEffect(() => {
         if (isOpen) {
             setPrData(getInitialState());
+            setIsPrinting(false);
         }
     }, [isOpen, getInitialState]);
 
@@ -214,8 +219,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     }
 
     const handleRemoveItem = useCallback((rowId: string) => {
-        setPrData(prev => ({ ...prev, items: (Array.isArray(prev.items) ? prev.items : []).filter(i => i.rowId !== rowId) }));
-    }, []);
+        setPrData(prev => ({ ...prev, items: (Array.isArray(prData.items) ? prData.items : []).filter(i => i.rowId !== rowId) }));
+    }, [prData.items]);
+
 
     const handleStatusChange = (newStatus: PurchaseRequisitionStatus) => {
         // FIX: Changed the type of `updates` to match the state type `PRDataWithRowIdItems`.
@@ -230,6 +236,11 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     };
     
     const handleSave = () => {
+        if (!prData.requesterName.trim() || !prData.department.trim() || !prData.supplier.trim()) {
+            addToast('กรุณากรอกข้อมูลผู้ขอซื้อ, แผนก, และผู้จำหน่ายให้ครบถ้วน', 'warning');
+            return;
+        }
+
         const safeItems = Array.isArray(prData.items) ? prData.items : [];
         const itemsToSave = safeItems.map(({ rowId, ...rest }) => rest);
         const finalData = { ...prData, items: itemsToSave, totalAmount };
@@ -241,8 +252,10 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         }
     };
 
-    const isFormHeaderEditable = prData.status === 'ฉบับร่าง';
-    const isItemsEditable = prData.status !== 'รับของแล้ว' && prData.status !== 'ยกเลิก';
+    const isDraft = prData.status === 'ฉบับร่าง';
+    const isFormHeaderEditable = isDraft;
+    const isItemsEditable = isDraft;
+    const isSupplierEditable = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว'].includes(prData.status);
 
 
     const renderWorkflowButtons = () => {
@@ -267,6 +280,10 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     if (!isOpen) return null;
 
+    if (isPrinting && initialRequisition) {
+        return <PurchaseRequisitionPrint requisition={initialRequisition} onClosePrintView={() => setIsPrinting(false)} />;
+    }
+
     const requestTypeLabels: Record<PurchaseRequestType, string> = { Product: 'สินค้า', Service: 'บริการ', Equipment: 'วัสดุ/อุปกรณ์', Asset: 'สินทรัพย์', Others: 'อื่นๆ' };
     const budgetTypeLabels: Record<PurchaseBudgetType, string> = { 'Have Budget': 'มีงบประมาณ', 'No Budget': 'ไม่มีงบประมาณ' };
 
@@ -274,7 +291,15 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4 no-print">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
-                    <h3 className="text-2xl font-bold text-gray-800">{initialRequisition ? `ใบขอซื้อ ${initialRequisition.prNumber}` : 'สร้างใบขอซื้อใหม่'}</h3>
+                    <div className="flex items-center gap-4">
+                        <h3 className="text-2xl font-bold text-gray-800">{initialRequisition ? `ใบขอซื้อ ${initialRequisition.prNumber}` : 'สร้างใบขอซื้อใหม่'}</h3>
+                        {initialRequisition && (
+                            <button onClick={() => setIsPrinting(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gray-500 rounded-lg hover:bg-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                                พิมพ์
+                            </button>
+                        )}
+                    </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
@@ -309,10 +334,10 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div><label className="block text-sm font-medium">ผู้ขอซื้อ</label><input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
-                        <div><label className="block text-sm font-medium">ฝ่าย/แผนก</label><input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
+                        <div><label className="block text-sm font-medium">ผู้ขอซื้อ *</label><input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isFormHeaderEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
+                        <div><label className="block text-sm font-medium">ฝ่าย/แผนก *</label><input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isFormHeaderEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                         <div><label className="block text-sm font-medium">วันที่ต้องการใช้</label><input type="date" name="dateNeeded" value={prData.dateNeeded} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
-                        <div><label className="block text-sm font-medium">ผู้จำหน่าย</label><input type="text" name="supplier" value={prData.supplier} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
+                        <div><label className="block text-sm font-medium">ผู้จำหน่าย *</label><input type="text" name="supplier" value={prData.supplier} onChange={handleInputChange} disabled={!isSupplierEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                     </div>
                     
                     {isItemsEditable && (
@@ -375,7 +400,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     </div>
                     <div className="space-x-4 flex items-center">
                         <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                        <button onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">บันทึก</button>
+                        {isSupplierEditable && (
+                           <button onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">บันทึก</button>
+                        )}
                     </div>
                 </div>
             </div>

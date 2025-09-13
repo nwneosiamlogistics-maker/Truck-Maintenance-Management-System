@@ -1,4 +1,3 @@
-
 // FIX: Removed self-referencing import of 'Tab' which caused a declaration conflict.
 export type Tab =
   | 'dashboard'

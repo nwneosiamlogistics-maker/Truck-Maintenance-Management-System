@@ -67,7 +67,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const filteredStock = useMemo(() => {
         const getStatusPriority = (status: StockStatus): number => {
             switch (status) {
-                // FIX: Corrected typo for 'หมดสต๊อก'
                 case 'หมดสต๊อก': return 0;
                 case 'สต๊อกต่ำ': return 1;
                 case 'สต๊อกเกิน': return 2;
@@ -129,7 +128,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             if (s.id === stockItem.id) {
                 const newQuantity = s.quantity + quantityAdded;
                 let newStatus: StockStatus = 'ปกติ';
-                // FIX: Corrected typo for 'หมดสต๊อก'
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
@@ -166,7 +164,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             if (s.id === stockItemId) {
                 const newQuantity = s.quantity - quantity;
                 let newStatus: StockStatus = 'ปกติ';
-                // FIX: Corrected typo for 'หมดสต๊อก'
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
@@ -195,7 +192,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             if (s.id === stockItemId) {
                 const newQuantity = s.quantity - quantity;
                 let newStatus: StockStatus = 'ปกติ';
-                // FIX: Corrected typo for 'หมดสต๊อก'
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
@@ -268,6 +264,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         };
         setPurchaseRequisitions(prev => [newRequisition, ...prev]);
         setRequisitionModalOpen(false);
+        setInitialRequisitionItem(null); // Clear initial item after saving
         addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
     };
 
@@ -276,7 +273,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         switch (status) {
             case 'ปกติ': return 'bg-green-100 text-green-800';
             case 'สต๊อกต่ำ': return 'bg-yellow-100 text-yellow-800';
-            // FIX: Corrected typo for 'หมดสต๊อก'
             case 'หมดสต๊อก': return 'bg-red-100 text-red-800';
             case 'สต๊อกเกิน': return 'bg-indigo-100 text-indigo-800';
             default: return 'bg-gray-100';
@@ -336,7 +332,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                 <option value="all">สถานะทั้งหมด</option>
                                 <option value="ปกติ">ปกติ</option>
                                 <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
-                                {/* FIX: Corrected typo for 'หมดสต๊อก' */}
                                 <option value="หมดสต๊อก">หมดสต๊อก</option>
                                 <option value="สต๊อกเกิน">สต๊อกเกิน</option>
                             </select>
@@ -392,7 +387,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                         isPendingPurchase ? (
                                             <button 
                                                 disabled 
-                                                className="text-indigo-500 font-medium cursor-not-allowed flex items-center gap-1 italic"
+                                                className="text-gray-400 font-medium cursor-not-allowed flex items-center gap-1 italic"
                                                 title="รายการนี้มีใบขอซื้อที่ยังไม่เสร็จสิ้นอยู่"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -478,7 +473,10 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             {requisitionModalOpen && (
                 <PurchaseRequisitionModal
                     isOpen={requisitionModalOpen}
-                    onClose={() => setRequisitionModalOpen(false)}
+                    onClose={() => {
+                        setRequisitionModalOpen(false);
+                        setInitialRequisitionItem(null); // Clear on close
+                    }}
                     onSave={handleSaveRequisition}
                     stockItems={stock}
                     initialItem={initialRequisitionItem}
