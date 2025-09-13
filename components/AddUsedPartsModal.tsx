@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import type { Repair, UsedPart, PartRequisitionItem, UsedPartCondition, UsedPartStatus } from '../types';
+import type { Repair, UsedPart } from '../types';
 
 interface UsedPartFormData {
     isSelected: boolean;
-    condition: UsedPartCondition;
-    status: UsedPartStatus;
+    quantity: number;
+    unit: string;
     notes: string;
 }
 
@@ -18,17 +18,16 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
     
     const getInitialFormState = () => {
         const state: Record<string, UsedPartFormData> = {};
-        // Use optional chaining and check for array to handle all edge cases
         const partsSource = repair?.parts;
 
         if (Array.isArray(partsSource)) {
             for (const part of partsSource) {
-                // Ensure part and part.partId exist before creating an entry
                 if (part && part.partId) {
+                    const quantityFromRepair = Number(part.quantity) || 1;
                     state[part.partId] = {
                         isSelected: true,
-                        condition: 'พอใช้' as UsedPartCondition,
-                        status: 'รอจำหน่าย' as UsedPartStatus,
+                        quantity: quantityFromRepair,
+                        unit: part.unit,
                         notes: '',
                     };
                 }
@@ -51,7 +50,7 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
 
     const handleSubmit = () => {
         const partsToSave: Omit<UsedPart, 'id'>[] = (Array.isArray(repair?.parts) ? repair.parts : [])
-            .filter(part => part && formData[part.partId]?.isSelected)
+            .filter(part => part && formData[part.partId]?.isSelected && formData[part.partId]?.quantity > 0)
             .map(part => {
                 const partData = formData[part.partId];
                 return {
@@ -61,8 +60,10 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
                     fromRepairOrderNo: repair.repairOrderNo,
                     fromLicensePlate: repair.licensePlate,
                     dateRemoved: new Date().toISOString(),
-                    condition: partData.condition,
-                    status: partData.status,
+                    initialQuantity: partData.quantity,
+                    unit: partData.unit,
+                    status: 'รอจัดการ', // Always starts with this status
+                    dispositions: [], // Starts with no dispositions
                     notes: partData.notes,
                 };
             });
@@ -70,7 +71,6 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
         onSave(partsToSave);
     };
     
-    // Create a safe array for rendering
     const partsArrayForRender = Array.isArray(repair?.parts) ? repair.parts : [];
 
     return (
@@ -88,40 +88,35 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
                     <div className="space-y-3">
                         {partsArrayForRender.map(part => {
                             if (!part) return null; // Defensive check
+                            const partFormData = formData[part.partId];
+                            if (!partFormData) return null; // Ensure data exists
+
                             return (
-                            <div key={part.partId} className={`p-4 border rounded-lg transition-colors ${formData[part.partId]?.isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                            <div key={part.partId} className={`p-4 border rounded-lg transition-colors ${partFormData.isSelected ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="flex items-start gap-4">
                                     <input 
                                         type="checkbox"
-                                        checked={formData[part.partId]?.isSelected || false}
+                                        checked={partFormData.isSelected}
                                         onChange={e => handleFormChange(part.partId, 'isSelected', e.target.checked)}
                                         className="mt-1.5 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
                                     <div className="flex-1">
                                         <h4 className="font-bold text-lg">{part.name}</h4>
-                                        <p className="text-sm text-gray-500">จำนวนที่เบิก: {part.quantity} {part.unit}</p>
+                                        <p className="text-sm text-gray-500">จำนวนที่เบิกจากใบซ่อม: {part.quantity} {part.unit}</p>
                                         
-                                        {formData[part.partId]?.isSelected && (
+                                        {partFormData.isSelected && (
                                         <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                                             <div>
-                                                <label className="text-xs font-medium text-gray-600">สภาพ</label>
-                                                <select value={formData[part.partId].condition} onChange={e => handleFormChange(part.partId, 'condition', e.target.value)} className="w-full p-1.5 border rounded-md mt-1 text-sm">
-                                                    <option value="ดี">ดี</option>
-                                                    <option value="พอใช้">พอใช้</option>
-                                                    <option value="ชำรุด">ชำรุด</option>
-                                                </select>
+                                                <label className="text-xs font-medium text-gray-600">จำนวนที่บันทึกเป็นของเก่า</label>
+                                                <input type="number" value={partFormData.quantity} onChange={e => handleFormChange(part.partId, 'quantity', Number(e.target.value))} min="1" max={part.quantity} className="w-full p-1.5 border rounded-md mt-1 text-sm"/>
                                             </div>
                                             <div>
-                                                <label className="text-xs font-medium text-gray-600">การจัดการ</label>
-                                                <select value={formData[part.partId].status} onChange={e => handleFormChange(part.partId, 'status', e.target.value)} className="w-full p-1.5 border rounded-md mt-1 text-sm">
-                                                    <option value="รอจำหน่าย">รอจำหน่าย</option>
-                                                    <option value="รอทำลาย">รอทำลาย</option>
-                                                    <option value="เก็บไว้ใช้ต่อ">เก็บไว้ใช้ต่อ</option>
-                                                </select>
+                                                <label className="text-xs font-medium text-gray-600">หน่วย</label>
+                                                <input type="text" value={partFormData.unit} onChange={e => handleFormChange(part.partId, 'unit', e.target.value)} className="w-full p-1.5 border rounded-md mt-1 text-sm"/>
                                             </div>
                                             <div className="md:col-span-3">
                                                  <label className="text-xs font-medium text-gray-600">หมายเหตุ</label>
-                                                 <input type="text" value={formData[part.partId].notes} onChange={e => handleFormChange(part.partId, 'notes', e.target.value)} placeholder="เช่น ยางเหลือดอก 50%" className="w-full p-1.5 border rounded-md mt-1 text-sm"/>
+                                                 <input type="text" value={partFormData.notes} onChange={e => handleFormChange(part.partId, 'notes', e.target.value)} placeholder="เช่น ยางเหลือดอก 50%" className="w-full p-1.5 border rounded-md mt-1 text-sm"/>
                                             </div>
                                         </div>
                                         )}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { UsedPart } from '../types';
 
 interface UsedPartSaleReceiptModalProps {
@@ -8,9 +8,32 @@ interface UsedPartSaleReceiptModalProps {
 
 const UsedPartSaleReceiptModal: React.FC<UsedPartSaleReceiptModalProps> = ({ part, onClose }) => {
 
+    const saleDisposition = useMemo(() => {
+        const sales = (part.dispositions || []).filter(d => d.dispositionType === 'จำหน่าย');
+        if (sales.length === 0) return null;
+        // Get the most recent one by sorting by date
+        return sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    }, [part]);
+
     const handlePrint = () => {
         window.print();
     };
+
+    if (!saleDisposition) {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4 no-print">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 text-center">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">ไม่พบข้อมูลการขาย</h3>
+                    <p className="text-gray-600">ไม่พบรายการ "จำหน่าย" สำหรับอะไหล่ชิ้นนี้</p>
+                    <button onClick={onClose} className="mt-6 px-6 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                        ปิด
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const totalSalePrice = (saleDisposition.salePricePerUnit || 0) * saleDisposition.quantity;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4">
@@ -33,7 +56,7 @@ const UsedPartSaleReceiptModal: React.FC<UsedPartSaleReceiptModalProps> = ({ par
                             <div className="text-right">
                                 <p className="font-semibold text-lg">NEOSIAM LOGISTICS & TRANSPORT</p>
                                 <p className="text-sm">เลขที่: SALE-{part.id.substring(3, 10)}</p>
-                                <p className="text-sm">วันที่: {part.saleDate ? new Date(part.saleDate).toLocaleDateString('th-TH') : '-'}</p>
+                                <p className="text-sm">วันที่: {new Date(saleDisposition.date).toLocaleDateString('th-TH')}</p>
                             </div>
                         </div>
 
@@ -45,7 +68,7 @@ const UsedPartSaleReceiptModal: React.FC<UsedPartSaleReceiptModalProps> = ({ par
                             </div>
                             <div>
                                 <h2 className="font-semibold border-b mb-2">ข้อมูลผู้รับซื้อ</h2>
-                                <p>{part.soldTo}</p>
+                                <p>{saleDisposition.soldTo}</p>
                             </div>
                         </div>
 
@@ -64,19 +87,19 @@ const UsedPartSaleReceiptModal: React.FC<UsedPartSaleReceiptModalProps> = ({ par
                                 <tr>
                                     <td className="border p-2 text-center">1</td>
                                     <td className="border p-2">{part.name}</td>
-                                    <td className="border p-2 text-right">1</td>
-                                    <td className="border p-2 text-right">{part.salePrice?.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                                    <td className="border p-2 text-right">{part.salePrice?.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                    <td className="border p-2 text-right">{saleDisposition.quantity}</td>
+                                    <td className="border p-2 text-right">{(saleDisposition.salePricePerUnit || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                    <td className="border p-2 text-right">{totalSalePrice.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                                 </tr>
                             </tbody>
                         </table>
 
                         {/* Total */}
-                        <div className="flex justify-end">
+                         <div className="flex justify-end">
                              <div className="w-1/2">
                                 <div className="flex justify-between p-2 border-t border-b-2 border-black font-bold text-lg">
                                     <span>ยอดรวมสุทธิ</span>
-                                    <span>{part.salePrice?.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
+                                    <span>{totalSalePrice.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
                                 </div>
                             </div>
                         </div>

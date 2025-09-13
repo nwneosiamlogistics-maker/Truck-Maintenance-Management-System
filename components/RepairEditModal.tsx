@@ -214,17 +214,15 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                     if (stockToUpdate[s.id]) {
                         const newQuantity = s.quantity - stockToUpdate[s.id];
                         let newStatus: StockStatus = 'ปกติ';
-                        // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
                         if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
-                        // FIX: Corrected a typo in the string 'สต๊อกต่ำ' (Low Stock) to 'สต็อกต่ำ' to match the 'StockStatus' type definition.
-                        else if (newQuantity <= s.minStock) newStatus = 'สต็อกต่ำ';
+                        else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                         else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
                         return { ...s, quantity: newQuantity, status: newStatus };
                     }
                     return s;
                 });
                 setStock(newStock);
-                addToast('หักสต็อกอะไหล่เรียบร้อย', 'info');
+                addToast('หักสต๊อกอะไหล่เรียบร้อย', 'info');
             }
         }
         

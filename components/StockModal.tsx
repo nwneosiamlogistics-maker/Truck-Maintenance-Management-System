@@ -71,11 +71,9 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
         
         let newStatus: StockItem['status'] = 'ปกติ';
         if (formData.quantity <= 0) {
-            // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
             newStatus = 'หมดสต๊อก';
-        // FIX: Corrected a typo in the string 'สต๊อกต่ำ' (Low Stock) to 'สต็อกต่ำ' to match the 'StockStatus' type definition.
         } else if (formData.quantity <= formData.minStock) {
-            newStatus = 'สต็อกต่ำ';
+            newStatus = 'สต๊อกต่ำ';
         } else if (formData.maxStock && formData.quantity > formData.maxStock) {
             newStatus = 'สต๊อกเกิน';
         }
@@ -125,13 +123,13 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
                             <input type="text" name="unit" value={formData.unit} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">สต็อกขั้นต่ำ (Min)</label>
+                            <label className="block text-base font-medium text-gray-700 mb-1">สต๊อกขั้นต่ำ (Min)</label>
                             <input type="number" name="minStock" value={formData.minStock} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">สต็อกสูงสุด (Max)</label>
+                            <label className="block text-base font-medium text-gray-700 mb-1">สต๊อกสูงสุด (Max)</label>
                             <input type="number" name="maxStock" value={formData.maxStock || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
                         </div>
                         <div>

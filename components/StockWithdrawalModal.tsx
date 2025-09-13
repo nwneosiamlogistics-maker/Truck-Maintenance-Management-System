@@ -16,7 +16,6 @@ interface StockWithdrawalModalProps {
 const REASON_OPTIONS = [
     'ใช้ในงานซ่อมบำรุงทั่วไป (ไม่ระบุใบซ่อม)',
     'ของชำรุด/เสียหาย',
-    'ขายปลีก',
     'อื่นๆ',
 ];
 

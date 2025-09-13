@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { UsedPart, UsedPartStatus } from '../types';
+import type { UsedPart, UsedPartBatchStatus } from '../types';
 
 interface UpdateUsedPartStatusModalProps {
     usedPart: UsedPart;
@@ -8,7 +8,7 @@ interface UpdateUsedPartStatusModalProps {
 }
 
 const UpdateUsedPartStatusModal: React.FC<UpdateUsedPartStatusModalProps> = ({ usedPart, onSave, onClose }) => {
-    const [newStatus, setNewStatus] = useState<UsedPartStatus>(usedPart.status);
+    const [newStatus, setNewStatus] = useState<UsedPartBatchStatus>(usedPart.status);
     const [notes, setNotes] = useState(usedPart.notes || '');
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -33,15 +33,13 @@ const UpdateUsedPartStatusModal: React.FC<UpdateUsedPartStatusModalProps> = ({ u
                         <label className="block text-base font-medium text-gray-700 mb-1">เปลี่ยนสถานะเป็น *</label>
                         <select
                             value={newStatus}
-                            onChange={(e) => setNewStatus(e.target.value as UsedPartStatus)}
+                            onChange={(e) => setNewStatus(e.target.value as UsedPartBatchStatus)}
                             required
                             className="w-full p-2 border border-gray-300 rounded-lg"
                         >
-                            <option value="รอจำหน่าย">รอจำหน่าย</option>
-                            <option value="รอทำลาย">รอทำลาย</option>
-                            <option value="เก็บไว้ใช้ต่อ">เก็บไว้ใช้ต่อ</option>
-                            <option value="จำหน่ายแล้ว">จำหน่ายแล้ว</option>
-                            <option value="ทำลายแล้ว">ทำลายแล้ว</option>
+                            <option value="รอจัดการ">รอจัดการ</option>
+                            <option value="จัดการบางส่วน">จัดการบางส่วน</option>
+                            <option value="จัดการครบแล้ว">จัดการครบแล้ว</option>
                         </select>
                     </div>
                     <div>

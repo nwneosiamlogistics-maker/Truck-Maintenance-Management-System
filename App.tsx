@@ -99,8 +99,7 @@ function App() {
         const safePlans = Array.isArray(plans) ? plans : [];
 
         const pendingRepairs = safeRepairs.filter(r => ['รอซ่อม', 'รออะไหล่'].includes(r.status)).length;
-        // FIX: Corrected a typo in the string 'สต๊อกต่ำ' (Low Stock) to 'สต็อกต่ำ' to match the 'StockStatus' type definition.
-        const lowStock = safeStock.filter(s => s.status === 'สต็อกต่ำ' || s.status === 'หมดสต๊อก').length;
+        const lowStock = safeStock.filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length;
         
         const dueMaintenance = safePlans.filter(plan => {
              const lastDate = new Date(plan.lastServiceDate);

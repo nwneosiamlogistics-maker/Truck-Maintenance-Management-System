@@ -97,7 +97,7 @@ export interface Technician {
     currentJobs: number;
 }
 
-export type StockStatus = 'ปกติ' | 'สต็อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
+export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
 
 export interface StockItem {
     id: string;
@@ -141,8 +141,21 @@ export interface MaintenancePlan {
     mileageFrequency: number;
 }
 
-export type UsedPartCondition = 'ดี' | 'พอใช้' | 'ชำรุด';
-export type UsedPartStatus = 'รอจำหน่าย' | 'รอทำลาย' | 'เก็บไว้ใช้ต่อ' | 'จำหน่ายแล้ว' | 'ทำลายแล้ว';
+export type UsedPartCondition = 'ดีมาก' | 'ดี' | 'พอใช้' | 'ต้องซ่อม' | 'ชำรุด';
+export type UsedPartDispositionType = 'จำหน่าย' | 'ทำลาย' | 'เก็บไว้ใช้ต่อ';
+
+export interface UsedPartDisposition {
+    id: string;
+    quantity: number;
+    dispositionType: UsedPartDispositionType;
+    condition: UsedPartCondition;
+    date: string;
+    soldTo?: string;
+    salePricePerUnit?: number;
+    notes?: string;
+}
+
+export type UsedPartBatchStatus = 'รอจัดการ' | 'จัดการบางส่วน' | 'จัดการครบแล้ว';
 
 export interface UsedPart {
     id: string;
@@ -152,14 +165,13 @@ export interface UsedPart {
     fromRepairOrderNo: string;
     fromLicensePlate: string;
     dateRemoved: string;
-    condition: UsedPartCondition;
-    status: UsedPartStatus;
+    initialQuantity: number;
+    unit: string;
+    status: UsedPartBatchStatus;
+    dispositions: UsedPartDisposition[];
     notes: string;
-    // Fields for sale tracking
-    soldTo?: string; // Buyer's Name
-    salePrice?: number;
-    saleDate?: string;
 }
+
 
 export interface Notification {
     id: string;
