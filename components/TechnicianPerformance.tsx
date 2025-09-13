@@ -71,15 +71,11 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                     totalRepairMillis += new Date(r.repairEndDate).getTime() - new Date(r.repairStartDate).getTime();
                 }
                 
-                // --- MODIFIED LOGIC FOR FINDING FINAL ESTIMATION ---
-                // 1. Try to find the 'Completed' estimation first (for new data).
                 let finalEstimation: EstimationAttempt | undefined = (r.estimations || []).find(e => e.status === 'Completed');
                 
-                // 2. Fallback for legacy data: if no 'Completed' one is found, use the latest one by sequence.
                 if (!finalEstimation && r.estimations && r.estimations.length > 0) {
                     finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
                 }
-                // --- END MODIFIED LOGIC ---
 
                 if (finalEstimation && r.repairEndDate) {
                     estimatedJobsCount++;
@@ -112,7 +108,17 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         });
         
         const totalJobs = techStats.reduce((sum, t) => sum + t.jobs, 0);
-        const totalValue = techStats.reduce((sum, t) => sum + t.value, 0);
+
+        // --- CORRECTED CALCULATION ---
+        // Calculate total value directly from the filtered repairs list to avoid double counting.
+        const totalValue = filteredRepairs.reduce((sum, r) => {
+            const repairParts = Array.isArray(r.parts) ? r.parts : [];
+            const partsCost = repairParts.reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
+            const repairVat = r.partsVat || 0;
+            const laborCost = r.repairCost || 0;
+            return sum + partsCost + laborCost + repairVat;
+        }, 0);
+        
         const overallAvgTime = totalJobs > 0 ? techStats.reduce((sum, t) => sum + (t.avgTime * t.jobs), 0) / totalJobs : 0;
         
         const totalWeightedOnTime = techStats.reduce((sum, t) => {
