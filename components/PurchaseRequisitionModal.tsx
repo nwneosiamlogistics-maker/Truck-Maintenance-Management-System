@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType } from '../types';
+import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType, Supplier } from '../types';
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
 import { useToast } from '../context/ToastContext';
 
@@ -100,12 +100,13 @@ interface PurchaseRequisitionModalProps {
     onClose: () => void;
     onSave: (requisition: Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'> | PurchaseRequisition) => void;
     stockItems: StockItem[];
+    suppliers: Supplier[];
     initialRequisition?: PurchaseRequisition | null;
     initialItem?: PurchaseRequisitionItem | null; // For creating PR from stock page
 }
 
 
-const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isOpen, onClose, onSave, stockItems, initialRequisition, initialItem }) => {
+const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isOpen, onClose, onSave, stockItems, suppliers, initialRequisition, initialItem }) => {
     
     const getInitialState = useCallback((): PRDataWithRowIdItems => {
         const base = initialRequisition || {
@@ -337,7 +338,22 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         <div><label className="block text-sm font-medium">ผู้ขอซื้อ *</label><input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isFormHeaderEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                         <div><label className="block text-sm font-medium">ฝ่าย/แผนก *</label><input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isFormHeaderEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                         <div><label className="block text-sm font-medium">วันที่ต้องการใช้</label><input type="date" name="dateNeeded" value={prData.dateNeeded} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
-                        <div><label className="block text-sm font-medium">ผู้จำหน่าย *</label><input type="text" name="supplier" value={prData.supplier} onChange={handleInputChange} disabled={!isSupplierEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
+                        <div>
+                            <label className="block text-sm font-medium">ผู้จำหน่าย *</label>
+                            <input 
+                                list="supplier-list"
+                                type="text" 
+                                name="supplier" 
+                                value={prData.supplier} 
+                                onChange={handleInputChange} 
+                                disabled={!isSupplierEditable} 
+                                required 
+                                className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"
+                            />
+                            <datalist id="supplier-list">
+                                {suppliers.map(s => <option key={s.id} value={s.name} />)}
+                            </datalist>
+                        </div>
                     </div>
                     
                     {isItemsEditable && (

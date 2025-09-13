@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority } from '../types';
+import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority, Supplier } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
@@ -13,6 +13,7 @@ interface RepairListProps {
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
     addUsedParts: (parts: Omit<UsedPart, 'id'>[]) => void;
+    suppliers: Supplier[];
 }
 
 const getPriorityValue = (priority: Priority) => {
@@ -36,7 +37,7 @@ const getStatusValue = (status: RepairStatus) => {
 };
 
 
-const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, addUsedParts }) => {
+const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, addUsedParts, suppliers }) => {
     const [statusFilter, setStatusFilter] = useState<RepairStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
@@ -185,6 +186,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                     technicians={technicians}
                     stock={stock}
                     setStock={setStock}
+                    suppliers={suppliers}
                 />
             )}
             {viewingRepair && (

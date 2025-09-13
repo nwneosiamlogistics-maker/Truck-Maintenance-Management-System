@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import type { PartRequisitionItem } from '../types';
+import type { PartRequisitionItem, Supplier } from '../types';
 
 type ExternalPart = Omit<PartRequisitionItem, 'partId' | 'source' | 'supplierName' | 'code' | 'purchaseDate'> & { tempId: number };
 
 interface ExternalPartModalProps {
     onClose: () => void;
     onAddExternalParts: (data: { parts: PartRequisitionItem[], vat: number }) => void;
+    suppliers: Supplier[];
 }
 
-const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExternalParts }) => {
+const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExternalParts, suppliers }) => {
     const [supplierName, setSupplierName] = useState('');
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
     const [parts, setParts] = useState<ExternalPart[]>([
@@ -80,6 +81,7 @@ const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExt
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">ชื่อร้านค้า / ผู้จำหน่าย *</label>
                             <input
+                                list="supplier-list"
                                 type="text"
                                 value={supplierName}
                                 onChange={(e) => setSupplierName(e.target.value)}
@@ -87,6 +89,9 @@ const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExt
                                 placeholder="เช่น ร้านศรีสมบูรณ์อะไหล่ยนต์"
                                 required
                             />
+                            <datalist id="supplier-list">
+                                {suppliers.map(s => <option key={s.id} value={s.name} />)}
+                            </datalist>
                         </div>
                          <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">วันที่ซื้ออะไหล่ *</label>

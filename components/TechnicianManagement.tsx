@@ -170,7 +170,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
             {isDetailModalOpen && selectedTechnician && (
                 <TechnicianModal 
                     technician={selectedTechnician} 
-                    // FIX: Corrected property from `assignedTechnician` to `assignedTechnicians` and updated logic to check for inclusion in the array.
+                    // FIX: Corrected property from `assignedTechnician` to `assignedTechnicians` to match the Repair type.
                     repairs={repairs.filter(r => (r.assignedTechnicians || []).includes(selectedTechnician.id))}
                     onClose={() => setDetailModalOpen(false)} 
                 />

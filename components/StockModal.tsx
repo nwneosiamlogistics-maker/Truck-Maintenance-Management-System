@@ -73,8 +73,9 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
         if (formData.quantity <= 0) {
             // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
             newStatus = 'หมดสต๊อก';
+        // FIX: Corrected a typo in the string 'สต๊อกต่ำ' (Low Stock) to 'สต็อกต่ำ' to match the 'StockStatus' type definition.
         } else if (formData.quantity <= formData.minStock) {
-            newStatus = 'สต๊อกต่ำ';
+            newStatus = 'สต็อกต่ำ';
         } else if (formData.maxStock && formData.quantity > formData.maxStock) {
             newStatus = 'สต๊อกเกิน';
         }

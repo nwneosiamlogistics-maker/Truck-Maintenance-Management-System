@@ -3,7 +3,7 @@ import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTr
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
 
-interface PurchaseRequisitionProps {
+interface PurchaseRequisitionPageProps {
     purchaseRequisitions: PurchaseRequisition[];
     setPurchaseRequisitions: React.Dispatch<React.SetStateAction<PurchaseRequisition[]>>;
     stock: StockItem[];
@@ -12,7 +12,7 @@ interface PurchaseRequisitionProps {
     suppliers: Supplier[];
 }
 
-const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers }) => {
+const PurchaseRequisitionPage: React.FC<PurchaseRequisitionPageProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers }) => {
     const [statusFilter, setStatusFilter] = useState<PurchaseRequisitionStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -165,7 +165,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                     </>
                 );
             case 'อนุมัติแล้ว':
-                return (
+                 return (
                      <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'รอสินค้า')} className="text-white bg-blue-500 hover:bg-blue-600 font-medium px-3 py-1 rounded-md text-sm">ยืนยันสั่งซื้อ</button>
                         <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>

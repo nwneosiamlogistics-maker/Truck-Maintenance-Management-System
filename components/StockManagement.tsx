@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartStatus, PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus } from '../types';
+import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartStatus, PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, Supplier, UsedPartBuyer } from '../types';
 import StockModal from './StockModal';
 import AddStockModal from './AddStockModal';
 import StockWithdrawalModal from './StockWithdrawalModal';
@@ -7,6 +7,8 @@ import ReturnStockModal from './ReturnStockModal';
 import PrintLabelModal from './PrintLabelModal';
 import UpdateUsedPartStatusModal from './UpdateUsedPartStatusModal';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
+import SellUsedPartModal from './SellUsedPartModal';
+import UsedPartSaleReceiptModal from './UsedPartSaleReceiptModal';
 import { useToast } from '../context/ToastContext';
 
 interface StockManagementProps {
@@ -15,13 +17,16 @@ interface StockManagementProps {
     transactions: StockTransaction[];
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     usedParts: UsedPart[];
+    setUsedParts: React.Dispatch<React.SetStateAction<UsedPart[]>>;
     updateUsedPart: (part: UsedPart) => void;
     deleteUsedPart: (partId: string) => void;
     setPurchaseRequisitions: React.Dispatch<React.SetStateAction<PurchaseRequisition[]>>;
     purchaseRequisitions: PurchaseRequisition[];
+    suppliers: Supplier[];
+    usedPartBuyers: UsedPartBuyer[];
 }
 
-const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, transactions, setTransactions, usedParts, updateUsedPart, deleteUsedPart, setPurchaseRequisitions, purchaseRequisitions }) => {
+const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, transactions, setTransactions, usedParts, setUsedParts, updateUsedPart, deleteUsedPart, setPurchaseRequisitions, purchaseRequisitions, suppliers, usedPartBuyers }) => {
     const [activeTab, setActiveTab] = useState<'new' | 'used'>('new');
 
     // New Stock States
@@ -39,6 +44,9 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const [usedPartSearchTerm, setUsedPartSearchTerm] = useState('');
     const [usedPartStatusFilter, setUsedPartStatusFilter] = useState<UsedPartStatus | 'all'>('all');
     const [editingUsedPart, setEditingUsedPart] = useState<UsedPart | null>(null);
+    const [sellingUsedPart, setSellingUsedPart] = useState<UsedPart | null>(null);
+    const [receiptPart, setReceiptPart] = useState<UsedPart | null>(null);
+
 
     // Purchase Requisition States
     const [requisitionModalOpen, setRequisitionModalOpen] = useState(false);
@@ -68,7 +76,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         const getStatusPriority = (status: StockStatus): number => {
             switch (status) {
                 case 'หมดสต๊อก': return 0;
-                case 'สต๊อกต่ำ': return 1;
+                case 'สต็อกต่ำ': return 1;
                 case 'สต๊อกเกิน': return 2;
                 case 'ปกติ': return 3;
                 default: return 4;
@@ -129,7 +137,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                 const newQuantity = s.quantity + quantityAdded;
                 let newStatus: StockStatus = 'ปกติ';
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
-                else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                else if (newQuantity <= s.minStock) newStatus = 'สต็อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
                 
                 return { ...s, quantity: newQuantity, status: newStatus, price: pricePerUnit ?? s.price };
@@ -165,7 +173,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                 const newQuantity = s.quantity - quantity;
                 let newStatus: StockStatus = 'ปกติ';
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
-                else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                else if (newQuantity <= s.minStock) newStatus = 'สต็อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
 
                 return { ...s, quantity: newQuantity, status: newStatus };
@@ -193,7 +201,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                 const newQuantity = s.quantity - quantity;
                 let newStatus: StockStatus = 'ปกติ';
                 if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
-                else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                else if (newQuantity <= s.minStock) newStatus = 'สต็อกต่ำ';
                 else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
 
                 return { ...s, quantity: newQuantity, status: newStatus };
@@ -223,6 +231,30 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             addToast(`ลบอะไหล่เก่า '${partName}' สำเร็จ`, 'success');
         }
     };
+    
+    const handleSellUsedPart = (
+        partId: string,
+        saleData: { buyerName: string; salePrice: number; saleDate: string; notes: string }
+    ) => {
+        setUsedParts(prev =>
+            prev.map(part => {
+                if (part.id === partId) {
+                    return {
+                        ...part,
+                        status: 'จำหน่ายแล้ว',
+                        soldTo: saleData.buyerName,
+                        salePrice: saleData.salePrice,
+                        saleDate: saleData.saleDate,
+                        notes: saleData.notes, // Overwrite or append notes
+                    };
+                }
+                return part;
+            })
+        );
+        addToast(`ขาย ${usedParts.find(p => p.id === partId)?.name} สำเร็จ`, 'success');
+        setSellingUsedPart(null);
+    };
+
 
     // Handler for Purchase Requisition
     const handleCreateRequisition = (item: StockItem) => {
@@ -272,7 +304,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const getNewStockStatusBadge = (status: StockItem['status']) => {
         switch (status) {
             case 'ปกติ': return 'bg-green-100 text-green-800';
-            case 'สต๊อกต่ำ': return 'bg-yellow-100 text-yellow-800';
+            case 'สต็อกต่ำ': return 'bg-yellow-100 text-yellow-800';
             case 'หมดสต๊อก': return 'bg-red-100 text-red-800';
             case 'สต๊อกเกิน': return 'bg-indigo-100 text-indigo-800';
             default: return 'bg-gray-100';
@@ -331,7 +363,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                             <select value={newStockStatusFilter} onChange={e => setNewStockStatusFilter(e.target.value)} className="p-2 border border-gray-300 rounded-lg text-base">
                                 <option value="all">สถานะทั้งหมด</option>
                                 <option value="ปกติ">ปกติ</option>
-                                <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
+                                <option value="สต็อกต่ำ">สต็อกต่ำ</option>
                                 <option value="หมดสต๊อก">หมดสต๊อก</option>
                                 <option value="สต๊อกเกิน">สต๊อกเกิน</option>
                             </select>
@@ -383,7 +415,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                 <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
                                     <button onClick={() => setAddingStockItem(item)} className="text-green-600 hover:text-green-800 font-medium">เพิ่ม</button>
                                     
-                                    {(item.status === 'สต๊อกต่ำ' || item.status === 'หมดสต๊อก') && (
+                                    {(item.status === 'สต็อกต่ำ' || item.status === 'หมดสต๊อก') && (
                                         isPendingPurchase ? (
                                             <button 
                                                 disabled 
@@ -447,11 +479,26 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                         {filteredUsedParts.map(part => (
                             <tr key={part.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 text-base">{new Date(part.dateRemoved).toLocaleDateString('th-TH')}</td>
-                                <td className="px-4 py-3"><div className="font-semibold">{part.name}</div><div className="text-sm text-gray-500">{part.notes}</div></td>
+                                <td className="px-4 py-3">
+                                    <div className="font-semibold">{part.name}</div>
+                                    {part.status === 'จำหน่ายแล้ว' ? (
+                                        <div className="text-xs text-green-700">
+                                            ขายให้: {part.soldTo} ({part.salePrice?.toLocaleString()} บ.)
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm text-gray-500">{part.notes}</div>
+                                    )}
+                                </td>
                                 <td className="px-4 py-3"><div className="font-medium">{part.fromRepairOrderNo}</div><div className="text-sm text-gray-500">{part.fromLicensePlate}</div></td>
                                 <td className={`px-4 py-3 text-base font-semibold ${getUsedPartConditionBadge(part.condition)}`}>{part.condition}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
                                 <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
+                                    {part.status === 'รอจำหน่าย' && (
+                                        <button onClick={() => setSellingUsedPart(part)} className="text-green-600 hover:text-green-800 font-medium">ขาย</button>
+                                    )}
+                                    {part.status === 'จำหน่ายแล้ว' && (
+                                        <button onClick={() => setReceiptPart(part)} className="text-indigo-600 hover:text-indigo-800 font-medium">พิมพ์ใบขาย</button>
+                                    )}
                                     <button onClick={() => setEditingUsedPart(part)} className="text-yellow-600 hover:text-yellow-800 font-medium">อัปเดตสถานะ</button>
                                     <button onClick={() => handleDeleteUsedPart(part.id, part.name)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
                                 </td>
@@ -470,6 +517,8 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             {isReturnModalOpen && <ReturnStockModal stock={stock} onSave={handleReturn} onClose={() => setReturnModalOpen(false)} />}
             {printingLabelItem && <PrintLabelModal item={printingLabelItem} onClose={() => setPrintingLabelItem(null)} />}
             {editingUsedPart && <UpdateUsedPartStatusModal usedPart={editingUsedPart} onSave={handleUpdateUsedPart} onClose={() => setEditingUsedPart(null)} />}
+            {sellingUsedPart && <SellUsedPartModal part={sellingUsedPart} buyers={usedPartBuyers} onSave={handleSellUsedPart} onClose={() => setSellingUsedPart(null)} />}
+            {receiptPart && <UsedPartSaleReceiptModal part={receiptPart} onClose={() => setReceiptPart(null)} />}
             {requisitionModalOpen && (
                 <PurchaseRequisitionModal
                     isOpen={requisitionModalOpen}
@@ -480,6 +529,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                     onSave={handleSaveRequisition}
                     stockItems={stock}
                     initialItem={initialRequisitionItem}
+                    suppliers={suppliers}
                 />
             )}
         </div>

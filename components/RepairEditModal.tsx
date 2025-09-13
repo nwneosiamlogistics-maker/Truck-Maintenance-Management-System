@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
@@ -12,9 +12,10 @@ interface RepairEditModalProps {
     technicians: Technician[];
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    suppliers: Supplier[];
 }
 
-const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock }) => {
+const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, suppliers }) => {
     // Deep copy the repair prop to local state to avoid direct mutation.
     const getInitialState = (repairData: Repair) => {
         const repairCopy = JSON.parse(JSON.stringify(repairData));
@@ -215,7 +216,8 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                         let newStatus: StockStatus = 'ปกติ';
                         // FIX: Corrected a typo in the string 'หมดสต็อก' (Out of Stock) to 'หมดสต๊อก' to match the 'StockStatus' type definition.
                         if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
-                        else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                        // FIX: Corrected a typo in the string 'สต๊อกต่ำ' (Low Stock) to 'สต็อกต่ำ' to match the 'StockStatus' type definition.
+                        else if (newQuantity <= s.minStock) newStatus = 'สต็อกต่ำ';
                         else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
                         return { ...s, quantity: newQuantity, status: newStatus };
                     }
@@ -531,6 +533,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             <ExternalPartModal
                 onClose={() => setExternalPartModalOpen(false)}
                 onAddExternalParts={handleAddExternalParts}
+                suppliers={suppliers}
             />
         )}
     </>

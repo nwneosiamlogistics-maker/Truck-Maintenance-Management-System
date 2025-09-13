@@ -1,4 +1,4 @@
-import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle } from '../types';
+import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Supplier, UsedPartBuyer } from '../types';
 
 export const getDefaultTechnicians = (): Technician[] => [];
 
@@ -85,6 +85,113 @@ export const getDefaultPurchaseRequisitions = (): PurchaseRequisition[] => {
         },
     ];
 };
+
+const rawSupplierData = `
+P301-1	ไพศาลนครสวรรค์	น้ำมัน
+P401-1	เกียรติสถาพรโลหะกิจ	อะไหล่รถยนต์
+P401-2	บจก.พี.เอส.เจ้าพระยาคาร์คลีนิค	ซ่อม อะไหล่รถยนต์
+P401-3	ห้างหุ้นส่วนจำกัด ยนต์เนรมิตปากน้ำโพ	โรงกลึง ซ่อมเครื่องจักรกล
+P401-4	จินตนาผ้าใบ	ผ้าใบ+ปะผ้าใบ
+P401-5	เอี้ยเส็งหลี	เชือก+ผ้าลาย
+P401-6	เซียงกงอะไหล่ยนต์	อะไหล่รถยนต์ มือสอง
+P401-7	ส.ศิริยนต์	อะไหล่รถยนต์
+P401-8	ชุนอะไหล่ยนต์	อะไหล่รถยนต์ มือสอง
+P401-9	สังคมหม้อน้ำ	ซ่อม หม้อน้ำ
+P401-10	ยนต์ตระการ	โรงกลึง ซ่อมเครื่องจักรกล
+P401-11	J & D การช่าง	ซ่อมรถยนต์
+P401-12	ไทยโลหะ	อะไหล่รถยนต์
+P401-13	เอ็กเฮง	อะไหล่รถยนต์
+P401-14	เพชรออโต้แอร์	อะไหล่รถยนต์
+P401-16	พิษณุโลกมอเตอร์เซลส์	ซ่อม อะไหล่รถยนต์
+P401-17	ร้านวัฒนาการ	อะไหล่รถยนต์ แบตเตอรี่ อุปกรณ์ไฟรถ
+P401-18	ร้านน๊อต (ณรงค์การช่าง)	อะไหล่รถยนต์ เครื่องมือช่าง โรงกลึง ซ่อมเครื่องจักรกล
+P401-19	เปียท่อไอเสีย	อะไหล่ ซ่อมท่อไอเสีย
+P401-20	หนิงดีเซล	ซ่อมรถยนต์ หัวฉีด
+P401-21	อู่ ส.ฟ้าสดใส	ซ่อม อะไหล่รถยนต์
+P401-22	แสงพิทักษ์การไฟฟ้า	อุปกรณ์ไฟฟ้า
+P402-1	เอี้ยฮั่วฮง	ยางรถยนต์
+P402-2	ปึงเม่งเฮง	ยางรถยนต์
+P403-1	นครสวรรค์เต็กเซ่งฮง	อุปกรณ์ก่อสร้าง
+-	บจ.ไทยวัธนา เมทัลชีท	อุปกรณ์ก่อสร้าง แผ่นเมทัลชีท
+-	บจ.เอส.เค. เซอร์วิส	ซ่อมเครื่องถ่ายเอกสาร
+-	วิคตอรี่แอร์เทค	อะไหล่รถยนต์ แอร์รถยนต์
+-	บริษัท รักษาความปลอดภัย เจ้าพระยาป้องกันภัย จำกัด	รปภ.
+-	ช่างแดง อู่พี.เอส.	อู่ซ่อมรถยนต์
+-	บริษัท เสียงไพศาล จำกัด	ศูนย์บริการซ่อมรถและอะไหล่
+-	บริษัท อีซูซุเสนียนต์นครสวรรค์ จำกัด	ศูนย์บริการซ่อมรถและอะไหล่
+-	ยูเคเมด	ร้านป้าย สติ๊กเกอร์
+`;
+
+export const getDefaultSuppliers = (): Supplier[] => {
+    let tempIdCounter = 1;
+    return rawSupplierData
+        .trim()
+        .split('\n')
+        .map((line, index) => {
+            const parts = line.split('\t');
+            if (parts.length < 2 || !parts[1]?.trim()) {
+                return null;
+            }
+            const code = parts[0]?.trim() || '';
+            const name = parts[1]?.trim() || '';
+            const services = parts[2]?.trim() || '';
+
+            const finalCode = (code === '-') ? `SUP-TEMP-${tempIdCounter++}` : code;
+            return {
+                id: `SUP-init-${index}`,
+                code: finalCode,
+                name: name,
+                services: services,
+                address: null,
+                phone: null,
+                email: null,
+                otherContacts: null,
+            };
+        })
+        .filter((s): s is Supplier => s !== null);
+};
+
+const rawUsedPartBuyerData = `
+	ขาวการยาง	ยางรถยนต์		087-7351770
+	คุณโจการยาง	ยางรถยนต์ น้ำมันเครื่องเก่า แบตเตอรี่ 		098-4908234
+	คุณเปิ้ล(ขนดิน)	ยางรถยนต์		080-6857252
+	คุณภิทักษ์	ยางรถยนต์		086-2133731
+	คุณสมจิตร	ยางรถยนต์		088-1666705
+	คุณสมชาย	ยางรถยนต์		087-5772263 , 088-1614822
+	คุณอาราม	ยางรถยนต์		084-0505747
+	คุณอุดม	ยางรถยนต์		095-4127791
+	ลุงเชน	น้ำมันเครื่องเก่า		089-4609085
+`;
+
+export const getDefaultUsedPartBuyers = (): UsedPartBuyer[] => {
+    return rawUsedPartBuyerData
+        .trim()
+        .split('\n')
+        .map((line, index) => {
+            const parts = line.split('\t').map(p => p.trim());
+            if (parts.length < 2 || !parts[1]) {
+                return null;
+            }
+
+            // The first part (code) might be empty, so we skip it (index 0).
+            const name = parts[1];
+            const products = parts[2] || '';
+            const phone = parts[4] || null; // Phone is at a different index due to empty columns
+            
+            return {
+                id: `UPB-init-${index}`,
+                code: `B-${String(index + 1).padStart(3, '0')}`,
+                name: name,
+                products: products,
+                address: null,
+                phone: phone,
+                email: null,
+                otherContacts: null,
+            };
+        })
+        .filter((b): b is UsedPartBuyer => b !== null);
+};
+
 
 const thaiMonthMap: { [key: string]: number } = {
     'ม.ค.': 0, 'ก.พ.': 1, 'มี.ค.': 2, 'เม.ย.': 3, 'พ.ค.': 4, 'มิ.ย.': 5,

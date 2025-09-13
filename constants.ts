@@ -29,6 +29,18 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'ใบขอซื้อ',
         subtitle: 'จัดการการสั่งซื้อ, เติมสต็อก และลบใบขอซื้อ'
     },
+    suppliers: {
+        title: 'จัดการผู้จำหน่าย',
+        subtitle: 'ข้อมูลร้านค้าและผู้ให้บริการ'
+    },
+    'used-part-buyers': {
+        title: 'จัดการผู้รับซื้อ',
+        subtitle: 'ข้อมูลผู้รับซื้ออะไหล่เก่า'
+    },
+    'used-part-report': {
+        title: 'รายงานอะไหล่เก่า',
+        subtitle: 'สรุปและวิเคราะห์ข้อมูลอะไหล่เก่าทั้งหมด'
+    },
     reports: {
         title: 'รายงานและสถิติ',
         subtitle: 'วิเคราะห์ข้อมูลและส่งออกรายงาน'

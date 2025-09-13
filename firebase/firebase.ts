@@ -14,5 +14,7 @@ const firebaseConfig = {
 
 // FIX: Switched to the Firebase compatibility library to resolve a module resolution error with 'initializeApp'.
 // The compat library provides the v8 API surface on top of the v9 SDK.
-const app = firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 export const database = firebase.database();

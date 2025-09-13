@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 // Components
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -14,12 +14,15 @@ import Reports from './components/Reports';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
 import PurchaseRequisitionPage from './components/PurchaseRequisition';
+import SupplierManagement from './components/SupplierManagement';
 import VehicleManagement from './components/VehicleManagement';
+import UsedPartBuyerManagement from './components/UsedPartBuyerManagement';
+import UsedPartReport from './components/UsedPartReport';
 import ToastContainer from './components/ToastContainer';
 import { ToastProvider } from './context/ToastContext';
 
 // Types and Constants
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer } from './types';
 import { TABS } from './constants';
 
 // Hooks
@@ -35,6 +38,8 @@ import {
     getDefaultMaintenancePlans,
     getDefaultPurchaseRequisitions,
     getDefaultVehicles,
+    getDefaultSuppliers,
+    getDefaultUsedPartBuyers,
 } from './data/defaultData';
 
 function App() {
@@ -51,12 +56,41 @@ function App() {
     const [usedParts, setUsedParts] = useFirebase<UsedPart[]>('usedParts', () => []);
     const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', getDefaultPurchaseRequisitions);
     const [vehicles, setVehicles] = useFirebase<Vehicle[]>('vehicles', getDefaultVehicles);
+    const [suppliers, setSuppliers] = useFirebase<Supplier[]>('suppliers', getDefaultSuppliers);
+    const [usedPartBuyers, setUsedPartBuyers] = useFirebase<UsedPartBuyer[]>('usedPartBuyers', getDefaultUsedPartBuyers);
     
     const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
 
     // UI State
     const [isCollapsed, setCollapsed] = useState(false);
     const [isMobileOpen, setMobileOpen] = useState(false);
+
+    // One-time data migration/seeding for suppliers to fix incomplete data
+    useEffect(() => {
+        if (Array.isArray(suppliers) && suppliers.length > 0) {
+            const defaultSuppliers = getDefaultSuppliers();
+            if (suppliers.length < defaultSuppliers.length) {
+                const migrationKey = 'supplier_migration_202407';
+                if (!localStorage.getItem(migrationKey)) {
+                    const existingSupplierMap = new Map(suppliers.map(s => [s.code, s]));
+                    const mergedSuppliers = [...suppliers];
+                    
+                    defaultSuppliers.forEach(defaultSupplier => {
+                        if (!existingSupplierMap.has(defaultSupplier.code)) {
+                            mergedSuppliers.push(defaultSupplier);
+                        }
+                    });
+
+                    if (mergedSuppliers.length > suppliers.length) {
+                        setSuppliers(mergedSuppliers);
+                        localStorage.setItem(migrationKey, 'true');
+                        console.log('Supplier data has been merged to fix incomplete list.');
+                    }
+                }
+            }
+        }
+    }, [suppliers, setSuppliers]);
+
 
     // Derived state for badges and stats
     const stats = useMemo(() => {
@@ -65,7 +99,8 @@ function App() {
         const safePlans = Array.isArray(plans) ? plans : [];
 
         const pendingRepairs = safeRepairs.filter(r => ['รอซ่อม', 'รออะไหล่'].includes(r.status)).length;
-        const lowStock = safeStock.filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length;
+        // FIX: Corrected a typo in the string 'สต๊อกต่ำ' (Low Stock) to 'สต็อกต่ำ' to match the 'StockStatus' type definition.
+        const lowStock = safeStock.filter(s => s.status === 'สต็อกต่ำ' || s.status === 'หมดสต๊อก').length;
         
         const dueMaintenance = safePlans.filter(plan => {
              const lastDate = new Date(plan.lastServiceDate);
@@ -141,17 +176,24 @@ function App() {
             case 'dashboard':
                 return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
             case 'form':
-                return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} />;
+                return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} />;
             case 'list':
-                return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} />;
+                return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} suppliers={suppliers} />;
             case 'history':
-                return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} />;
+                return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} suppliers={suppliers} />;
             case 'stock':
-                return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} />;
+                return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} suppliers={suppliers} usedPartBuyers={usedPartBuyers} setUsedParts={setUsedParts} />;
             case 'stock-history':
                 return <StockHistory transactions={transactions} />;
             case 'requisitions':
-                return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} />;
+                // FIX: Added the missing 'suppliers' prop to the PurchaseRequisitionPage component.
+                return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} suppliers={suppliers} />;
+            case 'suppliers':
+                return <SupplierManagement suppliers={suppliers} setSuppliers={setSuppliers} />;
+            case 'used-part-buyers':
+                return <UsedPartBuyerManagement usedPartBuyers={usedPartBuyers} setUsedPartBuyers={setUsedPartBuyers} />;
+            case 'used-part-report':
+                return <UsedPartReport usedParts={usedParts} />;
             case 'technicians':
                 return <TechnicianManagement technicians={technicians} setTechnicians={setTechnicians} repairs={repairs} />;
             case 'technicianPerformance':

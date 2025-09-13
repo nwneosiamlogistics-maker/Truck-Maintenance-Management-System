@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, StockItem } from '../types';
+import type { Repair, Technician, StockItem, Supplier } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
 import RepairEditModal from './RepairEditModal';
 import { useToast } from '../context/ToastContext';
@@ -10,9 +10,10 @@ interface RepairHistoryProps {
     technicians: Technician[];
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    suppliers: Supplier[];
 }
 
-const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock }) => {
+const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, suppliers }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -266,6 +267,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     technicians={technicians}
                     stock={stock}
                     setStock={setStock}
+                    suppliers={suppliers}
                 />
             )}
         </div>

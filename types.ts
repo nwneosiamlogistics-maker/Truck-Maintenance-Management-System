@@ -1,4 +1,3 @@
-// FIX: Removed self-referencing import of 'Tab' which caused a declaration conflict.
 export type Tab =
   | 'dashboard'
   | 'form'
@@ -7,12 +6,15 @@ export type Tab =
   | 'stock'
   | 'stock-history'
   | 'requisitions'
+  | 'suppliers'
   | 'reports'
   | 'technicians'
   | 'technicianPerformance'
   | 'estimation'
   | 'maintenance'
-  | 'vehicles';
+  | 'vehicles'
+  | 'used-part-buyers'
+  | 'used-part-report';
 
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
@@ -95,7 +97,7 @@ export interface Technician {
     currentJobs: number;
 }
 
-export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
+export type StockStatus = 'ปกติ' | 'สต็อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
 
 export interface StockItem {
     id: string;
@@ -153,6 +155,10 @@ export interface UsedPart {
     condition: UsedPartCondition;
     status: UsedPartStatus;
     notes: string;
+    // Fields for sale tracking
+    soldTo?: string; // Buyer's Name
+    salePrice?: number;
+    saleDate?: string;
 }
 
 export interface Notification {
@@ -220,4 +226,26 @@ export interface Vehicle {
   actCompany: string | null;
   actExpiryDate: string | null;
   cargoInsuranceCompany: string | null;
+}
+
+export interface Supplier {
+  id: string;
+  code: string;
+  name: string;
+  services: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  otherContacts: string | null;
+}
+
+export interface UsedPartBuyer {
+  id: string;
+  code: string;
+  name: string;
+  products: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  otherContacts: string | null;
 }

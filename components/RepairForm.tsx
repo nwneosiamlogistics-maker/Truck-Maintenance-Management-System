@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
@@ -13,6 +13,7 @@ interface RepairFormProps {
     repairs: Repair[];
     setActiveTab: (tab: Tab) => void;
     vehicles: Vehicle[];
+    suppliers: Supplier[];
 }
 
 interface EstimationResult {
@@ -20,7 +21,7 @@ interface EstimationResult {
     reasoning: string;
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers }) => {
     
     const toLocalISOString = (date: Date) => {
         if (isNaN(date.getTime())) return '';
@@ -699,6 +700,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             <ExternalPartModal
                 onClose={() => setExternalPartModalOpen(false)}
                 onAddExternalParts={handleAddExternalParts}
+                suppliers={suppliers}
             />
         )}
         </>
