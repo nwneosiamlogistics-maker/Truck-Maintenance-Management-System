@@ -60,7 +60,7 @@ const AddUsedPartsModal: React.FC<AddUsedPartsModalProps> = ({ repair, onSave, o
                     fromRepairOrderNo: repair.repairOrderNo,
                     fromLicensePlate: repair.licensePlate,
                     dateRemoved: new Date().toISOString(),
-                    initialQuantity: partData.quantity,
+                    initialQuantity: partData.quantity || part.quantity || 1,
                     unit: partData.unit,
                     status: 'รอจัดการ', // Always starts with this status
                     dispositions: [], // Starts with no dispositions

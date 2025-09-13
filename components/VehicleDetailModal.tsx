@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { Repair, Technician } from '../types';
 
@@ -7,9 +6,10 @@ interface VehicleDetailModalProps {
     allRepairs: Repair[];
     technicians: Technician[];
     onClose: () => void;
+    onSaveUsedParts: (repair: Repair) => void;
 }
 
-const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepairs, technicians, onClose }) => {
+const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepairs, technicians, onClose, onSaveUsedParts }) => {
     
     const repairHistory = (Array.isArray(allRepairs) ? allRepairs : [])
         .filter(r => r.licensePlate === repair.licensePlate && r.status === 'ซ่อมเสร็จ' && r.id !== repair.id)
@@ -24,7 +24,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
         const repairParts = Array.isArray(repairItem.parts) ? repairItem.parts : [];
         const partsCost = repairParts.reduce((acc, part) => acc + (part.quantity * part.unitPrice), 0);
         const laborCost = repairItem.repairCost || 0;
-        return partsCost + laborCost;
+        return partsCost + laborCost + (repairItem.partsVat || 0);
     };
 
     const safeParts = Array.isArray(repair.parts) ? repair.parts : [];
@@ -62,7 +62,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                     {/* Current Repair Info */}
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <h4 className="text-xl font-semibold text-gray-700 mb-3">ข้อมูลการซ่อมปัจจุบัน</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-base">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-base">
                             <p><strong>เลขที่ใบแจ้งซ่อม:</strong> {repair.repairOrderNo}</p>
                             <p><strong>สถานะ:</strong> {repair.status}</p>
                             <p><strong>เลขที่ใบเบิก:</strong> {repair.requisitionNumber || '-'}</p>
@@ -76,7 +76,17 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                     
                     {/* Parts List */}
                     <div>
-                        <h4 className="text-xl font-semibold text-gray-700 mb-3">รายการอะไหล่ที่ใช้ ({safeParts.length} รายการ)</h4>
+                        <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-xl font-semibold text-gray-700">รายการอะไหล่ที่ใช้ ({safeParts.length} รายการ)</h4>
+                             {repair.status === 'ซ่อมเสร็จ' && safeParts.length > 0 && (
+                                <button
+                                    onClick={() => onSaveUsedParts(repair)}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                                >
+                                    🔩 บันทึกอะไหล่เก่าจากการซ่อมนี้
+                                </button>
+                            )}
+                        </div>
                         {safeParts.length > 0 ? (
                             <div className="border rounded-lg overflow-hidden max-h-60 overflow-y-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -148,6 +158,11 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                             </table>
                         </div>
                     </div>
+                </div>
+                 <div className="p-4 border-t bg-gray-50 flex justify-end">
+                    <button onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+                        ปิด
+                    </button>
                 </div>
             </div>
         </div>

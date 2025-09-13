@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority, Supplier } from '../types';
 import RepairEditModal from './RepairEditModal';
@@ -195,6 +196,11 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                     allRepairs={repairs}
                     technicians={technicians}
                     onClose={() => setViewingRepair(null)}
+                    // FIX: Added the missing 'onSaveUsedParts' prop to handle saving used parts.
+                    onSaveUsedParts={(repair) => {
+                        setViewingRepair(null);
+                        setRepairForUsedParts(repair);
+                    }}
                 />
             )}
             {repairForUsedParts && (

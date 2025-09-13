@@ -420,7 +420,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                         {filteredUsedParts.map(part => {
-                            const initialQty = part.initialQuantity || 0;
+                            const initialQty = part.initialQuantity ?? 0;
                             const disposedQuantity = (part.dispositions || []).reduce((sum, d) => sum + (d.quantity || 0), 0);
                             const remainingQuantity = initialQty - disposedQuantity;
 

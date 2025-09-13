@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, StockItem, Supplier } from '../types';
+import type { Repair, Technician, StockItem, Supplier, UsedPart } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
 import RepairEditModal from './RepairEditModal';
+import AddUsedPartsModal from './AddUsedPartsModal';
 import { useToast } from '../context/ToastContext';
 
 interface RepairHistoryProps {
@@ -11,9 +12,10 @@ interface RepairHistoryProps {
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
     suppliers: Supplier[];
+    addUsedParts: (parts: Omit<UsedPart, 'id'>[]) => void;
 }
 
-const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, suppliers }) => {
+const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, suppliers, addUsedParts }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -23,6 +25,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
     const [isDetailModalOpen, setDetailModalOpen] = useState(false);
+    const [repairForUsedParts, setRepairForUsedParts] = useState<Repair | null>(null);
     const { addToast } = useToast();
     const [selectedRepairIds, setSelectedRepairIds] = useState<string[]>([]);
 
@@ -67,6 +70,11 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const openDetailModal = (repair: Repair) => {
         setSelectedRepair(repair);
         setDetailModalOpen(true);
+    };
+    
+    const handleAddUsedParts = (parts: Omit<UsedPart, 'id'>[]) => {
+        addUsedParts(parts);
+        setRepairForUsedParts(null);
     };
 
     const handleSaveRepair = (updatedRepair: Repair) => {
@@ -256,7 +264,14 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     repair={selectedRepair} 
                     allRepairs={repairs} 
                     technicians={technicians} 
-                    onClose={() => setDetailModalOpen(false)} 
+                    onClose={() => {
+                        setDetailModalOpen(false);
+                        setSelectedRepair(null);
+                    }}
+                    onSaveUsedParts={(repairToSave) => {
+                        setDetailModalOpen(false);
+                        setRepairForUsedParts(repairToSave);
+                    }}
                 />
             )}
             {editingRepair && (
@@ -268,6 +283,13 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     stock={stock}
                     setStock={setStock}
                     suppliers={suppliers}
+                />
+            )}
+            {repairForUsedParts && (
+                <AddUsedPartsModal
+                    repair={repairForUsedParts}
+                    onSave={handleAddUsedParts}
+                    onClose={() => setRepairForUsedParts(null)}
                 />
             )}
         </div>
