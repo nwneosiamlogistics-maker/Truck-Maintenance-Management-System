@@ -10,6 +10,7 @@ export type Tab =
   | 'reports'
   | 'technicians'
   | 'technicianPerformance'
+  | 'technicianWorkLog'
   | 'estimation'
   | 'maintenance'
   | 'vehicles'

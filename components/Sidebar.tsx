@@ -77,6 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         { section: 'บุคลากร', items: [
             { id: 'technicians', icon: '👨‍🔧', label: 'จัดการช่าง' },
             { id: 'technicianPerformance', icon: '🧑‍📈', label: 'รายงานประสิทธิภาพช่าง' },
+            { id: 'technicianWorkLog', icon: '🛠️', label: 'ประวัติงานซ่อมช่าง' },
         ]},
         { section: 'รายงาน', items: [
             { id: 'reports', icon: '📈', label: 'รายงานและสถิติ' },

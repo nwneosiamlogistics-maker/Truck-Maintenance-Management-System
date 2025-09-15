@@ -10,6 +10,7 @@ import StockManagement from './components/StockManagement';
 import StockHistory from './components/StockHistory';
 import TechnicianManagement from './components/TechnicianManagement';
 import TechnicianPerformance from './components/TechnicianPerformance';
+import TechnicianWorkLog from './components/TechnicianWorkLog';
 import Reports from './components/Reports';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
@@ -197,6 +198,8 @@ function App() {
                 return <TechnicianManagement technicians={technicians} setTechnicians={setTechnicians} repairs={repairs} />;
             case 'technicianPerformance':
                 return <TechnicianPerformance repairs={repairs} technicians={technicians} />;
+            case 'technicianWorkLog':
+                return <TechnicianWorkLog repairs={repairs} technicians={technicians} />;
             case 'reports':
                 return <Reports repairs={repairs} stock={stock} technicians={technicians} />;
             case 'estimation':

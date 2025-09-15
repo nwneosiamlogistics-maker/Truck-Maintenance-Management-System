@@ -53,6 +53,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'รายงานประสิทธิภาพช่าง',
         subtitle: 'วิเคราะห์และเปรียบเทียบผลการปฏิบัติงานของช่าง'
     },
+    technicianWorkLog: {
+        title: 'ประวัติงานซ่อมช่าง',
+        subtitle: 'บันทึกการปฏิบัติงานของช่างแต่ละคนโดยละเอียด'
+    },
     estimation: {
         title: 'ระบบประมาณการณ์',
         subtitle: 'ประมาณเวลาและติดตามความแม่นยำ'
