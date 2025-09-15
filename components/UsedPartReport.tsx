@@ -40,7 +40,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts }) => {
             pendingQuantity += (initialQty - disposedQty);
 
             for (const disposition of (part.dispositions || [])) {
-                if (disposition.dispositionType === 'จำหน่าย') {
+                if (disposition.dispositionType === 'ขาย') {
                     totalSaleValue += (disposition.salePricePerUnit || 0) * (disposition.quantity || 0);
                 }
                 dispositions.push({
@@ -81,13 +81,32 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts }) => {
 
     const getDispositionTypeBadge = (type: UsedPartDisposition['dispositionType']) => {
         switch (type) {
-            case 'จำหน่าย': return 'bg-green-100 text-green-800';
-            case 'ทำลาย': return 'bg-red-100 text-red-800';
+            case 'ขาย': return 'bg-green-100 text-green-800';
+            case 'ทิ้ง': return 'bg-red-100 text-red-800';
             case 'เก็บไว้ใช้ต่อ': return 'bg-purple-100 text-purple-800';
+            case 'นำไปใช้แล้ว': return 'bg-gray-100 text-gray-800';
             default: return 'bg-gray-100';
         }
     };
     
+    const getDispositionDetails = (disp: ReportableDisposition) => {
+        switch (disp.dispositionType) {
+            case 'ขาย': {
+                const buyerInfo = disp.soldTo || '';
+                const noteInfo = disp.notes ? `(${disp.notes})` : '';
+                // Join them, trim any leading/trailing space if one is empty
+                return [buyerInfo, noteInfo].filter(Boolean).join(' ').trim() || '-';
+            }
+            case 'เก็บไว้ใช้ต่อ':
+                return `ที่เก็บ: ${disp.storageLocation || 'ไม่ได้ระบุ'}`;
+            case 'ทิ้ง':
+            case 'นำไปใช้แล้ว':
+                return disp.notes || '-';
+            default:
+                return '-';
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -127,7 +146,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts }) => {
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">การดำเนินการ</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ซื้อ</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายละเอียด (ผู้ซื้อ/ที่เก็บ/หมายเหตุ)</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">มูลค่า (บาท)</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ที่มา (ใบซ่อม)</th>
                             </tr>
@@ -143,9 +162,11 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts }) => {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-right font-semibold">{disp.quantity} {disp.parentPart.unit}</td>
-                                    <td className="px-4 py-3 text-sm">{disp.soldTo || '-'}</td>
+                                    <td className="px-4 py-3 text-sm">
+                                         {getDispositionDetails(disp)}
+                                    </td>
                                     <td className="px-4 py-3 text-right text-sm font-semibold">
-                                        {disp.dispositionType === 'จำหน่าย' ? ((disp.salePricePerUnit || 0) * disp.quantity).toLocaleString() : '-'}
+                                        {disp.dispositionType === 'ขาย' ? ((disp.salePricePerUnit || 0) * disp.quantity).toLocaleString() : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-600">{disp.parentPart.fromRepairOrderNo}</td>
                                 </tr>

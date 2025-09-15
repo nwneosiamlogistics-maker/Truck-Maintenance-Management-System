@@ -6,10 +6,9 @@ interface VehicleDetailModalProps {
     allRepairs: Repair[];
     technicians: Technician[];
     onClose: () => void;
-    onSaveUsedParts: (repair: Repair) => void;
 }
 
-const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepairs, technicians, onClose, onSaveUsedParts }) => {
+const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepairs, technicians, onClose }) => {
     
     const repairHistory = (Array.isArray(allRepairs) ? allRepairs : [])
         .filter(r => r.licensePlate === repair.licensePlate && r.status === 'ซ่อมเสร็จ' && r.id !== repair.id)
@@ -78,14 +77,6 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                     <div>
                         <div className="flex justify-between items-center mb-3">
                             <h4 className="text-xl font-semibold text-gray-700">รายการอะไหล่ที่ใช้ ({safeParts.length} รายการ)</h4>
-                             {repair.status === 'ซ่อมเสร็จ' && safeParts.length > 0 && (
-                                <button
-                                    onClick={() => onSaveUsedParts(repair)}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                                >
-                                    🔩 บันทึกอะไหล่เก่าจากการซ่อมนี้
-                                </button>
-                            )}
                         </div>
                         {safeParts.length > 0 ? (
                             <div className="border rounded-lg overflow-hidden max-h-60 overflow-y-auto">

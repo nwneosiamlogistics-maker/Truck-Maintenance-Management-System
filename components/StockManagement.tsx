@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartBatchStatus, PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, Supplier, UsedPartBuyer } from '../types';
+import type { StockItem, StockTransaction, StockStatus, UsedPart, UsedPartBatchStatus, PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, Supplier, UsedPartBuyer, UsedPartDisposition } from '../types';
 import StockModal from './StockModal';
 import AddStockModal from './AddStockModal';
 import StockWithdrawalModal from './StockWithdrawalModal';
@@ -9,6 +9,88 @@ import ManageUsedPartBatchModal from './ManageUsedPartBatchModal';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import UsedPartSaleReceiptModal from './UsedPartSaleReceiptModal';
 import { useToast } from '../context/ToastContext';
+import EditUsedPartBatchModal from './EditUsedPartBatchModal';
+
+interface StockAdjustmentModalProps {
+    item: StockItem;
+    onSave: (data: {
+      stockItemId: string;
+      newQuantity: number;
+      reason: string;
+    }) => void;
+    onClose: () => void;
+}
+
+const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ item, onSave, onClose }) => {
+    const [newQuantity, setNewQuantity] = useState(item.quantity);
+    const [reason, setReason] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newQuantity < 0) {
+            alert('จำนวนคงเหลือต้องไม่ติดลบ');
+            return;
+        }
+        if (!reason.trim()) {
+            alert('กรุณากรอกเหตุผลในการปรับสต็อก');
+            return;
+        }
+        onSave({
+            stockItemId: item.id,
+            newQuantity,
+            reason,
+        });
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b flex justify-between items-center">
+                    <div>
+                         <h3 className="text-2xl font-bold text-gray-800">ปรับสต็อกสินค้า</h3>
+                         <p className="text-base text-gray-500">{item.name}</p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <form id="adjust-stock-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+                    <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">จำนวนคงเหลือปัจจุบัน</label>
+                        <p className="text-lg font-bold p-2 bg-gray-100 rounded-lg">{item.quantity} {item.unit}</p>
+                    </div>
+                    <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">จำนวนคงเหลือใหม่ *</label>
+                        <input 
+                            type="number" 
+                            value={newQuantity} 
+                            onChange={(e) => setNewQuantity(Number(e.target.value))} 
+                            min="0"
+                            required 
+                            className="w-full p-2 border border-gray-300 rounded-lg"
+                        />
+                    </div>
+                     <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">เหตุผลในการปรับสต็อก *</label>
+                        <textarea
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            rows={3}
+                            required
+                            placeholder="เช่น จากการนับสต็อก, สินค้าชำรุด, อื่นๆ"
+                            className="w-full p-2 border border-gray-300 rounded-lg"
+                        ></textarea>
+                    </div>
+                </form>
+                <div className="p-6 border-t flex justify-end space-x-4">
+                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                    <button type="submit" form="adjust-stock-form" className="px-8 py-2 text-base font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700">ยืนยันการปรับสต็อก</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 interface StockManagementProps {
     stock: StockItem[];
@@ -38,12 +120,15 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const [isWithdrawModalOpen, setWithdrawModalOpen] = useState(false);
     const [isReturnModalOpen, setReturnModalOpen] = useState(false);
     const [printingLabelItem, setPrintingLabelItem] = useState<StockItem | null>(null);
+    const [adjustingItem, setAdjustingItem] = useState<StockItem | null>(null);
     
     // Used Parts States
     const [usedPartSearchTerm, setUsedPartSearchTerm] = useState('');
     const [usedPartStatusFilter, setUsedPartStatusFilter] = useState<UsedPartBatchStatus | 'all'>('all');
     const [managingUsedPart, setManagingUsedPart] = useState<UsedPart | null>(null);
+    const [editingUsedPart, setEditingUsedPart] = useState<UsedPart | null>(null);
     const [receiptPart, setReceiptPart] = useState<UsedPart | null>(null);
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
 
     // Purchase Requisition States
@@ -205,6 +290,39 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         setReturnModalOpen(false);
     };
 
+    const handleAdjustStock = (data: { stockItemId: string; newQuantity: number; reason: string; }) => {
+        const { stockItemId, newQuantity, reason } = data;
+        const stockItem = stock.find(s => s.id === stockItemId);
+        if (!stockItem) return;
+
+        const quantityChange = newQuantity - stockItem.quantity;
+
+        setStock(prev => prev.map(s => {
+            if (s.id === stockItemId) {
+                let newStatus: StockStatus = 'ปกติ';
+                if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
+                else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
+                return { ...s, quantity: newQuantity, status: newStatus };
+            }
+            return s;
+        }));
+
+        const newTransaction: StockTransaction = {
+            id: `TXN-${Date.now()}`,
+            stockItemId: stockItem.id,
+            stockItemName: stockItem.name,
+            type: 'ปรับสต็อก',
+            quantity: quantityChange,
+            transactionDate: new Date().toISOString(),
+            actor: 'ระบบ',
+            notes: reason,
+        };
+        setTransactions(prev => [newTransaction, ...prev]);
+        addToast(`ปรับสต็อก ${stockItem.name} เป็น ${newQuantity} ${stockItem.unit} สำเร็จ`, 'success');
+        setAdjustingItem(null);
+    };
+
     const handleDeleteUsedPart = (partId: string, partName: string) => {
         if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบประวัติอะไหล่เก่า '${partName}'? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
             deleteUsedPart(partId);
@@ -255,6 +373,34 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
     };
 
+    const handleSaveUsedPartFromModal = (updatedPart: UsedPart) => {
+        updateUsedPart(updatedPart); // Update the main state via props
+        // Automatically expand the row for immediate feedback
+        setExpandedRows(prev => {
+            const newSet = new Set(prev);
+            newSet.add(updatedPart.id);
+            return newSet;
+        });
+    };
+    
+    const handleSaveEditedUsedPart = (updatedPart: UsedPart) => {
+        updateUsedPart(updatedPart);
+        addToast(`อัปเดตข้อมูล ${updatedPart.name} สำเร็จ`, 'success');
+        setEditingUsedPart(null);
+    };
+
+    const toggleRowExpansion = (partId: string) => {
+        setExpandedRows(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(partId)) {
+                newSet.delete(partId);
+            } else {
+                newSet.add(partId);
+            }
+            return newSet;
+        });
+    };
+
     const getNewStockStatusBadge = (status: StockItem['status']) => {
         switch (status) {
             case 'ปกติ': return 'bg-green-100 text-green-800';
@@ -270,6 +416,34 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             case 'จัดการบางส่วน': return 'bg-yellow-100 text-yellow-800';
             case 'จัดการครบแล้ว': return 'bg-green-100 text-green-800';
             default: return 'bg-gray-100';
+        }
+    };
+
+    const getDispositionTypeBadge = (type: UsedPartDisposition['dispositionType']) => {
+        switch (type) {
+            case 'ขาย': return 'bg-green-100 text-green-800';
+            case 'ทิ้ง': return 'bg-red-100 text-red-800';
+            case 'เก็บไว้ใช้ต่อ': return 'bg-purple-100 text-purple-800';
+            case 'นำไปใช้แล้ว': return 'bg-gray-100 text-gray-800';
+            default: return 'bg-gray-100';
+        }
+    };
+
+    const getDispositionDetails = (disp: UsedPartDisposition) => {
+        switch (disp.dispositionType) {
+            case 'ขาย': {
+                const buyerInfo = disp.soldTo || '';
+                const noteInfo = disp.notes ? `(${disp.notes})` : '';
+                // Join them, trim any leading/trailing space if one is empty
+                return [buyerInfo, noteInfo].filter(Boolean).join(' ').trim() || '-';
+            }
+            case 'เก็บไว้ใช้ต่อ':
+                return `ที่เก็บ: ${disp.storageLocation || 'ไม่ได้ระบุ'}`;
+            case 'ทิ้ง':
+            case 'นำไปใช้แล้ว':
+                return disp.notes || '-';
+            default:
+                return '-';
         }
     };
 
@@ -375,7 +549,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                             <button onClick={() => handleCreateRequisition(item)} className="text-indigo-600 hover:text-indigo-800 font-medium">ขอซื้อ</button>
                                         )
                                     )}
-
+                                    <button onClick={() => setAdjustingItem(item)} className="text-teal-600 hover:text-teal-800 font-medium">ปรับสต็อก</button>
                                     <button onClick={() => { setEditingItem(item); setEditModalOpen(true); }} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
                                     <button onClick={() => setPrintingLabelItem(item)} className="text-blue-600 hover:text-blue-800 font-medium">ฉลาก</button>
                                     <button onClick={() => handleDeleteStockItem(item.id, item.name)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
@@ -409,11 +583,12 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                         <tr>
+                            <th className="px-2 py-3 w-12"></th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ถอด</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ที่มา (ใบซ่อม/ทะเบียน)</th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวนเริ่มต้น</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวนคงเหลือ</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">คงเหลือ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                         </tr>
@@ -421,25 +596,69 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                         <tbody className="bg-white divide-y divide-gray-200">
                         {filteredUsedParts.map(part => {
                             const initialQty = part.initialQuantity ?? 0;
-                            const disposedQuantity = (part.dispositions || []).reduce((sum, d) => sum + (d.quantity || 0), 0);
-                            const remainingQuantity = initialQty - disposedQuantity;
+                            const disposedFromInitialBatchQty = (part.dispositions || [])
+                                .filter(d => ['ขาย', 'ทิ้ง', 'เก็บไว้ใช้ต่อ'].includes(d.dispositionType))
+                                .reduce((sum, d) => sum + (d.quantity || 0), 0);
+                            const remainingQuantity = initialQty - disposedFromInitialBatchQty;
+                            const isExpanded = expandedRows.has(part.id);
 
                             return (
-                                <tr key={part.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-base">{new Date(part.dateRemoved).toLocaleDateString('th-TH')}</td>
-                                    <td className="px-4 py-3 font-semibold">{part.name}</td>
-                                    <td className="px-4 py-3"><div className="font-medium">{part.fromRepairOrderNo}</div><div className="text-sm text-gray-500">{part.fromLicensePlate}</div></td>
-                                    <td className="px-4 py-3 text-right text-base">{initialQty} {part.unit}</td>
-                                    <td className="px-4 py-3 text-right text-base font-bold">{remainingQuantity} {part.unit}</td>
-                                    <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
-                                    <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
-                                        <button onClick={() => setManagingUsedPart(part)} className="text-blue-600 hover:text-blue-800 font-medium">จัดการ</button>
-                                        <button onClick={() => handleDeleteUsedPart(part.id, part.name)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
-                                    </td>
-                                </tr>
+                                <React.Fragment key={part.id}>
+                                    <tr className="hover:bg-gray-50">
+                                        <td className="px-2 py-3 text-center">
+                                            <button onClick={() => toggleRowExpansion(part.id)} className="p-1 rounded-full hover:bg-gray-200">
+                                                <svg className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </button>
+                                        </td>
+                                        <td className="px-4 py-3 text-base">{new Date(part.dateRemoved).toLocaleDateString('th-TH')}</td>
+                                        <td className="px-4 py-3 font-semibold">{part.name}</td>
+                                        <td className="px-4 py-3"><div className="font-medium">{part.fromRepairOrderNo}</div><div className="text-sm text-gray-500">{part.fromLicensePlate}</div></td>
+                                        <td className="px-4 py-3 text-right text-base">{initialQty} {part.unit}</td>
+                                        <td className="px-4 py-3 text-right text-base font-bold">{remainingQuantity} {part.unit}</td>
+                                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
+                                        <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
+                                            <button onClick={() => setManagingUsedPart(part)} className="text-blue-600 hover:text-blue-800 font-medium">จัดการ</button>
+                                            <button onClick={() => setEditingUsedPart(part)} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
+                                            <button onClick={() => handleDeleteUsedPart(part.id, part.name)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                                        </td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr className="bg-gray-50">
+                                            <td colSpan={8} className="p-4">
+                                                <h4 className="font-semibold text-gray-700 mb-2">ประวัติการจัดการ</h4>
+                                                {(part.dispositions && part.dispositions.length > 0) ? (
+                                                    <table className="min-w-full bg-white rounded-lg overflow-hidden shadow">
+                                                        <thead className="bg-gray-200">
+                                                            <tr>
+                                                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">วันที่</th>
+                                                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">ดำเนินการ</th>
+                                                                <th className="px-2 py-2 text-right text-xs font-medium text-gray-600 uppercase">จำนวน</th>
+                                                                <th className="px-2 py-2 text-right text-xs font-medium text-gray-600 uppercase">ราคาขาย/หน่วย</th>
+                                                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">ผู้ซื้อ / ที่เก็บ / หมายเหตุ</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-200">
+                                                            {part.dispositions.map(d => (
+                                                                <tr key={d.id}>
+                                                                    <td className="px-2 py-2 text-sm">{new Date(d.date).toLocaleDateString('th-TH')}</td>
+                                                                    <td className="px-2 py-2"><span className={`px-2 py-0.5 text-xs rounded-full ${getDispositionTypeBadge(d.dispositionType)}`}>{d.dispositionType}</span></td>
+                                                                    <td className="px-2 py-2 text-right text-sm">{d.quantity} {part.unit}</td>
+                                                                    <td className="px-2 py-2 text-right text-sm">{d.salePricePerUnit?.toLocaleString() || '-'}</td>
+                                                                    <td className="px-2 py-2 text-sm">
+                                                                        {getDispositionDetails(d)}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                ) : <p className="text-center text-gray-500 py-4">ยังไม่มีประวัติการจัดการ</p>}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             );
                         })}
-                         {filteredUsedParts.length === 0 && ( <tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูลอะไหล่เก่า</td></tr> )}
+                         {filteredUsedParts.length === 0 && ( <tr><td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูลอะไหล่เก่า</td></tr> )}
                         </tbody>
                     </table>
                 </div>
@@ -451,7 +670,9 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             {isWithdrawModalOpen && <StockWithdrawalModal stock={stock} onSave={handleWithdraw} onClose={() => setWithdrawModalOpen(false)} />}
             {isReturnModalOpen && <ReturnStockModal stock={stock} onSave={handleReturn} onClose={() => setReturnModalOpen(false)} />}
             {printingLabelItem && <PrintLabelModal item={printingLabelItem} onClose={() => setPrintingLabelItem(null)} />}
-            {managingUsedPart && <ManageUsedPartBatchModal part={managingUsedPart} buyers={usedPartBuyers} onSave={updateUsedPart} onClose={() => setManagingUsedPart(null)} />}
+            {adjustingItem && <StockAdjustmentModal item={adjustingItem} onSave={handleAdjustStock} onClose={() => setAdjustingItem(null)} />}
+            {managingUsedPart && <ManageUsedPartBatchModal part={managingUsedPart} buyers={usedPartBuyers} onSave={handleSaveUsedPartFromModal} onClose={() => setManagingUsedPart(null)} />}
+            {editingUsedPart && <EditUsedPartBatchModal part={editingUsedPart} onSave={handleSaveEditedUsedPart} onClose={() => setEditingUsedPart(null)} />}
             {receiptPart && <UsedPartSaleReceiptModal part={receiptPart} onClose={() => setReceiptPart(null)} />}
             {requisitionModalOpen && (
                 <PurchaseRequisitionModal

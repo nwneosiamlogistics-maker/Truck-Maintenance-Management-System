@@ -56,6 +56,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
             case 'รับเข้า': return 'bg-green-100 text-green-800';
             case 'เบิกใช้': return 'bg-orange-100 text-orange-800';
             case 'คืนร้านค้า': return 'bg-indigo-100 text-indigo-800';
+            case 'ปรับสต็อก': return 'bg-teal-100 text-teal-800';
             default: return 'bg-gray-100';
         }
     };
@@ -76,6 +77,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
                         <option value="รับเข้า">รับเข้า</option>
                         <option value="เบิกใช้">เบิกใช้</option>
                         <option value="คืนร้านค้า">คืนร้านค้า</option>
+                        <option value="ปรับสต็อก">ปรับสต็อก</option>
                     </select>
                     <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>

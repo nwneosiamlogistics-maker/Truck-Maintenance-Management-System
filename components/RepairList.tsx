@@ -1,10 +1,7 @@
-
-
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority, Supplier } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
-import AddUsedPartsModal from './AddUsedPartsModal';
 import { useToast } from '../context/ToastContext';
 
 interface RepairListProps {
@@ -14,6 +11,7 @@ interface RepairListProps {
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
     addUsedParts: (parts: Omit<UsedPart, 'id'>[]) => void;
+    usedParts: UsedPart[];
     suppliers: Supplier[];
 }
 
@@ -38,12 +36,11 @@ const getStatusValue = (status: RepairStatus) => {
 };
 
 
-const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, addUsedParts, suppliers }) => {
+const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, addUsedParts, suppliers, usedParts }) => {
     const [statusFilter, setStatusFilter] = useState<RepairStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
     const [viewingRepair, setViewingRepair] = useState<Repair | null>(null);
-    const [repairForUsedParts, setRepairForUsedParts] = useState<Repair | null>(null);
     const { addToast } = useToast();
 
     const filteredRepairs = useMemo(() => {
@@ -76,15 +73,44 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
     }, [repairs, statusFilter, searchTerm]);
 
     const handleSaveRepair = (updatedRepair: Repair) => {
-        const originalStatus = repairs.find(r => r.id === updatedRepair.id)?.status;
-        const statusChangedToCompleted = originalStatus !== 'ซ่อมเสร็จ' && updatedRepair.status === 'ซ่อมเสร็จ';
-
         setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
         setEditingRepair(null);
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
 
-        if (statusChangedToCompleted && updatedRepair.parts && updatedRepair.parts.length > 0) {
-            setRepairForUsedParts(updatedRepair);
+        // If the repair is marked as completed and has parts, check for and add missing used parts.
+        // This logic is now robust and handles both initial completion and subsequent edits.
+        if (updatedRepair.status === 'ซ่อมเสร็จ' && updatedRepair.parts && updatedRepair.parts.length > 0) {
+            
+            // Find used parts that have already been created for this repair order.
+            const existingUsedPartOriginalIds = new Set(
+                (Array.isArray(usedParts) ? usedParts : [])
+                    .filter(up => up.fromRepairId === updatedRepair.id)
+                    .map(up => up.originalPartId) // Use originalPartId for matching
+            );
+
+            // Find parts from the repair that haven't been turned into used parts yet.
+            const newPartsToLog = updatedRepair.parts.filter(
+                part => !existingUsedPartOriginalIds.has(part.partId)
+            );
+
+            if (newPartsToLog.length > 0) {
+                const newUsedParts: Omit<UsedPart, 'id'>[] = newPartsToLog.map(part => ({
+                    originalPartId: part.partId, // Link to the PartRequisitionItem
+                    name: part.name,
+                    fromRepairId: updatedRepair.id,
+                    fromRepairOrderNo: updatedRepair.repairOrderNo,
+                    fromLicensePlate: updatedRepair.licensePlate,
+                    dateRemoved: new Date().toISOString(),
+                    initialQuantity: part.quantity,
+                    unit: part.unit,
+                    status: 'รอจัดการ',
+                    dispositions: [],
+                    notes: '',
+                }));
+
+                addUsedParts(newUsedParts);
+                addToast(`เพิ่มอะไหล่เก่า ${newPartsToLog.length} รายการจากใบซ่อม ${updatedRepair.repairOrderNo} เข้าระบบแล้ว`, 'info');
+            }
         }
     };
     
@@ -93,11 +119,6 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             setRepairs(prev => prev.filter(r => r.id !== repairId));
             addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
         }
-    };
-
-    const handleAddUsedParts = (parts: Omit<UsedPart, 'id'>[]) => {
-        addUsedParts(parts);
-        setRepairForUsedParts(null);
     };
 
     const getStatusBadge = (status: RepairStatus) => {
@@ -196,18 +217,6 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                     allRepairs={repairs}
                     technicians={technicians}
                     onClose={() => setViewingRepair(null)}
-                    // FIX: Added the missing 'onSaveUsedParts' prop to handle saving used parts.
-                    onSaveUsedParts={(repair) => {
-                        setViewingRepair(null);
-                        setRepairForUsedParts(repair);
-                    }}
-                />
-            )}
-            {repairForUsedParts && (
-                <AddUsedPartsModal
-                    repair={repairForUsedParts}
-                    onSave={handleAddUsedParts}
-                    onClose={() => setRepairForUsedParts(null)}
                 />
             )}
         </div>

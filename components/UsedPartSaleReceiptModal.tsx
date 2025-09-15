@@ -9,7 +9,8 @@ interface UsedPartSaleReceiptModalProps {
 const UsedPartSaleReceiptModal: React.FC<UsedPartSaleReceiptModalProps> = ({ part, onClose }) => {
 
     const saleDisposition = useMemo(() => {
-        const sales = (part.dispositions || []).filter(d => d.dispositionType === 'จำหน่าย');
+        // FIX: Corrected disposition type from 'จำหน่าย' to 'ขาย' to match the type definition.
+        const sales = (part.dispositions || []).filter(d => d.dispositionType === 'ขาย');
         if (sales.length === 0) return null;
         // Get the most recent one by sorting by date
         return sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
@@ -24,7 +25,7 @@ const UsedPartSaleReceiptModal: React.FC<UsedPartSaleReceiptModalProps> = ({ par
             <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4 no-print">
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 text-center">
                     <h3 className="text-xl font-bold text-gray-800 mb-4">ไม่พบข้อมูลการขาย</h3>
-                    <p className="text-gray-600">ไม่พบรายการ "จำหน่าย" สำหรับอะไหล่ชิ้นนี้</p>
+                    <p className="text-gray-600">ไม่พบรายการ "ขาย" สำหรับอะไหล่ชิ้นนี้</p>
                     <button onClick={onClose} className="mt-6 px-6 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
                         ปิด
                     </button>

@@ -177,9 +177,9 @@ function App() {
             case 'form':
                 return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} />;
             case 'list':
-                return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} suppliers={suppliers} />;
+                return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} suppliers={suppliers} usedParts={usedParts} />;
             case 'history':
-                return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} suppliers={suppliers} addUsedParts={addUsedParts} />;
+                return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} suppliers={suppliers} addUsedParts={addUsedParts} usedParts={usedParts} />;
             case 'stock':
                 return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} suppliers={suppliers} usedPartBuyers={usedPartBuyers} setUsedParts={setUsedParts} />;
             case 'stock-history':

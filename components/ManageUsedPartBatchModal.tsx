@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { UsedPart, UsedPartDisposition, UsedPartDispositionType, UsedPartCondition, UsedPartBatchStatus, UsedPartBuyer } from '../types';
 import { useToast } from '../context/ToastContext';
 
@@ -13,31 +13,62 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
     const { addToast } = useToast();
     
     const [dispositions, setDispositions] = useState<UsedPartDisposition[]>(part.dispositions || []);
+    const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
 
-    const [actionType, setActionType] = useState<UsedPartDispositionType>('จำหน่าย');
+    const { availableForManagement, isManagingKeptStock, remainingFromInitialBatch } = useMemo(() => {
+        const initialQty = part.initialQuantity || 0;
+        
+        const keptQty = dispositions
+            .filter(d => d.dispositionType === 'เก็บไว้ใช้ต่อ')
+            .reduce((sum, d) => sum + d.quantity, 0);
+
+        const usedFromKeptQty = dispositions
+            .filter(d => d.dispositionType === 'นำไปใช้แล้ว')
+            .reduce((sum, d) => sum + d.quantity, 0);
+            
+        const soldOrDisposedQty = dispositions
+            .filter(d => ['ขาย', 'ทิ้ง'].includes(d.dispositionType))
+            .reduce((sum, d) => sum + d.quantity, 0);
+        
+        const totalDisposedFromInitial = soldOrDisposedQty + keptQty;
+        const remainingFromInitialBatch = Math.max(0, initialQty - totalDisposedFromInitial);
+
+        const availableFromKept = Math.max(0, keptQty - usedFromKeptQty);
+
+        const availableForManagement = remainingFromInitialBatch + availableFromKept;
+        
+        const isManagingKeptStock = remainingFromInitialBatch <= 0 && availableFromKept > 0;
+
+        return { availableForManagement, isManagingKeptStock, remainingFromInitialBatch };
+    }, [part.initialQuantity, dispositions]);
+
+    const [actionType, setActionType] = useState<UsedPartDispositionType>('ขาย');
     const [quantity, setQuantity] = useState(1);
     const [condition, setCondition] = useState<UsedPartCondition>('พอใช้');
     const [salePricePerUnit, setSalePricePerUnit] = useState(0);
     const [soldTo, setSoldTo] = useState('');
+    const [storageLocation, setStorageLocation] = useState('');
     const [notes, setNotes] = useState('');
     
-    const remainingQuantity = useMemo(() => {
-        const initialQty = part.initialQuantity || 0;
-        const disposedQty = (dispositions || []).reduce((sum, d) => sum + (d.quantity || 0), 0);
-        return initialQty - disposedQty;
-    }, [part.initialQuantity, dispositions]);
+    useEffect(() => {
+        setActionType(isManagingKeptStock ? 'นำไปใช้แล้ว' : 'ขาย');
+    }, [isManagingKeptStock]);
 
     const handleAddDisposition = () => {
         if (quantity <= 0) {
             addToast('จำนวนต้องมากกว่า 0', 'warning');
             return;
         }
-        if (quantity > remainingQuantity) {
-            addToast(`จำนวนต้องไม่เกินที่เหลือ (${remainingQuantity})`, 'warning');
+        if (quantity > availableForManagement) {
+            addToast(`จำนวนต้องไม่เกินที่เหลือ (${availableForManagement})`, 'warning');
             return;
         }
-        if (actionType === 'จำหน่าย' && (!soldTo.trim() || salePricePerUnit < 0)) {
+        if (actionType === 'ขาย' && (!soldTo.trim() || salePricePerUnit < 0)) {
             addToast('กรุณากรอกผู้ซื้อและราคาขาย', 'warning');
+            return;
+        }
+         if (actionType === 'เก็บไว้ใช้ต่อ' && !storageLocation.trim()) {
+            addToast('กรุณาระบุตำแหน่งจัดเก็บ', 'warning');
             return;
         }
 
@@ -47,17 +78,21 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
             dispositionType: actionType,
             condition,
             date: new Date().toISOString(),
-            soldTo: actionType === 'จำหน่าย' ? soldTo : undefined,
-            salePricePerUnit: actionType === 'จำหน่าย' ? salePricePerUnit : undefined,
+            soldTo: actionType === 'ขาย' ? soldTo : null,
+            salePricePerUnit: actionType === 'ขาย' ? salePricePerUnit : null,
+            storageLocation: actionType === 'เก็บไว้ใช้ต่อ' ? storageLocation : null,
             notes,
         };
         
         setDispositions(prev => [...prev, newDisposition]);
+        setNewlyAddedId(newDisposition.id);
+        setTimeout(() => setNewlyAddedId(null), 2000); // Highlight for 2 seconds
 
         // Reset form
         setQuantity(1);
         setSalePricePerUnit(0);
         setSoldTo('');
+        setStorageLocation('');
         setNotes('');
     };
 
@@ -68,11 +103,12 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
     };
     
     const handleSave = () => {
-        const newDisposedQty = dispositions.reduce((sum, d) => sum + d.quantity, 0);
+        const totalDisposedQty = dispositions.reduce((sum, d) => sum + d.quantity, 0);
         let newStatus: UsedPartBatchStatus = 'รอจัดการ';
-        if (newDisposedQty >= part.initialQuantity) {
+
+        if (totalDisposedQty >= part.initialQuantity) {
             newStatus = 'จัดการครบแล้ว';
-        } else if (newDisposedQty > 0) {
+        } else if (totalDisposedQty > 0) {
             newStatus = 'จัดการบางส่วน';
         }
         
@@ -88,9 +124,27 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
 
     const getDispositionTypeBadge = (type: UsedPartDispositionType) => {
         switch (type) {
-            case 'จำหน่าย': return 'bg-green-100 text-green-800';
-            case 'ทำลาย': return 'bg-red-100 text-red-800';
+            case 'ขาย': return 'bg-green-100 text-green-800';
+            case 'ทิ้ง': return 'bg-red-100 text-red-800';
             case 'เก็บไว้ใช้ต่อ': return 'bg-purple-100 text-purple-800';
+            case 'นำไปใช้แล้ว': return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getDispositionDetails = (disp: UsedPartDisposition) => {
+        switch (disp.dispositionType) {
+            case 'ขาย': {
+                const buyerInfo = disp.soldTo || '';
+                const noteInfo = disp.notes ? `(${disp.notes})` : '';
+                return [buyerInfo, noteInfo].filter(Boolean).join(' ').trim() || '-';
+            }
+            case 'เก็บไว้ใช้ต่อ':
+                return `ที่เก็บ: ${disp.storageLocation || 'ไม่ได้ระบุ'}`;
+            case 'ทิ้ง':
+            case 'นำไปใช้แล้ว':
+                return disp.notes || '-';
+            default:
+                return '-';
         }
     };
 
@@ -102,7 +156,7 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
                     <div className="flex gap-4 text-base text-gray-600">
                         <span>ที่มา: {part.fromRepairOrderNo}</span>
                         <span>จำนวนเริ่มต้น: {part.initialQuantity || 0} {part.unit}</span>
-                        <span className="font-bold">คงเหลือ: {remainingQuantity} {part.unit}</span>
+                        <span className="font-bold">คงเหลือให้จัดการ: {availableForManagement} {part.unit}</span>
                     </div>
                 </div>
 
@@ -118,18 +172,18 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
                                         <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">การดำเนินการ</th>
                                         <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">จำนวน</th>
                                         <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">ราคา/หน่วย</th>
-                                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">ผู้ซื้อ/หมายเหตุ</th>
+                                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">ผู้ซื้อ / ที่เก็บ / หมายเหตุ</th>
                                         <th className="px-2 py-2 w-12"></th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y">
                                     {dispositions.map(d => (
-                                        <tr key={d.id}>
+                                        <tr key={d.id} className={`${newlyAddedId === d.id ? 'bg-blue-100' : ''} transition-colors duration-1000`}>
                                             <td className="px-2 py-2 text-sm">{new Date(d.date).toLocaleDateString('th-TH')}</td>
                                             <td className="px-2 py-2"><span className={`px-2 py-0.5 text-xs rounded-full ${getDispositionTypeBadge(d.dispositionType)}`}>{d.dispositionType}</span></td>
                                             <td className="px-2 py-2 text-right text-sm">{d.quantity} {part.unit}</td>
                                             <td className="px-2 py-2 text-right text-sm">{d.salePricePerUnit?.toLocaleString() || '-'}</td>
-                                            <td className="px-2 py-2 text-sm">{d.soldTo || d.notes || '-'}</td>
+                                            <td className="px-2 py-2 text-sm">{getDispositionDetails(d)}</td>
                                             <td className="px-2 py-2 text-center">
                                                 <button onClick={() => handleRemoveDisposition(d.id)} className="text-red-500 hover:text-red-700">×</button>
                                             </td>
@@ -141,21 +195,35 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
                     </div>
 
                     {/* Add Action Form */}
-                    {remainingQuantity > 0 && (
+                    {availableForManagement > 0 && (
                     <div className="border-t pt-4">
-                        <h4 className="font-semibold mb-2">เพิ่มรายการจัดการใหม่</h4>
+                        <h4 className="font-semibold mb-2">
+                           {isManagingKeptStock ? "บันทึกการนำของเก่าไปใช้/ทิ้ง/ขาย" : "บันทึกการจัดการ"}
+                        </h4>
+                         {isManagingKeptStock && <p className="text-sm text-gray-600 mb-2">สำหรับบันทึกการนำอะไหล่ที่ท่านเคย "เก็บไว้ใช้ต่อ" ออกไปจัดการในขั้นตอนสุดท้าย</p>}
                         <div className="p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                             <div>
                                 <label className="block text-sm font-medium">การดำเนินการ</label>
                                 <select value={actionType} onChange={e => setActionType(e.target.value as any)} className="w-full p-2 border rounded-lg mt-1">
-                                    <option value="จำหน่าย">จำหน่าย</option>
-                                    <option value="ทำลาย">ทำลาย</option>
-                                    <option value="เก็บไว้ใช้ต่อ">เก็บไว้ใช้ต่อ</option>
+                                    {isManagingKeptStock ? (
+                                        <>
+                                            <option value="นำไปใช้แล้ว">นำไปใช้แล้ว</option>
+                                            <option value="ทิ้ง">ทิ้ง</option>
+                                            <option value="ขาย">ขาย</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="ขาย">ขาย</option>
+                                            <option value="ทิ้ง">ทิ้ง</option>
+                                            <option value="เก็บไว้ใช้ต่อ">เก็บไว้ใช้ต่อ</option>
+                                            <option value="นำไปใช้แล้ว">นำไปใช้แล้ว</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">จำนวน</label>
-                                <input type="number" value={quantity} onChange={e => setQuantity(Number(e.target.value))} min="1" max={remainingQuantity} className="w-full p-2 border rounded-lg mt-1"/>
+                                <input type="number" value={quantity} onChange={e => setQuantity(Number(e.target.value))} min="1" max={availableForManagement} className="w-full p-2 border rounded-lg mt-1"/>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">สภาพ</label>
@@ -169,7 +237,7 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
                             </div>
                              <button onClick={handleAddDisposition} className="px-4 py-2 bg-blue-500 text-white rounded-lg h-10">เพิ่มรายการ</button>
                              
-                             {actionType === 'จำหน่าย' && (
+                             {actionType === 'ขาย' && (
                                 <>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium">ผู้รับซื้อ</label>
@@ -184,6 +252,13 @@ const ManageUsedPartBatchModal: React.FC<ManageUsedPartBatchModalProps> = ({ par
                                 </div>
                                 </>
                              )}
+
+                            {actionType === 'เก็บไว้ใช้ต่อ' && (
+                                <div className="md:col-span-4">
+                                    <label className="block text-sm font-medium">ตำแหน่งจัดเก็บ</label>
+                                    <input type="text" value={storageLocation} onChange={e => setStorageLocation(e.target.value)} placeholder="เช่น ชั้น A-1, โกดัง B" className="w-full p-2 border rounded-lg mt-1"/>
+                                </div>
+                            )}
                               <div className="md:col-span-4">
                                 <label className="block text-sm font-medium">หมายเหตุ</label>
                                 <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="w-full p-2 border rounded-lg mt-1"/>

@@ -115,7 +115,7 @@ export interface StockItem {
     status: StockStatus;
 }
 
-export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า';
+export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า' | 'ปรับสต็อก';
 
 export interface StockTransaction {
     id: string;
@@ -142,7 +142,7 @@ export interface MaintenancePlan {
 }
 
 export type UsedPartCondition = 'ดีมาก' | 'ดี' | 'พอใช้' | 'ต้องซ่อม' | 'ชำรุด';
-export type UsedPartDispositionType = 'จำหน่าย' | 'ทำลาย' | 'เก็บไว้ใช้ต่อ';
+export type UsedPartDispositionType = 'ขาย' | 'ทิ้ง' | 'เก็บไว้ใช้ต่อ' | 'นำไปใช้แล้ว';
 
 export interface UsedPartDisposition {
     id: string;
@@ -150,8 +150,9 @@ export interface UsedPartDisposition {
     dispositionType: UsedPartDispositionType;
     condition: UsedPartCondition;
     date: string;
-    soldTo?: string;
-    salePricePerUnit?: number;
+    soldTo?: string | null;
+    salePricePerUnit?: number | null;
+    storageLocation?: string | null; // New field for reusable parts
     notes?: string;
 }
 
