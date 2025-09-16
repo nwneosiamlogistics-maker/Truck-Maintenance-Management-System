@@ -53,10 +53,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
     };
     
     const navItems = [
-        { section: 'งานซ่อมบำรุง', items: [
+        { section: 'ภาพรวม', items: [
             { id: 'dashboard', icon: '🏠', label: 'แดชบอร์ด' },
+            { id: 'kpi-dashboard', icon: '🎯', label: 'ภาพรวม KPI' },
+        ]},
+        { section: 'งานซ่อมบำรุง', items: [
             { id: 'form', icon: '📝', label: 'เพิ่มใบแจ้งซ่อม' },
             { id: 'list', icon: '📊', label: 'รายการใบแจ้งซ่อม', badge: stats.pendingRepairs, badgeColor: 'red' },
+            { id: 'technician-view', icon: '📱', label: 'สำหรับช่าง' },
             { id: 'history', icon: '📜', label: 'ประวัติการซ่อม' },
         ]},
         { section: 'การวางแผน', items: [

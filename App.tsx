@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 // Components
 import Sidebar from './components/Sidebar';
@@ -21,6 +22,9 @@ import UsedPartBuyerManagement from './components/UsedPartBuyerManagement';
 import UsedPartReport from './components/UsedPartReport';
 import ToastContainer from './components/ToastContainer';
 import { ToastProvider } from './context/ToastContext';
+import KPIDashboard from './components/KPIDashboard';
+import TechnicianView from './components/TechnicianView';
+
 
 // Types and Constants
 import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer } from './types';
@@ -138,7 +142,10 @@ function App() {
         const safePlans = Array.isArray(plans) ? plans : [];
 
         const pendingRepairs = safeRepairs.filter(r => ['รอซ่อม', 'รออะไหล่'].includes(r.status)).length;
-        const lowStock = safeStock.filter(s => s.status === 'สต๊อกต่ำ' || s.status === 'หมดสต๊อก').length;
+        const lowStock = safeStock.filter(s => {
+            const available = s.quantity - (s.quantityReserved || 0);
+            return available <= s.minStock;
+        }).length;
         
         const dueMaintenance = safePlans.filter(plan => {
              const lastDate = new Date(plan.lastServiceDate);
@@ -213,10 +220,15 @@ function App() {
         switch (activeTab) {
             case 'dashboard':
                 return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
+            case 'kpi-dashboard':
+                return <KPIDashboard repairs={repairs} />;
             case 'form':
+                // FIX: Removed unused `setStock` prop from RepairForm component.
                 return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} />;
             case 'list':
                 return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} setTransactions={setTransactions} addUsedParts={addUsedParts} suppliers={suppliers} usedParts={usedParts} />;
+            case 'technician-view':
+                return <TechnicianView repairs={repairs} setRepairs={setRepairs} technicians={technicians} />;
             case 'history':
                 return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} setTransactions={setTransactions} suppliers={suppliers} addUsedParts={addUsedParts} usedParts={usedParts} />;
             case 'stock':
@@ -224,7 +236,6 @@ function App() {
             case 'stock-history':
                 return <StockHistory transactions={transactions} stock={stock} />;
             case 'requisitions':
-                // FIX: Added the missing 'suppliers' prop to the PurchaseRequisitionPage component.
                 return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} suppliers={suppliers} />;
             case 'suppliers':
                 return <SupplierManagement suppliers={suppliers} setSuppliers={setSuppliers} />;

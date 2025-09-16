@@ -1,10 +1,11 @@
-import React, { useState, ChangeEvent, FormEvent, useMemo, useEffect, useRef } from 'react';
+import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
+import Stepper from './Stepper';
 
 interface RepairFormProps {
     technicians: Technician[];
@@ -23,17 +24,10 @@ interface EstimationResult {
 
 const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers }) => {
     
-    const toLocalISOString = (date: Date) => {
-        if (isNaN(date.getTime())) return '';
-        const tzoffset = date.getTimezoneOffset() * 60000;
-        const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
-        return localISOTime;
-    };
-    
     const getInitialState = () => ({
         repairOrderNo: 'จะถูกสร้างอัตโนมัติ',
         licensePlate: '',
-        vehicleType: 'รถกระบะ 4 ล้อ',
+        vehicleType: '',
         vehicleMake: '',
         vehicleModel: '',
         currentMileage: '',
@@ -55,7 +49,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         estimations: [{
             sequence: 1,
             createdAt: new Date().toISOString(),
-            estimatedStartDate: toLocalISOString(new Date()),
+            estimatedStartDate: new Date().toISOString(),
             estimatedEndDate: '',
             estimatedLaborHours: 0,
             status: 'Active' as const,
@@ -66,54 +60,27 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
     const [formData, setFormData] = useState(getInitialState());
     const [otherVehicleType, setOtherVehicleType] = useState('');
-    const [openSections, setOpenSections] = useState({
-        basic: true,
-        estimation: true,
-        dispatch: true,
-        parts: true,
-        files: true,
-    });
     const [isStockModalOpen, setStockModalOpen] = useState(false);
     const [isExternalPartModalOpen, setExternalPartModalOpen] = useState(false);
-    
     const [isEstimating, setIsEstimating] = useState(false);
-    const [estimationMode, setEstimationMode] = useState<'duration' | 'date'>('duration');
-    const [durationValue, setDurationValue] = useState<number>(8);
-    const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
+    
+    const [currentStep, setCurrentStep] = useState(0);
+    const steps = ['ข้อมูลรถและปัญหา', 'การประเมินและมอบหมาย', 'อะไหล่และค่าใช้จ่าย', 'สรุปและยืนยัน'];
 
     const [suggestions, setSuggestions] = useState<Vehicle[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const suggestionsRef = useRef<HTMLDivElement>(null);
 
-
     const { addToast } = useToast();
     
     const uniqueVehicleTypes = useMemo(() => {
         const types = new Set(vehicles.map(v => v.vehicleType).filter(Boolean));
+        const defaultTypes = ['รถกระบะ 4 ล้อ', 'รถ 6 ล้อ', 'รถ 10 ล้อ', 'รถหัวลาก', 'หางพ่วง'];
+        defaultTypes.forEach(t => types.add(t));
         return Array.from(types).sort();
     }, [vehicles]);
     
     const activeEstimation = formData.estimations[formData.estimations.length - 1];
-
-    useEffect(() => {
-        if (estimationMode === 'duration') {
-            const startDate = new Date(activeEstimation.estimatedStartDate || Date.now());
-            if (isNaN(startDate.getTime())) return;
-
-            const multiplier = durationUnit === 'hours' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-            const endDate = new Date(startDate.getTime() + (durationValue * multiplier));
-            const laborHours = durationUnit === 'hours' ? durationValue : durationValue * 8; 
-
-            const newEstimations = [...formData.estimations];
-            newEstimations[newEstimations.length - 1] = {
-                ...activeEstimation,
-                estimatedEndDate: toLocalISOString(endDate),
-                estimatedLaborHours: laborHours
-            };
-            setFormData(prev => ({ ...prev, estimations: newEstimations }));
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [estimationMode, durationValue, durationUnit, activeEstimation.estimatedStartDate]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -122,9 +89,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
     const getPriorityClass = (priority: Priority) => {
@@ -135,20 +100,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         }
     };
     
-    const handleEstimationChange = (field: keyof EstimationAttempt, value: any) => {
-        const newEstimations = [...formData.estimations];
-        newEstimations[newEstimations.length - 1] = {
-            ...activeEstimation,
-            [field]: value
-        };
-        setFormData(prev => ({ ...prev, estimations: newEstimations }));
-
-        if (field === 'estimatedEndDate') {
-            setEstimationMode('date');
-        }
-    };
-
-    const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
 
@@ -165,23 +117,28 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             }
         }
     };
+    
+    const handleDateChange = (field: keyof EstimationAttempt, value: string) => {
+        const newEstimations = [...formData.estimations];
+        newEstimations[newEstimations.length - 1] = {
+            ...activeEstimation,
+            [field]: value ? new Date(value).toISOString() : ''
+        };
+        setFormData(prev => ({ ...prev, estimations: newEstimations }));
+    };
 
     const handleSuggestionClick = (vehicle: Vehicle) => {
         const selectedType = vehicle.vehicleType || '';
-        
-        // Determine the state for the dropdown and the "other" text input
         let newVehicleTypeState = '';
         let newOtherVehicleTypeState = '';
     
         if (uniqueVehicleTypes.includes(selectedType)) {
             newVehicleTypeState = selectedType;
-            newOtherVehicleTypeState = ''; // Clear other field
-        } else if (selectedType) { // The type is not in the standard list
+        } else if (selectedType) {
             newVehicleTypeState = 'อื่นๆ';
             newOtherVehicleTypeState = selectedType;
-        } else { // The vehicle has no type specified
-            newVehicleTypeState = 'รถกระบะ 4 ล้อ'; // fallback to default
-            newOtherVehicleTypeState = '';
+        } else {
+            newVehicleTypeState = '';
         }
     
         setFormData(prev => ({
@@ -189,11 +146,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             licensePlate: vehicle.licensePlate,
             vehicleMake: vehicle.make || '',
             vehicleModel: vehicle.model || '',
-            vehicleType: newVehicleTypeState, // Update the dropdown value
+            vehicleType: newVehicleTypeState,
         }));
     
-        setOtherVehicleType(newOtherVehicleTypeState); // Update the text input value
-    
+        setOtherVehicleType(newOtherVehicleTypeState);
         setSuggestions([]);
         setIsSuggestionsOpen(false);
     };
@@ -201,18 +157,15 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const resetForm = () => {
         setFormData(getInitialState());
         setOtherVehicleType('');
-        setEstimationMode('duration');
-        setDurationValue(8);
-        setDurationUnit('hours');
-    };
-
-    const toggleSection = (section: keyof typeof openSections) => {
-        setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+        setCurrentStep(0);
     };
 
     const handleEstimate = async () => {
         setIsEstimating(true);
-        handleEstimationChange('aiReasoning', null);
+        
+        const newEstimations = [...formData.estimations];
+        newEstimations[newEstimations.length - 1].aiReasoning = null;
+        setFormData(prev => ({ ...prev, estimations: newEstimations}));
 
         const prompt = `
             Vehicle Type: ${formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}
@@ -242,11 +195,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             });
             const result: EstimationResult = JSON.parse(response.text);
             
-            setEstimationMode('duration');
-            setDurationUnit('hours');
-            setDurationValue(Math.round(result.laborHours) || 1);
-            handleEstimationChange('aiReasoning', result.reasoning);
-
+            const laborHours = Math.round(result.laborHours) || 1;
+            const startDate = new Date(activeEstimation.estimatedStartDate || Date.now());
+            const endDate = new Date(startDate.getTime() + (laborHours * 60 * 60 * 1000));
+            
+            const updatedEstimations = [...formData.estimations];
+            updatedEstimations[updatedEstimations.length-1] = {
+                ...activeEstimation,
+                estimatedLaborHours: laborHours,
+                estimatedEndDate: endDate.toISOString(),
+                aiReasoning: result.reasoning
+            };
+            setFormData(prev => ({...prev, estimations: updatedEstimations}));
             addToast('AI ประมาณการณ์สำเร็จ', 'success');
 
         } catch (error) {
@@ -288,44 +248,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const total = partsCost + (formData.partsVat || 0) + (formData.repairCost || 0);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);
-    
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const newFiles = Array.from(e.target.files).map(file => ({ name: file.name, size: file.size }));
-            setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...newFiles]}));
-        }
-    };
-    
-    const removeAttachment = (index: number) => {
-        setFormData(prev => ({...prev, attachments: prev.attachments.filter((_, i) => i !== index)}));
-    };
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (!formData.licensePlate || !formData.problemDescription) {
-            addToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (ทะเบียนรถ, อาการเสีย)', 'warning');
-            return;
-        }
-
-        if (!activeEstimation.estimatedEndDate) {
-            addToast('กรุณากรอกข้อมูลการประมาณการณ์เวลาซ่อมให้ครบถ้วน', 'warning');
-            const estimationSection = document.getElementById('estimation-section');
-            if (estimationSection) {
-                estimationSection.scrollIntoView({ behavior: 'smooth' });
-                if (!openSections.estimation) toggleSection('estimation');
-            }
-            return;
-        }
-
-        if (formData.assignedTechnicians.length === 0) {
-            addToast('กรุณามอบหมายช่างอย่างน้อย 1 คน', 'warning');
-            const dispatchSection = document.getElementById('dispatch-section');
-            if (dispatchSection) {
-                dispatchSection.scrollIntoView({ behavior: 'smooth' });
-                if (!openSections.dispatch) toggleSection('dispatch');
-            }
-            return;
-        }
 
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const normalizedProblem = formData.problemDescription.trim().toLowerCase();
@@ -357,352 +282,241 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         addToast('สร้างใบแจ้งซ่อมสำเร็จ', 'success');
         resetForm();
     };
+    
+    const validateStep = (step: number) => {
+        switch (step) {
+            case 0:
+                if (!formData.licensePlate.trim() || !formData.problemDescription.trim()) {
+                    addToast('กรุณากรอกทะเบียนรถและอาการเสีย', 'warning');
+                    return false;
+                }
+                if (formData.vehicleType === 'อื่นๆ' && !otherVehicleType.trim()) {
+                    addToast('กรุณาระบุประเภทรถ', 'warning');
+                    return false;
+                }
+                break;
+            case 1:
+                if (formData.assignedTechnicians.length === 0) {
+                     addToast('กรุณามอบหมายช่างอย่างน้อย 1 คน', 'warning');
+                    return false;
+                }
+                 if (!activeEstimation.estimatedEndDate) {
+                    addToast('กรุณาระบุเวลาที่คาดว่าจะซ่อมเสร็จ', 'warning');
+                    return false;
+                }
+                break;
+            case 2:
+                // No strict validation for parts, can be empty
+                break;
+            default:
+                break;
+        }
+        return true;
+    };
 
-    const SectionHeader: React.FC<{ title: string; sectionId: keyof typeof openSections }> = ({ title, sectionId }) => (
-        <button type="button" onClick={() => toggleSection(sectionId)} className="w-full flex justify-between items-center text-left bg-gray-100 p-4 rounded-t-lg border-b">
-            <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-            <span className={`transform transition-transform duration-200 ${openSections[sectionId] ? 'rotate-180' : ''}`}>▼</span>
-        </button>
-    );
+    const handleNext = () => {
+        if (validateStep(currentStep)) {
+            setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+        }
+    };
 
-    return (
-        <>
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="1. ข้อมูลพื้นฐาน" sectionId="basic" />
-                {openSections.basic && (
-                <div className="p-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">เลขที่ใบแจ้งซ่อม</label>
-                            <input type="text" value={formData.repairOrderNo} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" disabled />
-                        </div>
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">วันที่แจ้งซ่อม</label>
-                            <input type="text" value={new Date().toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" disabled />
-                        </div>
-                        <div ref={suggestionsRef}>
-                            <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ *</label>
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    name="licensePlate" 
-                                    value={formData.licensePlate} 
-                                    onChange={handleInputChange} 
-                                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg" 
-                                    required 
-                                    autoComplete="off"
-                                />
+    const handleBack = () => {
+        setCurrentStep(prev => Math.max(prev - 1, 0));
+    };
+    
+    const renderStepContent = () => {
+        switch (currentStep) {
+            case 0: // ข้อมูลรถและปัญหา
+                return (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div ref={suggestionsRef} className="relative">
+                                <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ *</label>
+                                <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required autoComplete="off" />
                                 {isSuggestionsOpen && suggestions.length > 0 && (
                                     <ul className="absolute z-10 w-full bg-white border rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
                                         {suggestions.map(vehicle => (
-                                            <li 
-                                                key={vehicle.id} 
-                                                onClick={() => handleSuggestionClick(vehicle)} 
-                                                className="p-2 hover:bg-gray-100 cursor-pointer"
-                                            >
-                                                {vehicle.licensePlate}
-                                            </li>
+                                            <li key={vehicle.id} onClick={() => handleSuggestionClick(vehicle)} className="p-2 hover:bg-gray-100 cursor-pointer">{vehicle.licensePlate}</li>
                                         ))}
                                     </ul>
                                 )}
                             </div>
-                        </div>
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
-                            <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">รุ่น</label>
-                            <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
-                            <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
-                                {uniqueVehicleTypes.map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                                <option value="อื่นๆ">อื่นๆ...</option>
-                            </select>
-                             {formData.vehicleType === 'อื่นๆ' && (
-                                <input
-                                    type="text"
-                                    name="otherVehicleType"
-                                    value={otherVehicleType}
-                                    onChange={(e) => setOtherVehicleType(e.target.value)}
-                                    placeholder="ระบุประเภท"
-                                    className="mt-2 w-full p-2 border border-gray-300 rounded-lg"
-                                    required
-                                />
-                            )}
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
-                            <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
-                                <option>ซ่อมทั่วไป</option>
-                                <option>เปลี่ยนอะไหล่</option>
-                                <option>ตรวจเช็ก</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">เลขไมล์</label>
-                            <input type="number" name="currentMileage" value={formData.currentMileage} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">ความสำคัญ</label>
-                            <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-2 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`}>
-                                <option value="ปกติ">ปกติ</option>
-                                <option value="ด่วน">ด่วน</option>
-                                <option value="ด่วนที่สุด">ด่วนที่สุด</option>
-                            </select>
-                        </div>
-                         <div className="md:col-span-3">
-                            <label className="block text-sm font-medium text-gray-700">ชื่อผู้แจ้งซ่อม</label>
-                            <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">อาการเสีย *</label>
-                        <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={3} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required></textarea>
-                    </div>
-                </div>
-                )}
-            </div>
-
-            <div id="estimation-section" className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="2. การประมาณการณ์" sectionId="estimation" />
-                {openSections.estimation && (
-                    <div className="p-6 space-y-4">
-                        <div className="flex justify-center mb-4">
-                            <button
-                                type="button"
-                                onClick={handleEstimate}
-                                disabled={!formData.licensePlate || !formData.problemDescription || isEstimating}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                {isEstimating ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                        <span>กำลังวิเคราะห์...</span>
-                                    </>
-                                ) : ( "🤖 ประมาณการด้วย AI (แนะนำ)" )}
-                            </button>
-                        </div>
-                        
-                        {activeEstimation.aiReasoning && (
-                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center text-sm text-blue-800 italic">
-                                <p>"{activeEstimation.aiReasoning}"</p>
-                            </div>
-                        )}
-
-                        <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                            <div className="flex items-center gap-6">
-                                <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="estimationMode" value="duration" checked={estimationMode === 'duration'} onChange={() => setEstimationMode('duration')} className="mr-2 h-4 w-4"/>
-                                    <span className="font-semibold text-gray-700">ระบุระยะเวลา</span>
-                                </label>
-                                <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="estimationMode" value="date" checked={estimationMode === 'date'} onChange={() => setEstimationMode('date')} className="mr-2 h-4 w-4"/>
-                                     <span className="font-semibold text-gray-700">กำหนดวันเสร็จ</span>
-                                </label>
-                            </div>
-
-                            {estimationMode === 'duration' && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                         <label className="block text-sm font-medium text-gray-700">ระยะเวลา</label>
-                                         <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
-                                    </div>
-                                    <div>
-                                         <label className="block text-sm font-medium text-gray-700">หน่วย</label>
-                                         <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
-                                             <option value="hours">ชั่วโมง</option>
-                                             <option value="days">วัน</option>
-                                         </select>
-                                    </div>
-                                </div>
-                            )}
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
-                                    <input type="datetime-local" value={activeEstimation.estimatedStartDate || ''} onChange={(e) => handleEstimationChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ *</label>
-                                    <input 
-                                        type="datetime-local" 
-                                        value={activeEstimation.estimatedEndDate || ''} 
-                                        onChange={(e) => handleEstimationChange('estimatedEndDate', e.target.value)} 
-                                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                                        readOnly={estimationMode === 'duration'}
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <div id="dispatch-section" className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="3. ข้อมูลการส่งซ่อม" sectionId="dispatch" />
-                 {openSections.dispatch && (
-                <div className="p-6 space-y-4">
-                     <div>
-                        <label className="block text-sm font-medium text-gray-700">ประเภทการส่งซ่อม</label>
-                        <div className="mt-2 flex space-x-4">
-                            <label><input type="radio" name="dispatchType" value="ภายใน" checked={formData.dispatchType === 'ภายใน'} onChange={handleInputChange} className="mr-2"/>ภายใน</label>
-                            <label><input type="radio" name="dispatchType" value="ภายนอก" checked={formData.dispatchType === 'ภายนอก'} onChange={handleInputChange} className="mr-2"/>ภายนอก</label>
-                        </div>
-                    </div>
-                    {formData.dispatchType === 'ภายนอก' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg bg-gray-50">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">สถานที่ส่งซ่อม</label>
-                                <input type="text" name="repairLocation" value={formData.repairLocation} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <label className="block text-sm font-medium text-gray-700">ชื่อผู้แจ้งซ่อม</label>
+                                <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
+                                <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                    <option value="" disabled>-- เลือกประเภท --</option>
+                                    {uniqueVehicleTypes.map(type => (<option key={type} value={type}>{type}</option>))}
+                                    <option value="อื่นๆ">อื่นๆ...</option>
+                                </select>
+                                {formData.vehicleType === 'อื่นๆ' && (
+                                    <input type="text" name="otherVehicleType" value={otherVehicleType} onChange={(e) => setOtherVehicleType(e.target.value)} placeholder="ระบุประเภท" className="mt-2 w-full p-2 border border-gray-300 rounded-lg" required />
+                                )}
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
+                                <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">ผู้ประสานงาน</label>
-                                <input type="text" name="coordinator" value={formData.coordinator} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <label className="block text-sm font-medium text-gray-700">รุ่น</label>
+                                <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                         </div>
-                    )}
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                            <div className="flex items-center justify-between mb-1">
-                                <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง *</label>
-                                <button type="button" onClick={() => setActiveTab('technicians')} className="text-sm text-blue-600 hover:underline">จัดการช่าง</button>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">อาการเสีย *</label>
+                            <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={4} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required></textarea>
+                        </div>
+                    </div>
+                );
+            case 1: // การประเมินและมอบหมาย
+                return (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">ความสำคัญ</label>
+                                <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-2 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`}>
+                                    <option value="ปกติ">ปกติ</option>
+                                    <option value="ด่วน">ด่วน</option>
+                                    <option value="ด่วนที่สุด">ด่วนที่สุด</option>
+                                </select>
                             </div>
-                           <TechnicianMultiSelect
-                                allTechnicians={technicians}
-                                selectedTechnicianIds={formData.assignedTechnicians}
-                                onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))}
-                           />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
+                                <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                    <option>ซ่อมทั่วไป</option>
+                                    <option>เปลี่ยนอะไหล่</option>
+                                    <option>ตรวจเช็ก</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ *</label>
+                             <div className="flex items-center gap-2 mt-1">
+                                <input type="datetime-local" value={activeEstimation.estimatedEndDate ? new Date(activeEstimation.estimatedEndDate).toISOString().substring(0, 16) : ''} onChange={e => handleDateChange('estimatedEndDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" required />
+                                <button type="button" onClick={handleEstimate} disabled={isEstimating} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50">
+                                    {isEstimating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : "🤖"}
+                                    <span>AI</span>
+                                </button>
+                            </div>
+                             {activeEstimation.aiReasoning && <p className="p-2 mt-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 italic">"{activeEstimation.aiReasoning}"</p>}
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ไม่รวมอะไหล่)</label>
-                            <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง *</label>
+                            <TechnicianMultiSelect allTechnicians={technicians} selectedTechnicianIds={formData.assignedTechnicians} onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))} />
                         </div>
                     </div>
-                </div>
-                 )}
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="4. รายการเบิกอะไหล่" sectionId="parts" />
-                 {openSections.parts && (
-                <div className="p-6 space-y-4">
-                    <div className="space-y-3">
-                        {formData.parts.length > 0 && (
-                             <div className="grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
-                                <div className="col-span-1">ที่มา</div>
-                                <div className="col-span-4">ชื่ออะไหล่</div>
-                                <div className="col-span-2 text-right">จำนวน</div>
-                                <div className="col-span-1 text-center">หน่วย</div>
-                                <div className="col-span-2 text-right">ราคา/หน่วย</div>
-                                <div className="col-span-2 text-right">ราคารวม</div>
-                            </div>
-                        )}
-                        {formData.parts.map((part) => (
-                            <div key={part.partId} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
-                                <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
-                                <div className="col-span-4">
-                                    <p className="font-medium">{part.name}</p>
-                                     {part.source === 'ร้านค้า' && part.supplierName && (
-                                        <p className="text-xs text-gray-500">จาก: {part.supplierName}</p>
-                                    )}
+                );
+            case 2: // อะไหล่และค่าใช้จ่าย
+                return (
+                     <div className="space-y-4">
+                        <div className="space-y-3">
+                            {(formData.parts.length > 0) && (
+                                <div className="grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
+                                    <div className="col-span-1">ที่มา</div>
+                                    <div className="col-span-4">ชื่ออะไหล่</div>
+                                    <div className="col-span-2 text-right">จำนวน</div>
+                                    <div className="col-span-2 text-right">ราคา/หน่วย</div>
+                                    <div className="col-span-2 text-right">ราคารวม</div>
                                 </div>
-                                <div className="col-span-2">
-                                    <input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" />
+                            )}
+                            {formData.parts.map((part) => (
+                                <div key={part.partId} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
+                                    <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
+                                    <div className="col-span-4"><p className="font-medium">{part.name}</p></div>
+                                    <div className="col-span-2"><input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" /></div>
+                                    <div className="col-span-2"><input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} /></div>
+                                    <div className="col-span-2 font-semibold text-right">{(part.quantity * part.unitPrice).toLocaleString()}</div>
+                                    <div className="col-span-1 text-center"><button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold">×</button></div>
                                 </div>
-                                <div className="col-span-1 text-center">{part.unit}</div>
-                                <div className="col-span-2">
-                                     <input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} />
-                                </div>
-                                <div className="col-span-1 font-semibold text-right">
-                                    {(part.quantity * part.unitPrice).toLocaleString()}
-                                </div>
-                                <div className="col-span-1 text-center">
-                                    <button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold">×</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {formData.parts.length > 0 && (
-                        <div className="text-right space-y-2 border-t pt-3 mt-3">
-                            <div className="text-lg">
-                                <span>ราคารวมอะไหล่: </span>
-                                <span className="font-semibold">{totalPartsCost.toLocaleString()} บาท</span>
-                            </div>
-                             <div className="text-lg">
-                                <span>VAT (7%): </span>
-                                <span className="font-semibold">{(formData.partsVat || 0).toLocaleString()} บาท</span>
-                            </div>
-                            <div className="text-xl font-bold">
-                                <span>ค่าใช้จ่ายรวม (อะไหล่+ค่าแรง): </span>
-                                <span className="text-blue-600">{grandTotal.toLocaleString()} บาท</span>
-                            </div>
+                            ))}
                         </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button type="button" onClick={() => setStockModalOpen(true)} className="w-full text-blue-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-blue-500 hover:bg-blue-50 flex items-center justify-center gap-2">
-                           📦 + เลือกจากสต็อกอู่
-                        </button>
-                         <button type="button" onClick={() => setExternalPartModalOpen(true)} className="w-full text-green-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-green-500 hover:bg-green-50 flex items-center justify-center gap-2">
-                           🏪 + เพิ่มรายการจากร้านค้า
-                        </button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button type="button" onClick={() => setStockModalOpen(true)} className="w-full text-blue-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-blue-500 hover:bg-blue-50 flex items-center justify-center gap-2">📦 + เลือกจากสต็อกอู่</button>
+                            <button type="button" onClick={() => setExternalPartModalOpen(true)} className="w-full text-green-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-green-500 hover:bg-green-50 flex items-center justify-center gap-2">🏪 + เพิ่มรายการจากร้านค้า</button>
+                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ไม่รวมอะไหล่)</label>
+                                <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                            <div className="text-right space-y-2 pt-4">
+                                <div className="text-xl font-bold">
+                                    <span>ค่าใช้จ่ายรวม: </span>
+                                    <span className="text-blue-600">{grandTotal.toLocaleString()} บาท</span>
+                                </div>
+                            </div>
+                         </div>
                     </div>
-                </div>
-                 )}
+                );
+            case 3: // สรุปและยืนยัน
+                 return (
+                     <div className="space-y-4">
+                        <div className="p-4 border rounded-lg">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-bold text-lg">ข้อมูลรถและปัญหา</h3>
+                                <button onClick={() => setCurrentStep(0)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
+                            </div>
+                            <p><strong>ทะเบียนรถ:</strong> {formData.licensePlate}</p>
+                            <p><strong>ประเภทรถ:</strong> {formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}</p>
+                            <p><strong>อาการเสีย:</strong> {formData.problemDescription}</p>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                             <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-bold text-lg">การประเมินและมอบหมาย</h3>
+                                <button onClick={() => setCurrentStep(1)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
+                            </div>
+                            <p><strong>ความสำคัญ:</strong> {formData.priority}</p>
+                            <p><strong>คาดว่าจะเสร็จ:</strong> {activeEstimation.estimatedEndDate ? new Date(activeEstimation.estimatedEndDate).toLocaleString('th-TH') : '-'}</p>
+                            <p><strong>ช่าง:</strong> {technicians.filter(t => formData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ')}</p>
+                        </div>
+                         <div className="p-4 border rounded-lg">
+                             <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-bold text-lg">อะไหล่และค่าใช้จ่าย</h3>
+                                <button onClick={() => setCurrentStep(2)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
+                            </div>
+                            <ul className="list-disc list-inside">
+                                {formData.parts.map(p => <li key={p.partId}>{p.name} x{p.quantity}</li>)}
+                            </ul>
+                            <p className="mt-2 font-bold text-xl text-right">ยอดรวม: {grandTotal.toLocaleString()} บาท</p>
+                        </div>
+                     </div>
+                );
+            default:
+                return null;
+        }
+    }
+
+    return (
+        <>
+        <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl mx-auto">
+            <Stepper steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
+            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+                {renderStepContent()}
             </div>
             
-            <div className="bg-white rounded-lg shadow-sm">
-                <SectionHeader title="5. ไฟล์แนบและรูปภาพ" sectionId="files" />
-                {openSections.files && (
-                <div className="p-6">
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                        <label htmlFor="file-upload" className="cursor-pointer text-blue-600 font-semibold">
-                            เลือกไฟล์เพื่ออัปโหลด
-                        </label>
-                        <input id="file-upload" name="files" type="file" multiple className="sr-only" onChange={handleFileChange} />
-                        <p className="text-xs text-gray-500 mt-1">แนบใบเสนอราคา, ใบเสร็จ, รูปถ่าย</p>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                        {formData.attachments.map((file, index) => (
-                             <div key={index} className="flex justify-between items-center bg-gray-100 p-2 rounded">
-                                <span>📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
-                                <button type="button" onClick={() => removeAttachment(index)} className="text-red-500 font-bold">×</button>
-                            </div>
-                        ))}
-                    </div>
+            <div className="flex justify-between items-center pt-4">
+                 <div>
+                     {currentStep > 0 && (
+                        <button type="button" onClick={handleBack} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ย้อนกลับ</button>
+                    )}
                 </div>
-                 )}
-            </div>
-
-            <div className="flex justify-end space-x-4">
-                <button type="button" onClick={resetForm} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ล้างฟอร์ม</button>
-                <button type="submit" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">สร้างใบแจ้งซ่อม</button>
+                <div>
+                    {currentStep < steps.length - 1 ? (
+                        <button type="button" onClick={handleNext} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">ถัดไป</button>
+                    ) : (
+                        <button type="submit" className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">ยืนยันสร้างใบแจ้งซ่อม</button>
+                    )}
+                </div>
             </div>
         </form>
 
-        {isStockModalOpen && (
-            <StockSelectionModal
-                stock={stock}
-                onClose={() => setStockModalOpen(false)}
-                onAddParts={handleAddPartsFromStock}
-                existingParts={formData.parts}
-            />
-        )}
-        {isExternalPartModalOpen && (
-            <ExternalPartModal
-                onClose={() => setExternalPartModalOpen(false)}
-                onAddExternalParts={handleAddExternalParts}
-                suppliers={suppliers}
-            />
-        )}
+        {isStockModalOpen && <StockSelectionModal stock={stock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
+        {isExternalPartModalOpen && <ExternalPartModal onClose={() => setExternalPartModalOpen(false)} onAddExternalParts={handleAddExternalParts} suppliers={suppliers} />}
         </>
     );
 };

@@ -15,7 +15,9 @@ export type Tab =
   | 'maintenance'
   | 'vehicles'
   | 'used-part-buyers'
-  | 'used-part-report';
+  | 'used-part-report'
+  | 'technician-view' // New Tab for technicians
+  | 'kpi-dashboard'; // New Tab for KPIs
 
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
@@ -51,6 +53,16 @@ export interface EstimationAttempt {
     aiReasoning: string | null;
 }
 
+export interface ChecklistItem {
+    text: string;
+    checked: boolean;
+}
+
+export interface RepairChecklists {
+    preRepair: ChecklistItem[];
+    postRepair: ChecklistItem[];
+}
+
 export interface Repair {
     id: string;
     repairOrderNo: string;
@@ -74,7 +86,8 @@ export interface Repair {
     partsVat: number;
     parts: PartRequisitionItem[];
     attachments: FileAttachment[];
-    estimations: EstimationAttempt[]; // Replaced single estimation fields
+    estimations: EstimationAttempt[]; 
+    checklists: RepairChecklists; // New field for checklists
     createdAt: string;
     updatedAt: string;
     status: RepairStatus;
@@ -106,6 +119,7 @@ export interface StockItem {
     name: string;
     category: string;
     quantity: number;
+    quantityReserved: number; // New field for part reservation
     unit: string;
     minStock: number;
     maxStock: number | null;
@@ -116,7 +130,7 @@ export interface StockItem {
     status: StockStatus;
 }
 
-export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า' | 'ปรับสต็อก';
+export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า' | 'ปรับสต็อก' | 'จอง' | 'ยกเลิกจอง';
 
 export interface StockTransaction {
     id: string;

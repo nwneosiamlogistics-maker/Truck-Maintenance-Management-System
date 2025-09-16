@@ -5,6 +5,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'แดชบอร์ด',
         subtitle: 'ภาพรวมระบบจัดการซ่อมบำรุงรถบรรทุก'
     },
+    'kpi-dashboard': {
+        title: 'ภาพรวม KPI',
+        subtitle: 'ตัวชี้วัดประสิทธิภาพการซ่อมบำรุง'
+    },
     form: {
         title: 'เพิ่มใบแจ้งซ่อม',
         subtitle: 'สร้างใบแจ้งซ่อมใหม่สำหรับรถบรรทุกทุกประเภท'
@@ -12,6 +16,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
     list: {
         title: 'รายการใบแจ้งซ่อม',
         subtitle: 'จัดการและติดตามสถานะการซ่อมบำรุง'
+    },
+     'technician-view': {
+        title: 'สำหรับช่าง',
+        subtitle: 'มุมมองรายการงานสำหรับทีมช่าง'
     },
     history: {
         title: 'ประวัติการซ่อม',

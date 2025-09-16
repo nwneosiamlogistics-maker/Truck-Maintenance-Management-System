@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
+import { formatHoursToHHMM } from '../utils';
 
 interface TechnicianPerformanceProps {
     repairs: Repair[];
@@ -199,7 +200,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <StatCard title="งานเสร็จสิ้นทั้งหมด" value={performanceData.kpis.totalJobs} bgColor="bg-blue-50" textColor="text-blue-600" />
-                <StatCard title="เวลาซ่อมเฉลี่ย" value={`${performanceData.kpis.avgTime.toFixed(1)} ชม.`} bgColor="bg-yellow-50" textColor="text-yellow-600" />
+                <StatCard title="เวลาซ่อมเฉลี่ย" value={formatHoursToHHMM(performanceData.kpis.avgTime)} bgColor="bg-yellow-50" textColor="text-yellow-600" />
                 <StatCard title="อัตราตรงต่อเวลา" value={`${performanceData.kpis.onTimeRate.toFixed(1)}%`} bgColor="bg-green-50" textColor="text-green-600" />
                 <StatCard title="มูลค่าซ่อมรวม" value={`${performanceData.kpis.totalValue.toLocaleString()} ฿`} bgColor="bg-purple-50" textColor="text-purple-600" />
             </div>
@@ -211,7 +212,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                 />
                 <BarChart
                     title="เวลาซ่อมเฉลี่ย (รายบุคคล)"
-                    data={performanceData.stats.slice(0, 5).map(t => ({ label: t.name, value: t.avgTime, formattedValue: `${t.avgTime.toFixed(1)} ชม.` }))}
+                    data={performanceData.stats.slice(0, 5).map(t => ({ label: t.name, value: t.avgTime, formattedValue: formatHoursToHHMM(t.avgTime) }))}
                 />
             </div>
 
@@ -221,7 +222,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                         <tr>
                             <SortableHeader headerKey="name" title="ชื่อช่าง" />
                             <SortableHeader headerKey="jobs" title="งานที่เสร็จสิ้น" />
-                            <SortableHeader headerKey="avgTime" title="เวลาซ่อมเฉลี่ย (ชม.)" />
+                            <SortableHeader headerKey="avgTime" title="เวลาซ่อมเฉลี่ย (ชม:นาที)" />
                             <SortableHeader headerKey="onTimeRate" title="อัตราตรงต่อเวลา" />
                             <SortableHeader headerKey="value" title="มูลค่าซ่อมรวม (บาท)" />
                         </tr>
@@ -231,7 +232,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                             <tr key={tech.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 font-semibold text-base">{tech.name}</td>
                                 <td className="px-6 py-4 text-base">{tech.jobs}</td>
-                                <td className="px-6 py-4 text-base">{tech.avgTime.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-base">{formatHoursToHHMM(tech.avgTime)}</td>
                                 <td className="px-6 py-4 text-base">{tech.onTimeRate.toFixed(1)}%</td>
                                 <td className="px-6 py-4 text-base font-bold">{tech.value.toLocaleString()}</td>
                             </tr>

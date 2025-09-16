@@ -16,6 +16,8 @@ const initialFormState: StockItem = {
     name: '',
     category: STOCK_CATEGORIES[0],
     quantity: 0,
+    // FIX: Add missing 'quantityReserved' property to satisfy the StockItem type.
+    quantityReserved: 0,
     unit: 'ลิตร',
     minStock: 0,
     maxStock: 0,

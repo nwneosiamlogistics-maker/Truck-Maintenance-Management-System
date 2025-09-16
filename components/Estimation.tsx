@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { Repair, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
+import { formatHoursToHHMM } from '../utils';
 
 interface EstimationProps {
     repairs: Repair[];
@@ -47,13 +48,16 @@ const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
             const isDelayed = actualEnd > estimatedEnd;
             const deviation = actualDuration - estimatedDuration; // Negative means early, positive means late
 
+            const estimatedHours = estimatedDuration / (1000 * 3600);
+            const actualHours = actualDuration / (1000 * 3600);
+
             return [{
                 id: `${r.id}-${finalEstimation.sequence}`,
                 repairOrderNo: r.repairOrderNo,
                 vehicle: r.licensePlate,
                 repair: r.problemDescription,
-                estimated: `${(estimatedDuration / (1000 * 3600)).toFixed(1)} ชั่วโมง (ครั้งที่ ${finalEstimation.sequence})`,
-                actual: `${(actualDuration / (1000 * 3600)).toFixed(1)} ชั่วโมง`,
+                estimated: `${formatHoursToHHMM(estimatedHours)} (ครั้งที่ ${finalEstimation.sequence})`,
+                actual: `${formatHoursToHHMM(actualHours)}`,
                 accuracy: accuracy,
                 isDelayed,
                 deviation,
