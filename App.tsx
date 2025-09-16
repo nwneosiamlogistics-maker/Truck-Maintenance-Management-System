@@ -216,13 +216,13 @@ function App() {
             case 'form':
                 return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} />;
             case 'list':
-                return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} addUsedParts={addUsedParts} suppliers={suppliers} usedParts={usedParts} />;
+                return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} setTransactions={setTransactions} addUsedParts={addUsedParts} suppliers={suppliers} usedParts={usedParts} />;
             case 'history':
-                return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} suppliers={suppliers} addUsedParts={addUsedParts} usedParts={usedParts} />;
+                return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} setTransactions={setTransactions} suppliers={suppliers} addUsedParts={addUsedParts} usedParts={usedParts} />;
             case 'stock':
                 return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} suppliers={suppliers} usedPartBuyers={usedPartBuyers} setUsedParts={setUsedParts} />;
             case 'stock-history':
-                return <StockHistory transactions={transactions} />;
+                return <StockHistory transactions={transactions} stock={stock} />;
             case 'requisitions':
                 // FIX: Added the missing 'suppliers' prop to the PurchaseRequisitionPage component.
                 return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} suppliers={suppliers} />;

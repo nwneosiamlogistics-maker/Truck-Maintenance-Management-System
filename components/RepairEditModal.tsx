@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
@@ -12,10 +12,11 @@ interface RepairEditModalProps {
     technicians: Technician[];
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     suppliers: Supplier[];
 }
 
-const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, suppliers }) => {
+const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, setTransactions, suppliers }) => {
     // Deep copy the repair prop to local state to avoid direct mutation.
     const getInitialState = (repairData: Repair) => {
         const repairCopy = JSON.parse(JSON.stringify(repairData));
@@ -198,19 +199,19 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     const handleSave = () => {
         const statusChangedToCompleted = originalStatus !== 'ซ่อมเสร็จ' && formData.status === 'ซ่อมเสร็จ';
 
-        // If status changes to 'Completed', deduct the used parts from stock.
+        // If status changes to 'Completed', deduct the used parts from stock and create transactions.
         if (statusChangedToCompleted) {
             const stockToUpdate: Record<string, number> = {};
-            (Array.isArray(formData.parts) ? formData.parts : []).forEach(part => {
-                if (part.source === 'สต็อกอู่') {
-                    stockToUpdate[part.partId] = (stockToUpdate[part.partId] || 0) + part.quantity;
-                }
+            const partsUsedFromStock = (Array.isArray(formData.parts) ? formData.parts : []).filter(part => part.source === 'สต็อกอู่');
+
+            partsUsedFromStock.forEach(part => {
+                stockToUpdate[part.partId] = (stockToUpdate[part.partId] || 0) + part.quantity;
             });
 
             const stockIdsToUpdate = Object.keys(stockToUpdate);
 
             if (stockIdsToUpdate.length > 0) {
-                 const newStock = stock.map(s => {
+                const newStock = stock.map(s => {
                     if (stockToUpdate[s.id]) {
                         const newQuantity = s.quantity - stockToUpdate[s.id];
                         let newStatus: StockStatus = 'ปกติ';
@@ -222,7 +223,28 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                     return s;
                 });
                 setStock(newStock);
-                addToast('หักสต๊อกอะไหล่เรียบร้อย', 'info');
+
+                const technicianNames = technicians.filter(t => formData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ');
+                const actor = technicianNames || 'ระบบ';
+
+                const newTransactions: StockTransaction[] = partsUsedFromStock.map(part => {
+                    const stockItem = stock.find(s => s.id === part.partId);
+                    return {
+                        id: `TXN-${Date.now()}-${Math.random()}`,
+                        stockItemId: part.partId,
+                        stockItemName: stockItem?.name || part.name,
+                        type: 'เบิกใช้',
+                        quantity: -part.quantity, // Negative for withdrawal
+                        transactionDate: new Date().toISOString(),
+                        actor: actor,
+                        notes: `ใช้สำหรับใบแจ้งซ่อม ${formData.repairOrderNo}`,
+                        relatedRepairOrder: formData.repairOrderNo,
+                        pricePerUnit: stockItem?.price,
+                    };
+                });
+                
+                setTransactions(prev => [...newTransactions, ...(Array.isArray(prev) ? prev : [])]);
+                addToast('บันทึกการเบิกอะไหล่และหักสต็อกเรียบร้อย', 'info');
             }
         }
         

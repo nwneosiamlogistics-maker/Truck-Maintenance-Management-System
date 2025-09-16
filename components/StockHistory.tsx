@@ -1,21 +1,30 @@
 import React, { useState, useMemo } from 'react';
-import type { StockTransaction, StockTransactionType } from '../types';
+import type { StockTransaction, StockTransactionType, StockItem } from '../types';
+import { STOCK_CATEGORIES } from '../data/categories';
 
 interface StockHistoryProps {
     transactions: StockTransaction[];
+    stock: StockItem[];
 }
 
-const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
+const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [typeFilter, setTypeFilter] = useState<StockTransactionType | 'all'>('all');
+    const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
     const filteredTransactions = useMemo(() => {
         const safeTransactions = Array.isArray(transactions) ? transactions : [];
+        const stockMap = new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item]));
+
         return safeTransactions
+            .map(t => ({
+                ...t,
+                category: stockMap.get(t.stockItemId)?.category || 'ไม่พบ',
+            }))
             .filter(t => {
                 const transactionDate = new Date(t.transactionDate);
                 const start = startDate ? new Date(startDate) : null;
@@ -26,16 +35,17 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
 
                 const isDateInRange = (!start || transactionDate >= start) && (!end || transactionDate <= end);
                 const isTypeMatch = typeFilter === 'all' || t.type === typeFilter;
+                const isCategoryMatch = categoryFilter === 'all' || t.category === categoryFilter;
                 const isSearchMatch = searchTerm === '' ||
                     t.stockItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     (t.actor && t.actor.toLowerCase().includes(searchTerm.toLowerCase())) ||
                     (t.notes && t.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
                     (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase()));
 
-                return isDateInRange && isTypeMatch && isSearchMatch;
+                return isDateInRange && isTypeMatch && isSearchMatch && isCategoryMatch;
             })
             .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
-    }, [transactions, searchTerm, startDate, endDate, typeFilter]);
+    }, [transactions, stock, searchTerm, startDate, endDate, typeFilter, categoryFilter]);
 
     const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
     const paginatedTransactions = useMemo(() => {
@@ -48,6 +58,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
         setStartDate('');
         setEndDate('');
         setTypeFilter('all');
+        setCategoryFilter('all');
         setCurrentPage(1);
     };
 
@@ -64,7 +75,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     <input
                         type="text"
                         placeholder="ค้นหา (ชื่ออะไหล่, ผู้เบิก)..."
@@ -78,6 +89,12 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
                         <option value="เบิกใช้">เบิกใช้</option>
                         <option value="คืนร้านค้า">คืนร้านค้า</option>
                         <option value="ปรับสต็อก">ปรับสต็อก</option>
+                    </select>
+                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg">
+                        <option value="all">ทุกหมวดหมู่</option>
+                        {STOCK_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
                     </select>
                     <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
@@ -93,6 +110,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภท</th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ดำเนินการ</th>
@@ -105,6 +123,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
                             <tr key={t.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 text-sm text-gray-600">{new Date(t.transactionDate).toLocaleString('th-TH')}</td>
                                 <td className="px-4 py-3 font-semibold">{t.stockItemName}</td>
+                                <td className="px-4 py-3 text-sm">{t.category}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeBadge(t.type)}`}>{t.type}</span></td>
                                 <td className={`px-4 py-3 text-right font-bold text-base ${t.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                     {t.quantity > 0 ? `+${t.quantity}` : t.quantity}
@@ -116,7 +135,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions }) => {
                         ))}
                          {paginatedTransactions.length === 0 && (
                             <tr>
-                                <td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
+                                <td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
                             </tr>
                         )}
                     </tbody>

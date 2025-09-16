@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, StockItem, Supplier, UsedPart } from '../types';
+import type { Repair, Technician, StockItem, Supplier, UsedPart, StockTransaction } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
 import RepairEditModal from './RepairEditModal';
 import { useToast } from '../context/ToastContext';
@@ -10,12 +10,13 @@ interface RepairHistoryProps {
     technicians: Technician[];
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     suppliers: Supplier[];
     usedParts: UsedPart[];
     addUsedParts: (parts: Omit<UsedPart, 'id'>[]) => void;
 }
 
-const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, suppliers, usedParts, addUsedParts }) => {
+const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, setTransactions, suppliers, usedParts, addUsedParts }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -308,6 +309,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     technicians={technicians}
                     stock={stock}
                     setStock={setStock}
+                    setTransactions={setTransactions}
                     suppliers={suppliers}
                 />
             )}
