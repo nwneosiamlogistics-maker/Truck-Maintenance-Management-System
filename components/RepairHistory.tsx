@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem, Supplier, UsedPart, StockTransaction } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
@@ -10,13 +11,14 @@ interface RepairHistoryProps {
     technicians: Technician[];
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    transactions: StockTransaction[];
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     suppliers: Supplier[];
     usedParts: UsedPart[];
     addUsedParts: (parts: Omit<UsedPart, 'id'>[]) => void;
 }
 
-const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, setTransactions, suppliers, usedParts, addUsedParts }) => {
+const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions, suppliers, usedParts, addUsedParts }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -309,6 +311,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     technicians={technicians}
                     stock={stock}
                     setStock={setStock}
+                    transactions={transactions}
                     setTransactions={setTransactions}
                     suppliers={suppliers}
                 />

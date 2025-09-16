@@ -119,7 +119,7 @@ export interface StockItem {
     name: string;
     category: string;
     quantity: number;
-    quantityReserved: number; // New field for part reservation
+    quantityReserved: number;
     unit: string;
     minStock: number;
     maxStock: number | null;

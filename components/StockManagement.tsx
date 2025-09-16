@@ -182,7 +182,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const handleSaveItem = (item: StockItem, extras: { sourceRepairOrderNo?: string }) => {
         const now = new Date().toISOString();
         if (item.id) {
-            // Defensive Update: Merge old and new data to ensure a new object reference.
             setStock(prev => prev.map(s => s.id === item.id ? { ...s, ...item } : s));
             addToast(`อัปเดต ${item.name} สำเร็จ`, 'success');
         } else {
@@ -372,7 +371,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
 
     const handleSaveUsedPartFromModal = (updatedPart: UsedPart) => {
         updateUsedPart(updatedPart); // Update the main state via props
-        // Automatically expand the row for immediate feedback
         setExpandedRows(prev => {
             const newSet = new Set(prev);
             newSet.add(updatedPart.id);
@@ -431,7 +429,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             case 'ขาย': {
                 const buyerInfo = disp.soldTo || '';
                 const noteInfo = disp.notes ? `(${disp.notes})` : '';
-                // Join them, trim any leading/trailing space if one is empty
                 return [buyerInfo, noteInfo].filter(Boolean).join(' ').trim() || '-';
             }
             case 'เก็บไว้ใช้ต่อ':
@@ -512,11 +509,15 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                         <tbody className="bg-white divide-y divide-gray-200">
                         {filteredStock.map(item => {
                             const isPendingPurchase = pendingPurchaseStockIds.has(item.id);
+                            const available = item.quantity - (item.quantityReserved || 0);
                             return (
                             <tr key={item.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500">{item.code}</div></td>
                                 <td className="px-4 py-3 text-sm text-gray-600">{item.category}</td>
-                                <td className="px-4 py-3 text-right text-base font-bold">{item.quantity} {item.unit}</td>
+                                <td className="px-4 py-3 text-right">
+                                    <div className="text-base font-bold">{available} {item.unit}</div>
+                                    {(item.quantityReserved > 0) && <div className="text-xs text-blue-600"> (จอง {item.quantityReserved})</div>}
+                                </td>
                                 <td className="px-4 py-3 text-right text-base">{item.price.toLocaleString()}</td>
                                 <td className="px-4 py-3 text-base">{item.storageLocation}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getNewStockStatusBadge(item.status)}`}>{item.status}</span></td>

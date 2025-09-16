@@ -12,25 +12,22 @@ interface RepairEditModalProps {
     technicians: Technician[];
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    transactions: StockTransaction[];
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     suppliers: Supplier[];
 }
 
-const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, setTransactions, suppliers }) => {
-    // Deep copy the repair prop to local state to avoid direct mutation.
+// FIX: Destructure `setStock` from props to resolve "Cannot find name 'setStock'" errors.
+const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, transactions, setTransactions, suppliers }) => {
     const getInitialState = (repairData: Repair) => {
         const repairCopy = JSON.parse(JSON.stringify(repairData));
-        // Backward compatibility: If 'estimations' doesn't exist, create a default one from old fields.
         if (!Array.isArray(repairCopy.estimations) || repairCopy.estimations.length === 0) {
             repairCopy.estimations = [{
                 sequence: 1,
                 createdAt: repairCopy.createdAt || new Date().toISOString(),
-                // @ts-ignore - a one-time migration from old properties if they exist
-                estimatedStartDate: repairCopy.estimatedStartDate || new Date().toISOString(),
-                // @ts-ignore
-                estimatedEndDate: repairCopy.estimatedEndDate || new Date().toISOString(),
-                // @ts-ignore
-                estimatedLaborHours: repairCopy.estimatedLaborHours || 0,
+                estimatedStartDate: new Date().toISOString(),
+                estimatedEndDate: new Date().toISOString(),
+                estimatedLaborHours: 0,
                 status: 'Active',
                 failureReason: null,
                 aiReasoning: null
@@ -40,8 +37,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     };
     
     const [formData, setFormData] = useState<Repair>(getInitialState(repair));
-    // Store original status to detect changes for stock deduction.
-    const [originalStatus] = useState(repair.status);
+    const [partsBeforeEdit] = useState(repair.parts || []);
     
     const [openSections, setOpenSections] = useState({
         status: true,
@@ -60,19 +56,15 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
 
     const { addToast } = useToast();
 
-    // Resync form data if the underlying repair prop changes (e.g., from parent component refresh).
     useEffect(() => {
         setFormData(getInitialState(repair));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [repair]);
 
-    // Converts an ISO string from a Date object into a format suitable for datetime-local input.
     const toLocalISOString = (isoString: string | null | undefined) => {
         if (!isoString) return '';
         try {
             const date = new Date(isoString);
             if (isNaN(date.getTime())) return '';
-            // Adjust for timezone offset to display correctly in the user's local time.
             const tzoffset = (new Date()).getTimezoneOffset() * 60000;
             const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
             return localISOTime;
@@ -99,7 +91,6 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             
             setFormData(prev => ({ ...prev, estimations: newEstimations }));
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [estimationMode, durationValue, durationUnit, activeEstimation?.estimatedStartDate]);
 
 
@@ -114,76 +105,65 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         }
     };
     
-    // Generic input handler for most form fields.
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        
         let newFormData = { ...formData, [name]: value };
-
-        // Automatically update dates and estimation status based on repair status changes.
         if (name === 'status') {
             const newStatus = value as RepairStatus;
             const now = new Date().toISOString();
-            if (newStatus === 'กำลังซ่อม' && !newFormData.repairStartDate) {
-                newFormData.repairStartDate = now;
-            }
-            if (newStatus === 'ซ่อมเสร็จ' && !newFormData.repairEndDate) {
-                newFormData.repairEndDate = now;
-            }
-            // Mark the final estimation as 'Completed' when repair is finished.
-            if (newStatus === 'ซ่อมเสร็จ' && Array.isArray(newFormData.estimations) && newFormData.estimations.length > 0) {
-                const updatedEstimations = JSON.parse(JSON.stringify(newFormData.estimations)); // Deep copy
-                let estimationToCompleteIndex = updatedEstimations.findIndex((e: EstimationAttempt) => e.status === 'Active');
-
-                // Fallback: If no 'Active' one is found, find the one with the highest sequence number.
-                if (estimationToCompleteIndex === -1) {
-                    let maxSequence = -1;
-                    updatedEstimations.forEach((e: EstimationAttempt, index: number) => {
-                        if (e.sequence > maxSequence) {
-                            maxSequence = e.sequence;
-                            estimationToCompleteIndex = index;
-                        }
-                    });
-                }
-
-                if (estimationToCompleteIndex > -1) {
-                    // Mark all other estimations as 'Failed' for clarity.
-                    for (let i = 0; i < updatedEstimations.length; i++) {
-                        if (i !== estimationToCompleteIndex && updatedEstimations[i].status !== 'Completed') {
-                            updatedEstimations[i].status = 'Failed';
-                        }
-                    }
-                    // Mark the final estimation as 'Completed'.
-                    updatedEstimations[estimationToCompleteIndex].status = 'Completed';
-                    newFormData.estimations = updatedEstimations;
-                }
-            }
+            if (newStatus === 'กำลังซ่อม' && !newFormData.repairStartDate) newFormData.repairStartDate = now;
+            if (newStatus === 'ซ่อมเสร็จ' && !newFormData.repairEndDate) newFormData.repairEndDate = now;
         }
-        
         setFormData(newFormData);
     };
     
     const handleDateChange = (field: 'approvalDate' | 'repairStartDate' | 'repairEndDate', value: string) => {
-        // Convert local datetime string back to ISO string for storage.
         setFormData(prev => ({...prev, [field]: value ? new Date(value).toISOString() : null }));
     };
 
-    // Handlers for parts management
-    const updatePart = (partId: string, field: keyof PartRequisitionItem, value: any) => {
-        setFormData(prev => ({ ...prev, parts: (Array.isArray(prev.parts) ? prev.parts : []).map(p => p.partId === partId ? { ...p, [field]: value } : p)}));
-    };
-    
     const removePart = (partId: string) => {
-        setFormData(prev => ({ ...prev, parts: (Array.isArray(prev.parts) ? prev.parts : []).filter(p => p.partId !== partId) }));
+        const partToRemove = (formData.parts || []).find(p => p.partId === partId);
+        if (!partToRemove) return;
+
+        if (partToRemove.source === 'สต็อกอู่') {
+            // Revert stock reservation
+            setStock(prevStock => prevStock.map(s => 
+                s.id === partToRemove.partId ? { ...s, quantityReserved: (s.quantityReserved || 0) - partToRemove.quantity } : s
+            ));
+            // Create cancellation transaction
+            const newTransaction: StockTransaction = {
+                id: `TXN-${Date.now()}`, stockItemId: partToRemove.partId, stockItemName: partToRemove.name, type: 'ยกเลิกจอง',
+                quantity: partToRemove.quantity, transactionDate: new Date().toISOString(), actor: 'ระบบ', notes: `ยกเลิกจองสำหรับใบซ่อม ${formData.repairOrderNo}`
+            };
+            setTransactions(prev => [newTransaction, ...prev]);
+        }
+        
+        setFormData(prev => ({ ...prev, parts: (prev.parts || []).filter(p => p.partId !== partId) }));
     };
 
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
-        setFormData(prev => ({ ...prev, parts: [...(Array.isArray(prev.parts) ? prev.parts : []), ...newParts] }));
+        setFormData(prev => ({ ...prev, parts: [...(prev.parts || []), ...newParts] }));
+        
+        newParts.forEach(part => {
+             // Update stock reservation
+            setStock(prevStock => prevStock.map(s => 
+                s.id === part.partId ? { ...s, quantityReserved: (s.quantityReserved || 0) + part.quantity } : s
+            ));
+            // Create reservation transaction
+            const newTransaction: StockTransaction = {
+                id: `TXN-${Date.now()}-${part.partId}`, stockItemId: part.partId, stockItemName: part.name, type: 'จอง',
+                quantity: -part.quantity, transactionDate: new Date().toISOString(), actor: 'ระบบ', notes: `จองสำหรับใบซ่อม ${formData.repairOrderNo}`,
+                relatedRepairOrder: formData.repairOrderNo, pricePerUnit: part.unitPrice
+            };
+            setTransactions(prev => [newTransaction, ...prev]);
+        });
+        
+        addToast(`จองอะไหล่ ${newParts.length} รายการ`, 'info');
         setStockModalOpen(false);
     };
 
     const handleAddExternalParts = (data: { parts: PartRequisitionItem[], vat: number }) => {
-        const currentParts = Array.isArray(formData.parts) ? formData.parts : [];
+        const currentParts = formData.parts || [];
         const existingPartNames = new Set(currentParts.map(p => p.name.trim().toLowerCase()));
         const newParts = data.parts.filter(p => !existingPartNames.has(p.name.trim().toLowerCase()));
         
@@ -195,60 +175,106 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         setExternalPartModalOpen(false);
     };
 
-    // Main save handler
     const handleSave = () => {
-        const statusChangedToCompleted = originalStatus !== 'ซ่อมเสร็จ' && formData.status === 'ซ่อมเสร็จ';
-
-        // If status changes to 'Completed', deduct the used parts from stock and create transactions.
-        if (statusChangedToCompleted) {
-            const stockToUpdate: Record<string, number> = {};
-            const partsUsedFromStock = (Array.isArray(formData.parts) ? formData.parts : []).filter(part => part.source === 'สต็อกอู่');
-
-            partsUsedFromStock.forEach(part => {
-                stockToUpdate[part.partId] = (stockToUpdate[part.partId] || 0) + part.quantity;
-            });
-
-            const stockIdsToUpdate = Object.keys(stockToUpdate);
-
-            if (stockIdsToUpdate.length > 0) {
-                const newStock = stock.map(s => {
-                    if (stockToUpdate[s.id]) {
-                        const newQuantity = s.quantity - stockToUpdate[s.id];
-                        let newStatus: StockStatus = 'ปกติ';
-                        if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
-                        else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
-                        else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
-                        return { ...s, quantity: newQuantity, status: newStatus };
+        let finalFormData = { ...formData };
+    
+        // 1. Update Estimation Status if repair is completed
+        if (finalFormData.status === 'ซ่อมเสร็จ' && Array.isArray(finalFormData.estimations) && finalFormData.estimations.length > 0) {
+            const updatedEstimations = JSON.parse(JSON.stringify(finalFormData.estimations));
+            let estimationToCompleteIndex = updatedEstimations.findIndex((e: EstimationAttempt) => e.status === 'Active');
+            if (estimationToCompleteIndex === -1) {
+                let maxSequence = -1;
+                updatedEstimations.forEach((e: EstimationAttempt, index: number) => {
+                    if (e.sequence > maxSequence) {
+                        maxSequence = e.sequence;
+                        estimationToCompleteIndex = index;
                     }
-                    return s;
                 });
-                setStock(newStock);
-
-                const technicianNames = technicians.filter(t => formData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ');
-                const actor = technicianNames || 'ระบบ';
-
-                const newTransactions: StockTransaction[] = partsUsedFromStock.map(part => {
-                    const stockItem = stock.find(s => s.id === part.partId);
-                    return {
-                        id: `TXN-${Date.now()}-${Math.random()}`,
-                        stockItemId: part.partId,
-                        stockItemName: stockItem?.name || part.name,
-                        type: 'เบิกใช้',
-                        quantity: -part.quantity, // Negative for withdrawal
-                        transactionDate: new Date().toISOString(),
-                        actor: actor,
-                        notes: `ใช้สำหรับใบแจ้งซ่อม ${formData.repairOrderNo}`,
-                        relatedRepairOrder: formData.repairOrderNo,
-                        pricePerUnit: stockItem?.price,
-                    };
+            }
+            if (estimationToCompleteIndex > -1) {
+                for (let i = 0; i < updatedEstimations.length; i++) {
+                    if (i !== estimationToCompleteIndex && updatedEstimations[i].status !== 'Completed') {
+                        updatedEstimations[i].status = 'Failed';
+                    }
+                }
+                updatedEstimations[estimationToCompleteIndex].status = 'Completed';
+                finalFormData.estimations = updatedEstimations;
+            }
+        }
+    
+        const partsAfterEdit = finalFormData.parts || [];
+    
+        // 2. Un-reserve parts that were removed
+        partsBeforeEdit.forEach(oldPart => {
+            if (oldPart.source === 'สต็อกอู่' && !partsAfterEdit.some(newPart => newPart.partId === oldPart.partId)) {
+                setStock(prevStock => prevStock.map(s => 
+                    s.id === oldPart.partId ? { ...s, quantityReserved: Math.max(0, (s.quantityReserved || 0) - oldPart.quantity) } : s
+                ));
+                const newTransaction: StockTransaction = {
+                    id: `TXN-${Date.now()}-cancel-${oldPart.partId}`, stockItemId: oldPart.partId, stockItemName: oldPart.name, type: 'ยกเลิกจอง',
+                    quantity: oldPart.quantity, transactionDate: new Date().toISOString(), actor: 'ระบบ', notes: `ยกเลิกจองสำหรับใบซ่อม ${finalFormData.repairOrderNo}`
+                };
+                setTransactions(prev => [newTransaction, ...prev]);
+            }
+        });
+    
+        // 3. Create 'เบิกใช้' transactions for newly added parts if repair is completed
+        if (finalFormData.status === 'ซ่อมเสร็จ') {
+            const technicianNames = technicians.filter(t => finalFormData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
+            const now = new Date().toISOString();
+    
+            const existingWithdrawalPartIds = new Set(
+                (Array.isArray(transactions) ? transactions : [])
+                    .filter(t => t.relatedRepairOrder === finalFormData.repairOrderNo && t.type === 'เบิกใช้')
+                    .map(t => t.stockItemId)
+            );
+    
+            const newWithdrawals = partsAfterEdit.filter(part => !existingWithdrawalPartIds.has(part.partId));
+            
+            if (newWithdrawals.length > 0) {
+                const stockToUpdate: Record<string, { quantityChange: number }> = {};
+                const transactionsToAdd: StockTransaction[] = [];
+    
+                newWithdrawals.forEach(part => {
+                    if (part.source === 'สต็อกอู่') {
+                        stockToUpdate[part.partId] = { 
+                            quantityChange: (stockToUpdate[part.partId]?.quantityChange || 0) + part.quantity,
+                        };
+                    }
+                    transactionsToAdd.push({
+                        id: `TXN-${now}-${part.partId}`, stockItemId: part.partId, stockItemName: part.name, type: 'เบิกใช้',
+                        quantity: -part.quantity, transactionDate: now, actor: technicianNames, notes: `ใช้สำหรับใบแจ้งซ่อม ${finalFormData.repairOrderNo}`,
+                        relatedRepairOrder: finalFormData.repairOrderNo, pricePerUnit: part.unitPrice
+                    });
                 });
-                
-                setTransactions(prev => [...newTransactions, ...(Array.isArray(prev) ? prev : [])]);
-                addToast('บันทึกการเบิกอะไหล่และหักสต็อกเรียบร้อย', 'info');
+    
+                if (Object.keys(stockToUpdate).length > 0) {
+                    setStock(prevStock => prevStock.map(s => {
+                        if (stockToUpdate[s.id]) {
+                            const change = stockToUpdate[s.id].quantityChange;
+                            const newQuantity = s.quantity - change;
+                            const newReserved = Math.max(0, (s.quantityReserved || 0) - change);
+                            
+                            let newStatus: StockStatus = 'ปกติ';
+                            if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
+                            else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                            else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
+                            
+                            return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
+                        }
+                        return s;
+                    }));
+                     addToast(`หักสต็อกอะไหล่ใหม่ ${Object.keys(stockToUpdate).length} รายการ`, 'info');
+                }
+                if (transactionsToAdd.length > 0) {
+                    setTransactions(prev => [...transactionsToAdd, ...prev]);
+                    addToast(`สร้างประวัติการเบิกจ่ายสำหรับ ${transactionsToAdd.length} รายการใหม่`, 'info');
+                }
             }
         }
         
-        onSave(formData);
+        // 4. Call onSave with the final form data
+        onSave(finalFormData);
     };
     
     const SectionHeader: React.FC<{ title: string; sectionId: keyof typeof openSections }> = ({ title, sectionId }) => (
@@ -259,7 +285,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     );
 
     const { totalPartsCost, grandTotal } = useMemo(() => {
-        const partsCost = (Array.isArray(formData.parts) ? formData.parts : []).reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
+        const partsCost = (formData.parts || []).reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
         const total = partsCost + (formData.partsVat || 0) + (formData.repairCost || 0);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);
@@ -460,7 +486,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                         {openSections.parts && (
                             <div className="p-6 space-y-4">
                                 <div className="space-y-3">
-                                    {(Array.isArray(formData.parts) && formData.parts.length > 0) && (
+                                    {(formData.parts && formData.parts.length > 0) && (
                                          <div className="grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
                                             <div className="col-span-1">ที่มา</div>
                                             <div className="col-span-4">ชื่ออะไหล่</div>
@@ -470,16 +496,16 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                             <div className="col-span-2 text-right">ราคารวม</div>
                                         </div>
                                     )}
-                                    {(Array.isArray(formData.parts) ? formData.parts : []).map((part) => (
+                                    {(formData.parts || []).map((part) => (
                                         <div key={part.partId} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
                                             <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
                                             <div className="col-span-4"><p className="font-medium">{part.name}</p></div>
-                                            <div className="col-span-2">
-                                                <input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" />
+                                            <div className="col-span-2 text-right font-semibold">
+                                                {part.quantity}
                                             </div>
                                             <div className="col-span-1 text-center">{part.unit}</div>
-                                            <div className="col-span-2">
-                                                 <input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} />
+                                            <div className="col-span-2 text-right">
+                                                 {part.unitPrice.toLocaleString()}
                                             </div>
                                             <div className="col-span-1 font-semibold text-right">
                                                 {(part.quantity * part.unitPrice).toLocaleString()}
@@ -491,7 +517,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                     ))}
                                 </div>
 
-                                 {(Array.isArray(formData.parts) && formData.parts.length > 0) && (
+                                 {(formData.parts && formData.parts.length > 0) && (
                                     <div className="text-right space-y-2 border-t pt-3 mt-3">
                                         <div className="text-lg">
                                             <span>ราคารวมอะไหล่: </span>
@@ -540,13 +566,12 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             </div>
         </div>
 
-        {/* Child Modals */}
         {isStockModalOpen && (
             <StockSelectionModal
                 stock={stock}
                 onClose={() => setStockModalOpen(false)}
                 onAddParts={handleAddPartsFromStock}
-                existingParts={formData.parts}
+                existingParts={formData.parts || []}
             />
         )}
         {isExternalPartModalOpen && (

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { StockTransaction, StockTransactionType, StockItem } from '../types';
 import { STOCK_CATEGORIES } from '../data/categories';
@@ -68,8 +69,27 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock }) => {
             case 'เบิกใช้': return 'bg-orange-100 text-orange-800';
             case 'คืนร้านค้า': return 'bg-indigo-100 text-indigo-800';
             case 'ปรับสต็อก': return 'bg-teal-100 text-teal-800';
+            case 'จอง': return 'bg-blue-100 text-blue-800';
+            case 'ยกเลิกจอง': return 'bg-gray-200 text-gray-800';
             default: return 'bg-gray-100';
         }
+    };
+
+    const renderCategory = (categoryString: string) => {
+        if (!categoryString || typeof categoryString !== 'string') {
+            return 'ไม่ระบุ';
+        }
+        const parts = categoryString.split(' ');
+        // A simple check to see if the first part is an emoji.
+        if (parts.length > 1 && parts[0].length < 4) { 
+            return (
+                <div className="flex items-center">
+                    <span className="text-lg mr-2">{parts[0]}</span>
+                    <span>{parts.slice(1).join(' ')}</span>
+                </div>
+            );
+        }
+        return <span>{categoryString}</span>;
     };
     
     return (
@@ -87,6 +107,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock }) => {
                         <option value="all">ทุกประเภท</option>
                         <option value="รับเข้า">รับเข้า</option>
                         <option value="เบิกใช้">เบิกใช้</option>
+                        <option value="จอง">จอง</option>
+                        <option value="ยกเลิกจอง">ยกเลิกจอง</option>
                         <option value="คืนร้านค้า">คืนร้านค้า</option>
                         <option value="ปรับสต็อก">ปรับสต็อก</option>
                     </select>
@@ -121,9 +143,12 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock }) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedTransactions.map(t => (
                             <tr key={t.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-sm text-gray-600">{new Date(t.transactionDate).toLocaleString('th-TH')}</td>
+                                <td className="px-4 py-3 text-sm text-gray-600">
+                                    <div>{new Date(t.transactionDate).toLocaleDateString('th-TH')}</div>
+                                    <div className="text-xs text-gray-500">{new Date(t.transactionDate).toLocaleTimeString('th-TH')}</div>
+                                </td>
                                 <td className="px-4 py-3 font-semibold">{t.stockItemName}</td>
-                                <td className="px-4 py-3 text-sm">{t.category}</td>
+                                <td className="px-4 py-3 text-sm">{renderCategory(t.category)}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeBadge(t.type)}`}>{t.type}</span></td>
                                 <td className={`px-4 py-3 text-right font-bold text-base ${t.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                     {t.quantity > 0 ? `+${t.quantity}` : t.quantity}
