@@ -10,6 +10,7 @@ import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import UsedPartSaleReceiptModal from './UsedPartSaleReceiptModal';
 import { useToast } from '../context/ToastContext';
 import EditUsedPartBatchModal from './EditUsedPartBatchModal';
+import { STOCK_CATEGORIES } from '../data/categories';
 
 interface StockAdjustmentModalProps {
     item: StockItem;
@@ -148,11 +149,6 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
         return new Set(stockIds);
     }, [purchaseRequisitions]);
 
-    const categories = useMemo(() => {
-        const allCats = new Set(stock.map(item => item.category));
-        return ['ทั้งหมด', ...Array.from(allCats).sort()];
-    }, [stock]);
-
     const filteredStock = useMemo(() => {
         const getStatusPriority = (status: StockStatus): number => {
             switch (status) {
@@ -186,7 +182,8 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
     const handleSaveItem = (item: StockItem, extras: { sourceRepairOrderNo?: string }) => {
         const now = new Date().toISOString();
         if (item.id) {
-            setStock(prev => prev.map(s => s.id === item.id ? item : s));
+            // Defensive Update: Merge old and new data to ensure a new object reference.
+            setStock(prev => prev.map(s => s.id === item.id ? { ...s, ...item } : s));
             addToast(`อัปเดต ${item.name} สำเร็จ`, 'success');
         } else {
             const newItem = { ...item, id: `P${Date.now()}` };
@@ -225,7 +222,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             notes: notes || `รับเข้าสต๊อก`, relatedRepairOrder: sourceRepairOrderNo, pricePerUnit,
         };
         setTransactions(prev => [newTransaction, ...prev]);
-        addToast(`เพิ่มสต๊อก ${stockItem.name} จำนวน ${quantityAdded} สำเร็จ`, 'success');
+        addToast(`เพิ่มสต็อก ${stockItem.name} จำนวน ${quantityAdded} สำเร็จ`, 'success');
         setAddingStockItem(null);
     };
 
@@ -472,11 +469,11 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
             {activeTab === 'new' && (
             <div className="bg-white rounded-b-2xl shadow-sm -mt-6">
                 <div className="p-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap gap-4 justify-between items-center">
+                        <div className="flex flex-wrap items-center gap-4">
                             <input
                                 type="text" placeholder="ค้นหา (ชื่อ, รหัส)..." value={newStockSearchTerm}
-                                onChange={(e) => setNewStockSearchTerm(e.target.value)} className="w-72 p-2 border border-gray-300 rounded-lg text-base"
+                                onChange={(e) => setNewStockSearchTerm(e.target.value)} className="w-full sm:w-72 p-2 border border-gray-300 rounded-lg text-base"
                             />
                             <select value={newStockStatusFilter} onChange={e => setNewStockStatusFilter(e.target.value)} className="p-2 border border-gray-300 rounded-lg text-base">
                                 <option value="all">สถานะทั้งหมด</option>
@@ -485,25 +482,18 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                                 <option value="หมดสต๊อก">หมดสต๊อก</option>
                                 <option value="สต๊อกเกิน">สต๊อกเกิน</option>
                             </select>
+                            <select value={activeCategory} onChange={e => setActiveCategory(e.target.value)} className="p-2 border border-gray-300 rounded-lg text-base max-w-xs">
+                                <option value="ทั้งหมด">หมวดหมู่ทั้งหมด</option>
+                                {STOCK_CATEGORIES.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
                         </div>
-                        <div className="space-x-2">
+                        <div className="flex flex-wrap gap-2">
                             <button onClick={() => { setEditingItem(null); setEditModalOpen(true); }} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">+ เพิ่มอะไหล่ใหม่</button>
                             <button onClick={() => setWithdrawModalOpen(true)} className="px-4 py-2 text-base font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">- เบิก (ทั่วไป)</button>
                             <button onClick={() => setReturnModalOpen(true)} className="px-4 py-2 text-base font-medium text-white bg-indigo-500 rounded-lg hover:bg-indigo-600">↩️ คืนร้านค้า</button>
                         </div>
-                    </div>
-                    <div className="border-b -mx-4"></div>
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <span className="font-semibold text-gray-700">หมวดหมู่:</span>
-                        {categories.map(cat => (
-                            <button 
-                                key={cat}
-                                onClick={() => setActiveCategory(cat)}
-                                className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${activeCategory === cat ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
                     </div>
                 </div>
                 <div className="max-h-[60vh] overflow-y-auto">
@@ -525,7 +515,7 @@ const StockManagement: React.FC<StockManagementProps> = ({ stock, setStock, tran
                             return (
                             <tr key={item.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500">{item.code}</div></td>
-                                <td className="px-4 py-3 text-base">{item.category}</td>
+                                <td className="px-4 py-3 text-sm text-gray-600">{item.category}</td>
                                 <td className="px-4 py-3 text-right text-base font-bold">{item.quantity} {item.unit}</td>
                                 <td className="px-4 py-3 text-right text-base">{item.price.toLocaleString()}</td>
                                 <td className="px-4 py-3 text-base">{item.storageLocation}</td>

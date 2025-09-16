@@ -42,6 +42,7 @@ import {
     getDefaultSuppliers,
     getDefaultUsedPartBuyers,
 } from './data/defaultData';
+import { STOCK_CATEGORIES } from './data/categories';
 
 function App() {
     // State Management
@@ -65,6 +66,43 @@ function App() {
     // UI State
     const [isCollapsed, setCollapsed] = useState(false);
     const [isMobileOpen, setMobileOpen] = useState(false);
+
+    // One-time data migration for stock categories
+    useEffect(() => {
+        if (Array.isArray(stock) && stock.length > 0) {
+            const migrationKey = 'stock_category_migration_20240726';
+            if (!localStorage.getItem(migrationKey)) {
+                console.log('Running one-time stock category migration...');
+                const categoryMap: { [key: string]: string } = {
+                    'น้ำมัน': STOCK_CATEGORIES.find(c => c.includes('น้ำมันและของเหลว')) || 'อื่นๆ',
+                    'เบรก': STOCK_CATEGORIES.find(c => c.includes('ระบบเบรก')) || 'อื่นๆ',
+                    'ไฟฟ้า': STOCK_CATEGORIES.find(c => c.includes('ระบบไฟฟ้า')) || 'อื่นๆ',
+                    'เครื่องยนต์': STOCK_CATEGORIES.find(c => c.includes('หมวดเครื่องยนต์')) || 'อื่นๆ',
+                    'อื่นๆ': STOCK_CATEGORIES.find(c => c.includes('หมวดอื่นๆ')) || 'อื่นๆ',
+                };
+
+                let wasMutated = false;
+                const updatedStock = stock.map(item => {
+                    if (item.category && categoryMap[item.category] && item.category !== categoryMap[item.category]) {
+                        wasMutated = true;
+                        return { ...item, category: categoryMap[item.category] };
+                    }
+                    // If category is already in the new format, or not in the map, leave it.
+                    if (item.category && !STOCK_CATEGORIES.includes(item.category) && !categoryMap[item.category]) {
+                         wasMutated = true;
+                         return { ...item, category: STOCK_CATEGORIES.find(c => c.includes('หมวดอื่นๆ')) || 'อื่นๆ' };
+                    }
+                    return item;
+                });
+
+                if (wasMutated) {
+                    setStock(updatedStock);
+                    console.log('Stock categories have been migrated to the new system.');
+                }
+                localStorage.setItem(migrationKey, 'true');
+            }
+        }
+    }, [stock, setStock]);
 
     // One-time data migration/seeding for suppliers to fix incomplete data
     useEffect(() => {

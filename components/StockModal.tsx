@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { StockItem } from '../types';
 import { useToast } from '../context/ToastContext';
+import { STOCK_CATEGORIES } from '../data/categories';
 
 interface StockModalProps {
     item: StockItem | null;
@@ -9,34 +10,37 @@ interface StockModalProps {
     existingStock: StockItem[];
 }
 
-const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existingStock }) => {
-    const initialFormState: StockItem = {
-        id: '',
-        code: '',
-        name: '',
-        category: 'น้ำมัน',
-        quantity: 0,
-        unit: 'ลิตร',
-        minStock: 0,
-        maxStock: 0,
-        price: 0,
-        sellingPrice: 0,
-        storageLocation: '',
-        supplier: '',
-        status: 'ปกติ'
-    };
+const initialFormState: StockItem = {
+    id: '',
+    code: '',
+    name: '',
+    category: STOCK_CATEGORIES[0],
+    quantity: 0,
+    unit: 'ลิตร',
+    minStock: 0,
+    maxStock: 0,
+    price: 0,
+    sellingPrice: 0,
+    storageLocation: '',
+    supplier: '',
+    status: 'ปกติ'
+};
 
-    const [formData, setFormData] = useState<StockItem>(item || initialFormState);
+const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existingStock }) => {
+    // State Isolation: Initialize with a blank state.
+    const [formData, setFormData] = useState<StockItem>(initialFormState);
     const [sourceRepairOrderNo, setSourceRepairOrderNo] = useState('');
     const { addToast } = useToast();
 
+    // State Isolation: Populate state from props using useEffect, ensuring a new copy is created.
     useEffect(() => {
         if (item) {
-            setFormData(item);
+            // Create a shallow copy to prevent prop mutation.
+            setFormData({ ...item });
         } else {
             setFormData(initialFormState);
-            setSourceRepairOrderNo('');
         }
+        setSourceRepairOrderNo('');
     }, [item]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -105,11 +109,9 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">หมวดหมู่</label>
                             <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
-                                <option>น้ำมัน</option>
-                                <option>เบรก</option>
-                                <option>เครื่องยนต์</option>
-                                <option>ไฟฟ้า</option>
-                                <option>อื่นๆ</option>
+                                {STOCK_CATEGORIES.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
