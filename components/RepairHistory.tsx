@@ -34,10 +34,10 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const filteredRepairs = useMemo(() => {
         const completedRepairs = repairs
             .filter(repair => repair.status === 'ซ่อมเสร็จ')
-            .sort((a, b) => new Date(b.repairEndDate || b.updatedAt).getTime() - new Date(a.repairEndDate || a.updatedAt).getTime());
+            .sort((a, b) => new Date(b.repairStartDate || b.createdAt).getTime() - new Date(a.repairStartDate || a.createdAt).getTime());
 
         return completedRepairs.filter(repair => {
-            const repairDate = new Date(repair.repairEndDate || repair.updatedAt);
+            const repairDate = new Date(repair.repairStartDate || repair.createdAt);
             const start = startDate ? new Date(startDate) : null;
             const end = endDate ? new Date(endDate) : null;
 
@@ -179,11 +179,11 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                         className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base"
                     />
                      <div>
-                        <label className="text-sm text-gray-500">จากวันที่ซ่อมเสร็จ:</label>
+                        <label className="text-sm text-gray-500">จากวันที่เริ่มซ่อม:</label>
                         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-base"/>
                     </div>
                      <div>
-                        <label className="text-sm text-gray-500">ถึงวันที่ซ่อมเสร็จ:</label>
+                        <label className="text-sm text-gray-500">ถึงวันที่เริ่มซ่อม:</label>
                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-base"/>
                     </div>
                     <button onClick={handleResetFilters} className="self-end px-4 py-2 text-base font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700">ล้างตัวกรอง</button>
@@ -226,7 +226,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                             </th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่แจ้งซ่อม</th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่อนุมัติ</th>
-                            <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ซ่อมเสร็จ</th>
+                            <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่เริ่มซ่อม</th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / ทะเบียน</th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภทการซ่อม</th>
                             <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง</th>
@@ -247,7 +247,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                 </td>
                                 <td className="px-6 py-4 text-base">{new Date(repair.createdAt).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                 <td className="px-6 py-4 text-base">{repair.approvalDate ? new Date(repair.approvalDate).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
-                                <td className="px-6 py-4 text-base">{repair.repairEndDate ? new Date(repair.repairEndDate).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+                                <td className="px-6 py-4 text-base">{repair.repairStartDate ? new Date(repair.repairStartDate).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
                                 <td className="px-6 py-4">
                                     <div className="text-base font-semibold">{repair.licensePlate}</div>
                                     <div className="text-sm text-gray-500">{repair.repairOrderNo}</div>

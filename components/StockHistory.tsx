@@ -1,125 +1,164 @@
-
 import React, { useState, useMemo } from 'react';
-import type { StockTransaction, StockTransactionType, StockItem } from '../types';
+import type { StockTransaction, StockTransactionType, StockItem, Repair, Technician } from '../types';
 import { STOCK_CATEGORIES } from '../data/categories';
 
 interface StockHistoryProps {
     transactions: StockTransaction[];
     stock: StockItem[];
+    repairs: Repair[];
+    technicians: Technician[];
 }
 
-const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock }) => {
+type FlattenedPart = {
+    id: string;
+    partName: string;
+    partId: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    source: 'สต็อกอู่' | 'ร้านค้า';
+    category: string;
+    dateUsed: string;
+    repairOrderNo: string;
+    licensePlate: string;
+    assignedTechnicians: string[];
+};
+
+const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repairs, technicians }) => {
+    const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [typeFilter, setTypeFilter] = useState<StockTransactionType | 'all'>('all');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
-    const filteredTransactions = useMemo(() => {
-        const safeTransactions = Array.isArray(transactions) ? transactions : [];
-        const stockMap = new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item]));
+    const stockMap = useMemo(() => new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item])), [stock]);
 
-        return safeTransactions
-            .map(t => ({
-                ...t,
-                category: stockMap.get(t.stockItemId)?.category || 'ไม่พบ',
-            }))
-            .filter(t => {
-                const transactionDate = new Date(t.transactionDate);
-                const start = startDate ? new Date(startDate) : null;
-                const end = endDate ? new Date(endDate) : null;
+    const flattenedParts = useMemo(() => {
+        return (Array.isArray(repairs) ? repairs : [])
+            .filter(r => r.status === 'ซ่อมเสร็จ' && r.repairEndDate)
+            .flatMap(r => 
+                (Array.isArray(r.parts) ? r.parts : []).map(p => ({
+                    id: `${r.id}-${p.partId}`,
+                    partName: p.name,
+                    partId: p.partId,
+                    quantity: p.quantity,
+                    unit: p.unit,
+                    unitPrice: p.unitPrice,
+                    source: p.source,
+                    category: stockMap.get(p.partId)?.category || 'ไม่พบหมวดหมู่',
+                    dateUsed: r.repairEndDate!,
+                    repairOrderNo: r.repairOrderNo,
+                    licensePlate: r.licensePlate,
+                    assignedTechnicians: r.assignedTechnicians,
+                }))
+            );
+    }, [repairs, stockMap]);
 
-                if(start) start.setHours(0,0,0,0);
-                if(end) end.setHours(23,59,59,999);
+    const filteredData = useMemo(() => {
+        const start = startDate ? new Date(startDate) : null;
+        const end = endDate ? new Date(endDate) : null;
+        if(start) start.setHours(0,0,0,0);
+        if(end) end.setHours(23,59,59,999);
 
-                const isDateInRange = (!start || transactionDate >= start) && (!end || transactionDate <= end);
-                const isTypeMatch = typeFilter === 'all' || t.type === typeFilter;
-                const isCategoryMatch = categoryFilter === 'all' || t.category === categoryFilter;
-                const isSearchMatch = searchTerm === '' ||
-                    t.stockItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (t.actor && t.actor.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                    (t.notes && t.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                    (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (activeTab === 'internal') {
+            return (Array.isArray(transactions) ? transactions : [])
+                .map(t => ({
+                    ...t,
+                    category: stockMap.get(t.stockItemId)?.category || 'ไม่พบหมวดหมู่',
+                }))
+                .filter(t => {
+                    const transactionDate = new Date(t.transactionDate);
+                    const isDateInRange = (!start || transactionDate >= start) && (!end || transactionDate <= end);
+                    const isCategoryMatch = categoryFilter === 'all' || t.category === categoryFilter;
+                    const isSearchMatch = searchTerm === '' ||
+                        t.stockItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        t.actor.toLowerCase().includes(searchTerm.toLowerCase());
+                    
+                    return isDateInRange && isCategoryMatch && isSearchMatch;
+                })
+                .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+        } else { // 'external'
+            return flattenedParts
+                .filter(p => p.source === 'ร้านค้า')
+                .filter(p => {
+                    const transactionDate = new Date(p.dateUsed);
+                    const isDateInRange = (!start || transactionDate >= start) && (!end || transactionDate <= end);
+                    const isCategoryMatch = categoryFilter === 'all' || p.category === categoryFilter;
+                    const isSearchMatch = searchTerm === '' ||
+                        p.partName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        p.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        p.licensePlate.toLowerCase().includes(searchTerm.toLowerCase());
 
-                return isDateInRange && isTypeMatch && isSearchMatch && isCategoryMatch;
-            })
-            .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
-    }, [transactions, stock, searchTerm, startDate, endDate, typeFilter, categoryFilter]);
+                    return isDateInRange && isCategoryMatch && isSearchMatch;
+                })
+                .sort((a, b) => new Date(b.dateUsed).getTime() - new Date(a.dateUsed).getTime());
+        }
+    }, [transactions, flattenedParts, activeTab, searchTerm, startDate, endDate, categoryFilter, stockMap]);
 
-    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    const paginatedTransactions = useMemo(() => {
+
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    const paginatedData = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
-        return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredTransactions, currentPage, itemsPerPage]);
+        return filteredData.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredData, currentPage, itemsPerPage]);
 
     const handleResetFilters = () => {
         setSearchTerm('');
         setStartDate('');
         setEndDate('');
-        setTypeFilter('all');
         setCategoryFilter('all');
         setCurrentPage(1);
     };
 
-    const getTypeBadge = (type: StockTransactionType) => {
-        switch (type) {
-            case 'รับเข้า': return 'bg-green-100 text-green-800';
-            case 'เบิกใช้': return 'bg-orange-100 text-orange-800';
-            case 'คืนร้านค้า': return 'bg-indigo-100 text-indigo-800';
-            case 'ปรับสต็อก': return 'bg-teal-100 text-teal-800';
-            case 'จอง': return 'bg-blue-100 text-blue-800';
-            case 'ยกเลิกจอง': return 'bg-gray-200 text-gray-800';
-            default: return 'bg-gray-100';
-        }
-    };
-
-    const renderCategory = (categoryString: string) => {
-        if (!categoryString || typeof categoryString !== 'string') {
-            return 'ไม่ระบุ';
-        }
-        const parts = categoryString.split(' ');
-        // A simple check to see if the first part is an emoji.
-        if (parts.length > 1 && parts[0].length < 4) { 
-            return (
-                <div className="flex items-center">
-                    <span className="text-lg mr-2">{parts[0]}</span>
-                    <span>{parts.slice(1).join(' ')}</span>
-                </div>
-            );
-        }
-        return <span>{categoryString}</span>;
+    const getTechnicianNames = (ids: string[]) => {
+        if (!ids || ids.length === 0) return '-';
+        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0,5)).join(', ');
     };
     
+    const TabButton: React.FC<{ tabId: 'internal' | 'external', label: string }> = ({ tabId, label }) => (
+        <button
+            onClick={() => { setActiveTab(tabId); setCurrentPage(1); }}
+            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${
+                activeTab === tabId
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+        >
+            {label}
+        </button>
+    );
+
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-2xl shadow-sm space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="bg-white rounded-t-2xl shadow-sm">
+                <div className="border-b">
+                    <TabButton tabId="internal" label="ประวัติสต็อกอู่" />
+                    <TabButton tabId="external" label="เบิกจากร้านค้า" />
+                </div>
+            </div>
+             <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input
                         type="text"
-                        placeholder="ค้นหา (ชื่ออะไหล่, ผู้เบิก)..."
+                        placeholder="ค้นหา (ชื่ออะไหล่, ใบซ่อม, ทะเบียน)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-lg lg:col-span-2"
                     />
-                    <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as any)} className="w-full p-2 border border-gray-300 rounded-lg">
-                        <option value="all">ทุกประเภท</option>
-                        <option value="รับเข้า">รับเข้า</option>
-                        <option value="เบิกใช้">เบิกใช้</option>
-                        <option value="จอง">จอง</option>
-                        <option value="ยกเลิกจอง">ยกเลิกจอง</option>
-                        <option value="คืนร้านค้า">คืนร้านค้า</option>
-                        <option value="ปรับสต็อก">ปรับสต็อก</option>
-                    </select>
                     <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg">
                         <option value="all">ทุกหมวดหมู่</option>
                         {STOCK_CATEGORIES.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </select>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    <div className="flex items-center gap-2">
+                         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                         <span>-</span>
+                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    </div>
                 </div>
                 <button onClick={handleResetFilters} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
                     ล้างตัวกรอง
@@ -127,54 +166,93 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock }) => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0 z-10">
-                        <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภท</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ดำเนินการ</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใบซ่อมที่เกี่ยวข้อง</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมายเหตุ</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedTransactions.map(t => (
-                            <tr key={t.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                    <div>{new Date(t.transactionDate).toLocaleDateString('th-TH')}</div>
-                                    <div className="text-xs text-gray-500">{new Date(t.transactionDate).toLocaleTimeString('th-TH')}</div>
-                                </td>
-                                <td className="px-4 py-3 font-semibold">{t.stockItemName}</td>
-                                <td className="px-4 py-3 text-sm">{renderCategory(t.category)}</td>
-                                <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeBadge(t.type)}`}>{t.type}</span></td>
-                                <td className={`px-4 py-3 text-right font-bold text-base ${t.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {t.quantity > 0 ? `+${t.quantity}` : t.quantity}
-                                </td>
-                                <td className="px-4 py-3">{t.actor}</td>
-                                <td className="px-4 py-3">{t.relatedRepairOrder || '-'}</td>
-                                <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{t.notes || '-'}</td>
-                            </tr>
-                        ))}
-                         {paginatedTransactions.length === 0 && (
+                {activeTab === 'internal' ? (
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
-                                <td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภทธุรกรรม</th>
+                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ดำเนินการ</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เอกสารอ้างอิง / หมายเหตุ</th>
+                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">มูลค่ารวม</th>
                             </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {paginatedData.map((t: any) => {
+                                const isOut = t.quantity < 0;
+                                const isAdjustment = ['ปรับสต็อก', 'จอง', 'ยกเลิกจอง'].includes(t.type);
+                                let quantityColor = isAdjustment ? 'text-gray-600' : (isOut ? 'text-red-600' : 'text-green-600');
+                                const totalValue = (t.pricePerUnit ?? stockMap.get(t.stockItemId)?.price ?? 0) * t.quantity;
+
+                                return (
+                                    <tr key={t.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 text-sm text-gray-600">{new Date(t.transactionDate).toLocaleDateString('th-TH')}</td>
+                                        <td className="px-4 py-3 font-semibold">{t.stockItemName}</td>
+                                        <td className="px-4 py-3 text-sm">{t.category}</td>
+                                        <td className="px-4 py-3 text-sm">{t.type}</td>
+                                        <td className={`px-4 py-3 text-right font-bold text-base ${quantityColor}`}>
+                                            {t.quantity > 0 ? '+' : ''}{t.quantity} {stockMap.get(t.stockItemId)?.unit}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm">{t.actor}</td>
+                                        <td className="px-4 py-3 text-sm">{t.relatedRepairOrder || t.notes || '-'}</td>
+                                        <td className="px-4 py-3 text-right font-semibold">{Math.abs(totalValue).toLocaleString()}</td>
+                                    </tr>
+                                )
+                            })}
+                            {paginatedData.length === 0 && (
+                                <tr><td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                ) : (
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ใช้</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใบซ่อม / ทะเบียน</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
+                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง</th>
+                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ราคา/หน่วย</th>
+                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ราคารวม</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {paginatedData.map((p: any) => (
+                                <tr key={p.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm text-gray-600">{new Date(p.dateUsed).toLocaleDateString('th-TH')}</td>
+                                    <td className="px-4 py-3">
+                                        <div className="font-semibold">{p.repairOrderNo}</div>
+                                        <div className="text-sm text-gray-500">{p.licensePlate}</div>
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold">{p.partName}</td>
+                                    <td className="px-4 py-3 text-sm">{p.category}</td>
+                                    <td className="px-4 py-3 text-right font-bold text-base">{p.quantity} {p.unit}</td>
+                                    <td className="px-4 py-3 text-sm">{getTechnicianNames(p.assignedTechnicians)}</td>
+                                    <td className="px-4 py-3 text-right">{p.unitPrice.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right font-semibold">{(p.unitPrice * p.quantity).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                            {paginatedData.length === 0 && (
+                                <tr><td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                )}
             </div>
             
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
                 <span className="text-base text-gray-700">
-                    แสดง {paginatedTransactions.length} จาก {filteredTransactions.length} รายการ
+                    แสดง {paginatedData.length} จาก {filteredData.length} รายการ
                 </span>
                 <div className="flex items-center gap-2">
                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
-                     <span className="text-base font-semibold">หน้า {currentPage} / {totalPages}</span>
-                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                     <span className="text-base font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
+                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
                  </div>
             </div>
         </div>

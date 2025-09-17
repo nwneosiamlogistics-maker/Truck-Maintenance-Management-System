@@ -234,7 +234,7 @@ function App() {
             case 'stock':
                 return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} suppliers={suppliers} usedPartBuyers={usedPartBuyers} setUsedParts={setUsedParts} />;
             case 'stock-history':
-                return <StockHistory transactions={transactions} stock={stock} />;
+                return <StockHistory transactions={transactions} stock={stock} repairs={repairs} technicians={technicians} />;
             case 'requisitions':
                 return <PurchaseRequisitionPage purchaseRequisitions={purchaseRequisitions} setPurchaseRequisitions={setPurchaseRequisitions} stock={stock} setStock={setStock} setTransactions={setTransactions} suppliers={suppliers} />;
             case 'suppliers':
