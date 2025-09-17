@@ -82,6 +82,11 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
         if (activeTab === 'internal') {
             return (Array.isArray(transactions) ? transactions : [])
                 .filter(t => {
+                    // Per user request, hide reservation transactions to reduce confusion.
+                    if (t.type === 'จอง' || t.type === 'ยกเลิกจอง') {
+                        return false;
+                    }
+
                     // For 'เบิกใช้' transactions, verify the part source from the original repair.
                     // This prevents parts bought from stores from appearing in internal stock history.
                     if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {

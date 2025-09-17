@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 // Components
 import Sidebar from './components/Sidebar';
@@ -228,11 +227,11 @@ function App() {
             case 'list':
                 return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} addUsedParts={addUsedParts} suppliers={suppliers} usedParts={usedParts} />;
             case 'technician-view':
-                return <TechnicianView repairs={repairs} setRepairs={setRepairs} technicians={technicians} />;
+                return <TechnicianView repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} />;
             case 'history':
                 return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} suppliers={suppliers} addUsedParts={addUsedParts} usedParts={usedParts} />;
             case 'stock':
-                return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} suppliers={suppliers} usedPartBuyers={usedPartBuyers} setUsedParts={setUsedParts} />;
+                return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} suppliers={suppliers} usedPartBuyers={usedPartBuyers} setUsedParts={setUsedParts} repairs={repairs} />;
             case 'stock-history':
                 return <StockHistory transactions={transactions} stock={stock} repairs={repairs} technicians={technicians} />;
             case 'requisitions':

@@ -1,14 +1,19 @@
+
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, RepairStatus } from '../types';
+import type { Repair, Technician, RepairStatus, StockItem, StockTransaction, StockStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 
 interface TechnicianViewProps {
     repairs: Repair[];
     setRepairs: React.Dispatch<React.SetStateAction<Repair[]>>;
     technicians: Technician[];
+    stock: StockItem[];
+    setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
+    transactions: StockTransaction[];
+    setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
 }
 
-const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, technicians }) => {
+const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions }) => {
     const [selectedTechId, setSelectedTechId] = useState<string>('');
     const { addToast } = useToast();
 
@@ -25,22 +30,80 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
     }, [activeRepairs, selectedTechId]);
 
     const handleStatusUpdate = (repairId: string, newStatus: RepairStatus) => {
-        setRepairs(prev => {
-            return prev.map(r => {
-                if (r.id === repairId) {
-                    const updatedRepair = { ...r, status: newStatus, updatedAt: new Date().toISOString() };
-                    if (newStatus === 'กำลังซ่อม' && !r.repairStartDate) {
-                        updatedRepair.repairStartDate = new Date().toISOString();
+        const repairToUpdate = repairs.find(r => r.id === repairId);
+        if (!repairToUpdate) return;
+
+        // 1. Update repair status optimistically
+        const updatedRepair = { ...repairToUpdate, status: newStatus, updatedAt: new Date().toISOString() };
+        if (newStatus === 'กำลังซ่อม' && !repairToUpdate.repairStartDate) {
+            updatedRepair.repairStartDate = new Date().toISOString();
+        }
+        if (newStatus === 'ซ่อมเสร็จ' && !repairToUpdate.repairEndDate) {
+            updatedRepair.repairEndDate = new Date().toISOString();
+        }
+        setRepairs(prev => prev.map(r => r.id === repairId ? updatedRepair : r));
+        addToast(`อัปเดตสถานะใบซ่อม ${updatedRepair.repairOrderNo} เป็น "${newStatus}"`, 'success');
+
+        // 2. If completed, handle stock update
+        if (newStatus === 'ซ่อมเสร็จ') {
+            const partsToWithdraw = (updatedRepair.parts || []).filter(p => p.source === 'สต็อกอู่');
+            if (partsToWithdraw.length === 0) return;
+
+            const technicianNames = technicians
+                .filter(t => updatedRepair.assignedTechnicians.includes(t.id))
+                .map(t => t.name)
+                .join(', ') || 'ไม่ระบุ';
+            
+            const now = new Date().toISOString();
+
+            const existingWithdrawalPartIds = new Set(
+                (Array.isArray(transactions) ? transactions : [])
+                    .filter(t => t.relatedRepairOrder === updatedRepair.repairOrderNo && t.type === 'เบิกใช้')
+                    .map(t => t.stockItemId)
+            );
+
+            const newPartsToProcess = partsToWithdraw.filter(part => !existingWithdrawalPartIds.has(part.partId));
+
+            if (newPartsToProcess.length > 0) {
+                const stockUpdates: Record<string, number> = {};
+                const transactionsToAdd: StockTransaction[] = [];
+
+                newPartsToProcess.forEach(part => {
+                    stockUpdates[part.partId] = (stockUpdates[part.partId] || 0) + part.quantity;
+                    transactionsToAdd.push({
+                        id: `TXN-${now}-${part.partId}`,
+                        stockItemId: part.partId,
+                        stockItemName: part.name,
+                        type: 'เบิกใช้',
+                        quantity: -part.quantity,
+                        transactionDate: now,
+                        actor: technicianNames,
+                        notes: `ใช้สำหรับใบแจ้งซ่อม ${updatedRepair.repairOrderNo}`,
+                        relatedRepairOrder: updatedRepair.repairOrderNo,
+                        pricePerUnit: part.unitPrice
+                    });
+                });
+
+                setStock(prevStock => prevStock.map(s => {
+                    if (stockUpdates[s.id]) {
+                        const change = stockUpdates[s.id];
+                        const newQuantity = s.quantity - change;
+                        const newReserved = Math.max(0, (s.quantityReserved || 0) - change);
+
+                        let newStatus: StockStatus = 'ปกติ';
+                        if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
+                        else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                        else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
+                        
+                        return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
                     }
-                    if (newStatus === 'ซ่อมเสร็จ' && !r.repairEndDate) {
-                        updatedRepair.repairEndDate = new Date().toISOString();
-                    }
-                    addToast(`อัปเดตสถานะใบซ่อม ${r.repairOrderNo} เป็น "${newStatus}"`, 'success');
-                    return updatedRepair;
-                }
-                return r;
-            });
-        });
+                    return s;
+                }));
+
+                setTransactions(prev => [...transactionsToAdd, ...prev]);
+                addToast(`หักสต็อกและบันทึกการเบิกจ่าย ${newPartsToProcess.length} รายการ`, 'info');
+            }
+        }
     };
 
     const getStatusBadge = (status: RepairStatus) => {
