@@ -236,16 +236,24 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                 const transactionsToAdd: StockTransaction[] = [];
     
                 newWithdrawals.forEach(part => {
+                    // Only create 'เบิกใช้' transactions and update stock for internal parts.
                     if (part.source === 'สต็อกอู่') {
                         stockToUpdate[part.partId] = { 
                             quantityChange: (stockToUpdate[part.partId]?.quantityChange || 0) + part.quantity,
                         };
+                        transactionsToAdd.push({
+                            id: `TXN-${now}-${part.partId}`,
+                            stockItemId: part.partId,
+                            stockItemName: part.name,
+                            type: 'เบิกใช้',
+                            quantity: -part.quantity,
+                            transactionDate: now,
+                            actor: technicianNames,
+                            notes: `ใช้สำหรับใบแจ้งซ่อม ${finalFormData.repairOrderNo}`,
+                            relatedRepairOrder: finalFormData.repairOrderNo,
+                            pricePerUnit: part.unitPrice
+                        });
                     }
-                    transactionsToAdd.push({
-                        id: `TXN-${now}-${part.partId}`, stockItemId: part.partId, stockItemName: part.name, type: 'เบิกใช้',
-                        quantity: -part.quantity, transactionDate: now, actor: technicianNames, notes: `ใช้สำหรับใบแจ้งซ่อม ${finalFormData.repairOrderNo}`,
-                        relatedRepairOrder: finalFormData.repairOrderNo, pricePerUnit: part.unitPrice
-                    });
                 });
     
                 if (Object.keys(stockToUpdate).length > 0) {
@@ -257,7 +265,9 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                             
                             let newStatus: StockStatus = 'ปกติ';
                             if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
+                            // FIX: Corrected typo from "สต็อกต่ำ" to "สต๊อกต่ำ" to match the StockStatus type.
                             else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                            // FIX: Corrected typo from "สต็อกเกิน" to "สต๊อกเกิน" to match the StockStatus type.
                             else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
                             
                             return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };

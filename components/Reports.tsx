@@ -48,14 +48,21 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
             }, {} as Record<'ภายใน' | 'ภายนอก', number>),
         }
     }, [repairs]);
+    
+    const stockStats = useMemo(() => {
+        const safeStock = Array.isArray(stock) ? stock : [];
+        const totalStockValue = safeStock.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+        return { totalStockValue };
+    }, [stock]);
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                 <StatCard title="งานซ่อมทั้งหมด" value={repairStats.totalRepairs} bgColor="bg-blue-50" textColor="text-blue-600" />
-                <StatCard title="ค่าใช้จ่ายรวม" value={`${repairStats.totalCost.toLocaleString()} ฿`} bgColor="bg-red-50" textColor="text-red-600" />
+                <StatCard title="ค่าใช้จ่ายซ่อมรวม" value={`${repairStats.totalCost.toLocaleString()} ฿`} bgColor="bg-red-50" textColor="text-red-600" />
                 <StatCard title="ค่าใช้จ่ายเฉลี่ย" value={`${repairStats.avgCost.toLocaleString('en-US', {maximumFractionDigits: 0})} ฿`} bgColor="bg-yellow-50" textColor="text-yellow-600" />
                 <StatCard title="รถซ่อมบ่อยสุด" value={repairStats.busiestVehicle.split(' ')[0]} bgColor="bg-purple-50" textColor="text-purple-600" />
+                <StatCard title="มูลค่าสต๊อกรวม" value={`${stockStats.totalStockValue.toLocaleString()} ฿`} bgColor="bg-emerald-50" textColor="text-emerald-600" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -116,6 +123,13 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
                              </tr>
                          ))}
                          </tbody>
+                         <tfoot className="bg-gray-100 font-bold">
+                            <tr>
+                                <td colSpan={2} className="px-4 py-3 text-right text-base">มูลค่ารวมทั้งหมด</td>
+                                <td className="px-4 py-3 text-right text-lg text-emerald-700">{stockStats.totalStockValue.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-base">บาท</td>
+                            </tr>
+                        </tfoot>
                      </table>
                  </div>
              </div>

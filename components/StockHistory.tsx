@@ -35,6 +35,22 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
 
     const stockMap = useMemo(() => new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item])), [stock]);
     const repairMap = useMemo(() => new Map((Array.isArray(repairs) ? repairs : []).map(item => [item.repairOrderNo, item])), [repairs]);
+    
+    // Create a map for efficient part source lookup to fix data inconsistencies.
+    const repairPartSourceMap = useMemo(() => {
+        const map = new Map<string, Map<string, 'สต็อกอู่' | 'ร้านค้า'>>();
+        (Array.isArray(repairs) ? repairs : []).forEach(repair => {
+            if (repair.repairOrderNo && Array.isArray(repair.parts)) {
+                const partMap = new Map<string, 'สต็อกอู่' | 'ร้านค้า'>();
+                repair.parts.forEach(part => {
+                    partMap.set(part.partId, part.source);
+                });
+                map.set(repair.repairOrderNo, partMap);
+            }
+        });
+        return map;
+    }, [repairs]);
+
 
     const flattenedParts = useMemo(() => {
         return (Array.isArray(repairs) ? repairs : [])
@@ -65,6 +81,17 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
 
         if (activeTab === 'internal') {
             return (Array.isArray(transactions) ? transactions : [])
+                .filter(t => {
+                    // For 'เบิกใช้' transactions, verify the part source from the original repair.
+                    // This prevents parts bought from stores from appearing in internal stock history.
+                    if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
+                        const partSource = repairPartSourceMap.get(t.relatedRepairOrder)?.get(t.stockItemId);
+                        if (partSource === 'ร้านค้า') {
+                            return false; // Exclude this transaction.
+                        }
+                    }
+                    return true; // Include all other valid transactions.
+                })
                 .map(t => {
                     let displayDate = t.transactionDate;
                     if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
@@ -107,7 +134,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                 })
                 .sort((a, b) => new Date(b.dateUsed).getTime() - new Date(a.dateUsed).getTime());
         }
-    }, [transactions, flattenedParts, activeTab, searchTerm, startDate, endDate, categoryFilter, stockMap, repairMap]);
+    }, [transactions, flattenedParts, activeTab, searchTerm, startDate, endDate, categoryFilter, stockMap, repairMap, repairPartSourceMap]);
 
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
