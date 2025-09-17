@@ -34,6 +34,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
     const stockMap = useMemo(() => new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item])), [stock]);
+    const repairMap = useMemo(() => new Map((Array.isArray(repairs) ? repairs : []).map(item => [item.repairOrderNo, item])), [repairs]);
 
     const flattenedParts = useMemo(() => {
         return (Array.isArray(repairs) ? repairs : [])
@@ -64,12 +65,22 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
 
         if (activeTab === 'internal') {
             return (Array.isArray(transactions) ? transactions : [])
-                .map(t => ({
-                    ...t,
-                    category: stockMap.get(t.stockItemId)?.category || 'ไม่พบหมวดหมู่',
-                }))
+                .map(t => {
+                    let displayDate = t.transactionDate;
+                    if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
+                        const repair = repairMap.get(t.relatedRepairOrder);
+                        if (repair && repair.repairStartDate) {
+                            displayDate = repair.repairStartDate;
+                        }
+                    }
+                    return {
+                        ...t,
+                        displayDate,
+                        category: stockMap.get(t.stockItemId)?.category || 'ไม่พบหมวดหมู่',
+                    };
+                })
                 .filter(t => {
-                    const transactionDate = new Date(t.transactionDate);
+                    const transactionDate = new Date(t.displayDate);
                     const isDateInRange = (!start || transactionDate >= start) && (!end || transactionDate <= end);
                     const isCategoryMatch = categoryFilter === 'all' || t.category === categoryFilter;
                     const isSearchMatch = searchTerm === '' ||
@@ -79,7 +90,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     
                     return isDateInRange && isCategoryMatch && isSearchMatch;
                 })
-                .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+                .sort((a, b) => new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime());
         } else { // 'external'
             return flattenedParts
                 .filter(p => p.source === 'ร้านค้า')
@@ -96,7 +107,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                 })
                 .sort((a, b) => new Date(b.dateUsed).getTime() - new Date(a.dateUsed).getTime());
         }
-    }, [transactions, flattenedParts, activeTab, searchTerm, startDate, endDate, categoryFilter, stockMap]);
+    }, [transactions, flattenedParts, activeTab, searchTerm, startDate, endDate, categoryFilter, stockMap, repairMap]);
 
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -170,7 +181,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ใช้</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภทธุรกรรม</th>
@@ -189,7 +200,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
 
                                 return (
                                     <tr key={t.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 text-sm text-gray-600">{new Date(t.transactionDate).toLocaleDateString('th-TH')}</td>
+                                        <td className="px-4 py-3 text-sm text-gray-600">{new Date(t.displayDate).toLocaleDateString('th-TH')}</td>
                                         <td className="px-4 py-3 font-semibold">{t.stockItemName}</td>
                                         <td className="px-4 py-3 text-sm">{t.category}</td>
                                         <td className="px-4 py-3 text-sm">{t.type}</td>
