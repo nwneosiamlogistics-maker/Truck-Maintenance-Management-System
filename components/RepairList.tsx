@@ -1,10 +1,9 @@
-
-
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority, Supplier, StockTransaction } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 interface RepairListProps {
     repairs: Repair[];
@@ -119,7 +118,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
     };
     
     const handleDeleteRepair = (repairId: string, repairOrderNo: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
             setRepairs(prev => prev.filter(r => r.id !== repairId));
             addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
         }
@@ -194,7 +193,15 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                                 <td className="px-4 py-3 text-base">{new Date(repair.createdAt).toLocaleDateString('th-TH')}</td>
                                 <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
                                 <td className="px-4 py-3 text-center space-x-2">
-                                    <button onClick={() => setEditingRepair(repair)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
+                                    <button onClick={() => {
+                                        if (repair.status === 'ซ่อมเสร็จ') {
+                                            if (promptForPassword('แก้ไข')) {
+                                                setEditingRepair(repair);
+                                            }
+                                        } else {
+                                            setEditingRepair(repair);
+                                        }
+                                    }} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
                                     <button onClick={() => setViewingRepair(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดู</button>
                                     <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                 </td>

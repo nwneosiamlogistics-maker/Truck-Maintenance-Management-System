@@ -30,3 +30,15 @@ export const formatDateTime24h = (isoString: string | null | undefined): string 
     return '-';
   }
 };
+
+export const promptForPassword = (action: string): boolean => {
+    const password = window.prompt(`เพื่อยืนยันการ${action}, โปรดกรอกรหัสผ่าน:`);
+    if (password === null) {
+        return false;
+    }
+    if (password === '1234') {
+        return true;
+    }
+    alert('รหัสผ่านไม่ถูกต้อง!');
+    return false;
+};

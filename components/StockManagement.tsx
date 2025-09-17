@@ -11,6 +11,7 @@ import UpdateUsedPartStatusModal from './UpdateUsedPartStatusModal';
 import CreatePRFromStockModal from './CreatePRFromStockModal';
 import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
+import { promptForPassword } from '../utils';
 
 type ReservationInfo = {
     repairOrderNo: string;
@@ -178,7 +179,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     };
     
     const handleDeleteItem = (itemId: string, itemName: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ "${itemName}" ออกจากสต็อก?`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ "${itemName}" ออกจากสต็อก?`)) {
             setStock(prev => prev.filter(s => s.id !== itemId));
             addToast(`ลบ ${itemName} สำเร็จ`, 'info');
         }
@@ -324,7 +325,12 @@ const StockManagement: React.FC<StockManagementProps> = ({
     };
 
     
-    // ... Used part handlers ...
+    const handleDeleteUsedPart = (partId: string) => {
+        if (promptForPassword('ลบ')) {
+            deleteUsedPart(partId);
+        }
+    };
+
     const getUsedPartRemaining = (part: UsedPart) => {
         const disposed = (part.dispositions || []).reduce((sum, d) => sum + d.quantity, 0);
         return (part.initialQuantity || 0) - disposed;
@@ -435,7 +441,11 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                     <td className="px-4 py-3 text-right text-sm">{item.price.toLocaleString()}</td>
                                     <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(item.status)}`}>{item.status}</span></td>
                                     <td className="px-4 py-3 text-center whitespace-nowrap space-x-1">
-                                        <button onClick={() => handleOpenStockModal(item)} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
+                                        <button onClick={() => {
+                                            if (promptForPassword('แก้ไข')) {
+                                                handleOpenStockModal(item);
+                                            }
+                                        }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
                                         {isRequested ? (
                                             <span className="text-blue-500 p-1 text-xs font-semibold italic">ขอซื้อแล้ว</span>
                                         ) : (
@@ -482,10 +492,22 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                     <td className="px-4 py-3 text-right"><div className="font-bold text-lg">{part.initialQuantity}</div><div className="text-sm text-gray-500">เหลือ: {getUsedPartRemaining(part)}</div></td>
                                     <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
                                     <td className="px-4 py-3 text-center whitespace-nowrap space-x-1">
-                                        <button onClick={() => { setPartToManage(part); setManageUsedPartModalOpen(true); }} className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold">จัดการ</button>
-                                        <button onClick={() => { setPartToUpdateStatus(part); setUpdateUsedPartStatusModalOpen(true); }} className="text-blue-600 hover:text-blue-800 p-1 text-xs font-semibold">สถานะ</button>
-                                        <button onClick={() => { setPartToEdit(part); setEditUsedPartModalOpen(true); }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
-                                        <button onClick={() => deleteUsedPart(part.id)} className="text-red-500 hover:text-red-700 p-1 text-xs font-semibold">ลบ</button>
+                                        <button onClick={() => {
+                                            if (promptForPassword('จัดการ')) {
+                                                setPartToManage(part); setManageUsedPartModalOpen(true);
+                                            }
+                                        }} className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold">จัดการ</button>
+                                        <button onClick={() => {
+                                            if (promptForPassword('อัปเดตสถานะ')) {
+                                                setPartToUpdateStatus(part); setUpdateUsedPartStatusModalOpen(true);
+                                            }
+                                        }} className="text-blue-600 hover:text-blue-800 p-1 text-xs font-semibold">สถานะ</button>
+                                        <button onClick={() => {
+                                            if (promptForPassword('แก้ไข')) {
+                                                setPartToEdit(part); setEditUsedPartModalOpen(true);
+                                            }
+                                        }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
+                                        <button onClick={() => handleDeleteUsedPart(part.id)} className="text-red-500 hover:text-red-700 p-1 text-xs font-semibold">ลบ</button>
                                     </td>
                                 </tr>
                             ))}

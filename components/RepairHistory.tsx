@@ -1,10 +1,9 @@
-
-
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem, Supplier, UsedPart, StockTransaction } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
 import RepairEditModal from './RepairEditModal';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 interface RepairHistoryProps {
     repairs: Repair[];
@@ -34,7 +33,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
 
     const filteredRepairs = useMemo(() => {
         const completedRepairs = repairs
-            .filter(repair => repair.status === 'ซ่อมเสร็จ')
+            .filter(repair => repair.status === 'ซ่อมเสร็จ' || repair.status === 'ยกเลิก')
             .sort((a, b) => new Date(b.repairStartDate || b.createdAt).getTime() - new Date(a.repairStartDate || a.createdAt).getTime());
 
         return completedRepairs.filter(repair => {
@@ -80,25 +79,21 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         setEditingRepair(null);
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
 
-        // If the repair is marked as completed and has parts, check for and add missing used parts.
-        // This logic is now robust and handles both initial completion and subsequent edits.
         if (updatedRepair.status === 'ซ่อมเสร็จ' && updatedRepair.parts && updatedRepair.parts.length > 0) {
             
-            // Find used parts that have already been created for this repair order.
             const existingUsedPartOriginalIds = new Set(
                 (Array.isArray(usedParts) ? usedParts : [])
                     .filter(up => up.fromRepairId === updatedRepair.id)
-                    .map(up => up.originalPartId) // Use originalPartId for matching
+                    .map(up => up.originalPartId)
             );
 
-            // Find parts from the repair that haven't been turned into used parts yet.
             const newPartsToLog = updatedRepair.parts.filter(
                 part => !existingUsedPartOriginalIds.has(part.partId)
             );
 
             if (newPartsToLog.length > 0) {
                 const newUsedParts: Omit<UsedPart, 'id'>[] = newPartsToLog.map(part => ({
-                    originalPartId: part.partId, // Link to the PartRequisitionItem
+                    originalPartId: part.partId,
                     name: part.name,
                     fromRepairId: updatedRepair.id,
                     fromRepairOrderNo: updatedRepair.repairOrderNo,
@@ -118,7 +113,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     };
 
     const handleDeleteRepair = (repairId: string, repairOrderNo: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
             setRepairs(prev => prev.filter(r => r.id !== repairId));
             addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
         }
@@ -160,16 +155,10 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const handleDeleteSelected = () => {
         if (selectedRepairIds.length === 0) return;
 
-        const password = window.prompt("เพื่อยืนยันการลบ โปรดกรอกรหัส: 1234");
-        
-        if (password === null) return;
-
-        if (password === "1234") {
+        if (promptForPassword('ลบรายการที่เลือก') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการซ่อม ${selectedRepairIds.length} รายการ?`)) {
             setRepairs(prev => prev.filter(r => !selectedRepairIds.includes(r.id)));
             addToast(`ลบประวัติการซ่อม ${selectedRepairIds.length} รายการสำเร็จ`, 'success');
             setSelectedRepairIds([]);
-        } else {
-            addToast("รหัสไม่ถูกต้อง การลบถูกยกเลิก", "error");
         }
     };
 
@@ -263,7 +252,11 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                 <td className="px-6 py-4 text-right text-base font-bold">{calculateTotalCost(repair).toLocaleString()}</td>
                                 <td className="px-6 py-4 text-center whitespace-nowrap space-x-2">
                                     <button onClick={() => openDetailModal(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดู</button>
-                                    <button onClick={() => setEditingRepair(repair)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
+                                    <button onClick={() => {
+                                        if (promptForPassword('แก้ไข')) {
+                                            setEditingRepair(repair);
+                                        }
+                                    }} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
                                     <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                 </td>
                             </tr>
@@ -293,7 +286,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                  </div>
                  <div className="flex items-center gap-2">
                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
-                     <span className="text-base font-semibold">หน้า {currentPage} / {totalPages}</span>
+                     <span className="text-base font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
                      <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
                  </div>
             </div>

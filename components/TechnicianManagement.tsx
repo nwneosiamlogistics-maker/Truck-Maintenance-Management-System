@@ -1,10 +1,9 @@
-
-
 import React, { useState, useMemo } from 'react';
 import type { Technician, Repair } from '../types';
 import TechnicianModal from './TechnicianModal';
 import TechnicianEditModal from './TechnicianEditModal';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 interface TechnicianManagementProps {
     technicians: Technician[];
@@ -82,7 +81,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
     };
 
     const handleDeleteTechnician = (techId: string, techName: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ ${techName}?`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ ${techName}?`)) {
             setTechnicians(prev => prev.filter(t => t.id !== techId));
             addToast(`ลบช่าง ${techName} สำเร็จ`, 'info');
         }

@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import type { Vehicle } from '../types';
 import VehicleModal from './VehicleModal';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 interface VehicleManagementProps {
     vehicles: Vehicle[];
@@ -52,7 +53,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
     };
 
     const handleDeleteVehicle = (vehicleId: string, licensePlate: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบรถทะเบียน ${licensePlate}?`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบรถทะเบียน ${licensePlate}?`)) {
             setVehicles(prev => prev.filter(v => v.id !== vehicleId));
             addToast(`ลบรถทะเบียน ${licensePlate} สำเร็จ`, 'info');
         }

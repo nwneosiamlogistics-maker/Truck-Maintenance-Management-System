@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { Supplier } from '../types';
 import { SupplierModal } from './SupplierModal';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 interface SupplierManagementProps {
     suppliers: Supplier[];
@@ -44,7 +45,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, setS
     };
 
     const handleDeleteSupplier = (supplierId: string, name: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบผู้จำหน่าย "${name}"?`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบผู้จำหน่าย "${name}"?`)) {
             setSuppliers(prev => prev.filter(s => s.id !== supplierId));
             addToast(`ลบ "${name}" สำเร็จ`, 'info');
         }

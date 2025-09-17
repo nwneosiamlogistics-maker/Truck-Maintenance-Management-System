@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { UsedPartBuyer } from '../types';
 import UsedPartBuyerModal from './UsedPartBuyerModal';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 interface UsedPartBuyerManagementProps {
     usedPartBuyers: UsedPartBuyer[];
@@ -44,7 +45,7 @@ const UsedPartBuyerManagement: React.FC<UsedPartBuyerManagementProps> = ({ usedP
     };
 
     const handleDeleteBuyer = (buyerId: string, name: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบผู้รับซื้อ "${name}"?`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบผู้รับซื้อ "${name}"?`)) {
             setUsedPartBuyers(prev => prev.filter(b => b.id !== buyerId));
             addToast(`ลบ "${name}" สำเร็จ`, 'info');
         }
