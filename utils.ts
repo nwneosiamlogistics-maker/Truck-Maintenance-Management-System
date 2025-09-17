@@ -12,3 +12,21 @@ export const formatHoursToHHMM = (decimalHours: number): string => {
   
   return `${hours}:${paddedMinutes}`;
 };
+
+export const formatDateTime24h = (isoString: string | null | undefined): string => {
+  if (!isoString) return '-';
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleString('th-TH', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23' // Explicitly 24-hour clock
+    }).replace(',', '');
+  } catch {
+    return '-';
+  }
+};

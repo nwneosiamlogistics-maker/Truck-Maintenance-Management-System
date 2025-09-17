@@ -6,6 +6,7 @@ import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
 import Stepper from './Stepper';
+import { formatDateTime24h } from '../utils';
 
 interface RepairFormProps {
     technicians: Technician[];
@@ -65,11 +66,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [isEstimating, setIsEstimating] = useState(false);
     
     const [currentStep, setCurrentStep] = useState(0);
-    const steps = ['ข้อมูลรถและปัญหา', 'การประเมินและมอบหมาย', 'อะไหล่และค่าใช้จ่าย', 'สรุปและยืนยัน'];
+    const steps = ['ข้อมูลรถและปัญหา', 'การประเมินและมอบหมาย', 'อะไหล่และค่าใช้จ่าย', 'สรุปและยืนยืน'];
 
     const [suggestions, setSuggestions] = useState<Vehicle[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const suggestionsRef = useRef<HTMLDivElement>(null);
+    
+    const [estimationMode, setEstimationMode] = useState<'duration' | 'date'>('duration');
+    const [durationValue, setDurationValue] = useState<number>(8);
+    const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
+
 
     const { addToast } = useToast();
     
@@ -81,6 +87,22 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     }, [vehicles]);
     
     const activeEstimation = formData.estimations[formData.estimations.length - 1];
+    
+    useEffect(() => {
+        if (estimationMode === 'duration' && activeEstimation) {
+            const startDate = new Date(activeEstimation.estimatedStartDate || Date.now());
+            if (isNaN(startDate.getTime())) return;
+
+            const multiplier = durationUnit === 'hours' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+            const endDate = new Date(startDate.getTime() + (durationValue * multiplier));
+            
+            const newEstimations = formData.estimations.map(e => 
+                e.sequence === activeEstimation.sequence ? { ...e, estimatedEndDate: endDate.toISOString() } : e
+            );
+            
+            setFormData(prev => ({ ...prev, estimations: newEstimations }));
+        }
+    }, [estimationMode, durationValue, durationUnit, activeEstimation?.estimatedStartDate, activeEstimation?.sequence]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -91,6 +113,19 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const toLocalISOString = (isoString: string | null | undefined) => {
+        if (!isoString) return '';
+        try {
+            const date = new Date(isoString);
+            if (isNaN(date.getTime())) return '';
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
+            return localISOTime;
+        } catch {
+            return '';
+        }
+    };
 
     const getPriorityClass = (priority: Priority) => {
         switch (priority) {
@@ -119,12 +154,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     };
     
     const handleDateChange = (field: keyof EstimationAttempt, value: string) => {
-        const newEstimations = [...formData.estimations];
-        newEstimations[newEstimations.length - 1] = {
-            ...activeEstimation,
-            [field]: value ? new Date(value).toISOString() : ''
-        };
+        const newEstimations = formData.estimations.map(e => 
+            e.sequence === activeEstimation.sequence 
+                ? { ...e, [field]: value ? new Date(value).toISOString() : null }
+                : e
+        );
         setFormData(prev => ({ ...prev, estimations: newEstimations }));
+        
+        if (field === 'estimatedEndDate') {
+            setEstimationMode('date');
+        }
     };
 
     const handleSuggestionClick = (vehicle: Vehicle) => {
@@ -196,16 +235,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             const result: EstimationResult = JSON.parse(response.text);
             
             const laborHours = Math.round(result.laborHours) || 1;
-            const startDate = new Date(activeEstimation.estimatedStartDate || Date.now());
-            const endDate = new Date(startDate.getTime() + (laborHours * 60 * 60 * 1000));
             
-            const updatedEstimations = [...formData.estimations];
-            updatedEstimations[updatedEstimations.length-1] = {
-                ...activeEstimation,
-                estimatedLaborHours: laborHours,
-                estimatedEndDate: endDate.toISOString(),
-                aiReasoning: result.reasoning
-            };
+            setEstimationMode('duration');
+            setDurationUnit('hours');
+            setDurationValue(laborHours);
+            
+            const updatedEstimations = formData.estimations.map(e => 
+                e.sequence === activeEstimation.sequence 
+                    ? { ...e, estimatedLaborHours: laborHours, aiReasoning: result.reasoning }
+                    : e
+            );
             setFormData(prev => ({...prev, estimations: updatedEstimations}));
             addToast('AI ประมาณการณ์สำเร็จ', 'success');
 
@@ -395,15 +434,61 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ *</label>
-                             <div className="flex items-center gap-2 mt-1">
-                                <input type="datetime-local" value={activeEstimation.estimatedEndDate ? new Date(activeEstimation.estimatedEndDate).toISOString().substring(0, 16) : ''} onChange={e => handleDateChange('estimatedEndDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" required />
-                                <button type="button" onClick={handleEstimate} disabled={isEstimating} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50">
-                                    {isEstimating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : "🤖"}
-                                    <span>AI</span>
-                                </button>
+                            <label className="block text-sm font-medium text-gray-700">การประมาณการณ์เวลาซ่อม *</label>
+                            <div className="p-4 border rounded-lg bg-gray-50 mt-1 space-y-4">
+                                <div className="flex items-center gap-6">
+                                    <label className="flex items-center cursor-pointer">
+                                        <input type="radio" name="estimationMode" value="duration" checked={estimationMode === 'duration'} onChange={() => setEstimationMode('duration')} className="mr-2 h-4 w-4"/>
+                                        <span className="font-semibold text-gray-700">ระบุระยะเวลา</span>
+                                    </label>
+                                    <label className="flex items-center cursor-pointer">
+                                        <input type="radio" name="estimationMode" value="date" checked={estimationMode === 'date'} onChange={() => setEstimationMode('date')} className="mr-2 h-4 w-4"/>
+                                        <span className="font-semibold text-gray-700">กำหนดวันเสร็จ</span>
+                                    </label>
+                                    <div className="flex-1 flex justify-end">
+                                        <button type="button" onClick={handleEstimate} disabled={isEstimating} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50">
+                                            {isEstimating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : "🤖"}
+                                            <span>AI ช่วยประมาณการณ์</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {estimationMode === 'duration' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">ระยะเวลา</label>
+                                        <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">หน่วย</label>
+                                        <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                            <option value="hours">ชั่วโมง</option>
+                                            <option value="days">วัน</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
+                                        <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleDateChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ</label>
+                                        <input 
+                                            type="datetime-local" 
+                                            value={toLocalISOString(activeEstimation.estimatedEndDate) || ''} 
+                                            onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)} 
+                                            className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                            readOnly={estimationMode === 'duration'}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                
+                                {activeEstimation.aiReasoning && <p className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 italic">"{activeEstimation.aiReasoning}"</p>}
                             </div>
-                             {activeEstimation.aiReasoning && <p className="p-2 mt-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 italic">"{activeEstimation.aiReasoning}"</p>}
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง *</label>
@@ -471,7 +556,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <button onClick={() => setCurrentStep(1)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
                             </div>
                             <p><strong>ความสำคัญ:</strong> {formData.priority}</p>
-                            <p><strong>คาดว่าจะเสร็จ:</strong> {activeEstimation.estimatedEndDate ? new Date(activeEstimation.estimatedEndDate).toLocaleString('th-TH') : '-'}</p>
+                            <p><strong>คาดว่าจะเสร็จ:</strong> {formatDateTime24h(activeEstimation.estimatedEndDate)}</p>
                             <p><strong>ช่าง:</strong> {technicians.filter(t => formData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ')}</p>
                         </div>
                          <div className="p-4 border rounded-lg">

@@ -3,6 +3,7 @@ import type { MaintenancePlan, Repair, Technician } from '../types';
 import MaintenancePlanModal from './MaintenancePlanModal';
 import LogMaintenanceModal from './LogMaintenanceModal';
 import { useToast } from '../context/ToastContext';
+import { formatDateTime24h } from '../utils';
 
 interface MaintenancePlannerProps {
     plans: MaintenancePlan[];
@@ -166,7 +167,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {scheduledRepairs.map(repair => (
                                     <tr key={repair.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-semibold">{new Date(repair.activeEstimation!.estimatedEndDate).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                                        <td className="px-4 py-3 font-semibold">{formatDateTime24h(repair.activeEstimation!.estimatedEndDate)}</td>
                                         <td className="px-4 py-3 font-medium">{repair.licensePlate}</td>
                                         <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
                                         <td className="px-4 py-3 text-sm">{getTechnicianNames(repair.assignedTechnicians)}</td>
