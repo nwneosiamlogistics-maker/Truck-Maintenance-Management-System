@@ -215,11 +215,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                                     <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(plan.status)}`}>{plan.statusText}</span></td>
                                     <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
                                         <button onClick={() => setLoggingPlan(plan)} className="text-green-600 hover:text-green-800 font-medium">บันทึก</button>
-                                        <button onClick={() => {
-                                            if (promptForPassword('แก้ไข')) {
-                                                handleOpenModal(plan)
-                                            }
-                                        }} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
+                                        <button onClick={() => handleOpenModal(plan)} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
                                         <button onClick={() => handleDeletePlan(plan.id, plan.planName)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
                                     </td>
                                 </tr>
