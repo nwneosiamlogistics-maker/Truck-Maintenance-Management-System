@@ -76,6 +76,7 @@ export interface Repair {
     priority: Priority;
     problemDescription: string;
     assignedTechnicians: string[];
+    externalTechnicianName?: string;
     notes: string;
     dispatchType: DispatchType;
     repairLocation: string;
@@ -111,7 +112,7 @@ export interface Technician {
     currentJobs: number;
 }
 
-export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต๊อก' | 'สต๊อกเกิน';
+export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต็อก' | 'สต๊อกเกิน';
 
 export interface StockItem {
     id: string;

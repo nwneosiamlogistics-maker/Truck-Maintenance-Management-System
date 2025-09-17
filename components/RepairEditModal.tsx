@@ -53,11 +53,16 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     const [estimationMode, setEstimationMode] = useState<'duration' | 'date'>('date');
     const [durationValue, setDurationValue] = useState<number>(8);
     const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
+    
+    const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>(
+        repair.externalTechnicianName ? 'external' : 'internal'
+    );
 
     const { addToast } = useToast();
 
     useEffect(() => {
         setFormData(getInitialState(repair));
+        setAssignmentType(repair.externalTechnicianName ? 'external' : 'internal');
     }, [repair]);
 
     const toLocalISOString = (isoString: string | null | undefined) => {
@@ -218,7 +223,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             }
         });
     
-        // 3. Create 'เบิกใช้' transactions for newly added parts if repair is completed
+        // 3. Create 'เบิกใช้' transactions and finalize stock if repair is completed
         if (finalFormData.status === 'ซ่อมเสร็จ') {
             const technicianNames = technicians.filter(t => finalFormData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
             const now = new Date().toISOString();
@@ -229,18 +234,19 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                     .map(t => t.stockItemId)
             );
     
-            const newWithdrawals = partsAfterEdit.filter(part => !existingWithdrawalPartIds.has(part.partId));
-            
-            if (newWithdrawals.length > 0) {
-                const stockToUpdate: Record<string, { quantityChange: number }> = {};
-                const transactionsToAdd: StockTransaction[] = [];
-    
-                newWithdrawals.forEach(part => {
-                    // Only create 'เบิกใช้' transactions and update stock for internal parts.
-                    if (part.source === 'สต็อกอู่') {
-                        stockToUpdate[part.partId] = { 
-                            quantityChange: (stockToUpdate[part.partId]?.quantityChange || 0) + part.quantity,
-                        };
+            const stockToUpdate: Record<string, { quantityChange: number, reservedChange: number }> = {};
+            const transactionsToAdd: StockTransaction[] = [];
+
+            partsAfterEdit.forEach(part => {
+                if (part.source === 'สต็อกอู่') {
+                    // This part's reservation is now fulfilled.
+                    stockToUpdate[part.partId] = { 
+                        quantityChange: (stockToUpdate[part.partId]?.quantityChange || 0) + part.quantity,
+                        reservedChange: (stockToUpdate[part.partId]?.reservedChange || 0) + part.quantity,
+                    };
+                    
+                    // Only create a new withdrawal transaction if one doesn't already exist for this part in this repair order
+                    if (!existingWithdrawalPartIds.has(part.partId)) {
                         transactionsToAdd.push({
                             id: `TXN-${now}-${part.partId}`,
                             stockItemId: part.partId,
@@ -254,36 +260,68 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                             pricePerUnit: part.unitPrice
                         });
                     }
-                });
+                }
+            });
     
-                if (Object.keys(stockToUpdate).length > 0) {
-                    setStock(prevStock => prevStock.map(s => {
-                        if (stockToUpdate[s.id]) {
-                            const change = stockToUpdate[s.id].quantityChange;
-                            const newQuantity = s.quantity - change;
-                            const newReserved = Math.max(0, (s.quantityReserved || 0) - change);
-                            
-                            let newStatus: StockStatus = 'ปกติ';
-                            if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
-                            // FIX: Corrected typo from "สต็อกต่ำ" to "สต๊อกต่ำ" to match the StockStatus type.
-                            else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
-                            // FIX: Corrected typo from "สต็อกเกิน" to "สต๊อกเกิน" to match the StockStatus type.
-                            else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
-                            
-                            return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
-                        }
-                        return s;
-                    }));
-                     addToast(`หักสต็อกอะไหล่ใหม่ ${Object.keys(stockToUpdate).length} รายการ`, 'info');
-                }
-                if (transactionsToAdd.length > 0) {
-                    setTransactions(prev => [...transactionsToAdd, ...prev]);
-                    addToast(`สร้างประวัติการเบิกจ่ายสำหรับ ${transactionsToAdd.length} รายการใหม่`, 'info');
-                }
+            if (Object.keys(stockToUpdate).length > 0) {
+                setStock(prevStock => prevStock.map(s => {
+                    if (stockToUpdate[s.id]) {
+                        const { quantityChange, reservedChange } = stockToUpdate[s.id];
+                        const newQuantity = s.quantity - quantityChange;
+                        const newReserved = Math.max(0, (s.quantityReserved || 0) - reservedChange);
+                        
+                        let newStatus: StockStatus = 'ปกติ';
+                        // FIX: Corrected Thai spelling for StockStatus enum values ('หมดสต็อก', 'สต๊อกต่ำ', 'สต๊อกเกิน') to match the type definition.
+                        if (newQuantity <= 0) newStatus = 'หมดสต็อก';
+                        else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                        else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
+                        
+                        return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
+                    }
+                    return s;
+                }));
+                 addToast(`หักสต็อกและเคลียร์ยอดจอง ${Object.keys(stockToUpdate).length} รายการ`, 'info');
+            }
+            if (transactionsToAdd.length > 0) {
+                setTransactions(prev => [...transactionsToAdd, ...prev]);
+                addToast(`สร้างประวัติการเบิกจ่ายใหม่ ${transactionsToAdd.length} รายการ`, 'info');
+            }
+        } else if (finalFormData.status === 'ยกเลิก') {
+            const partsToUnreserve = (finalFormData.parts || []).filter(p => p.source === 'สต็อกอู่');
+            if (partsToUnreserve.length > 0) {
+                const stockToUpdate: Record<string, { reservedChange: number }> = {};
+                const transactionsToAdd: StockTransaction[] = [];
+                const now = new Date().toISOString();
+                partsToUnreserve.forEach(part => {
+                    stockToUpdate[part.partId] = {
+                        reservedChange: (stockToUpdate[part.partId]?.reservedChange || 0) + part.quantity
+                    };
+                    transactionsToAdd.push({
+                        id: `TXN-cancel-${now}-${part.partId}`,
+                        stockItemId: part.partId,
+                        stockItemName: part.name,
+                        type: 'ยกเลิกจอง',
+                        quantity: part.quantity,
+                        transactionDate: now,
+                        actor: 'ระบบ (ยกเลิกใบซ่อม)',
+                        notes: `จากใบซ่อม ${finalFormData.repairOrderNo}`,
+                        relatedRepairOrder: finalFormData.repairOrderNo,
+                        pricePerUnit: part.unitPrice
+                    });
+                });
+                setStock(prevStock => prevStock.map(s => {
+                    if (stockToUpdate[s.id]) {
+                        const { reservedChange } = stockToUpdate[s.id];
+                        const newReserved = Math.max(0, (s.quantityReserved || 0) - reservedChange);
+                        return { ...s, quantityReserved: newReserved };
+                    }
+                    return s;
+                }));
+                setTransactions(prev => [...transactionsToAdd, ...prev]);
+                addToast(`ยกเลิกการจองอะไหล่ ${partsToUnreserve.length} รายการ`, 'info');
             }
         }
         
-        // 4. Call onSave with the final form data
         onSave(finalFormData);
     };
     
@@ -305,6 +343,23 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             case 'ด่วน': return 'bg-yellow-50 border-yellow-400 text-yellow-800 font-semibold';
             case 'ด่วนที่สุด': return 'bg-red-50 border-red-400 text-red-800 font-semibold';
             default: return 'bg-white border-gray-300';
+        }
+    };
+    
+    const handleAssignmentTypeChange = (type: 'internal' | 'external') => {
+        setAssignmentType(type);
+        if (type === 'internal') {
+            setFormData(prev => ({
+                ...prev,
+                externalTechnicianName: '',
+                dispatchType: 'ภายใน'
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                assignedTechnicians: [],
+                dispatchType: 'ภายนอก'
+            }));
         }
     };
     
@@ -471,12 +526,33 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                         {openSections.dispatch && (
                              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                                  <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง</label>
-                                   <TechnicianMultiSelect
-                                        allTechnicians={technicians}
-                                        selectedTechnicianIds={formData.assignedTechnicians}
-                                        onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))}
-                                   />
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทการส่งซ่อม</label>
+                                    <div className="flex items-center gap-6 mb-3">
+                                        <label className="flex items-center cursor-pointer">
+                                            <input type="radio" name="assignmentType" value="internal" checked={assignmentType === 'internal'} onChange={() => handleAssignmentTypeChange('internal')} className="mr-2 h-4 w-4"/>
+                                            <span className="font-semibold text-gray-700">ซ่อมภายใน</span>
+                                        </label>
+                                        <label className="flex items-center cursor-pointer">
+                                            <input type="radio" name="assignmentType" value="external" checked={assignmentType === 'external'} onChange={() => handleAssignmentTypeChange('external')} className="mr-2 h-4 w-4"/>
+                                            <span className="font-semibold text-gray-700">ซ่อมภายนอก</span>
+                                        </label>
+                                    </div>
+                                    {assignmentType === 'internal' ? (
+                                       <TechnicianMultiSelect
+                                            allTechnicians={technicians}
+                                            selectedTechnicianIds={formData.assignedTechnicians}
+                                            onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))}
+                                       />
+                                    ) : (
+                                        <input 
+                                            type="text" 
+                                            name="externalTechnicianName"
+                                            value={formData.externalTechnicianName || ''} 
+                                            onChange={handleInputChange} 
+                                            placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก"
+                                            className="w-full p-2 border border-gray-300 rounded-lg" 
+                                        />
+                                    )}
                                 </div>
                                  <div>
                                     <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ไม่รวมอะไหล่)</label>

@@ -91,7 +91,8 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                         const newReserved = Math.max(0, (s.quantityReserved || 0) - change);
 
                         let newStatus: StockStatus = 'ปกติ';
-                        if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
+// FIX: Corrected typo in Thai word for "out of stock"
+                        if (newQuantity <= 0) newStatus = 'หมดสต็อก';
                         else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                         else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
                         

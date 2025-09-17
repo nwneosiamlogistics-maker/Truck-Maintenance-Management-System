@@ -56,9 +56,14 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
             .sort((a, b) => new Date(b.repairEndDate || b.createdAt).getTime() - new Date(a.repairEndDate || a.createdAt).getTime());
     }, [repairs, selectedTechId, startDate, endDate, searchTerm]);
     
-    const getTechnicianNames = (ids: string[]) => {
-        if (!ids || ids.length === 0) return 'N/A';
-        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+    const getTechnicianDisplay = (repair: Repair) => {
+        if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
+            return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
+        }
+        if (repair.assignedTechnicians && repair.assignedTechnicians.length > 0) {
+            return repair.assignedTechnicians.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+        }
+        return 'N/A';
     };
     
     const formatDate = (dateString: string | null) => {
@@ -84,7 +89,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                 `"${r.repairCategory}"`,
                 `"${r.problemDescription.replace(/"/g, '""')}"`,
                 `"${partsString.replace(/"/g, '""')}"`,
-                `"${getTechnicianNames(r.assignedTechnicians)}"`,
+                `"${getTechnicianDisplay(r)}"`,
                 `"${r.dispatchType}"`
             ];
             return row.join(",");
@@ -199,7 +204,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                                     )}
                                 </td>
                                  <td className="px-4 py-3 align-top">
-                                    <div className="text-sm">{getTechnicianNames(r.assignedTechnicians)}</div>
+                                    <div className="text-sm">{getTechnicianDisplay(r)}</div>
                                     <div className="text-sm text-gray-600">{r.dispatchType}</div>
                                 </td>
                             </tr>

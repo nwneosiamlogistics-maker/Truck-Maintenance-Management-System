@@ -37,6 +37,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         priority: 'ปกติ' as const,
         problemDescription: '',
         assignedTechnicians: [] as string[],
+        externalTechnicianName: '',
         notes: '',
         dispatchType: 'ภายใน' as 'ภายใน' | 'ภายนอก',
         repairLocation: '',
@@ -57,6 +58,11 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             failureReason: null,
             aiReasoning: null,
         }] as EstimationAttempt[],
+        // FIX: Add missing 'checklists' property to satisfy the Repair type.
+        checklists: {
+            preRepair: [],
+            postRepair: [],
+        }
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -75,6 +81,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [estimationMode, setEstimationMode] = useState<'duration' | 'date'>('duration');
     const [durationValue, setDurationValue] = useState<number>(8);
     const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
+    
+    const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>('internal');
 
 
     const { addToast } = useToast();
@@ -197,6 +205,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setFormData(getInitialState());
         setOtherVehicleType('');
         setCurrentStep(0);
+        setAssignmentType('internal');
     };
 
     const handleEstimate = async () => {
@@ -335,8 +344,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 }
                 break;
             case 1:
-                if (formData.assignedTechnicians.length === 0) {
-                     addToast('กรุณามอบหมายช่างอย่างน้อย 1 คน', 'warning');
+                const isInternalAssigned = assignmentType === 'internal' && formData.assignedTechnicians.length > 0;
+                const isExternalAssigned = assignmentType === 'external' && !!formData.externalTechnicianName?.trim();
+                if (!isInternalAssigned && !isExternalAssigned) {
+                    addToast('กรุณามอบหมายช่างภายในหรือระบุชื่อช่างภายนอก', 'warning');
                     return false;
                 }
                  if (!activeEstimation.estimatedEndDate) {
@@ -361,6 +372,23 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
     const handleBack = () => {
         setCurrentStep(prev => Math.max(prev - 1, 0));
+    };
+    
+    const handleAssignmentTypeChange = (type: 'internal' | 'external') => {
+        setAssignmentType(type);
+        if (type === 'internal') {
+            setFormData(prev => ({
+                ...prev,
+                externalTechnicianName: '',
+                dispatchType: 'ภายใน'
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                assignedTechnicians: [],
+                dispatchType: 'ภายนอก'
+            }));
+        }
     };
     
     const renderStepContent = () => {
@@ -491,8 +519,30 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-gray-700">มอบหมายช่าง *</label>
-                            <TechnicianMultiSelect allTechnicians={technicians} selectedTechnicianIds={formData.assignedTechnicians} onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))} />
+                            <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทการส่งซ่อม *</label>
+                             <div className="flex items-center gap-6 mb-3">
+                                <label className="flex items-center cursor-pointer">
+                                    <input type="radio" name="assignmentType" value="internal" checked={assignmentType === 'internal'} onChange={() => handleAssignmentTypeChange('internal')} className="mr-2 h-4 w-4"/>
+                                    <span className="font-semibold text-gray-700">ซ่อมภายใน</span>
+                                </label>
+                                <label className="flex items-center cursor-pointer">
+                                    <input type="radio" name="assignmentType" value="external" checked={assignmentType === 'external'} onChange={() => handleAssignmentTypeChange('external')} className="mr-2 h-4 w-4"/>
+                                    <span className="font-semibold text-gray-700">ซ่อมภายนอก</span>
+                                </label>
+                            </div>
+                            
+                            {assignmentType === 'internal' ? (
+                                <TechnicianMultiSelect allTechnicians={technicians} selectedTechnicianIds={formData.assignedTechnicians} onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))} />
+                            ) : (
+                                <input 
+                                    type="text" 
+                                    name="externalTechnicianName"
+                                    value={formData.externalTechnicianName || ''} 
+                                    onChange={handleInputChange} 
+                                    placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก"
+                                    className="w-full p-2 border border-gray-300 rounded-lg" 
+                                />
+                            )}
                         </div>
                     </div>
                 );
@@ -557,7 +607,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <p><strong>ความสำคัญ:</strong> {formData.priority}</p>
                             <p><strong>คาดว่าจะเสร็จ:</strong> {formatDateTime24h(activeEstimation.estimatedEndDate)}</p>
-                            <p><strong>ช่าง:</strong> {technicians.filter(t => formData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ')}</p>
+                            <p><strong>ช่าง:</strong> {formData.dispatchType === 'ภายนอก' ? `ซ่อมภายนอก: ${formData.externalTechnicianName}` : technicians.filter(t => formData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ')}</p>
                         </div>
                          <div className="p-4 border rounded-lg">
                              <div className="flex justify-between items-center mb-2">

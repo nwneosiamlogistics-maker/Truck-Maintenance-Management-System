@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import type { Report, Repair, StockItem, Technician } from '../types';
 import StatCard from './StatCard';
@@ -42,7 +43,8 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
             busiestVehicle: busiestVehicle ? `${busiestVehicle[0]} (${busiestVehicle[1]} ครั้ง)` : 'N/A',
             repairsByType: Object.entries(repairsByType).sort((a,b) => b[1] - a[1]),
             repairsByDispatch: safeRepairs.reduce((acc, r) => {
-                const dispatchType = r.dispatchType as 'ภายใน' | 'ภายนอก';
+                // Infer dispatch type for older records that might not have it set
+                const dispatchType = r.dispatchType || (r.externalTechnicianName ? 'ภายนอก' : 'ภายใน');
                 acc[dispatchType] = (acc[dispatchType] || 0) + 1;
                 return acc;
             }, {} as Record<'ภายใน' | 'ภายนอก', number>),

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem, Supplier, UsedPart, StockTransaction } from '../types';
 import VehicleDetailModal from './VehicleDetailModal';
@@ -123,10 +124,15 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         }
     };
 
-    const getTechnicianNames = (ids: string[]) => {
-        if (!ids || ids.length === 0) return 'N/A';
-        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
-    }
+    const getTechnicianDisplay = (repair: Repair) => {
+        if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
+            return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
+        }
+        if (repair.assignedTechnicians && repair.assignedTechnicians.length > 0) {
+            return repair.assignedTechnicians.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+        }
+        return 'N/A';
+    };
     
     const calculateTotalCost = (repair: Repair) => {
         const repairParts = Array.isArray(repair.parts) ? repair.parts : [];
@@ -253,7 +259,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                     <div className="text-sm text-gray-500">{repair.repairOrderNo}</div>
                                 </td>
                                 <td className="px-6 py-4 text-base">{repair.repairCategory}</td>
-                                <td className="px-6 py-4 text-base">{getTechnicianNames(repair.assignedTechnicians)}</td>
+                                <td className="px-6 py-4 text-base">{getTechnicianDisplay(repair)}</td>
                                 <td className="px-6 py-4 text-right text-base font-bold">{calculateTotalCost(repair).toLocaleString()}</td>
                                 <td className="px-6 py-4 text-center whitespace-nowrap space-x-2">
                                     <button onClick={() => openDetailModal(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดู</button>

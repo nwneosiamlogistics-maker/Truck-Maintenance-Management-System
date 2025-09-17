@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { StockItem, StockStatus, StockTransaction, UsedPart, PurchaseRequisition, Supplier, UsedPartBuyer, PurchaseRequisitionItem, UsedPartBatchStatus, Repair } from '../types';
 import StockModal from './StockModal';
 import AddStockModal from './AddStockModal';
@@ -18,11 +18,33 @@ type ReservationInfo = {
     quantity: number;
 };
 
-type ReservationPopoverState = {
-    itemId: string;
+interface ReservationModalProps {
     reservations: ReservationInfo[];
-    rect: DOMRect;
-};
+    onClose: () => void;
+}
+
+const ReservationModal: React.FC<ReservationModalProps> = ({ reservations, onClose }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-[120] flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-lg shadow-lg w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b flex justify-between items-center">
+                <h4 className="font-bold text-lg">รายการที่จอง</h4>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <ul className="p-4 space-y-2 max-h-60 overflow-y-auto">
+                {reservations.map((res, index) => (
+                    <li key={index} className="text-base p-2 bg-gray-50 rounded-md">
+                        <div className="font-semibold text-blue-600">{res.repairOrderNo}</div>
+                        <div className="text-sm text-gray-700">ทะเบียน: {res.licensePlate} - จำนวน: {res.quantity} ชิ้น</div>
+                    </li>
+                ))}
+            </ul>
+            <div className="p-4 border-t flex justify-end">
+                <button onClick={onClose} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold">ปิด</button>
+            </div>
+        </div>
+    </div>
+);
+
 
 interface StockManagementProps {
     stock: StockItem[];
@@ -72,8 +94,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const [isUpdateUsedPartStatusModalOpen, setUpdateUsedPartStatusModalOpen] = useState(false);
     const [partToUpdateStatus, setPartToUpdateStatus] = useState<UsedPart | null>(null);
     
-    const [reservationPopover, setReservationPopover] = useState<ReservationPopoverState | null>(null);
-    
+    const [reservationsToShow, setReservationsToShow] = useState<ReservationInfo[] | null>(null);
 
     // Filters State
     const [searchTerm, setSearchTerm] = useState('');
@@ -104,7 +125,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
             )
             .sort((a, b) => new Date(b.dateRemoved).getTime() - new Date(a.dateRemoved).getTime());
     }, [safeUsedParts, searchTerm]);
-
+    
     // Handlers
     const handleOpenStockModal = (item: StockItem | null = null) => {
         setEditingItem(item);
@@ -181,8 +202,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
             if (s.id === data.stockItemId) {
                 const newQuantity = s.quantity - data.quantity;
                 let newStatus: StockStatus = 'ปกติ';
-                // FIX: Corrected typo from "หมดสต็อก" to "หมดสต๊อก" to match the StockStatus type.
-                if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
+// FIX: Corrected typo in Thai word for "out of stock"
+                if (newQuantity <= 0) newStatus = 'หมดสต็อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 return { ...s, quantity: newQuantity, status: newStatus };
             }
@@ -213,8 +234,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
             if (s.id === data.stockItemId) {
                 const newQuantity = s.quantity - data.quantity;
                 let newStatus: StockStatus = 'ปกติ';
-                // FIX: Corrected typo from "หมดสต็อก" to "หมดสต๊อก" to match the StockStatus type.
-                if (newQuantity <= 0) newStatus = 'หมดสต๊อก';
+// FIX: Corrected typo in Thai word for "out of stock"
+                if (newQuantity <= 0) newStatus = 'หมดสต็อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 return { ...s, quantity: newQuantity, status: newStatus };
             }
@@ -240,8 +261,9 @@ const StockManagement: React.FC<StockManagementProps> = ({
         setReturnModalOpen(false);
     };
     
-    const handleShowReservations = (event: React.MouseEvent<HTMLDivElement>, itemId: string) => {
-        const rect = event.currentTarget.getBoundingClientRect();
+    const handleIconClick = (event: React.MouseEvent<HTMLDivElement>, itemId: string) => {
+        event.stopPropagation();
+
         const activeRepairs = (Array.isArray(repairs) ? repairs : []).filter(r => ['รอซ่อม', 'กำลังซ่อม', 'รออะไหล่'].includes(r.status));
         const reservations: ReservationInfo[] = [];
 
@@ -258,10 +280,12 @@ const StockManagement: React.FC<StockManagementProps> = ({
         }
         
         if (reservations.length > 0) {
-            setReservationPopover({ itemId, reservations, rect });
+            setReservationsToShow(reservations);
+        } else {
+            addToast('ไม่พบข้อมูลการจองสำหรับรายการนี้', 'info');
         }
     };
-
+    
     // ... Used part handlers ...
     const getUsedPartRemaining = (part: UsedPart) => {
         const disposed = (part.dispositions || []).reduce((sum, d) => sum + d.quantity, 0);
@@ -271,7 +295,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const getStatusBadge = (status: StockStatus) => {
         switch (status) {
             case 'สต๊อกต่ำ': return 'bg-yellow-100 text-yellow-800';
-            case 'หมดสต๊อก': return 'bg-red-100 text-red-800';
+// FIX: Corrected typo in Thai word for "out of stock"
+            case 'หมดสต็อก': return 'bg-red-100 text-red-800';
             case 'สต๊อกเกิน': return 'bg-purple-100 text-purple-800';
             default: return 'bg-green-100 text-green-800';
         }
@@ -321,7 +346,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
                             <option value="all">ทุกสถานะ</option>
                             <option value="ปกติ">ปกติ</option>
                             <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
-                            <option value="หมดสต๊อก">หมดสต๊อก</option>
+                            {/* FIX: Corrected typo in Thai word for "out of stock" */}
+                            <option value="หมดสต็อก">หมดสต็อก</option>
                             <option value="สต๊อกเกิน">สต๊อกเกิน</option>
                         </select>
                     </div>
@@ -339,7 +365,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รหัส / ชื่อ</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">สต็อก (พร้อมใช้ / จอง / ทั้งหมด)</th>
+                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">สต็อก (พร้อมใช้)</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ขั้นต่ำ</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ราคาทุน</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
@@ -354,16 +380,17 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                     <td className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500 font-mono">{item.code}</div></td>
                                     <td className="px-4 py-3 text-sm">{item.category}</td>
                                     <td className="px-4 py-3 text-right">
-                                        <div className={`font-bold text-lg ${available <= item.minStock ? 'text-red-600' : ''}`}>{available} {item.unit}</div>
-                                        <div className="text-sm text-gray-500">
-                                           (จอง: {item.quantityReserved || 0} / ทั้งหมด: {item.quantity})
-                                           {(item.quantityReserved || 0) > 0 && (
-                                               <div className="inline-block ml-2" 
-                                                    onMouseEnter={(e) => handleShowReservations(e, item.id)} 
-                                                    onMouseLeave={() => setReservationPopover(null)}>
-                                                   <span className="cursor-pointer">🔍</span>
-                                               </div>
-                                           )}
+                                        <div className="flex items-center justify-end gap-1">
+                                            <span className={`font-bold text-lg ${available <= item.minStock ? 'text-red-600' : ''}`}>{available} {item.unit}</span>
+                                            {(item.quantityReserved || 0) > 0 && (
+                                                <div 
+                                                    className="inline-block" 
+                                                    onClick={(e) => handleIconClick(e, item.id)}
+                                                    title={`มีจองอยู่ ${item.quantityReserved || 0} ชิ้น`}
+                                                >
+                                                    <span className="cursor-pointer">🔍</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-right text-sm">{item.minStock}</td>
@@ -428,28 +455,12 @@ const StockManagement: React.FC<StockManagementProps> = ({
             {isManageUsedPartModalOpen && partToManage && <ManageUsedPartBatchModal part={partToManage} onSave={updateUsedPart} onClose={() => setManageUsedPartModalOpen(false)} buyers={usedPartBuyers} />}
             {isEditUsedPartModalOpen && partToEdit && <EditUsedPartBatchModal part={partToEdit} onSave={updateUsedPart} onClose={() => setEditUsedPartModalOpen(false)} />}
             {isUpdateUsedPartStatusModalOpen && partToUpdateStatus && <UpdateUsedPartStatusModal usedPart={partToUpdateStatus} onSave={updateUsedPart} onClose={() => setUpdateUsedPartStatusModalOpen(false)} />}
-
-            {/* POPOVER - Rendered at the root level to avoid clipping */}
-            {reservationPopover && (
-                <div 
-                    style={{
-                        position: 'fixed',
-                        top: `${reservationPopover.rect.top}px`,
-                        left: `${reservationPopover.rect.left + reservationPopover.rect.width / 2}px`,
-                        transform: 'translate(-50%, -100%)', // Position above and centered on the icon
-                        marginTop: '-8px', // Add a small gap
-                    }}
-                    className="w-72 bg-white border rounded-lg shadow-lg z-50 p-3 text-left"
-                >
-                    <h4 className="font-bold text-sm border-b pb-1 mb-2">รายการที่จอง</h4>
-                    <ul className="space-y-1 max-h-40 overflow-y-auto">
-                        {reservationPopover.reservations.map((res, index) => (
-                            <li key={index} className="text-xs">
-                                <span className="font-semibold">{res.repairOrderNo}</span> ({res.licensePlate}) - {res.quantity} ชิ้น
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+            
+            {reservationsToShow && (
+                <ReservationModal 
+                    reservations={reservationsToShow} 
+                    onClose={() => setReservationsToShow(null)} 
+                />
             )}
         </div>
     );

@@ -14,9 +14,14 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
         .filter(r => r.licensePlate === repair.licensePlate && r.status === 'ซ่อมเสร็จ' && r.id !== repair.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const getTechnicianNames = (ids: string[]) => {
-        if (!ids || ids.length === 0) return 'ไม่ระบุ';
-        return ids.map(id => technicians.find(t => t.id === id)?.name || 'ไม่พบชื่อ').join(', ');
+    const getTechnicianDisplay = (repairItem: Repair) => {
+        if (repairItem.dispatchType === 'ภายนอก' && repairItem.externalTechnicianName) {
+            return `ซ่อมภายนอก: ${repairItem.externalTechnicianName}`;
+        }
+        if (repairItem.assignedTechnicians && repairItem.assignedTechnicians.length > 0) {
+            return repairItem.assignedTechnicians.map(id => technicians.find(t => t.id === id)?.name || 'ไม่พบชื่อ').join(', ');
+        }
+        return 'ไม่ระบุ';
     };
     
     const calculateTotalCost = (repairItem: Repair) => {
@@ -67,7 +72,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                             <p><strong>เลขที่ใบเบิก:</strong> {repair.requisitionNumber || '-'}</p>
                             <p><strong>ความสำคัญ:</strong> {repair.priority}</p>
                             <p><strong>เลขที่ Invoice:</strong> {repair.invoiceNumber || '-'}</p>
-                            <p><strong>ช่างที่รับผิดชอบ:</strong> {getTechnicianNames(repair.assignedTechnicians)}</p>
+                            <p><strong>ช่างที่รับผิดชอบ:</strong> {getTechnicianDisplay(repair)}</p>
                             <p className="md:col-span-2"><strong>ประเภทงานซ่อม:</strong> {repair.repairCategory}</p>
                             <p className="md:col-span-2"><strong>รายละเอียดปัญหา:</strong> {repair.problemDescription}</p>
                         </div>
@@ -128,7 +133,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                                             <tr key={hist.id}>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-600">{new Date(hist.createdAt).toLocaleDateString('th-TH')}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-800 font-medium">{hist.repairCategory}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-base text-gray-600">{getTechnicianNames(hist.assignedTechnicians)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-base text-gray-600">{getTechnicianDisplay(hist)}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-800 text-right font-semibold">{calculateTotalCost(hist).toLocaleString()}</td>
                                             </tr>
                                         ))

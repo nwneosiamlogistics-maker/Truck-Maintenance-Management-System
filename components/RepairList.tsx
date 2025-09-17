@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority, Supplier, StockTransaction } from '../types';
 import RepairEditModal from './RepairEditModal';
@@ -135,10 +136,15 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
         }
     };
     
-    const getTechnicianNames = (ids: string[]) => {
-        if (!ids || ids.length === 0) return 'N/A';
-        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
-    }
+    const getTechnicianDisplay = (repair: Repair) => {
+        if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
+            return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
+        }
+        if (repair.assignedTechnicians && repair.assignedTechnicians.length > 0) {
+            return repair.assignedTechnicians.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+        }
+        return 'N/A';
+    };
     
     return (
         <div className="space-y-6">
@@ -184,7 +190,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                                 <td className="px-4 py-3"><div className="font-semibold">{repair.repairOrderNo}</div><div className="text-sm text-gray-500">{repair.licensePlate}</div></td>
                                 <td className="px-4 py-3"><div className="font-medium">{repair.vehicleMake} {repair.vehicleModel}</div><div className="text-sm text-gray-500">{repair.vehicleType}</div></td>
                                 <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
-                                <td className="px-4 py-3 text-base">{getTechnicianNames(repair.assignedTechnicians)}</td>
+                                <td className="px-4 py-3 text-base">{getTechnicianDisplay(repair)}</td>
                                 <td className="px-4 py-3 text-base">{new Date(repair.createdAt).toLocaleDateString('th-TH')}</td>
                                 <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
                                 <td className="px-4 py-3 text-center space-x-2">
