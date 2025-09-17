@@ -174,7 +174,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionPageProps> = ({ purch
             case 'รอสินค้า':
                  return (
                      <>
-                        <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
+                        <button disabled title="โปรดรับของที่หน้าจัดการสต็อก" className="text-white bg-gray-400 font-medium px-3 py-1 rounded-md text-sm cursor-not-allowed">รับของ</button>
                         <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
                     </>
                 );

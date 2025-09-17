@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import type { StockItem, StockStatus, StockTransaction, UsedPart, PurchaseRequisition, Supplier, UsedPartBuyer, PurchaseRequisitionItem, UsedPartBatchStatus, Repair } from '../types';
+import type { StockItem, StockStatus, StockTransaction, UsedPart, PurchaseRequisition, Supplier, UsedPartBuyer, PurchaseRequisitionItem, UsedPartBatchStatus, Repair, PurchaseRequisitionStatus } from '../types';
 import StockModal from './StockModal';
-import AddStockModal from './AddStockModal';
+import ReceiveFromPOModal from './ReceiveFromPOModal';
 import StockWithdrawalModal from './StockWithdrawalModal';
 import ReturnStockModal from './ReturnStockModal';
 import PrintLabelModal from './PrintLabelModal';
 import ManageUsedPartBatchModal from './ManageUsedPartBatchModal';
 import EditUsedPartBatchModal from './EditUsedPartBatchModal';
 import UpdateUsedPartStatusModal from './UpdateUsedPartStatusModal';
-// import PurchaseRequisitionModal from './PurchaseRequisitionModal'; // This would create a circular dependency if used for creating PRs from here
+import CreatePRFromStockModal from './CreatePRFromStockModal';
 import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
 
@@ -77,8 +77,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const [isStockModalOpen, setStockModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<StockItem | null>(null);
 
-    const [isAddStockModalOpen, setAddStockModalOpen] = useState(false);
-    const [itemToAddStock, setItemToAddStock] = useState<StockItem | null>(null);
+    const [isReceiveFromPOModalOpen, setReceiveFromPOModalOpen] = useState(false);
     
     const [isWithdrawModalOpen, setWithdrawModalOpen] = useState(false);
     const [isReturnModalOpen, setReturnModalOpen] = useState(false);
@@ -95,6 +94,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const [partToUpdateStatus, setPartToUpdateStatus] = useState<UsedPart | null>(null);
     
     const [reservationsToShow, setReservationsToShow] = useState<ReservationInfo[] | null>(null);
+    const [itemToRequest, setItemToRequest] = useState<StockItem | null>(null);
+
 
     // Filters State
     const [searchTerm, setSearchTerm] = useState('');
@@ -104,6 +105,21 @@ const StockManagement: React.FC<StockManagementProps> = ({
     // Memoized Data
     const safeStock = useMemo(() => Array.isArray(stock) ? stock : [], [stock]);
     const safeUsedParts = useMemo(() => Array.isArray(usedParts) ? usedParts : [], [usedParts]);
+    
+    const activePRStockIds = useMemo(() => {
+        const ids = new Set<string>();
+        const activeStatuses: PurchaseRequisitionStatus[] = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว', 'รอสินค้า'];
+        (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
+            .filter(pr => activeStatuses.includes(pr.status))
+            .forEach(pr => {
+                (pr.items || []).forEach(item => {
+                    if (item.stockId) {
+                        ids.add(item.stockId);
+                    }
+                });
+            });
+        return ids;
+    }, [purchaseRequisitions]);
 
     const filteredStock = useMemo(() => {
         return safeStock
@@ -168,41 +184,11 @@ const StockManagement: React.FC<StockManagementProps> = ({
         }
     };
     
-    const handleAddStock = (data: { stockItem: StockItem, quantityAdded: number, pricePerUnit?: number, notes?: string, requisitionNumber?: string }) => {
-        setStock(prevStock => prevStock.map(s => {
-            if (s.id === data.stockItem.id) {
-                const newQuantity = s.quantity + data.quantityAdded;
-                let newStatus: StockStatus = 'ปกติ';
-                if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
-                if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
-                
-                return { ...s, quantity: newQuantity, status: newStatus };
-            }
-            return s;
-        }));
-
-        const newTransaction: StockTransaction = {
-            id: `TXN-${Date.now()}`,
-            stockItemId: data.stockItem.id,
-            stockItemName: data.stockItem.name,
-            type: 'รับเข้า',
-            quantity: data.quantityAdded,
-            transactionDate: new Date().toISOString(),
-            actor: 'เจ้าหน้าที่',
-            notes: data.notes || `รับเข้าตามใบเบิก ${data.requisitionNumber || 'N/A'}`,
-            pricePerUnit: data.pricePerUnit,
-        };
-        setTransactions(prev => [newTransaction, ...prev]);
-        addToast(`เพิ่มสต็อก ${data.stockItem.name} จำนวน ${data.quantityAdded} สำเร็จ`, 'success');
-        setAddStockModalOpen(false);
-    };
-
     const handleWithdrawStock = (data: { stockItemId: string, quantity: number, reason: string, withdrawnBy?: string }) => {
         setStock(prevStock => prevStock.map(s => {
             if (s.id === data.stockItemId) {
                 const newQuantity = s.quantity - data.quantity;
                 let newStatus: StockStatus = 'ปกติ';
-// FIX: Corrected typo in Thai word for "out of stock"
                 if (newQuantity <= 0) newStatus = 'หมดสต็อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 return { ...s, quantity: newQuantity, status: newStatus };
@@ -234,7 +220,6 @@ const StockManagement: React.FC<StockManagementProps> = ({
             if (s.id === data.stockItemId) {
                 const newQuantity = s.quantity - data.quantity;
                 let newStatus: StockStatus = 'ปกติ';
-// FIX: Corrected typo in Thai word for "out of stock"
                 if (newQuantity <= 0) newStatus = 'หมดสต็อก';
                 else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
                 return { ...s, quantity: newQuantity, status: newStatus };
@@ -285,6 +270,59 @@ const StockManagement: React.FC<StockManagementProps> = ({
             addToast('ไม่พบข้อมูลการจองสำหรับรายการนี้', 'info');
         }
     };
+
+    const handleSavePurchaseRequest = (data: { supplier: string; quantity: number; notes: string; }) => {
+        if (!itemToRequest) return;
+
+        const now = new Date();
+        const year = now.getFullYear();
+
+        const newPrItem: PurchaseRequisitionItem = {
+            stockId: itemToRequest.id,
+            stockCode: itemToRequest.code,
+            name: itemToRequest.name,
+            quantity: data.quantity,
+            unit: itemToRequest.unit,
+            unitPrice: itemToRequest.price,
+            deliveryOrServiceDate: new Date().toISOString().split('T')[0],
+        };
+
+        const totalAmount = newPrItem.quantity * newPrItem.unitPrice;
+
+        const currentYearPrs = (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
+            .filter(pr => new Date(pr.createdAt).getFullYear() === year);
+        const lastPrNumber = currentYearPrs
+            .map(pr => {
+                const parts = pr.prNumber.split('-');
+                return parts.length === 3 ? parseInt(parts[2], 10) : 0;
+            })
+            .reduce((max, num) => Math.max(max, num), 0);
+        const newSequence = lastPrNumber + 1;
+        const newPrNumber = `PR-${year}-${String(newSequence).padStart(5, '0')}`;
+        
+        const newRequisition: PurchaseRequisition = {
+            id: `PR-${Date.now()}`,
+            prNumber: newPrNumber,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+            requesterName: 'ระบบ (จากหน้าสต็อก)',
+            department: 'แผนกซ่อมบำรุง',
+            dateNeeded: new Date().toISOString().split('T')[0],
+            supplier: data.supplier,
+            status: 'รออนุมัติ', // Go straight to pending approval
+            items: [newPrItem],
+            totalAmount: totalAmount,
+            notes: data.notes,
+            approvalDate: null,
+            requestType: 'Product',
+            budgetStatus: 'Have Budget',
+        };
+
+        setPurchaseRequisitions(prev => [newRequisition, ...(Array.isArray(prev) ? prev : [])]);
+        addToast(`สร้างใบขอซื้อสำหรับ ${itemToRequest.name} สำเร็จ`, 'success');
+        setItemToRequest(null);
+    };
+
     
     // ... Used part handlers ...
     const getUsedPartRemaining = (part: UsedPart) => {
@@ -295,7 +333,6 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const getStatusBadge = (status: StockStatus) => {
         switch (status) {
             case 'สต๊อกต่ำ': return 'bg-yellow-100 text-yellow-800';
-// FIX: Corrected typo in Thai word for "out of stock"
             case 'หมดสต็อก': return 'bg-red-100 text-red-800';
             case 'สต๊อกเกิน': return 'bg-purple-100 text-purple-800';
             default: return 'bg-green-100 text-green-800';
@@ -346,14 +383,13 @@ const StockManagement: React.FC<StockManagementProps> = ({
                             <option value="all">ทุกสถานะ</option>
                             <option value="ปกติ">ปกติ</option>
                             <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
-                            {/* FIX: Corrected typo in Thai word for "out of stock" */}
                             <option value="หมดสต็อก">หมดสต็อก</option>
                             <option value="สต๊อกเกิน">สต๊อกเกิน</option>
                         </select>
                     </div>
                      <div className="flex flex-wrap gap-2">
                         <button onClick={() => handleOpenStockModal()} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"> + เพิ่มรายการใหม่</button>
-                        <button onClick={() => setAddStockModalOpen(true)} disabled={safeStock.length === 0} className="px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:bg-gray-400">รับเข้าสต็อก</button>
+                        <button onClick={() => setReceiveFromPOModalOpen(true)} className="px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:bg-gray-400">รับเข้าสต็อก (จากใบขอซื้อ)</button>
                         <button onClick={() => setWithdrawModalOpen(true)} disabled={safeStock.length === 0} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:bg-gray-400">เบิกใช้ทั่วไป</button>
                         <button onClick={() => setReturnModalOpen(true)} disabled={safeStock.length === 0} className="px-4 py-2 text-sm font-medium text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 disabled:bg-gray-400">คืนร้านค้า</button>
                     </div>
@@ -375,6 +411,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredStock.map(item => {
                                 const available = item.quantity - (item.quantityReserved || 0);
+                                const needsPurchase = available <= item.minStock;
+                                const isRequested = activePRStockIds.has(item.id);
                                 return (
                                 <tr key={item.id} className="hover:bg-gray-50">
                                     <td className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500 font-mono">{item.code}</div></td>
@@ -397,8 +435,19 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                     <td className="px-4 py-3 text-right text-sm">{item.price.toLocaleString()}</td>
                                     <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(item.status)}`}>{item.status}</span></td>
                                     <td className="px-4 py-3 text-center whitespace-nowrap space-x-1">
-                                        <button onClick={() => { setItemToAddStock(item); setAddStockModalOpen(true); }} className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold">เพิ่ม</button>
                                         <button onClick={() => handleOpenStockModal(item)} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
+                                        {isRequested ? (
+                                            <span className="text-blue-500 p-1 text-xs font-semibold italic">ขอซื้อแล้ว</span>
+                                        ) : (
+                                            <button 
+                                                onClick={() => setItemToRequest(item)} 
+                                                className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                disabled={!needsPurchase}
+                                                title={needsPurchase ? "สร้างใบขอซื้อสำหรับรายการนี้" : "สต็อกยังไม่ถึงจุดสั่งซื้อ"}
+                                            >
+                                                ขอซื้อ
+                                            </button>
+                                        )}
                                         <button onClick={() => { setItemToPrint(item); setPrintModalOpen(true); }} className="text-blue-600 hover:text-blue-800 p-1 text-xs font-semibold">พิมพ์</button>
                                         <button onClick={() => handleDeleteItem(item.id, item.name)} className="text-red-500 hover:text-red-700 p-1 text-xs font-semibold">ลบ</button>
                                     </td>
@@ -448,7 +497,16 @@ const StockManagement: React.FC<StockManagementProps> = ({
 
             {/* Modals */}
             {isStockModalOpen && <StockModal item={editingItem} onSave={handleSaveItem} onClose={() => setStockModalOpen(false)} existingStock={safeStock} />}
-            {isAddStockModalOpen && itemToAddStock && <AddStockModal item={itemToAddStock} onSave={handleAddStock} onClose={() => setAddStockModalOpen(false)} />}
+            {isReceiveFromPOModalOpen && (
+                <ReceiveFromPOModal
+                    isOpen={isReceiveFromPOModalOpen}
+                    onClose={() => setReceiveFromPOModalOpen(false)}
+                    purchaseRequisitions={purchaseRequisitions}
+                    setPurchaseRequisitions={setPurchaseRequisitions}
+                    setStock={setStock}
+                    setTransactions={setTransactions}
+                />
+            )}
             {isWithdrawModalOpen && <StockWithdrawalModal stock={safeStock} onSave={handleWithdrawStock} onClose={() => setWithdrawModalOpen(false)} />}
             {isReturnModalOpen && <ReturnStockModal stock={safeStock} onSave={handleReturnStock} onClose={() => setReturnModalOpen(false)} />}
             {isPrintModalOpen && itemToPrint && <PrintLabelModal item={itemToPrint} onClose={() => setPrintModalOpen(false)} />}
@@ -456,6 +514,15 @@ const StockManagement: React.FC<StockManagementProps> = ({
             {isEditUsedPartModalOpen && partToEdit && <EditUsedPartBatchModal part={partToEdit} onSave={updateUsedPart} onClose={() => setEditUsedPartModalOpen(false)} />}
             {isUpdateUsedPartStatusModalOpen && partToUpdateStatus && <UpdateUsedPartStatusModal usedPart={partToUpdateStatus} onSave={updateUsedPart} onClose={() => setUpdateUsedPartStatusModalOpen(false)} />}
             
+            {itemToRequest && (
+                <CreatePRFromStockModal
+                    item={itemToRequest}
+                    suppliers={suppliers}
+                    onSave={handleSavePurchaseRequest}
+                    onClose={() => setItemToRequest(null)}
+                />
+            )}
+
             {reservationsToShow && (
                 <ReservationModal 
                     reservations={reservationsToShow} 

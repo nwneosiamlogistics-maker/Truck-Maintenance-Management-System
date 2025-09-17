@@ -1,5 +1,4 @@
 
-
 import React, { useMemo } from 'react';
 import type { Report, Repair, StockItem, Technician } from '../types';
 import StatCard from './StatCard';
@@ -19,7 +18,7 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
         const totalCost = safeRepairs.reduce((acc, r) => {
             const repairParts = Array.isArray(r.parts) ? r.parts : [];
             const partsCost = repairParts.reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0);
-            return acc + (r.repairCost || 0) + partsCost;
+            return acc + (r.repairCost || 0) + partsCost + (r.partsVat || 0);
         }, 0);
 
         const repairsByType = safeRepairs.reduce((acc, r) => {
@@ -43,8 +42,25 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
             busiestVehicle: busiestVehicle ? `${busiestVehicle[0]} (${busiestVehicle[1]} ครั้ง)` : 'N/A',
             repairsByType: Object.entries(repairsByType).sort((a,b) => b[1] - a[1]),
             repairsByDispatch: safeRepairs.reduce((acc, r) => {
-                // Infer dispatch type for older records that might not have it set
-                const dispatchType = r.dispatchType || (r.externalTechnicianName ? 'ภายนอก' : 'ภายใน');
+                let dispatchType: 'ภายใน' | 'ภายนอก';
+
+                if (r.dispatchType) {
+                    // 1. Use the explicit type if it exists (most reliable)
+                    dispatchType = r.dispatchType;
+                } else {
+                    // 2. Fallback for older data: Prioritize internal technician assignment
+                    if (r.assignedTechnicians && r.assignedTechnicians.length > 0) {
+                        // If internal technicians are assigned, it's always internal.
+                        dispatchType = 'ภายใน';
+                    } else if (r.externalTechnicianName && r.externalTechnicianName.trim() !== '') {
+                        // Only if no internal techs are assigned, check for an external name.
+                        dispatchType = 'ภายนอก';
+                    } else {
+                        // Default for all other legacy cases.
+                        dispatchType = 'ภายใน';
+                    }
+                }
+                
                 acc[dispatchType] = (acc[dispatchType] || 0) + 1;
                 return acc;
             }, {} as Record<'ภายใน' | 'ภายนอก', number>),
