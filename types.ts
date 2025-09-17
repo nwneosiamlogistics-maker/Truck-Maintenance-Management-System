@@ -226,6 +226,7 @@ export interface PurchaseRequisition {
     supplier: string;
     status: PurchaseRequisitionStatus;
     items: PurchaseRequisitionItem[];
+    vatAmount?: number;
     totalAmount: number;
     notes?: string;
     approverName?: string;

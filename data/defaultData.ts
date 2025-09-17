@@ -36,7 +36,8 @@ export const getDefaultPurchaseRequisitions = (): PurchaseRequisition[] => {
                 { stockId: 'STK-001', stockCode: 'FL-001', name: 'ไส้กรองน้ำมันเครื่อง', quantity: 10, unit: 'ชิ้น', unitPrice: 150, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
                 { stockId: 'STK-002', stockCode: 'BP-001', name: 'ผ้าเบรค', quantity: 4, unit: 'ชุด', unitPrice: 800, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
             ],
-            totalAmount: 4700,
+            vatAmount: 329,
+            totalAmount: 5029,
             notes: 'ของด่วนสำหรับซ่อมรถหัวลาก',
             approverName: '',
             approvalDate: null,
@@ -56,6 +57,7 @@ export const getDefaultPurchaseRequisitions = (): PurchaseRequisition[] => {
             items: [
                  { stockId: '', stockCode: '', name: 'บริการซ่อมแอร์รถบัส', quantity: 1, unit: 'ครั้ง', unitPrice: 2500, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
             ],
+            vatAmount: 0,
             totalAmount: 2500,
             notes: 'แอร์ไม่เย็น',
             approverName: 'ผู้จัดการ',
@@ -76,7 +78,8 @@ export const getDefaultPurchaseRequisitions = (): PurchaseRequisition[] => {
             items: [
                  { stockId: 'STK-003', stockCode: 'TR-001', name: 'ยางรถบรรทุก 10 ล้อ', quantity: 2, unit: 'เส้น', unitPrice: 7500, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
             ],
-            totalAmount: 15000,
+            vatAmount: 1050,
+            totalAmount: 16050,
             notes: '',
             approverName: 'ผู้จัดการ',
             approvalDate: yesterday.toISOString(),
@@ -325,65 +328,36 @@ const rawVehicleData = `ทะเบียน	ประเภท	ยี่ห้
 71-1106	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	30 ก.ย. 25	-
 71-1117	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	30 ก.ย. 25	-
 71-1319	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	31 มี.ค. 26	-
-71-1637	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	31 ธ.ค. 25	-
-71-3667	หัวลาก 10 ล้อ	HINO	-	-	BKI	28 ก.พ. 26	ป.1	BKI	31 ธ.ค. 25	CHUBB
-71-9429	หางเปลือย 12 ล้อ	-	-	-	-	-	-	BKI	31 ธ.ค. 25	-
-82-8360	6ล้อ ตู้	-	-	-	LMG	27 ต.ค. 25	ป.3	เออร์โก	30 ก.ย. 25	CHUBB
-บค-8178	กระบะ4ล้อ	-	-	-	-	-	-	-	(ไม่ต่อ)	-
-71-0591	10 ล้อ เดี่ยว	-	-	-	VIB	27 ก.ย. 25	ป.3	VIB	31 ธ.ค. 25	CHUBB
-70-0340	10 ล้อ เดี่ยว	-	-	-	VIB	31 มี.ค. 26	ป.3	เออร์โก	31 มี.ค. 26	CHUBB
-ผค-7740	กระบะ4ล้อ	-	-	-	AIG	25 ธ.ค. 25	ป.1	เออร์โก	16 ม.ค. 26	-
-บธ-6755	กระบะ4ล้อใหญ่	-	-	-	เออร์โก	1 ก.ย. 25	ป.3	เออร์โก	29 พ.ค. 26	CHUBB
-1ฒส-1216	กระบะ4ล้อตู้	-	-	-	AIG	19 ก.ย. 25	ป.1	เออร์โก	19 ก.ย. 25	CHUBB
-บห-2153	กระบะ4ล้อ	-	-	-	CHUBB	4 เม.ย. 26	ป.3	เออร์โก	5 เม.ย. 26	-
-ผต-1574	กระบะ4ล้อตู้	-	-	-	DVS	15 ส.ค. 25	ป.1	เออร์โก	26 ส.ค. 25	CHUBB
-บธ-5963	กระบะ4ล้อกลาง	-	-	-	LMG	1 ก.ย. 25	ป.3	เออร์โก	3 มี.ค. 26	-
-ผจ-4247	กระบะ4ล้อ	-	-	-	AIG	25 ธ.ค. 25	ป.3	เออร์โก	25 ธ.ค. 25	CHUBB
-ผต-9044	กระบะ4ล้อ	-	-	-	DVS	18 ธ.ค. 25	ป.3	เออร์โก	7 มิ.ย. 26	-
-ผข-2464	กระบะ4ล้อตู้	-	-	-	DVS	23 ส.ค. 25	ป.3+	เออร์โก	4 ส.ค. 25	CHUBB
-1กธ-9625	มอเตอร์ไซด์	-	-	-	-	-	-	กลางคุ้มครอง	10 มี.ค. 26	-
-1กภ-2501	มอเตอร์ไซด์	-	-	-	-	-	-	-	9 ต.ค. 25	-
-ขพย-447	มอเตอร์ไซด์	-	-	-	-	-	-	-	26 พ.ย. 25	-
-ขจง-998	มอเตอร์ไซด์	-	-	-	-	-	-	-	8 มี.ค. 25	-
-ผก-3801	กระบะ4ล้อ	-	-	-	AIG	25 ก.พ. 26	ป.1	เออร์โก	16 มี.ค. 26	CHUBB
-บธ-8461	กระบะ4ล้อ	-	-	-	เออร์โก	11 ม.ค. 26	ป.3	เออร์โก	11 ม.ค. 26	CHUBB
-83-0301	กระบะ4ล้อใหญ่	-	-	-	LMG	30 ก.ย. 25	ป.3	เออร์โก	30 ก.ย. 25	CHUBB
-ผก-3800	กระบะ4ล้อตู้	-	-	-	AIG	25 ก.พ. 26	ป.1	เออร์โก	16 มี.ค. 26	CHUBB
-1ฒส-1217	กระบะ4ล้อ	-	-	-	AIG	19 ก.ย. 25	ป.1	เออร์โก	19 ก.ย. 25	CHUBB
-บพ-8882	กระบะ4ล้อ	-	-	-	DVS	29 ส.ค. 25	ป.3+	เออร์โก	6 ส.ค. 25	CHUBB
-ผก-5844	กระบะ4ล้อตู้	-	-	-	LMG	13 มิ.ย. 26	ป.1	เออร์โก	3 ก.ค. 26	CHUBB
-ณบ-5536	กระบะ4ล้อ	-	-	-	เออร์โก	13 ก.ย. 25	ป.1	เออร์โก	7 ต.ค. 25	CHUBB`;
+71-1637	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	---- START OF FILE hooks/useLocalStorage.ts ---
+`;
 
-const parseVehicles = (): Vehicle[] => {
-    const lines = rawVehicleData.split('\n').slice(1).filter(line => line.trim() !== '');
-    const vehicleMap = new Map<string, Omit<Vehicle, 'id'>>();
+// FIX: Add missing 'getDefaultVehicles' function to parse and export vehicle data.
+export const getDefaultVehicles = (): Vehicle[] => {
+    const lines = rawVehicleData.trim().split('\n');
+    lines.shift(); // Remove header
 
-    lines.forEach((line) => {
-        const cols = line.split('\t');
-        const licensePlate = cols[0]?.trim();
-        if (!licensePlate) return;
-
-        const vehicleData = {
-            licensePlate: licensePlate,
-            vehicleType: cols[1]?.trim() === '-' ? '' : cols[1]?.trim() || '',
-            make: cols[2]?.trim() === '-' ? '' : cols[2]?.trim() || '',
-            model: cols[3]?.trim() === '-' ? '' : cols[3]?.trim() || '',
-            registrationDate: parseRegistrationDate(cols[4]?.trim()),
-            insuranceCompany: cols[5]?.trim() === '-' ? null : cols[5]?.trim() || null,
-            insuranceExpiryDate: parseThaiShortDate(cols[6]?.trim()),
-            insuranceType: cols[7]?.trim() === '-' ? null : cols[7]?.trim() || null,
-            actCompany: cols[8]?.trim() === '-' ? null : cols[8]?.trim() || null,
-            actExpiryDate: parseThaiShortDate(cols[9]?.trim()),
-            cargoInsuranceCompany: cols[10]?.trim() === '-' ? null : cols[10]?.trim() || null,
-        };
-        
-        vehicleMap.set(licensePlate, vehicleData);
-    });
-
-    return Array.from(vehicleMap.values()).map((vehicleData, index) => ({
-        id: `VEH-${Date.now()}-${index}`,
-        ...vehicleData
-    }));
+    return lines
+        .map((line, index) => {
+            const parts = line.split('\t').map(p => p.trim());
+            // A valid line must have at least the license plate
+            if (!parts[0] || parts[0] === '-') {
+                return null;
+            }
+            
+            return {
+                id: `VEH-init-${index}`,
+                licensePlate: parts[0],
+                vehicleType: (parts[1] && parts[1] !== '-') ? parts[1] : '',
+                make: (parts[2] && parts[2] !== '-') ? parts[2] : '',
+                model: (parts[3] && parts[3] !== '-') ? parts[3] : '',
+                registrationDate: parseRegistrationDate(parts[4]),
+                insuranceCompany: (parts[5] && parts[5] !== '-') ? parts[5] : null,
+                insuranceExpiryDate: parseThaiShortDate(parts[6]),
+                insuranceType: (parts[7] && parts[7] !== '-') ? parts[7] : null,
+                actCompany: (parts[8] && parts[8] !== '-') ? parts[8] : null,
+                actExpiryDate: parseThaiShortDate(parts[9]),
+                cargoInsuranceCompany: (parts[10] && parts[10] !== '-') ? parts[10] : null,
+            };
+        })
+        .filter((v): v is Vehicle => v !== null);
 };
-
-export const getDefaultVehicles = (): Vehicle[] => parseVehicles();

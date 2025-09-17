@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType, Supplier } from '../types';
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
 import { useToast } from '../context/ToastContext';
+import ReactDOMServer from 'react-dom/server';
 
 
 // Define temporary item type with a unique rowId for UI management
@@ -117,6 +118,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             status: 'ฉบับร่าง' as PurchaseRequisitionStatus,
             items: [],
             totalAmount: 0,
+            vatAmount: 0,
             notes: '',
             approverName: '',
             approvalDate: null,
@@ -142,21 +144,93 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const [prData, setPrData] = useState(getInitialState());
     const [selectedStockId, setSelectedStockId] = useState('');
-    const [isPrinting, setIsPrinting] = useState(false);
+    const [isVatEnabled, setIsVatEnabled] = useState(false);
+    const [vatRate, setVatRate] = useState(7);
     const { addToast } = useToast();
 
 
     useEffect(() => {
         if (isOpen) {
-            setPrData(getInitialState());
-            setIsPrinting(false);
+            const initialState = getInitialState();
+            setPrData(initialState);
+            if (initialRequisition) {
+                const sub = (initialRequisition.items || []).reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
+                if (initialRequisition.vatAmount && initialRequisition.vatAmount > 0 && sub > 0) {
+                    setIsVatEnabled(true);
+                    const rate = (initialRequisition.vatAmount / sub) * 100;
+                    setVatRate(Math.round(rate * 100) / 100);
+                } else {
+                    setIsVatEnabled(false);
+                    setVatRate(7);
+                }
+            } else {
+                 setIsVatEnabled(false);
+                 setVatRate(7);
+            }
         }
-    }, [isOpen, getInitialState]);
+    }, [isOpen, getInitialState, initialRequisition]);
 
-    const totalAmount = useMemo(() => {
+    const { subtotal, vatAmount, grandTotal } = useMemo(() => {
         const items = Array.isArray(prData.items) ? prData.items : [];
-        return items.reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
-    }, [prData.items]);
+        const sub = items.reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
+        const vat = isVatEnabled ? sub * (vatRate / 100) : 0;
+        const grand = sub + vat;
+        return { subtotal: sub, vatAmount: vat, grandTotal: grand };
+    }, [prData.items, isVatEnabled, vatRate]);
+    
+    const handlePrint = () => {
+        if (!initialRequisition) return;
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            addToast('ไม่สามารถเปิดหน้าต่างพิมพ์ได้ โปรดตรวจสอบการตั้งค่า Pop-up Blocker', 'error');
+            return;
+        }
+
+        const printContent = ReactDOMServer.renderToString(
+            <PurchaseRequisitionPrint requisition={initialRequisition} />
+        );
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="th">
+            <head>
+                <meta charset="UTF-8" />
+                <title>ใบขอซื้อ ${initialRequisition.prNumber}</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                <style>
+                  body { 
+                    font-family: 'Sarabun', sans-serif; 
+                    background-color: #f8fafc;
+                  }
+                  @media print {
+                    body {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                        background-color: #fff;
+                    }
+                    @page {
+                        size: A4;
+                        margin: 0;
+                    }
+                  }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+        }, 500); // Delay to ensure content is fully rendered and styled
+    };
+
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -243,8 +317,13 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         }
 
         const safeItems = Array.isArray(prData.items) ? prData.items : [];
+        if (safeItems.length === 0) {
+            addToast('กรุณาเพิ่มรายการในใบขอซื้ออย่างน้อย 1 รายการ', 'warning');
+            return;
+        }
+
         const itemsToSave = safeItems.map(({ rowId, ...rest }) => rest);
-        const finalData = { ...prData, items: itemsToSave, totalAmount };
+        const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount };
 
         if ('id' in finalData) {
              onSave(finalData as PurchaseRequisition);
@@ -281,10 +360,6 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     if (!isOpen) return null;
 
-    if (isPrinting && initialRequisition) {
-        return <PurchaseRequisitionPrint requisition={initialRequisition} onClosePrintView={() => setIsPrinting(false)} />;
-    }
-
     const requestTypeLabels: Record<PurchaseRequestType, string> = { Product: 'สินค้า', Service: 'บริการ', Equipment: 'วัสดุ/อุปกรณ์', Asset: 'สินทรัพย์', Others: 'อื่นๆ' };
     const budgetTypeLabels: Record<PurchaseBudgetType, string> = { 'Have Budget': 'มีงบประมาณ', 'No Budget': 'ไม่มีงบประมาณ' };
 
@@ -295,7 +370,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     <div className="flex items-center gap-4">
                         <h3 className="text-2xl font-bold text-gray-800">{initialRequisition ? `ใบขอซื้อ ${initialRequisition.prNumber}` : 'สร้างใบขอซื้อใหม่'}</h3>
                         {initialRequisition && (
-                            <button onClick={() => setIsPrinting(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gray-500 rounded-lg hover:bg-gray-600">
+                            <button onClick={handlePrint} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gray-500 rounded-lg hover:bg-gray-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
                                 พิมพ์
                             </button>
@@ -401,12 +476,42 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                              </tbody>
                          </table>
                     </div>
+                     <div className="space-y-2 border-t pt-4">
+                        <div className="flex justify-between items-center text-md">
+                            <span>ราคารวมอะไหล่ (Subtotal)</span>
+                            <span className="font-semibold">{subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
+                        </div>
+                        <div className="flex justify-between items-center text-md">
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="checkbox" 
+                                    id="vat-checkbox" 
+                                    checked={isVatEnabled} 
+                                    onChange={e => setIsVatEnabled(e.target.checked)} 
+                                    disabled={!isItemsEditable}
+                                    className="h-4 w-4 rounded"
+                                />
+                                <label htmlFor="vat-checkbox" className="text-gray-700">ภาษีมูลค่าเพิ่ม (VAT)</label>
+                                <input 
+                                    type="number"
+                                    value={vatRate}
+                                    onChange={e => setVatRate(Number(e.target.value))}
+                                    disabled={!isVatEnabled || !isItemsEditable}
+                                    className="w-20 p-1 border rounded text-right disabled:bg-gray-100"
+                                    step="0.01"
+                                />
+                                <span className="text-gray-700">%</span>
+                            </div>
+                            <span className="font-semibold">{vatAmount.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xl font-bold border-t pt-2 mt-2">
+                            <span>ยอดรวมสุทธิ (Grand Total)</span>
+                            <span className="text-blue-600">{grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
+                        </div>
+                    </div>
                      <div>
                         <label className="block text-sm font-medium">หมายเหตุ / เงื่อนไขเพิ่มเติม</label>
                         <textarea name="notes" value={prData.notes || ''} onChange={handleInputChange} rows={2} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100" placeholder="อาจมีอะไหล่บางตัวที่ต้องซื้อใหม่มาเพิ่มสต๊อก"></textarea>
-                    </div>
-                    <div className="text-right text-xl font-bold">
-                        ยอดรวม: <span className="text-blue-600">{totalAmount.toLocaleString()} บาท</span>
                     </div>
                 </div>
 
