@@ -335,7 +335,8 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     const isDraft = prData.status === 'ฉบับร่าง';
     const isFormHeaderEditable = isDraft;
     const isItemsEditable = isDraft;
-    const isSupplierEditable = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว'].includes(prData.status);
+    const isSupplierEditable = isDraft; // Supplier should only be editable in draft state
+    const isVatEditable = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว'].includes(prData.status);
 
 
     const renderWorkflowButtons = () => {
@@ -488,7 +489,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                     id="vat-checkbox" 
                                     checked={isVatEnabled} 
                                     onChange={e => setIsVatEnabled(e.target.checked)} 
-                                    disabled={!isItemsEditable}
+                                    disabled={!isVatEditable}
                                     className="h-4 w-4 rounded"
                                 />
                                 <label htmlFor="vat-checkbox" className="text-gray-700">ภาษีมูลค่าเพิ่ม (VAT)</label>
@@ -496,7 +497,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                     type="number"
                                     value={vatRate}
                                     onChange={e => setVatRate(Number(e.target.value))}
-                                    disabled={!isVatEnabled || !isItemsEditable}
+                                    disabled={!isVatEnabled || !isVatEditable}
                                     className="w-20 p-1 border rounded text-right disabled:bg-gray-100"
                                     step="0.01"
                                 />
@@ -521,7 +522,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     </div>
                     <div className="space-x-4 flex items-center">
                         <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                        {isSupplierEditable && (
+                        {(isDraft || isVatEditable) && (
                            <button onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">บันทึก</button>
                         )}
                     </div>
