@@ -203,7 +203,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
         }
     };
     
-    const handleWithdrawStock = (data: { stockItemId: string, quantity: number, reason: string, withdrawnBy?: string }) => {
+    const handleWithdrawStock = (data: { stockItemId: string, quantity: number, reason: string, withdrawnBy: string, notes: string }) => {
         setStock(prevStock => prevStock.map(s => {
             if (s.id === data.stockItemId) {
                 const newQuantity = s.quantity - data.quantity;
@@ -232,8 +232,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
                 type: 'เบิกใช้',
                 quantity: -data.quantity,
                 transactionDate: new Date().toISOString(),
-                actor: data.withdrawnBy || 'ไม่ระบุ',
-                notes: `เหตุผล: ${data.reason}`,
+                actor: data.withdrawnBy,
+                notes: `${data.reason}${data.notes ? ` - ${data.notes}` : ''}`,
                 documentNumber: newDocumentNumber,
                 pricePerUnit: stockItem.price,
             };

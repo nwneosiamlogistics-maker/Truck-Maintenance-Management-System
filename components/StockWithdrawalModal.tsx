@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { StockItem } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface StockWithdrawalModalProps {
     stock: StockItem[];
@@ -7,8 +8,8 @@ interface StockWithdrawalModalProps {
       stockItemId: string;
       quantity: number;
       reason: string;
-      withdrawnBy?: string;
-      notes?: string;
+      withdrawnBy: string;
+      notes: string;
     }) => void;
     onClose: () => void;
 }
@@ -26,6 +27,7 @@ const StockWithdrawalModal: React.FC<StockWithdrawalModalProps> = ({ stock, onSa
     const [otherReason, setOtherReason] = useState('');
     const [withdrawnBy, setWithdrawnBy] = useState('');
     const [notes, setNotes] = useState('');
+    const { addToast } = useToast();
 
     const selectedStockItem = useMemo(() => {
         return stock.find(item => item.id === selectedStockId);
@@ -40,17 +42,27 @@ const StockWithdrawalModal: React.FC<StockWithdrawalModalProps> = ({ stock, onSa
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedStockItem) {
-            alert('กรุณาเลือกอะไหล่');
+            addToast('กรุณาเลือกอะไหล่', 'warning');
             return;
         }
         if (quantity <= 0 || quantity > selectedStockItem.quantity) {
-            alert('กรุณากรอกจำนวนให้ถูกต้อง');
+            addToast('กรุณากรอกจำนวนให้ถูกต้อง', 'warning');
             return;
         }
 
         const finalReason = reason === 'อื่นๆ' ? otherReason : reason;
-        if (!finalReason.trim()) {
-            alert('กรุณาระบุเหตุผลการเบิก');
+        if (reason === 'อื่นๆ' && !otherReason.trim()) {
+            addToast('กรุณาระบุเหตุผลการเบิก', 'warning');
+            return;
+        }
+
+        if (!withdrawnBy.trim()) {
+            addToast('กรุณากรอกชื่อผู้เบิก', 'warning');
+            return;
+        }
+
+        if (!notes.trim()) {
+            addToast('กรุณากรอกหมายเหตุเพิ่มเติม', 'warning');
             return;
         }
         
@@ -108,12 +120,13 @@ const StockWithdrawalModal: React.FC<StockWithdrawalModalProps> = ({ stock, onSa
                             />
                         </div>
                          <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ผู้เบิก</label>
+                            <label className="block text-base font-medium text-gray-700 mb-1">ผู้เบิก *</label>
                             <input 
                                 type="text" 
                                 value={withdrawnBy} 
                                 onChange={(e) => setWithdrawnBy(e.target.value)} 
                                 placeholder="ชื่อ-สกุล"
+                                required
                                 className="w-full p-2 border border-gray-300 rounded-lg"
                             />
                         </div>
@@ -139,11 +152,13 @@ const StockWithdrawalModal: React.FC<StockWithdrawalModalProps> = ({ stock, onSa
                         )}
                     </div>
                      <div>
-                        <label className="block text-base font-medium text-gray-700 mb-1">หมายเหตุเพิ่มเติม</label>
+                        <label className="block text-base font-medium text-gray-700 mb-1">หมายเหตุเพิ่มเติม *</label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
+                            required
+                            placeholder="เช่น เติมน้ำมันรถโฟล์คลิฟท์ (Forklift) เป็นต้น"
                             className="w-full p-2 border border-gray-300 rounded-lg"
                         ></textarea>
                     </div>

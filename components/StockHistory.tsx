@@ -221,7 +221,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภทธุรกรรม</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ดำเนินการ</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เอกสารอ้างอิง / หมายเหตุ</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เอกสารอ้างอิง</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมายเหตุเพิ่มเติม</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">มูลค่ารวม</th>
                             </tr>
                         </thead>
@@ -243,13 +244,14 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                             {t.quantity > 0 ? '+' : ''}{t.quantity} {stockMap.get(t.stockItemId)?.unit}
                                         </td>
                                         <td className="px-4 py-3 text-sm">{t.actor}</td>
-                                        <td className="px-4 py-3 text-sm">{t.relatedRepairOrder || t.notes || '-'}</td>
+                                        <td className="px-4 py-3 text-sm">{t.relatedRepairOrder || '-'}</td>
+                                        <td className="px-4 py-3 text-sm max-w-xs truncate" title={t.notes}>{t.notes || '-'}</td>
                                         <td className="px-4 py-3 text-right font-semibold">{Math.abs(totalValue).toLocaleString()}</td>
                                     </tr>
                                 )
                             })}
                             {paginatedData.length === 0 && (
-                                <tr><td colSpan={9} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
+                                <tr><td colSpan={10} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
                             )}
                         </tbody>
                     </table>
