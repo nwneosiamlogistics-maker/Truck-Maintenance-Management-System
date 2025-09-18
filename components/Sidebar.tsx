@@ -64,8 +64,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             { id: 'history', icon: '📜', label: 'ประวัติการซ่อม' },
         ]},
         { section: 'การวางแผน', items: [
+            { id: 'preventive-maintenance', icon: '🛡️', label: 'แผนซ่อมบำรุง PM', badge: stats.dueMaintenance, badgeColor: 'yellow' },
+            { id: 'maintenance', icon: '📅', label: 'วางแผนซ่อมบำรุง' },
             { id: 'estimation', icon: '⏱️', label: 'ระบบประมาณการณ์' },
-            { id: 'maintenance', icon: '📅', label: 'วางแผนซ่อมบำรุง', badge: stats.dueMaintenance, badgeColor: 'yellow' },
         ]},
         { section: 'การจัดการยานพาหนะ', items: [
             { id: 'vehicles', icon: '🚚', label: 'ข้อมูลรถและประกันภัย' },

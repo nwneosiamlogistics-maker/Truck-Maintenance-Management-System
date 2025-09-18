@@ -14,6 +14,7 @@ import TechnicianWorkLog from './components/TechnicianWorkLog';
 import Reports from './components/Reports';
 import Estimation from './components/Estimation';
 import MaintenancePlanner from './components/MaintenancePlanner';
+import PreventiveMaintenance from './components/PreventiveMaintenance';
 import PurchaseRequisitionPage from './components/PurchaseRequisition';
 import SupplierManagement from './components/SupplierManagement';
 import VehicleManagement from './components/VehicleManagement';
@@ -254,6 +255,8 @@ function App() {
                 return <Estimation repairs={repairs} />;
             case 'maintenance':
                 return <MaintenancePlanner plans={plans} setPlans={setPlans} repairs={repairs} deletePlan={deletePlan} technicians={technicians} />;
+            case 'preventive-maintenance':
+                 return <PreventiveMaintenance plans={plans} setPlans={setPlans} repairs={repairs} deletePlan={deletePlan} vehicles={vehicles} />;
             case 'vehicles':
                 return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
             default:

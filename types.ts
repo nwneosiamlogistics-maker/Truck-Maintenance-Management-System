@@ -13,6 +13,7 @@ export type Tab =
   | 'technicianWorkLog'
   | 'estimation'
   | 'maintenance'
+  | 'preventive-maintenance' // New Tab for PM
   | 'vehicles'
   | 'used-part-buyers'
   | 'used-part-report'

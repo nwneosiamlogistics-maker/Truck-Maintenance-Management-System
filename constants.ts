@@ -73,6 +73,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'วางแผนซ่อมบำรุง',
         subtitle: 'จัดการแผนบำรุงรักษาตามกำหนด'
     },
+    'preventive-maintenance': {
+        title: 'แผนซ่อมบำรุงเชิงป้องกัน (PM)',
+        subtitle: 'จัดการและติดตามแผน PM สำหรับรถทุกคัน'
+    },
     vehicles: {
         title: 'ข้อมูลรถและประกันภัย',
         subtitle: 'จัดการข้อมูลยานพาหนะและเอกสารสำคัญ'
