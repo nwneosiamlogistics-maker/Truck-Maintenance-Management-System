@@ -112,9 +112,15 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        let newFormData = { ...formData, [name]: value };
+        // FIX: Ensure numeric inputs are stored as numbers, not strings.
+        const finalValue = (name === 'repairCost' || name === 'partsVat')
+            ? parseFloat(value) || 0
+            : value;
+
+        let newFormData = { ...formData, [name]: finalValue };
+
         if (name === 'status') {
-            const newStatus = value as RepairStatus;
+            const newStatus = value as RepairStatus; // Use original string value for status check
             const now = new Date().toISOString();
             if (newStatus === 'กำลังซ่อม' && !newFormData.repairStartDate) newFormData.repairStartDate = now;
             if (newStatus === 'ซ่อมเสร็จ' && !newFormData.repairEndDate) newFormData.repairEndDate = now;
@@ -334,7 +340,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
 
     const { totalPartsCost, grandTotal } = useMemo(() => {
         const partsCost = (formData.parts || []).reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
-        const total = partsCost + (formData.partsVat || 0) + (Number(formData.repairCost) || 0);
+        const total = partsCost + (Number(formData.partsVat) || 0) + (Number(formData.repairCost) || 0);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);
 

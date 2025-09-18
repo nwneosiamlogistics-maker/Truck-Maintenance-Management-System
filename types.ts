@@ -18,8 +18,8 @@ export type Tab =
   | 'used-part-buyers'
   | 'used-part-report'
   | 'technician-view' // New Tab for technicians
-  | 'kpi-dashboard'; // New Tab for KPIs
-
+  | 'kpi-dashboard' // New Tab for KPIs
+  | 'vehicle-repair-history'; // New Tab for vehicle-specific repair history
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
 export type DispatchType = 'ภายใน' | 'ภายนอก';

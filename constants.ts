@@ -25,6 +25,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'ประวัติการซ่อม',
         subtitle: 'ดูและค้นหาใบแจ้งซ่อมที่เสร็จสิ้นทั้งหมด'
     },
+    'vehicle-repair-history': {
+        title: 'ประวัติซ่อมรายคัน',
+        subtitle: 'ค้นหาและดูประวัติการซ่อมของรถแต่ละคัน'
+    },
     stock: {
         title: 'จัดการสต๊อกอะไหล่',
         subtitle: 'ควบคุมสต๊อกและการเบิกจ่ายอะไหล่'

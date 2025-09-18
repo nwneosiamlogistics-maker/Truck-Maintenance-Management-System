@@ -17,7 +17,7 @@ const Reports: React.FC<ReportsProps> = ({ repairs, stock, technicians }) => {
         const totalCost = safeRepairs.reduce((acc, r) => {
             const repairParts = Array.isArray(r.parts) ? r.parts : [];
             const partsCost = repairParts.reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0);
-            return acc + (Number(r.repairCost) || 0) + partsCost + (r.partsVat || 0);
+            return acc + (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0);
         }, 0);
 
         const repairsByType = safeRepairs.reduce((acc, r) => {

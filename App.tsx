@@ -24,6 +24,7 @@ import ToastContainer from './components/ToastContainer';
 import { ToastProvider } from './context/ToastContext';
 import KPIDashboard from './components/KPIDashboard';
 import TechnicianView from './components/TechnicianView';
+import VehicleRepairHistory from './components/VehicleRepairHistory';
 
 
 // Types and Constants
@@ -221,7 +222,7 @@ function App() {
             case 'dashboard':
                 return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
             case 'kpi-dashboard':
-                return <KPIDashboard repairs={repairs} />;
+                return <KPIDashboard repairs={repairs} plans={plans} vehicles={vehicles} />;
             case 'form':
                 // FIX: Removed unused `setStock` prop from RepairForm component.
                 return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} />;
@@ -231,6 +232,8 @@ function App() {
                 return <TechnicianView repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} />;
             case 'history':
                 return <RepairHistory repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} suppliers={suppliers} addUsedParts={addUsedParts} usedParts={usedParts} />;
+            case 'vehicle-repair-history':
+                return <VehicleRepairHistory repairs={repairs} vehicles={vehicles} />;
             case 'stock':
                 return <StockManagement stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} usedParts={usedParts} updateUsedPart={updateUsedPart} deleteUsedPart={deleteUsedPart} setPurchaseRequisitions={setPurchaseRequisitions} purchaseRequisitions={purchaseRequisitions} suppliers={suppliers} usedPartBuyers={usedPartBuyers} setUsedParts={setUsedParts} repairs={repairs} />;
             case 'stock-history':

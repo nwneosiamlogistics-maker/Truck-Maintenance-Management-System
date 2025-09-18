@@ -145,7 +145,12 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        // FIX: Ensure numeric inputs are stored as numbers, not strings.
+        const finalValue = (name === 'repairCost' || name === 'partsVat')
+            ? parseFloat(value) || 0
+            : value;
+    
+        setFormData(prev => ({ ...prev, [name]: finalValue }));
 
         if (name === 'licensePlate') {
             if (value) {
@@ -293,7 +298,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const { totalPartsCost, grandTotal } = useMemo(() => {
         const safeParts = Array.isArray(formData.parts) ? formData.parts : [];
         const partsCost = safeParts.reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
-        const total = partsCost + (formData.partsVat || 0) + (formData.repairCost || 0);
+        const total = partsCost + (Number(formData.partsVat) || 0) + (Number(formData.repairCost) || 0);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);
 

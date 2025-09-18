@@ -28,7 +28,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
         const repairParts = Array.isArray(repairItem.parts) ? repairItem.parts : [];
         const partsCost = repairParts.reduce((acc, part) => acc + (part.quantity * part.unitPrice), 0);
         const laborCost = Number(repairItem.repairCost) || 0;
-        return partsCost + laborCost + (repairItem.partsVat || 0);
+        return partsCost + laborCost + (Number(repairItem.partsVat) || 0);
     };
 
     const safeParts = Array.isArray(repair.parts) ? repair.parts : [];

@@ -63,11 +63,16 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = ({ plans, se
                 const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
 
                 let status: PlanStatus = 'ok';
-                const isDue = daysUntilNextService <= 30 || (kmUntilNextService !== null && kmUntilNextService <= 1000);
-                const isOverdue = daysUntilNextService < 0 || (kmUntilNextService !== null && kmUntilNextService < 0);
+                const isOverdueByDate = daysUntilNextService < -7;
+                const isOverdueByMileage = kmUntilNextService !== null && kmUntilNextService < 0;
+                const isDueByDate = daysUntilNextService <= 15;
+                const isDueByMileage = kmUntilNextService !== null && kmUntilNextService <= 1000;
 
-                if (isOverdue) status = 'overdue';
-                else if (isDue) status = 'due';
+                if (isOverdueByDate || isOverdueByMileage) {
+                    status = 'overdue';
+                } else if (isDueByDate || isDueByMileage) {
+                    status = 'due';
+                }
 
                 const vehicleInfo = vehicleMap.get(plan.vehicleLicensePlate);
 
