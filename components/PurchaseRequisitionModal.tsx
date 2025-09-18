@@ -294,8 +294,8 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     }
 
     const handleRemoveItem = useCallback((rowId: string) => {
-        setPrData(prev => ({ ...prev, items: (Array.isArray(prData.items) ? prData.items : []).filter(i => i.rowId !== rowId) }));
-    }, [prData.items]);
+        setPrData(prev => ({ ...prev, items: (Array.isArray(prev.items) ? prev.items : []).filter(i => i.rowId !== rowId) }));
+    }, []);
 
 
     const handleStatusChange = (newStatus: PurchaseRequisitionStatus) => {

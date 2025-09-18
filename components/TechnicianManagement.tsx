@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Technician, Repair } from '../types';
 import TechnicianModal from './TechnicianModal';
@@ -26,7 +27,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
 
     const safeTechnicians = useMemo(() => Array.isArray(technicians) ? technicians : [], [technicians]);
 
-    const allSkills = useMemo(() => Array.from(new Set(safeTechnicians.flatMap(t => t.skills))).sort(), [safeTechnicians]);
+    const allSkills = useMemo(() => Array.from(new Set(safeTechnicians.flatMap(t => t.skills || []))).sort(), [safeTechnicians]);
 
     const handleSkillToggle = (skill: string) => {
         setSkillFilter(prev =>

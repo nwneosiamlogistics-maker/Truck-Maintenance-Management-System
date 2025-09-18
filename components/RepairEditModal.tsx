@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction } from '../types';
 import StockSelectionModal from './StockSelectionModal';
@@ -225,7 +226,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     
         // 3. Create 'เบิกใช้' transactions and finalize stock if repair is completed
         if (finalFormData.status === 'ซ่อมเสร็จ') {
-            const technicianNames = technicians.filter(t => finalFormData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
+            const technicianNames = technicians.filter(t => (finalFormData.assignedTechnicians || []).includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
             const now = new Date().toISOString();
     
             const existingWithdrawalPartIds = new Set(
