@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction } from '../types';
 import StockSelectionModal from './StockSelectionModal';
@@ -335,7 +334,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
 
     const { totalPartsCost, grandTotal } = useMemo(() => {
         const partsCost = (formData.parts || []).reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
-        const total = partsCost + (formData.partsVat || 0) + (formData.repairCost || 0);
+        const total = partsCost + (formData.partsVat || 0) + (Number(formData.repairCost) || 0);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);
 

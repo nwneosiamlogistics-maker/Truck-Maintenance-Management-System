@@ -132,7 +132,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const calculateTotalCost = (repair: Repair) => {
         const repairParts = Array.isArray(repair.parts) ? repair.parts : [];
         const partsTotal = repairParts.reduce((sum, part) => sum + (part.quantity * part.unitPrice), 0);
-        return (repair.repairCost || 0) + partsTotal + (repair.partsVat || 0);
+        return (Number(repair.repairCost) || 0) + partsTotal + (repair.partsVat || 0);
     };
 
     const handleSelect = (repairId: string) => {

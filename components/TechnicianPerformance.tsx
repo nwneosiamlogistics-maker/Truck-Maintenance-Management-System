@@ -89,7 +89,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             const totalValue = techRepairs.reduce((sum, r) => {
                 const repairParts = Array.isArray(r.parts) ? r.parts : [];
                 const partsCost = repairParts.reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
-                return sum + (r.repairCost || 0) + partsCost + (r.partsVat || 0);
+                return sum + (Number(r.repairCost) || 0) + partsCost + (r.partsVat || 0);
             }, 0);
 
             return {
@@ -116,7 +116,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             const repairParts = Array.isArray(r.parts) ? r.parts : [];
             const partsCost = repairParts.reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
             const repairVat = r.partsVat || 0;
-            const laborCost = r.repairCost || 0;
+            const laborCost = Number(r.repairCost) || 0;
             return sum + partsCost + laborCost + repairVat;
         }, 0);
         
