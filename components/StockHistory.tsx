@@ -118,7 +118,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     const isSearchMatch = searchTerm === '' ||
                         t.stockItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        t.actor.toLowerCase().includes(searchTerm.toLowerCase());
+                        t.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (t.documentNumber && t.documentNumber.toLowerCase().includes(searchTerm.toLowerCase()));
                     
                     return isDateInRange && isCategoryMatch && isSearchMatch;
                 })
@@ -214,6 +215,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                         <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ใช้</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่เอกสาร</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภทธุรกรรม</th>
@@ -233,6 +235,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                 return (
                                     <tr key={t.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 text-sm text-gray-600">{new Date(t.displayDate).toLocaleDateString('th-TH')}</td>
+                                        <td className="px-4 py-3 font-mono text-sm">{t.documentNumber || '-'}</td>
                                         <td className="px-4 py-3 font-semibold">{t.stockItemName}</td>
                                         <td className="px-4 py-3 text-sm">{t.category}</td>
                                         <td className="px-4 py-3 text-sm">{t.type}</td>
@@ -246,7 +249,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                 )
                             })}
                             {paginatedData.length === 0 && (
-                                <tr><td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
+                                <tr><td colSpan={9} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
                             )}
                         </tbody>
                     </table>

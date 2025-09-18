@@ -19,6 +19,19 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRequisition, setEditingRequisition] = useState<PurchaseRequisition | null>(null);
     const { addToast } = useToast();
+    const [expandedPrIds, setExpandedPrIds] = useState<Set<string>>(new Set());
+
+    const toggleExpand = (prId: string) => {
+        setExpandedPrIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(prId)) {
+                newSet.delete(prId);
+            } else {
+                newSet.add(prId);
+            }
+            return newSet;
+        });
+    };
 
     const filteredRequisitions = useMemo(() => {
         return (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
@@ -234,6 +247,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
+                            <th className="px-4 py-3 w-12 text-center"></th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / วันที่</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้จำหน่าย</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ขอซื้อ</th>
@@ -244,18 +258,62 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredRequisitions.map(pr => (
-                            <tr key={pr.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3"><div className="font-semibold">{pr.prNumber}</div><div className="text-sm text-gray-500">{new Date(pr.createdAt).toLocaleDateString('th-TH')}</div></td>
-                                <td className="px-4 py-3 text-base">{pr.supplier}</td>
-                                <td className="px-4 py-3 text-base">{pr.requesterName}</td>
-                                <td className="px-4 py-3 text-right text-base font-bold">{pr.totalAmount.toLocaleString()} บาท</td>
-                                <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(pr.status)}`}>{pr.status}</span></td>
-                                <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
-                                    {renderActions(pr)}
-                                </td>
-                            </tr>
+                             <React.Fragment key={pr.id}>
+                                <tr className="hover:bg-gray-50">
+                                     <td className="px-4 py-3 text-center">
+                                        <button onClick={() => toggleExpand(pr.id)} className="text-blue-500 hover:text-blue-700 font-bold text-lg w-6 h-6 rounded-full flex items-center justify-center">
+                                            {expandedPrIds.has(pr.id) ? '−' : '+'}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-3"><div className="font-semibold">{pr.prNumber}</div><div className="text-sm text-gray-500">{new Date(pr.createdAt).toLocaleDateString('th-TH')}</div></td>
+                                    <td className="px-4 py-3 text-base">{pr.supplier}</td>
+                                    <td className="px-4 py-3 text-base">{pr.requesterName}</td>
+                                    <td className="px-4 py-3 text-right text-base font-bold">{pr.totalAmount.toLocaleString()} บาท</td>
+                                    <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(pr.status)}`}>{pr.status}</span></td>
+                                    <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
+                                        {renderActions(pr)}
+                                    </td>
+                                </tr>
+                                 {expandedPrIds.has(pr.id) && (
+                                    <tr>
+                                        <td colSpan={7} className="p-0 bg-gray-50">
+                                            <div className="p-4 mx-4 my-2 border-l-4 border-blue-400 bg-blue-50 rounded-r-lg">
+                                                <h4 className="font-semibold mb-2 text-gray-700 text-base">รายการในใบขอซื้อ:</h4>
+                                                <table className="min-w-full bg-white rounded-lg shadow-inner">
+                                                    <thead className="bg-gray-200">
+                                                        <tr>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">รายการ</th>
+                                                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-600 uppercase">จำนวน</th>
+                                                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">หน่วย</th>
+                                                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-600 uppercase">ราคา/หน่วย</th>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">กำหนดส่ง</th>
+                                                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-600 uppercase">รวม (บาท)</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-200">
+                                                        {(Array.isArray(pr.items) && pr.items.length > 0) ? pr.items.map((item, index) => (
+                                                            <tr key={index}>
+                                                                <td className="px-3 py-2 text-sm font-medium">{item.name}</td>
+                                                                <td className="px-3 py-2 text-sm text-right">{item.quantity}</td>
+                                                                <td className="px-3 py-2 text-sm text-center">{item.unit}</td>
+                                                                <td className="px-3 py-2 text-sm text-right">{item.unitPrice.toLocaleString()}</td>
+                                                                <td className="px-3 py-2 text-sm">{new Date(item.deliveryOrServiceDate).toLocaleDateString('th-TH')}</td>
+                                                                <td className="px-3 py-2 text-sm text-right font-semibold">{(item.quantity * item.unitPrice).toLocaleString()}</td>
+                                                            </tr>
+                                                        )) : (
+                                                            <tr>
+                                                                <td colSpan={6} className="text-center py-4 text-gray-500">ไม่มีรายการ</td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
                         ))}
-                        {filteredRequisitions.length === 0 && ( <tr><td colSpan={6} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr> )}
+                        {filteredRequisitions.length === 0 && ( <tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr> )}
                     </tbody>
                 </table>
             </div>

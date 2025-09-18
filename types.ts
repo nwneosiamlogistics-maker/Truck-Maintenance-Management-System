@@ -144,6 +144,7 @@ export interface StockTransaction {
     actor: string;
     notes?: string;
     relatedRepairOrder?: string;
+    documentNumber?: string;
     pricePerUnit?: number;
 }
 

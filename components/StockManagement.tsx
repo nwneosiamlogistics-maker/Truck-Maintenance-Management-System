@@ -217,6 +217,14 @@ const StockManagement: React.FC<StockManagementProps> = ({
         
         const stockItem = safeStock.find(s => s.id === data.stockItemId);
         if (stockItem) {
+             const year = new Date().getFullYear();
+             const wdTransactionsThisYear = (Array.isArray(transactions) ? transactions : [])
+                .filter(t => t.documentNumber && t.documentNumber.startsWith(`WD-${year}`));
+             const lastNumber = wdTransactionsThisYear
+                .map(t => parseInt(t.documentNumber!.split('-')[2], 10))
+                .reduce((max, num) => Math.max(max, num), 0);
+             const newDocumentNumber = `WD-${year}-${String(lastNumber + 1).padStart(5, '0')}`;
+
              const newTransaction: StockTransaction = {
                 id: `TXN-${Date.now()}`,
                 stockItemId: stockItem.id,
@@ -226,10 +234,11 @@ const StockManagement: React.FC<StockManagementProps> = ({
                 transactionDate: new Date().toISOString(),
                 actor: data.withdrawnBy || 'ไม่ระบุ',
                 notes: `เหตุผล: ${data.reason}`,
+                documentNumber: newDocumentNumber,
                 pricePerUnit: stockItem.price,
             };
             setTransactions(prev => [newTransaction, ...prev]);
-            addToast(`เบิก ${stockItem.name} จำนวน ${data.quantity} สำเร็จ`, 'success');
+            addToast(`เบิก ${stockItem.name} สำเร็จ (เลขที่: ${newDocumentNumber})`, 'success');
         }
         setWithdrawModalOpen(false);
     };
