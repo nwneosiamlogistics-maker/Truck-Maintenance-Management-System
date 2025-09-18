@@ -152,6 +152,24 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const handleSaveItem = (itemData: StockItem, extras: { sourceRepairOrderNo?: string }) => {
         const now = new Date().toISOString();
         if (itemData.id) { // Editing
+            const originalItem = safeStock.find(s => s.id === itemData.id);
+            if (originalItem && originalItem.quantity !== itemData.quantity) {
+                const difference = itemData.quantity - originalItem.quantity;
+                const newTransaction: StockTransaction = {
+                    id: `TXN-ADJ-${Date.now()}`,
+                    stockItemId: itemData.id,
+                    stockItemName: itemData.name,
+                    type: 'ปรับสต็อก',
+                    quantity: difference,
+                    transactionDate: now,
+                    actor: 'ผู้ดูแลระบบ',
+                    notes: `แก้ไขจากหน้าสต็อก: ปรับจาก ${originalItem.quantity} เป็น ${itemData.quantity}`,
+                    pricePerUnit: itemData.price,
+                };
+                setTransactions(prev => [newTransaction, ...(Array.isArray(prev) ? prev : [])]);
+                addToast(`ปรับสต็อก ${itemData.name} จำนวน ${difference > 0 ? '+' : ''}${difference} ${itemData.unit}`, 'info');
+            }
+    
             setStock(prev => prev.map(s => s.id === itemData.id ? itemData : s));
             addToast(`อัปเดต ${itemData.name} สำเร็จ`, 'success');
         } else { // Adding

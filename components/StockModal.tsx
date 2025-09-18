@@ -118,8 +118,17 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
                             </select>
                         </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">จำนวนเริ่มต้น</label>
-                            <input type="number" name="quantity" value={formData.quantity} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" disabled={!!item}/>
+                            <label className="block text-base font-medium text-gray-700 mb-1">
+                                {item ? 'จำนวนปัจจุบันในสต็อก' : 'จำนวนเริ่มต้น'}
+                            </label>
+                            <input
+                                type="number"
+                                name="quantity"
+                                value={formData.quantity}
+                                onChange={handleInputChange}
+                                className="w-full p-2 border border-gray-300 rounded-lg"
+                            />
+                            {item && <p className="text-xs text-gray-500 mt-1">การแก้ไขจำนวนที่นี่จะสร้างรายการ "ปรับสต็อก" ในประวัติ</p>}
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
