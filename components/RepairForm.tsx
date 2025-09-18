@@ -58,7 +58,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             failureReason: null,
             aiReasoning: null,
         }] as EstimationAttempt[],
-        // FIX: Add missing 'checklists' property to satisfy the Repair type.
         checklists: {
             preRepair: [],
             postRepair: [],
@@ -84,6 +83,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     
     const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>('internal');
     const [isConfirmed, setIsConfirmed] = useState(false);
+    const [isFormGloballyValid, setIsFormGloballyValid] = useState(false);
 
 
     const { addToast } = useToast();
@@ -96,6 +96,34 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     }, [vehicles]);
     
     const activeEstimation = formData.estimations[formData.estimations.length - 1];
+
+    useEffect(() => {
+        const validateAll = () => {
+            // Step 0: Vehicle and Problem Info
+            if (!formData.licensePlate.trim() || !formData.problemDescription.trim()) {
+                return false;
+            }
+            if (formData.vehicleType === 'อื่นๆ' && !otherVehicleType.trim()) {
+                return false;
+            }
+
+            // Step 1: Estimation and Assignment
+            const isInternalAssigned = assignmentType === 'internal' && formData.assignedTechnicians.length > 0;
+            const isExternalAssigned = assignmentType === 'external' && !!formData.externalTechnicianName?.trim();
+            if (!isInternalAssigned && !isExternalAssigned) {
+                return false;
+            }
+            
+            const activeEst = formData.estimations[formData.estimations.length - 1];
+            if (!activeEst || !activeEst.estimatedEndDate) {
+                return false;
+            }
+            
+            return true;
+        };
+        
+        setIsFormGloballyValid(validateAll());
+    }, [formData, otherVehicleType, assignmentType]);
     
     useEffect(() => {
         if (estimationMode === 'duration' && activeEstimation) {
@@ -146,7 +174,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        // FIX: Ensure numeric inputs are stored as numbers, not strings.
         const finalValue = (name === 'repairCost' || name === 'partsVat')
             ? parseFloat(value) || 0
             : value;
@@ -398,6 +425,28 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             }));
         }
     };
+
+    const handleConfirmationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const isChecked = e.target.checked;
+        setIsConfirmed(isChecked);
+
+        if (isChecked && !isFormGloballyValid) {
+            if (!formData.licensePlate.trim() || !formData.problemDescription.trim() || (formData.vehicleType === 'อื่นๆ' && !otherVehicleType.trim())) {
+                addToast('กรุณากรอกข้อมูลในขั้นตอน "ข้อมูลรถและปัญหา" ให้ครบถ้วน', 'warning');
+                setCurrentStep(0);
+                return;
+            }
+
+            const isInternalAssigned = assignmentType === 'internal' && formData.assignedTechnicians.length > 0;
+            const isExternalAssigned = assignmentType === 'external' && !!formData.externalTechnicianName?.trim();
+            const activeEst = formData.estimations[formData.estimations.length - 1];
+            if (!isInternalAssigned && !isExternalAssigned || !activeEst || !activeEst.estimatedEndDate) {
+                addToast('กรุณากรอกข้อมูลในขั้นตอน "การประเมินและมอบหมาย" ให้ครบถ้วน', 'warning');
+                setCurrentStep(1);
+                return;
+            }
+        }
+    };
     
     const renderStepContent = () => {
         switch (currentStep) {
@@ -635,7 +684,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <input 
                                     type="checkbox"
                                     checked={isConfirmed}
-                                    onChange={(e) => setIsConfirmed(e.target.checked)}
+                                    onChange={handleConfirmationChange}
                                     className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="text-base font-medium text-gray-800">ข้าพเจ้าได้ตรวจสอบข้อมูลทั้งหมดแล้ว และยืนยันความถูกต้อง</span>
@@ -668,7 +717,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                     ) : (
                         <button 
                             type="submit" 
-                            disabled={!isConfirmed}
+                            disabled={!isConfirmed || !isFormGloballyValid}
                             className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
                             ยืนยันสร้างใบแจ้งซ่อม
