@@ -3,6 +3,7 @@ import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionS
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
 import { useToast } from '../context/ToastContext';
 import ReactDOMServer from 'react-dom/server';
+import { promptForPassword } from '../utils';
 
 
 // Define temporary item type with a unique rowId for UI management
@@ -332,6 +333,25 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         }
     };
 
+    const handleCancelAndSave = () => {
+        if (promptForPassword('ยกเลิกใบขอซื้อ')) {
+            const itemsToSave = (Array.isArray(prData.items) ? prData.items : []).map(({ rowId, ...rest }) => rest);
+            const finalData = {
+                ...prData,
+                status: 'ยกเลิก' as PurchaseRequisitionStatus,
+                items: itemsToSave,
+                totalAmount: grandTotal,
+                vatAmount: vatAmount
+            };
+
+            if ('id' in finalData) {
+                onSave(finalData as PurchaseRequisition);
+            } else {
+                onSave(finalData as Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'>);
+            }
+        }
+    };
+
     const isDraft = prData.status === 'ฉบับร่าง';
     const isFormHeaderEditable = isDraft;
     const isItemsEditable = isDraft;
@@ -363,6 +383,8 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const requestTypeLabels: Record<PurchaseRequestType, string> = { Product: 'สินค้า', Service: 'บริการ', Equipment: 'วัสดุ/อุปกรณ์', Asset: 'สินทรัพย์', Others: 'อื่นๆ' };
     const budgetTypeLabels: Record<PurchaseBudgetType, string> = { 'Have Budget': 'มีงบประมาณ', 'No Budget': 'ไม่มีงบประมาณ' };
+    const canBeCancelled = initialRequisition && ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว', 'รอสินค้า'].includes(prData.status);
+
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4 no-print">
@@ -517,11 +539,14 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                 </div>
 
                 <div className="p-6 border-t flex justify-between items-center bg-gray-50">
-                    <div>
+                    <div className="flex items-center gap-2">
                        {renderWorkflowButtons()}
+                       {canBeCancelled && (
+                           <button type="button" onClick={handleCancelAndSave} className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700">ยกเลิกใบขอซื้อ</button>
+                       )}
                     </div>
                     <div className="space-x-4 flex items-center">
-                        <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                        <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ปิด</button>
                         {(isDraft || isVatEditable) && (
                            <button onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">บันทึก</button>
                         )}

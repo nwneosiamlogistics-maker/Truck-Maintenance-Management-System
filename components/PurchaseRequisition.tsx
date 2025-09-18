@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction, Supplier } from '../types';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 interface PurchaseRequisitionProps {
     purchaseRequisitions: PurchaseRequisition[];
@@ -105,9 +106,22 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
     };
 
     const handleDeleteRequisition = (prId: string, prNumber: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบขอซื้อ ${prNumber}?`)) {
+        if (promptForPassword('ลบใบขอซื้อ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบขอซื้อ ${prNumber}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
             setPurchaseRequisitions(prev => prev.filter(pr => pr.id !== prId));
             addToast(`ลบใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
+        }
+    };
+
+    const handleCancelRequisition = (prId: string, prNumber: string) => {
+        if (promptForPassword('ยกเลิกใบขอซื้อ')) {
+            setPurchaseRequisitions(prev =>
+                prev.map(pr =>
+                    pr.id === prId
+                        ? { ...pr, status: 'ยกเลิก', updatedAt: new Date().toISOString() }
+                        : pr
+                )
+            );
+            addToast(`ยกเลิกใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
         }
     };
 
@@ -154,7 +168,8 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                 return (
                     <>
                         <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">ดู/แก้ไข</button>
-                        <button onClick={() => handleDeleteRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                        <button onClick={() => handleDeleteRequisition(pr.id, pr.prNumber)} className="text-gray-500 hover:text-gray-700 font-medium">ลบ</button>
+                        <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium">ยกเลิก</button>
                     </>
                 );
             case 'รออนุมัติ':
@@ -162,6 +177,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                     <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'อนุมัติแล้ว')} className="text-white bg-green-500 hover:bg-green-600 font-medium px-3 py-1 rounded-md text-sm">อนุมัติ</button>
                         <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );
             case 'อนุมัติแล้ว':
@@ -169,6 +185,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                      <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'รอสินค้า')} className="text-white bg-blue-500 hover:bg-blue-600 font-medium px-3 py-1 rounded-md text-sm">ยืนยันสั่งซื้อ</button>
                         <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );
             case 'รอสินค้า':
@@ -176,6 +193,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                      <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
                         <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );
             case 'รับของแล้ว':
