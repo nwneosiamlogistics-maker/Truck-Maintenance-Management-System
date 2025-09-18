@@ -72,7 +72,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [isEstimating, setIsEstimating] = useState(false);
     
     const [currentStep, setCurrentStep] = useState(0);
-    const steps = ['ข้อมูลรถและปัญหา', 'การประเมินและมอบหมาย', 'อะไหล่และค่าใช้จ่าย', 'สรุปและยืนยืน'];
+    const steps = ['ข้อมูลรถและปัญหา', 'การประเมินและมอบหมาย', 'อะไหล่และค่าใช้จ่าย', 'สรุปและยืนยัน'];
 
     const [suggestions, setSuggestions] = useState<Vehicle[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
@@ -83,6 +83,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
     
     const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>('internal');
+    const [isConfirmed, setIsConfirmed] = useState(false);
 
 
     const { addToast } = useToast();
@@ -211,6 +212,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setOtherVehicleType('');
         setCurrentStep(0);
         setAssignmentType('internal');
+        setIsConfirmed(false);
     };
 
     const handleEstimate = async () => {
@@ -376,6 +378,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     };
 
     const handleBack = () => {
+        setIsConfirmed(false);
         setCurrentStep(prev => Math.max(prev - 1, 0));
     };
     
@@ -594,35 +597,49 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                     </div>
                 );
             case 3: // สรุปและยืนยัน
+                 const handleEditClick = (step: number) => {
+                     setIsConfirmed(false); // Reset confirmation when going back to edit
+                     setCurrentStep(step);
+                 };
+
                  return (
                      <div className="space-y-4">
-                        <div className="p-4 border rounded-lg">
+                        <div className="p-4 border rounded-lg bg-gray-50">
                             <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-lg">ข้อมูลรถและปัญหา</h3>
-                                <button onClick={() => setCurrentStep(0)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
+                                <h3 className="font-bold text-lg text-gray-700">✅ 1. ข้อมูลรถและปัญหา</h3>
+                                <button onClick={() => handleEditClick(0)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
                             </div>
                             <p><strong>ทะเบียนรถ:</strong> {formData.licensePlate}</p>
                             <p><strong>ประเภทรถ:</strong> {formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}</p>
                             <p><strong>อาการเสีย:</strong> {formData.problemDescription}</p>
                         </div>
-                        <div className="p-4 border rounded-lg">
+                        <div className="p-4 border rounded-lg bg-gray-50">
                              <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-lg">การประเมินและมอบหมาย</h3>
-                                <button onClick={() => setCurrentStep(1)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
+                                <h3 className="font-bold text-lg text-gray-700">✅ 2. การประเมินและมอบหมาย</h3>
+                                <button onClick={() => handleEditClick(1)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
                             </div>
                             <p><strong>ความสำคัญ:</strong> {formData.priority}</p>
                             <p><strong>คาดว่าจะเสร็จ:</strong> {formatDateTime24h(activeEstimation.estimatedEndDate)}</p>
                             <p><strong>ช่าง:</strong> {formData.dispatchType === 'ภายนอก' ? `ซ่อมภายนอก: ${formData.externalTechnicianName}` : technicians.filter(t => formData.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ')}</p>
                         </div>
-                         <div className="p-4 border rounded-lg">
+                         <div className="p-4 border rounded-lg bg-gray-50">
                              <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-lg">อะไหล่และค่าใช้จ่าย</h3>
-                                <button onClick={() => setCurrentStep(2)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
+                                <h3 className="font-bold text-lg text-gray-700">✅ 3. อะไหล่และค่าใช้จ่าย</h3>
+                                <button onClick={() => handleEditClick(2)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
                             </div>
-                            <ul className="list-disc list-inside">
-                                {formData.parts.map(p => <li key={p.partId}>{p.name} x{p.quantity}</li>)}
-                            </ul>
-                            <p className="mt-2 font-bold text-xl text-right">ยอดรวม: {grandTotal.toLocaleString()} บาท</p>
+                            <p><strong>จำนวนรายการอะไหล่:</strong> {formData.parts.length} รายการ</p>
+                            <p className="mt-2 font-bold text-xl text-right">ยอดรวมค่าใช้จ่ายทั้งหมด: {grandTotal.toLocaleString()} บาท</p>
+                        </div>
+                        <div className="mt-6 p-4 border-t border-dashed">
+                            <label className="flex items-center space-x-3 cursor-pointer">
+                                <input 
+                                    type="checkbox"
+                                    checked={isConfirmed}
+                                    onChange={(e) => setIsConfirmed(e.target.checked)}
+                                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-base font-medium text-gray-800">ข้าพเจ้าได้ตรวจสอบข้อมูลทั้งหมดแล้ว และยืนยันความถูกต้อง</span>
+                            </label>
                         </div>
                      </div>
                 );
@@ -649,7 +666,13 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                     {currentStep < steps.length - 1 ? (
                         <button type="button" onClick={handleNext} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">ถัดไป</button>
                     ) : (
-                        <button type="submit" className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">ยืนยันสร้างใบแจ้งซ่อม</button>
+                        <button 
+                            type="submit" 
+                            disabled={!isConfirmed}
+                            className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                            ยืนยันสร้างใบแจ้งซ่อม
+                        </button>
                     )}
                 </div>
             </div>
