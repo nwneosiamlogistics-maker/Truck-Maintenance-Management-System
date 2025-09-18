@@ -132,6 +132,12 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         setFormData(prev => ({...prev, [field]: value ? new Date(value).toISOString() : null }));
     };
 
+    const handleCreatedAtChange = (value: string) => {
+        if (value) {
+            setFormData(prev => ({...prev, createdAt: new Date(value).toISOString()}));
+        }
+    };
+
     const removePart = (partId: string) => {
         const partToRemove = (formData.parts || []).find(p => p.partId === partId);
         if (!partToRemove) return;
@@ -513,7 +519,16 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                             <option value="ด่วนที่สุด">ด่วนที่สุด</option>
                                         </select>
                                     </div>
-                                     <div className="md:col-span-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">วันที่แจ้งซ่อม</label>
+                                        <input 
+                                            type="datetime-local" 
+                                            value={toLocalISOString(formData.createdAt)} 
+                                            onChange={(e) => handleCreatedAtChange(e.target.value)} 
+                                            className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                        />
+                                    </div>
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700">ชื่อผู้แจ้งซ่อม</label>
                                         <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                                     </div>
