@@ -117,10 +117,19 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
         }
-        if (repair.assignedTechnicians && repair.assignedTechnicians.length > 0) {
-            return repair.assignedTechnicians.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+        
+        const mainTechnician = technicians.find(t => t.id === repair.assignedTechnicianId);
+        const assistants = technicians.filter(t => (repair.assistantTechnicianIds || []).includes(t.id));
+
+        let display: string[] = [];
+        if (mainTechnician) {
+            display.push(`ช่าง: ${mainTechnician.name}`);
         }
-        return 'N/A';
+        if (assistants.length > 0) {
+            display.push(`ผู้ช่วย: ${assistants.map(a => a.name).join(', ')}`);
+        }
+
+        return display.length > 0 ? display.join(' | ') : 'N/A';
     };
 
     const calculateTotalCost = (repair: Repair) => {
@@ -175,7 +184,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                     </td>
                                     <td className="px-4 py-3"><div className="font-semibold">{repair.repairOrderNo}</div><div className="text-sm text-gray-500">{repair.licensePlate}</div></td>
                                     <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
-                                    <td className="px-4 py-3 text-base">{getTechnicianDisplay(repair)}</td>
+                                    <td className="px-4 py-3 text-sm">{getTechnicianDisplay(repair)}</td>
                                     <td className="px-4 py-3 text-base">{new Date(repair.repairEndDate || repair.createdAt).toLocaleDateString('th-TH')}</td>
                                     <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
                                     <td className="px-4 py-3 text-center space-x-2">

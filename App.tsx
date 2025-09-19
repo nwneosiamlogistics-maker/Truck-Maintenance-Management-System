@@ -140,6 +140,40 @@ function App() {
         }
     }, [suppliers, setSuppliers]);
 
+    // One-time data migration for technician roles
+    useEffect(() => {
+        if (Array.isArray(technicians) && technicians.length > 0) {
+            const migrationKey = 'technician_role_migration_20240729';
+            if (!localStorage.getItem(migrationKey)) {
+                const needsMigration = technicians.some(t => !t.role);
+                
+                if (needsMigration) {
+                    console.log('Running one-time technician role migration...');
+                    const defaultTechniciansMap = new Map(getDefaultTechnicians().map(t => [t.id, t]));
+                    
+                    const updatedTechnicians = technicians.map(currentTech => {
+                        const defaultTech = defaultTechniciansMap.get(currentTech.id);
+                        if (defaultTech && !currentTech.role) {
+                            return { ...currentTech, role: defaultTech.role };
+                        }
+                        return currentTech;
+                    });
+                    
+                    const existingTechMap = new Map(updatedTechnicians.map(t => [t.id, t]));
+                    defaultTechniciansMap.forEach((defaultTech, defaultTechId) => {
+                        if (!existingTechMap.has(defaultTechId)) {
+                            updatedTechnicians.push(defaultTech);
+                        }
+                    });
+
+                    setTechnicians(updatedTechnicians);
+                    localStorage.setItem(migrationKey, 'true');
+                    console.log('Technician roles have been migrated/merged.');
+                }
+            }
+        }
+    }, [technicians, setTechnicians]);
+
 
     // Derived state for badges and stats
     const stats = useMemo(() => {
@@ -229,7 +263,6 @@ function App() {
             case 'kpi-dashboard':
                 return <KPIDashboard repairs={repairs} plans={plans} vehicles={vehicles} />;
             case 'form':
-                // FIX: Removed unused `setStock` prop from RepairForm component.
                 return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} />;
             case 'list':
                 return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} addUsedParts={addUsedParts} suppliers={suppliers} usedParts={usedParts} />;

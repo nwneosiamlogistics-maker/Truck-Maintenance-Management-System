@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Technician, Repair } from '../types';
 import TechnicianModal from './TechnicianModal';
@@ -144,6 +145,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                                 <h3 className="text-xl font-bold text-gray-800">{tech.name}</h3>
                                 <span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(tech.status)}`}>{tech.status}</span>
                             </div>
+                            <p className="text-gray-500 text-sm font-semibold">{tech.role}</p>
                             <p className="text-gray-500 text-sm">ID: {tech.id} | ประสบการณ์ {tech.experience} ปี</p>
                             <div className="mt-4 flex flex-wrap gap-2 h-12 overflow-y-auto">
                                 {(Array.isArray(tech.skills) ? tech.skills : []).map(skill => (
@@ -170,8 +172,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
             {isDetailModalOpen && selectedTechnician && (
                 <TechnicianModal 
                     technician={selectedTechnician} 
-                    // FIX: Corrected property from `assignedTechnician` to `assignedTechnicians` to match the Repair type.
-                    repairs={repairs.filter(r => (r.assignedTechnicians || []).includes(selectedTechnician.id))}
+                    repairs={repairs.filter(r => r.assignedTechnicianId === selectedTechnician.id || (r.assistantTechnicianIds || []).includes(selectedTechnician.id))}
                     onClose={() => setDetailModalOpen(false)} 
                 />
             )}

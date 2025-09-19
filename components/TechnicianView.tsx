@@ -70,14 +70,12 @@ const JobModal: React.FC<JobModalProps> = ({ technician, jobs, onClose, onStatus
 
 
 // --- Main Component ---
-// FIX: Add a local type for the technician object enriched with their current jobs.
 type EnrichedTechnician = Technician & {
     jobs: Repair[];
     currentJobsCount: number;
 };
 
 const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions }) => {
-    // FIX: Update state to use the enriched technician type.
     const [selectedTechnician, setSelectedTechnician] = useState<EnrichedTechnician | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { addToast } = useToast();
@@ -86,23 +84,34 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
         const activeRepairs = (Array.isArray(repairs) ? repairs : []).filter(r => ['รอซ่อม', 'กำลังซ่อม', 'รออะไหล่'].includes(r.status));
         
         return technicians.map(tech => {
-            const currentJobs = activeRepairs.filter(r => (r.assignedTechnicians || []).includes(tech.id));
-            const status: 'ว่าง' | 'ไม่ว่าง' = currentJobs.length > 0 ? 'ไม่ว่าง' : 'ว่าง';
+            const currentJobs = activeRepairs.filter(r => r.assignedTechnicianId === tech.id || (r.assistantTechnicianIds || []).includes(tech.id));
+            
+            // Respect the manually set status first (e.g., 'ลา'), then calculate based on jobs.
+            let derivedStatus: Technician['status'];
+            if (tech.status === 'ลา') {
+                derivedStatus = 'ลา';
+            } else {
+                derivedStatus = currentJobs.length > 0 ? 'ไม่ว่าง' : 'ว่าง';
+            }
+            
             return {
                 ...tech,
-                status,
+                status: derivedStatus,
                 currentJobsCount: currentJobs.length,
                 jobs: currentJobs,
             };
         }).sort((a,b) => {
-             if (a.status === 'ไม่ว่าง' && b.status === 'ว่าง') return -1;
-             if (a.status === 'ว่าง' && b.status !== 'ว่าง') return 1;
-             return a.name.localeCompare(b.name);
+            // Sort by Busy > Available > On Leave
+            const statusOrder = { 'ไม่ว่าง': 0, 'ว่าง': 1, 'ลา': 2 };
+            const statusA = statusOrder[a.status] ?? 3;
+            const statusB = statusOrder[b.status] ?? 3;
+            if (statusA !== statusB) {
+                return statusA - statusB;
+            }
+             return a.name.localeCompare(b.name, 'th');
         });
-
     }, [repairs, technicians]);
     
-    // FIX: Update the parameter type to match the data being passed.
     const handleOpenModal = (tech: EnrichedTechnician) => {
         setSelectedTechnician(tech);
         setIsModalOpen(true);
@@ -130,7 +139,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
             };
 
             const technicianNames = technicians
-                .filter(t => updatedRepair.assignedTechnicians.includes(t.id))
+                .filter(t => updatedRepair.assignedTechnicianId === t.id || (updatedRepair.assistantTechnicianIds || []).includes(t.id))
                 .map(t => t.name)
                 .join(', ') || 'ไม่ระบุ';
             
@@ -185,10 +194,6 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
             setSelectedTechnician(updatedTech);
         }
          // Close modal if there are no more active jobs for the technician
-        const remainingJobs = (repairs.find(r => r.id === repairId)?.assignedTechnicians || [])
-            .flatMap(techId => repairs.filter(rep => (rep.assignedTechnicians || []).includes(techId) && ['รอซ่อม', 'กำลังซ่อม', 'รออะไหล่'].includes(rep.status)))
-            .filter(job => job.id !== repairId); // Exclude the job just completed
-        
         const techHasMoreJobs = techStats.find(t => t.id === selectedTechnician?.id)?.jobs.some(j => j.id !== repairId)
 
         if (!techHasMoreJobs) {
@@ -196,10 +201,11 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
         }
     };
     
-    const getStatusBadge = (status: 'ว่าง' | 'ไม่ว่าง') => {
+    const getStatusBadge = (status: Technician['status']) => {
         switch (status) {
             case 'ว่าง': return 'bg-green-100 text-green-800';
             case 'ไม่ว่าง': return 'bg-yellow-100 text-yellow-800';
+            case 'ลา': return 'bg-gray-200 text-gray-800';
             default: return 'bg-gray-100';
         }
     };
@@ -218,6 +224,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                                 <h3 className="text-xl font-bold text-gray-800">{tech.name}</h3>
                                 <span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(tech.status)}`}>{tech.status}</span>
                             </div>
+                            <p className="text-gray-500 text-sm font-semibold">{tech.role}</p>
                             <p className="text-gray-500 text-sm">ID: {tech.id} | ประสบการณ์ {tech.experience} ปี</p>
                             <div className="mt-4 flex flex-wrap gap-2 h-12 overflow-y-auto">
                                 {(tech.skills || []).map(skill => (

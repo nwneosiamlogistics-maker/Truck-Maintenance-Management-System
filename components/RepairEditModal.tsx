@@ -59,6 +59,15 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     );
 
     const { addToast } = useToast();
+    
+    const { mainTechnicians, assistantTechnicians } = useMemo(() => {
+        const safeTechnicians = Array.isArray(technicians) ? technicians : [];
+        return {
+            mainTechnicians: safeTechnicians.filter(t => t.role === 'ช่าง'),
+            assistantTechnicians: safeTechnicians.filter(t => t.role === 'ผู้ช่วยช่าง'),
+        };
+    }, [technicians]);
+
 
     useEffect(() => {
         setFormData(getInitialState(repair));
@@ -236,7 +245,8 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     
         // 3. Create 'เบิกใช้' transactions and finalize stock if repair is completed
         if (finalFormData.status === 'ซ่อมเสร็จ') {
-            const technicianNames = technicians.filter(t => (finalFormData.assignedTechnicians || []).includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
+            const allTechIds = [finalFormData.assignedTechnicianId, ...(finalFormData.assistantTechnicianIds || [])].filter(Boolean);
+            const technicianNames = technicians.filter(t => allTechIds.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
             const now = new Date().toISOString();
     
             const existingWithdrawalPartIds = new Set(
@@ -366,7 +376,8 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         } else {
             setFormData(prev => ({
                 ...prev,
-                assignedTechnicians: [],
+                assignedTechnicianId: null,
+                assistantTechnicianIds: [],
                 dispatchType: 'ภายนอก'
             }));
         }
@@ -556,11 +567,30 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                         </label>
                                     </div>
                                     {assignmentType === 'internal' ? (
-                                       <TechnicianMultiSelect
-                                            allTechnicians={technicians}
-                                            selectedTechnicianIds={formData.assignedTechnicians}
-                                            onChange={(ids) => setFormData(prev => ({...prev, assignedTechnicians: ids}))}
-                                       />
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">ช่างหลัก</label>
+                                                <select
+                                                    name="assignedTechnicianId"
+                                                    value={formData.assignedTechnicianId || ''}
+                                                    onChange={handleInputChange}
+                                                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                                >
+                                                    <option value="">-- ไม่ระบุช่างหลัก --</option>
+                                                    {mainTechnicians.map(tech => (
+                                                        <option key={tech.id} value={tech.id}>{tech.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">ผู้ช่วยช่าง</label>
+                                                <TechnicianMultiSelect
+                                                    allTechnicians={assistantTechnicians}
+                                                    selectedTechnicianIds={formData.assistantTechnicianIds}
+                                                    onChange={(ids) => setFormData(prev => ({...prev, assistantTechnicianIds: ids}))}
+                                                />
+                                            </div>
+                                        </div>
                                     ) : (
                                         <input 
                                             type="text" 

@@ -36,7 +36,8 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
             .filter(r => r.status === 'ซ่อมเสร็จ')
             .filter(r => {
                 if (selectedTechId === 'all') return true;
-                return (r.assignedTechnicians || []).includes(selectedTechId);
+                // FIX: Use assignedTechnicianId and assistantTechnicianIds instead of deprecated assignedTechnicians
+                return r.assignedTechnicianId === selectedTechId || (r.assistantTechnicianIds || []).includes(selectedTechId);
             })
             .filter(r => {
                 if (!startDate && !endDate) return true;
@@ -56,14 +57,24 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
             .sort((a, b) => new Date(b.repairEndDate || b.createdAt).getTime() - new Date(a.repairEndDate || a.createdAt).getTime());
     }, [repairs, selectedTechId, startDate, endDate, searchTerm]);
     
+    // FIX: Updated function to correctly display main and assistant technicians using new data model
     const getTechnicianDisplay = (repair: Repair) => {
         if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
         }
-        if (repair.assignedTechnicians && repair.assignedTechnicians.length > 0) {
-            return repair.assignedTechnicians.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
+        
+        const mainTechnician = technicians.find(t => t.id === repair.assignedTechnicianId);
+        const assistants = technicians.filter(t => (repair.assistantTechnicianIds || []).includes(t.id));
+
+        let display: string[] = [];
+        if (mainTechnician) {
+            display.push(`ช่าง: ${mainTechnician.name}`);
         }
-        return 'N/A';
+        if (assistants.length > 0) {
+            display.push(`ผู้ช่วย: ${assistants.map(a => a.name).join(', ')}`);
+        }
+
+        return display.length > 0 ? display.join(' | ') : 'N/A';
     };
     
     const formatDate = (dateString: string | null) => {

@@ -79,7 +79,8 @@ export interface Repair {
     repairCategory: string;
     priority: Priority;
     problemDescription: string;
-    assignedTechnicians: string[];
+    assignedTechnicianId: string | null; // Changed from assignedTechnicians
+    assistantTechnicianIds: string[]; // Added for assistants
     externalTechnicianName?: string;
     notes: string;
     dispatchType: DispatchType;
@@ -104,10 +105,12 @@ export interface Repair {
 }
 
 export type TechnicianStatus = 'ว่าง' | 'ไม่ว่าง' | 'ลา';
+export type TechnicianRole = 'ช่าง' | 'ผู้ช่วยช่าง';
 
 export interface Technician {
     id: string;
     name: string;
+    role: TechnicianRole; // Added role
     skills: string[];
     experience: number;
     status: TechnicianStatus;

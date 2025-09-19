@@ -13,11 +13,9 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
     
     const getStatusBadge = (status: Repair['status']) => {
         switch (status) {
-            // FIX: Corrected status from 'รอดำเนินการ' to 'รอซ่อม' to match the type.
             case 'รอซ่อม': return 'bg-gray-200 text-gray-800';
             case 'กำลังซ่อม': return 'bg-blue-100 text-blue-800';
             case 'รออะไหล่': return 'bg-yellow-100 text-yellow-800';
-            // FIX: Corrected status from 'เสร็จแล้ว' to 'ซ่อมเสร็จ' to match the type.
             case 'ซ่อมเสร็จ': return 'bg-green-100 text-green-800';
             case 'ยกเลิก': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
@@ -25,7 +23,7 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
     };
     
     const safeRepairs = (Array.isArray(repairs) ? repairs : []).filter(r => 
-        (Array.isArray(r.assignedTechnicians) ? r.assignedTechnicians : []).includes(technician.id)
+        r.assignedTechnicianId === technician.id || (r.assistantTechnicianIds || []).includes(technician.id)
     );
     const safeSkills = Array.isArray(technician.skills) ? technician.skills : [];
 
@@ -35,7 +33,7 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
                 <div className="p-6 border-b flex justify-between items-center">
                     <div>
                         <h3 className="text-2xl font-bold text-gray-800">{technician.name}</h3>
-                        <p className="text-base text-gray-500">ID: {technician.id}</p>
+                        <p className="text-base text-gray-500">ID: {technician.id} | ตำแหน่ง: {technician.role}</p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -75,7 +73,6 @@ const TechnicianModal: React.FC<TechnicianModalProps> = ({ technician, repairs, 
                                             <tr key={job.id}>
                                                 <td className="px-4 py-3 text-base">{new Date(job.createdAt).toLocaleDateString('th-TH')}</td>
                                                 <td className="px-4 py-3 text-base font-semibold">{job.licensePlate}</td>
-                                                {/* FIX: Property 'repairType' does not exist on type 'Repair'. Changed to 'repairCategory'. */}
                                                 <td className="px-4 py-3 text-base">{job.repairCategory}</td>
                                                 <td className="px-4 py-3">
                                                     <span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(job.status)}`}>{job.status}</span>

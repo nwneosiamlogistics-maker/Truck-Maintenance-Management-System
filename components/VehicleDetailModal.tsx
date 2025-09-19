@@ -18,10 +18,19 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
         if (repairItem.dispatchType === 'ภายนอก' && repairItem.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repairItem.externalTechnicianName}`;
         }
-        if (repairItem.assignedTechnicians && repairItem.assignedTechnicians.length > 0) {
-            return repairItem.assignedTechnicians.map(id => technicians.find(t => t.id === id)?.name || 'ไม่พบชื่อ').join(', ');
+        
+        const mainTechnician = technicians.find(t => t.id === repairItem.assignedTechnicianId);
+        const assistants = technicians.filter(t => (repairItem.assistantTechnicianIds || []).includes(t.id));
+
+        let display: string[] = [];
+        if (mainTechnician) {
+            display.push(`ช่าง: ${mainTechnician.name}`);
         }
-        return 'ไม่ระบุ';
+        if (assistants.length > 0) {
+            display.push(`ผู้ช่วย: ${assistants.map(a => a.name).join(', ')}`);
+        }
+
+        return display.length > 0 ? display.join(' | ') : 'ไม่ระบุ';
     };
     
     const calculateTotalCost = (repairItem: Repair) => {
@@ -133,7 +142,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                                             <tr key={hist.id}>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-600">{new Date(hist.createdAt).toLocaleDateString('th-TH')}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-800 font-medium">{hist.repairCategory}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-base text-gray-600">{getTechnicianDisplay(hist)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{getTechnicianDisplay(hist)}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-800 text-right font-semibold">{calculateTotalCost(hist).toLocaleString()}</td>
                                             </tr>
                                         ))

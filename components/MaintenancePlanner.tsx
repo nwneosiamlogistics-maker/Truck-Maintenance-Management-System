@@ -170,7 +170,8 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                                         <td className="px-4 py-3 font-semibold">{formatDateTime24h(repair.activeEstimation!.estimatedEndDate)}</td>
                                         <td className="px-4 py-3 font-medium">{repair.licensePlate}</td>
                                         <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
-                                        <td className="px-4 py-3 text-sm">{getTechnicianNames(repair.assignedTechnicians)}</td>
+                                        {/* FIX: Use assignedTechnicianId and assistantTechnicianIds instead of deprecated assignedTechnicians */}
+                                        <td className="px-4 py-3 text-sm">{getTechnicianNames([repair.assignedTechnicianId, ...(repair.assistantTechnicianIds || [])].filter(Boolean) as string[])}</td>
                                     </tr>
                                 ))}
                             </tbody>

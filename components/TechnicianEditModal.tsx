@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import type { Technician } from '../types';
+import type { Technician, TechnicianRole } from '../types';
 
 interface TechnicianEditModalProps {
     technician: Technician | null;
@@ -15,6 +15,7 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
         return {
             id: '',
             name: '',
+            role: 'ผู้ช่วยช่าง' as const,
             skills: [],
             experience: 0,
             status: 'ว่าง' as const,
@@ -54,9 +55,18 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
                     </button>
                 </div>
                 <form id="technician-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-                    <div>
-                        <label className="block text-base font-medium text-gray-700 mb-1">ชื่อ-สกุล</label>
-                        <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                           <label className="block text-base font-medium text-gray-700 mb-1">ชื่อ-สกุล</label>
+                           <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        </div>
+                        <div>
+                           <label className="block text-base font-medium text-gray-700 mb-1">ตำแหน่ง</label>
+                           <select name="role" value={formData.role} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
+                               <option value="ช่าง">ช่าง</option>
+                               <option value="ผู้ช่วยช่าง">ผู้ช่วยช่าง</option>
+                           </select>
+                        </div>
                     </div>
                      <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">ทักษะ (คั่นด้วย ,)</label>

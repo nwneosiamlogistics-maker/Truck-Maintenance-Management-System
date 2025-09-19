@@ -21,7 +21,8 @@ type FlattenedPart = {
     dateUsed: string;
     repairOrderNo: string;
     licensePlate: string;
-    assignedTechnicians: string[];
+    // FIX: Use a combined technician ID list instead of deprecated assignedTechnicians
+    allTechnicianIds: string[];
 };
 
 const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repairs, technicians }) => {
@@ -68,7 +69,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     dateUsed: r.repairEndDate!,
                     repairOrderNo: r.repairOrderNo,
                     licensePlate: r.licensePlate,
-                    assignedTechnicians: r.assignedTechnicians,
+                    // FIX: Use assignedTechnicianId and assistantTechnicianIds to create a combined list
+                    allTechnicianIds: [r.assignedTechnicianId, ...(r.assistantTechnicianIds || [])].filter(Boolean) as string[],
                 }))
             );
     }, [repairs, stockMap]);
@@ -280,7 +282,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                     <td className="px-4 py-3 font-semibold">{p.partName}</td>
                                     <td className="px-4 py-3 text-sm">{p.category}</td>
                                     <td className="px-4 py-3 text-right font-bold text-base">{p.quantity} {p.unit}</td>
-                                    <td className="px-4 py-3 text-sm">{getTechnicianNames(p.assignedTechnicians)}</td>
+                                    {/* FIX: Use allTechnicianIds which contains both main and assistant technicians */}
+                                    <td className="px-4 py-3 text-sm">{getTechnicianNames(p.allTechnicianIds)}</td>
                                     <td className="px-4 py-3 text-right">{p.unitPrice.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-right font-semibold">{(p.unitPrice * p.quantity).toLocaleString()}</td>
                                 </tr>

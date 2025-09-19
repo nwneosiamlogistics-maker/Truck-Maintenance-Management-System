@@ -1,6 +1,62 @@
 import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Supplier, UsedPartBuyer } from '../types';
 
-export const getDefaultTechnicians = (): Technician[] => [];
+export const getDefaultTechnicians = (): Technician[] => [
+    {
+        id: 'T001',
+        name: 'นายสมชาติ แซ่เอี้ยว',
+        role: 'ช่าง',
+        skills: ['เครื่องยนต์ดีเซล', 'ระบบเบรก', 'ช่วงล่าง'],
+        experience: 15,
+        status: 'ว่าง',
+        rating: 4.8,
+        completedJobs: 152,
+        currentJobs: 0,
+    },
+    {
+        id: 'T002',
+        name: 'นายสมพร เกิดศรี',
+        role: 'ช่าง',
+        skills: ['ระบบไฟฟ้า', 'แอร์', 'ระบบส่งกำลัง'],
+        experience: 12,
+        status: 'ว่าง',
+        rating: 4.7,
+        completedJobs: 135,
+        currentJobs: 0,
+    },
+    {
+        id: 'T003',
+        name: 'นายอนุชิต พิมพา',
+        role: 'ช่าง',
+        skills: ['ตัวถัง', 'งานเชื่อม', 'ช่วงล่าง'],
+        experience: 8,
+        status: 'ว่าง',
+        rating: 4.5,
+        completedJobs: 98,
+        currentJobs: 0,
+    },
+    {
+        id: 'T004',
+        name: 'นายมิน',
+        role: 'ผู้ช่วยช่าง',
+        skills: ['เปลี่ยนถ่ายน้ำมันเครื่อง', 'ตรวจเช็คทั่วไป'],
+        experience: 2,
+        status: 'ว่าง',
+        rating: 4.2,
+        completedJobs: 210,
+        currentJobs: 0,
+    },
+    {
+        id: 'T005',
+        name: 'นายนุโรม ศรีมหรรณ์',
+        role: 'ผู้ช่วยช่าง',
+        skills: ['ล้างอัดฉีด', 'ช่วยงานทั่วไป'],
+        experience: 1,
+        status: 'ว่าง',
+        rating: 4.0,
+        completedJobs: 180,
+        currentJobs: 0,
+    },
+];
 
 export const getDefaultStock = (): StockItem[] => [];
 

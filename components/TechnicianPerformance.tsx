@@ -60,7 +60,8 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         });
 
         const techStats = technicians.map(tech => {
-            const techRepairs = filteredRepairs.filter(r => (r.assignedTechnicians || []).includes(tech.id));
+            // FIX: Use assignedTechnicianId and assistantTechnicianIds instead of deprecated assignedTechnicians
+            const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === tech.id || (r.assistantTechnicianIds || []).includes(tech.id));
             if (techRepairs.length === 0) return null;
 
             let totalRepairMillis = 0;
@@ -127,7 +128,9 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         const overallAvgTime = totalJobs > 0 ? techStats.reduce((sum, t) => sum + (t.avgTime * t.jobs), 0) / totalJobs : 0;
         
         const totalWeightedOnTime = techStats.reduce((sum, t) => {
-            const techRepairs = filteredRepairs.filter(r => (r.assignedTechnicians || []).includes(t.id));
+            // FIX: Use assignedTechnicianId and assistantTechnicianIds instead of deprecated assignedTechnicians
+            // FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
+            const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
             const estimatedJobsCount = techRepairs.filter(r => {
                 let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
                 if (!finalEstimation && r.estimations && r.estimations.length > 0) {
@@ -140,7 +143,9 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         }, 0);
 
         const totalEstimatedJobs = techStats.reduce((sum, t) => {
-             const techRepairs = filteredRepairs.filter(r => (r.assignedTechnicians || []).includes(t.id));
+             // FIX: Use assignedTechnicianId and assistantTechnicianIds instead of deprecated assignedTechnicians
+             // FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
+             const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
              return sum + techRepairs.filter(r => {
                 let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
                 if (!finalEstimation && r.estimations && r.estimations.length > 0) {
