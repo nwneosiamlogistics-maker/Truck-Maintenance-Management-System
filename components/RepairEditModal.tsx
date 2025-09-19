@@ -33,6 +33,11 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                 aiReasoning: null
             }];
         }
+        // FIX: Ensure assistantTechnicianIds is always an array to handle legacy data
+        // where this field might be missing, preventing crashes.
+        if (!Array.isArray(repairCopy.assistantTechnicianIds)) {
+            repairCopy.assistantTechnicianIds = [];
+        }
         return repairCopy;
     };
     
