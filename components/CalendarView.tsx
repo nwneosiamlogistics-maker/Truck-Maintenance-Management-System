@@ -31,6 +31,14 @@ const formatFrequency = (plan: EnrichedPlan) => {
     return timePart + mileagePart;
 };
 
+// Helper to get local date string, avoiding timezone issues.
+const getLocalDateKey = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // --- Mini Month Component for Year View ---
 interface MiniMonthProps {
     year: number;
@@ -54,7 +62,8 @@ const MiniMonth: React.FC<MiniMonthProps> = ({ year, month, events }) => {
         cells.push(<div key={`empty-${i}`}></div>);
     }
     for (let day = 1; day <= daysInMonth; day++) {
-        const dateKey = new Date(year, month, day).toISOString().split('T')[0];
+        const date = new Date(Date.UTC(year, month, day)); // FIX: Create date in UTC
+        const dateKey = date.toISOString().split('T')[0];
         const dayEvents = events[dateKey] || [];
         const highestStatus = getHighestPriorityStatus(dayEvents);
         const tooltipText = dayEvents.map(p => `${p.vehicleLicensePlate}: ${p.planName}`).join('\n');
@@ -110,15 +119,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ plans, onPlanClick, viewMod
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const firstDayOfMonth = new Date(year, month, 1).getDay();
         
+        const todayKey = getLocalDateKey(new Date()); // FIX: Get today's local date key
+
         const calendarCells = [];
         for (let i = 0; i < firstDayOfMonth; i++) {
             calendarCells.push(<div key={`empty-start-${i}`} className="border-r border-b"></div>);
         }
         for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
+            const date = new Date(Date.UTC(year, month, day)); // FIX: Create date in UTC to get a stable key
             const dateKey = date.toISOString().split('T')[0];
             const dayEvents = eventsByDate[dateKey] || [];
-            const isToday = new Date().toISOString().split('T')[0] === dateKey;
+            const isToday = todayKey === dateKey; // FIX: Compare against local date key
 
             calendarCells.push(
                 <div key={day} className="relative border-r border-b p-2 min-h-[120px]">
