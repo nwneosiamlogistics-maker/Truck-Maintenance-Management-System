@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import type { Repair, StockItem, Tab } from '../types';
 import StatCard from './StatCard';
@@ -9,14 +8,32 @@ interface DashboardProps {
   setActiveTab: (tab: Tab) => void;
 }
 
+const isToday = (dateString: string | null | undefined): boolean => {
+    if (!dateString) return false;
+    try {
+        const date = new Date(dateString);
+        const today = new Date();
+        return date.getDate() === today.getDate() &&
+               date.getMonth() === today.getMonth() &&
+               date.getFullYear() === today.getFullYear();
+    } catch {
+        return false;
+    }
+};
+
+
 const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) => {
   const safeRepairs = useMemo(() => Array.isArray(repairs) ? repairs : [], [repairs]);
   const safeStock = useMemo(() => Array.isArray(stock) ? stock : [], [stock]);
   
-  const totalRepairs = safeRepairs.length;
-  const completedRepairs = safeRepairs.filter(r => r.status === 'ซ่อมเสร็จ').length;
-  const inProgressRepairs = safeRepairs.filter(r => r.status === 'กำลังซ่อม').length;
-  const totalVehicles = useMemo(() => new Set(safeRepairs.map(r => r.licensePlate)).size, [safeRepairs]);
+  const statsForToday = useMemo(() => {
+    const reportedToday = safeRepairs.filter(r => isToday(r.createdAt)).length;
+    const completedToday = safeRepairs.filter(r => r.status === 'ซ่อมเสร็จ' && isToday(r.repairEndDate)).length;
+    const inProgress = safeRepairs.filter(r => r.status === 'กำลังซ่อม').length;
+    const waitingForRepair = safeRepairs.filter(r => r.status === 'รอซ่อม').length;
+
+    return { reportedToday, completedToday, inProgress, waitingForRepair };
+  }, [safeRepairs]);
 
   const alerts = [
     {
@@ -39,43 +56,12 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
       type: 'info',
       icon: 'ℹ️',
       title: 'งานซ่อมรอดำเนินการ',
-      description: `มี ${safeRepairs.filter(r => r.status === 'รอซ่อม').length} ใบแจ้งซ่อมที่รอการมอบหมายช่าง`,
+      description: `${statsForToday.waitingForRepair} ใบแจ้งซ่อมที่รอการมอบหมายช่าง`,
       tab: 'list',
       buttonText: 'จัดการ'
     }
   ];
   
-  const vehicleTypeStats = useMemo(() => {
-    const stats: Record<string, number> = {};
-    const uniqueRepairs = Array.from(new Map(safeRepairs.map(r => [r.licensePlate, r])).values());
-
-    uniqueRepairs.forEach(repair => {
-        stats[repair.vehicleType] = (stats[repair.vehicleType] || 0) + 1;
-    });
-
-    return Object.entries(stats).sort((a, b) => b[1] - a[1]);
-  }, [safeRepairs]);
-
-  const getVehicleIcon = (type: string) => {
-      if (!type) return '🚗';
-      if (type.includes('4 ล้อ')) return '🚐';
-      if (type.includes('6 ล้อ')) return '🚛';
-      if (type.includes('10 ล้อ')) return '🚚';
-      if (type.includes('หัวลาก') || type.includes('หางพ่วง')) return '🚜';
-      return '🚗';
-  };
-
-  // FIX: Replaced getVehicleColor with getVehicleTheme to match StatCard's 'theme' prop.
-  const getVehicleTheme = (index: number): 'purple' | 'green' | 'yellow' | 'red' => {
-      const themes: ('purple' | 'green' | 'yellow' | 'red')[] = [
-          'purple',
-          'green',
-          'yellow',
-          'red',
-      ];
-      return themes[index % themes.length];
-  };
-
   const getAlertClasses = (type: string) => {
     switch(type) {
       case 'warning': return 'bg-yellow-100 border-yellow-400 text-yellow-800';
@@ -97,36 +83,12 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
 
   return (
     <div className="space-y-6">
-      {/* Main Stats */}
-      {/* FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop. */}
+      {/* Main Stats for Today */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard title="งานซ่อมทั้งหมด" value={totalRepairs} theme="blue" />
-        <StatCard title="ซ่อมเสร็จแล้ว" value={completedRepairs} theme="green" />
-        <StatCard title="กำลังซ่อม" value={inProgressRepairs} theme="yellow" />
-        <StatCard title="รถทั้งหมด" value={totalVehicles} theme="purple" />
-      </div>
-
-      {/* Vehicle Type Stats */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">🚛 สถิติตามประเภทรถ</h2>
-        {vehicleTypeStats.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              {vehicleTypeStats.map(([type, count], index) => {
-                  // FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop.
-                  return (
-                      <StatCard 
-                          key={type} 
-                          title={type} 
-                          value={count} 
-                          icon={getVehicleIcon(type)} 
-                          theme={getVehicleTheme(index)} 
-                      />
-                  );
-              })}
-          </div>
-        ) : (
-            <p className="text-gray-500 text-center py-4">ยังไม่มีข้อมูลรถเพื่อแสดงสถิติ</p>
-        )}
+        <StatCard title="แจ้งซ่อมวันนี้" value={statsForToday.reportedToday} theme="blue" />
+        <StatCard title="ซ่อมเสร็จวันนี้" value={statsForToday.completedToday} theme="green" />
+        <StatCard title="กำลังซ่อม" value={statsForToday.inProgress} theme="yellow" />
+        <StatCard title="รอซ่อม" value={statsForToday.waitingForRepair} theme="red" />
       </div>
 
       {/* Quick Menu */}
