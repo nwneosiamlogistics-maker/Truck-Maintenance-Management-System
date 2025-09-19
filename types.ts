@@ -20,7 +20,8 @@ export type Tab =
   | 'technician-view' // New Tab for technicians
   | 'kpi-dashboard' // New Tab for KPIs
   | 'vehicle-repair-history' // New Tab for vehicle-specific repair history
-  | 'tire-check'; // New Tab for Tire Inspection
+  | 'tire-check' // New Tab for Tire Inspection
+  | 'tool-management'; // New Tab for Tool Management
 
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
@@ -321,4 +322,34 @@ export interface TireInspection {
     inspectionDate: string; // ISO string
     inspectorName: string;
     tires: Record<string, TireData>;
+}
+
+// --- Tool Management Types ---
+export type ToolStatus = 'ปกติ' | 'ชำรุด' | 'สูญหาย';
+export type ToolTransactionType = 'ยืม' | 'คืน' | 'แจ้งชำรุด' | 'ปรับสต็อก';
+
+export interface Tool {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  totalQuantity: number;
+  quantityCheckedOut: number;
+  storageLocation: string | null;
+  status: ToolStatus;
+  lowStockThreshold: number;
+  notes: string | null;
+}
+
+export interface ToolTransaction {
+  id: string;
+  toolId: string;
+  toolName: string;
+  type: ToolTransactionType;
+  quantity: number;
+  transactionDate: string; // ISO string
+  technicianId: string;
+  technicianName: string;
+  notes: string | null;
 }

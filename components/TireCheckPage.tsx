@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction } from '../types';
 import { useToast } from '../context/ToastContext';
+import { promptForPassword } from '../utils';
 
 // --- CONFIG & CONSTANTS ---
 const TREAD_DEPTH_THRESHOLDS = {
@@ -755,6 +756,7 @@ interface TireCheckHistoryProps {
 const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit, setInspections }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const { addToast } = useToast();
 
     const filteredInspections = useMemo(() => {
         return (Array.isArray(inspections) ? inspections : [])
@@ -768,8 +770,9 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
     }, [inspections, searchTerm]);
 
     const handleDelete = (id: string, plate: string) => {
-        if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบการตรวจเช็คของทะเบียน ${plate}?`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบการตรวจเช็คของทะเบียน ${plate}?`)) {
             setInspections(prev => prev.filter(i => i.id !== id));
+            addToast(`ลบการตรวจเช็คของ ${plate} สำเร็จ`, 'info');
         }
     };
     
@@ -796,7 +799,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                                     <p className="text-sm text-gray-500">{new Date(insp.inspectionDate).toLocaleDateString('th-TH')} - โดย {insp.inspectorName}</p>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                     <button onClick={(e) => { e.stopPropagation(); onEdit(insp); }} className="text-yellow-600 hover:text-yellow-800">แก้ไข</button>
+                                     <button onClick={(e) => { e.stopPropagation(); if (promptForPassword('แก้ไข')) { onEdit(insp); } }} className="text-yellow-600 hover:text-yellow-800">แก้ไข</button>
                                      <button onClick={(e) => { e.stopPropagation(); handleDelete(insp.id, insp.licensePlate); }} className="text-red-500 hover:text-red-700">ลบ</button>
                                     <span className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                                 </div>

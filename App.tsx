@@ -26,10 +26,11 @@ import KPIDashboard from './components/KPIDashboard';
 import TechnicianView from './components/TechnicianView';
 import VehicleRepairHistory from './components/VehicleRepairHistory';
 import TireCheckPage from './components/TireCheckPage';
+import ToolManagement from './components/ToolManagement';
 
 
 // Types and Constants
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, TireInspection } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, TireInspection, Tool, ToolTransaction } from './types';
 import { TABS } from './constants';
 
 // Hooks
@@ -67,6 +68,8 @@ function App() {
     const [suppliers, setSuppliers] = useFirebase<Supplier[]>('suppliers', getDefaultSuppliers);
     const [usedPartBuyers, setUsedPartBuyers] = useFirebase<UsedPartBuyer[]>('usedPartBuyers', getDefaultUsedPartBuyers);
     const [tireInspections, setTireInspections] = useFirebase<TireInspection[]>('tireInspections', () => []);
+    const [tools, setTools] = useFirebase<Tool[]>('tools', () => []);
+    const [toolTransactions, setToolTransactions] = useFirebase<ToolTransaction[]>('toolTransactions', () => []);
 
     const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
 
@@ -266,6 +269,8 @@ function App() {
                 return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
             case 'tire-check':
                 return <TireCheckPage inspections={tireInspections} setInspections={setTireInspections} vehicles={vehicles} />;
+            case 'tool-management':
+                return <ToolManagement tools={tools} setTools={setTools} toolTransactions={toolTransactions} setToolTransactions={setToolTransactions} technicians={technicians} />;
             default:
                 return <div>Page not found</div>;
         }

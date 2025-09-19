@@ -73,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             { id: 'vehicles', icon: '🚚', label: 'ข้อมูลรถและประกันภัย' },
             { id: 'tire-check', icon: '🛞', label: 'ตรวจเช็คยาง' },
         ]},
-        { section: 'คลังสินค้า', items: [
+        { section: 'คลังสินค้าและจัดซื้อ', items: [
             { id: 'stock', icon: '📦', label: 'จัดการสต๊อกอะไหล่', badge: stats.lowStock, badgeColor: 'yellow' },
             { id: 'stock-history', icon: '📋', label: 'ประวัติเบิกจ่าย' },
             { id: 'requisitions', icon: '🛒', label: 'ใบขอซื้อ' },
@@ -81,10 +81,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             { id: 'used-part-buyers', icon: '🤝', label: 'จัดการผู้รับซื้อ' },
             { id: 'used-part-report', icon: '🔩', label: 'รายงานอะไหล่เก่า' },
         ]},
+         { section: 'เครื่องมือและอุปกรณ์', items: [
+            { id: 'tool-management', icon: '🛠️', label: 'จัดการเครื่องมือ' },
+        ]},
         { section: 'บุคลากร', items: [
             { id: 'technicians', icon: '👨‍🔧', label: 'จัดการช่าง' },
             { id: 'technicianPerformance', icon: '🧑‍📈', label: 'รายงานประสิทธิภาพช่าง' },
-            { id: 'technicianWorkLog', icon: '🛠️', label: 'ประวัติงานซ่อมช่าง' },
+            { id: 'technicianWorkLog', icon: '📖', label: 'ประวัติงานซ่อมช่าง' },
         ]},
         { section: 'รายงาน', items: [
             { id: 'reports', icon: '📈', label: 'รายงานและสถิติ' },

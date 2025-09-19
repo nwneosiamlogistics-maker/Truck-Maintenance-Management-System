@@ -89,4 +89,8 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'ตรวจเช็คยาง',
         subtitle: 'บันทึกและตรวจสอบสภาพยางรถบรรทุก'
     },
+    'tool-management': {
+        title: 'จัดการเครื่องมือ',
+        subtitle: 'คลังเครื่องมือและประวัติการยืม-คืนสำหรับช่าง'
+    },
 };
