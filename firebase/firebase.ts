@@ -1,5 +1,6 @@
-import firebase from "firebase/compat/app";
-import "firebase/compat/database";
+// FIX: Changed import to namespace to resolve module export error.
+import * as firebaseApp from "firebase/app";
+import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -12,9 +13,8 @@ const firebaseConfig = {
   appId: "1:655666667957:web:e577f257d966e4c0f3b9fc"
 };
 
-// FIX: Switched to the Firebase compatibility library to resolve a module resolution error with 'initializeApp'.
-// The compat library provides the v8 API surface on top of the v9 SDK.
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-export const database = firebase.database();
+// Initialize Firebase
+const app = firebaseApp.initializeApp(firebaseConfig);
+
+// Get a reference to the database service
+export const database = getDatabase(app);

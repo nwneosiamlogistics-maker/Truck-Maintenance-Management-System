@@ -84,5 +84,9 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
     vehicles: {
         title: 'ข้อมูลรถและประกันภัย',
         subtitle: 'จัดการข้อมูลยานพาหนะและเอกสารสำคัญ'
-    }
+    },
+    'tire-check': {
+        title: 'ตรวจเช็คยาง',
+        subtitle: 'บันทึกและตรวจสอบสภาพยางรถบรรทุก'
+    },
 };

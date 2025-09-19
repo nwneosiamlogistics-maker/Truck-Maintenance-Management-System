@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction, Supplier } from '../types';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPassword, calculateStockStatus } from '../utils';
 
 interface PurchaseRequisitionProps {
     purchaseRequisitions: PurchaseRequisition[];
@@ -53,7 +53,10 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                 safeItems.forEach(item => {
                     const stockIndex = newStock.findIndex(s => s.id === item.stockId);
                     if (stockIndex > -1) {
-                        newStock[stockIndex].quantity += item.quantity;
+                        const stockItem = newStock[stockIndex];
+                        const newQuantity = stockItem.quantity + item.quantity;
+                        const newStatus = calculateStockStatus(newQuantity, stockItem.minStock, stockItem.maxStock);
+                        newStock[stockIndex] = { ...stockItem, quantity: newQuantity, status: newStatus };
                     }
                 });
                 return newStock;

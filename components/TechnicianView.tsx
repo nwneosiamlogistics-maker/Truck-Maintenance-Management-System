@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, RepairStatus, StockItem, StockTransaction, StockStatus } from '../types';
 import { useToast } from '../context/ToastContext';
+import { calculateStockStatus } from '../utils';
 
 interface TechnicianViewProps {
     repairs: Repair[];
@@ -87,14 +87,10 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                 setStock(prevStock => prevStock.map(s => {
                     if (stockUpdates[s.id]) {
                         const change = stockUpdates[s.id];
-                        const newQuantity = s.quantity - change;
-                        const newReserved = Math.max(0, (s.quantityReserved || 0) - change);
+                        const newQuantity = Number(s.quantity) - Number(change);
+                        const newReserved = Math.max(0, (Number(s.quantityReserved) || 0) - Number(change));
 
-                        let newStatus: StockStatus = 'ปกติ';
-// FIX: Corrected typo in Thai word for "out of stock"
-                        if (newQuantity <= 0) newStatus = 'หมดสต็อก';
-                        else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
-                        else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
+                        const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
                         
                         return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
                     }

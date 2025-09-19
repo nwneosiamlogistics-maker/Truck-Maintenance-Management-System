@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { PurchaseRequisition, StockItem, StockTransaction } from '../types';
 import { useToast } from '../context/ToastContext';
+import { calculateStockStatus } from '../utils';
 
 interface ReceiveFromPOModalProps {
     isOpen: boolean;
@@ -62,7 +63,7 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({
             return;
         }
 
-        // 1. Update stock quantities
+        // 1. Update stock quantities and status
         setStock(prevStock => {
             const newStock = [...prevStock];
             (selectedPr.items || []).forEach(item => {
@@ -70,7 +71,12 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({
                 if (receivedQty > 0) {
                     const stockIndex = newStock.findIndex(s => s.id === item.stockId);
                     if (stockIndex > -1) {
-                        newStock[stockIndex].quantity += receivedQty;
+                        const stockItem = newStock[stockIndex];
+                        const newQuantity = Number(stockItem.quantity) + receivedQty;
+                        
+                        const newStatus = calculateStockStatus(newQuantity, stockItem.minStock, stockItem.maxStock);
+                        
+                        newStock[stockIndex] = { ...stockItem, quantity: newQuantity, status: newStatus };
                     }
                 }
             });

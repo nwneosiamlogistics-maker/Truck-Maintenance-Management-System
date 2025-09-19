@@ -4,6 +4,7 @@ import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { useToast } from '../context/ToastContext';
+import { calculateStockStatus } from '../utils';
 
 interface RepairEditModalProps {
     repair: Repair;
@@ -17,7 +18,6 @@ interface RepairEditModalProps {
     suppliers: Supplier[];
 }
 
-// FIX: Destructure `setStock` from props to resolve "Cannot find name 'setStock'" errors.
 const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, transactions, setTransactions, suppliers }) => {
     const getInitialState = (repairData: Repair) => {
         const repairCopy = JSON.parse(JSON.stringify(repairData));
@@ -112,7 +112,6 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        // FIX: Ensure numeric inputs are stored as numbers, not strings.
         const finalValue = (name === 'repairCost' || name === 'partsVat')
             ? parseFloat(value) || 0
             : value;
@@ -120,7 +119,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         let newFormData = { ...formData, [name]: finalValue };
 
         if (name === 'status') {
-            const newStatus = value as RepairStatus; // Use original string value for status check
+            const newStatus = value as RepairStatus;
             const now = new Date().toISOString();
             if (newStatus === 'กำลังซ่อม' && !newFormData.repairStartDate) newFormData.repairStartDate = now;
             if (newStatus === 'ซ่อมเสร็จ' && !newFormData.repairEndDate) newFormData.repairEndDate = now;
@@ -279,14 +278,10 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                 setStock(prevStock => prevStock.map(s => {
                     if (stockToUpdate[s.id]) {
                         const { quantityChange, reservedChange } = stockToUpdate[s.id];
-                        const newQuantity = s.quantity - quantityChange;
-                        const newReserved = Math.max(0, (s.quantityReserved || 0) - reservedChange);
+                        const newQuantity = Number(s.quantity) - Number(quantityChange);
+                        const newReserved = Math.max(0, (Number(s.quantityReserved) || 0) - Number(reservedChange));
                         
-                        let newStatus: StockStatus = 'ปกติ';
-                        // FIX: Corrected Thai spelling for StockStatus enum values ('หมดสต็อก', 'สต๊อกต่ำ', 'สต๊อกเกิน') to match the type definition.
-                        if (newQuantity <= 0) newStatus = 'หมดสต็อก';
-                        else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
-                        else if (s.maxStock && newQuantity > s.maxStock) newStatus = 'สต๊อกเกิน';
+                        const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
                         
                         return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
                     }

@@ -25,10 +25,11 @@ import { ToastProvider } from './context/ToastContext';
 import KPIDashboard from './components/KPIDashboard';
 import TechnicianView from './components/TechnicianView';
 import VehicleRepairHistory from './components/VehicleRepairHistory';
+import TireCheckPage from './components/TireCheckPage';
 
 
 // Types and Constants
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, TireInspection } from './types';
 import { TABS } from './constants';
 
 // Hooks
@@ -65,7 +66,8 @@ function App() {
     const [vehicles, setVehicles] = useFirebase<Vehicle[]>('vehicles', getDefaultVehicles);
     const [suppliers, setSuppliers] = useFirebase<Supplier[]>('suppliers', getDefaultSuppliers);
     const [usedPartBuyers, setUsedPartBuyers] = useFirebase<UsedPartBuyer[]>('usedPartBuyers', getDefaultUsedPartBuyers);
-    
+    const [tireInspections, setTireInspections] = useFirebase<TireInspection[]>('tireInspections', () => []);
+
     const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
 
     // UI State
@@ -262,6 +264,8 @@ function App() {
                  return <PreventiveMaintenance plans={plans} setPlans={setPlans} repairs={repairs} deletePlan={deletePlan} vehicles={vehicles} />;
             case 'vehicles':
                 return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
+            case 'tire-check':
+                return <TireCheckPage inspections={tireInspections} setInspections={setTireInspections} vehicles={vehicles} />;
             default:
                 return <div>Page not found</div>;
         }

@@ -19,7 +19,9 @@ export type Tab =
   | 'used-part-report'
   | 'technician-view' // New Tab for technicians
   | 'kpi-dashboard' // New Tab for KPIs
-  | 'vehicle-repair-history'; // New Tab for vehicle-specific repair history
+  | 'vehicle-repair-history' // New Tab for vehicle-specific repair history
+  | 'tire-check'; // New Tab for Tire Inspection
+
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
 export type DispatchType = 'ภายใน' | 'ภายนอก';
@@ -280,4 +282,43 @@ export interface UsedPartBuyer {
   phone: string | null;
   email: string | null;
   otherContacts: string | null;
+}
+
+// --- Tire Inspection Types ---
+export type TireType = 'เรเดียล' | 'ไบแอส' | 'อื่นๆ';
+export type TireAction = 'ปกติ' | 'ถอด' | 'สลับยาง' | 'เปลี่ยน';
+export type VehicleLayout = 
+    'รถพ่วง 22 ล้อ' | 
+    'รถ 12 ล้อ' | 
+    'รถ 10 ล้อ' | 
+    'รถ 6 ล้อ' | 
+    'รถกระบะ 4 ล้อ' |
+    'หาง 3 เพลา' |
+    'หาง 2 เพลา' |
+    'หางแม่ลูก 3 เพลา' |
+    'หางแม่ลูก 2 เพลา';
+
+export interface TireData {
+    positionId: string; // e.g., 'F-L', 'RR1-I' (Rear Right 1 Inner)
+    isFilled: boolean;
+    treadDepth: number | null;
+    productionDate: string; // "ww/yy" format
+    serialNumber: string;
+    tireType: TireType;
+    psi: number | null;
+    action: TireAction;
+    notes: string;
+    changeDate: string;
+    brand: string;
+    model: string;
+}
+
+export interface TireInspection {
+    id: string;
+    licensePlate: string;
+    trailerLicensePlate?: string;
+    vehicleLayout: VehicleLayout;
+    inspectionDate: string; // ISO string
+    inspectorName: string;
+    tires: Record<string, TireData>;
 }

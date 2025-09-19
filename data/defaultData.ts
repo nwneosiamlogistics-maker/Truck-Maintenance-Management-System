@@ -330,7 +330,6 @@ const rawVehicleData = `ทะเบียน	ประเภท	ยี่ห้
 71-1319	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	31 มี.ค. 26	-
 71-1637	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	---- START OF FILE hooks/useLocalStorage.ts ---
 `;
-
 // FIX: Add missing 'getDefaultVehicles' function to parse and export vehicle data.
 export const getDefaultVehicles = (): Vehicle[] => {
     const lines = rawVehicleData.trim().split('\n');

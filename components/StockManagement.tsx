@@ -11,7 +11,7 @@ import UpdateUsedPartStatusModal from './UpdateUsedPartStatusModal';
 import CreatePRFromStockModal from './CreatePRFromStockModal';
 import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
-import { promptForPassword } from '../utils';
+import { promptForPassword, calculateStockStatus } from '../utils';
 
 type ReservationInfo = {
     repairOrderNo: string;
@@ -206,10 +206,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const handleWithdrawStock = (data: { stockItemId: string, quantity: number, reason: string, withdrawnBy: string, notes: string }) => {
         setStock(prevStock => prevStock.map(s => {
             if (s.id === data.stockItemId) {
-                const newQuantity = s.quantity - data.quantity;
-                let newStatus: StockStatus = 'ปกติ';
-                if (newQuantity <= 0) newStatus = 'หมดสต็อก';
-                else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                const newQuantity = Number(s.quantity) - Number(data.quantity);
+                const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
                 return { ...s, quantity: newQuantity, status: newStatus };
             }
             return s;
@@ -246,10 +244,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const handleReturnStock = (data: { stockItemId: string, quantity: number, reason?: string }) => {
         setStock(prevStock => prevStock.map(s => {
             if (s.id === data.stockItemId) {
-                const newQuantity = s.quantity - data.quantity;
-                let newStatus: StockStatus = 'ปกติ';
-                if (newQuantity <= 0) newStatus = 'หมดสต็อก';
-                else if (newQuantity <= s.minStock) newStatus = 'สต๊อกต่ำ';
+                const newQuantity = Number(s.quantity) - Number(data.quantity);
+                const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
                 return { ...s, quantity: newQuantity, status: newStatus };
             }
             return s;

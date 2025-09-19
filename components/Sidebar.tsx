@@ -71,6 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         ]},
         { section: 'การจัดการยานพาหนะ', items: [
             { id: 'vehicles', icon: '🚚', label: 'ข้อมูลรถและประกันภัย' },
+            { id: 'tire-check', icon: '🛞', label: 'ตรวจเช็คยาง' },
         ]},
         { section: 'คลังสินค้า', items: [
             { id: 'stock', icon: '📦', label: 'จัดการสต๊อกอะไหล่', badge: stats.lowStock, badgeColor: 'yellow' },

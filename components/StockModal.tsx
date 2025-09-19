@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { StockItem } from '../types';
 import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
+import { calculateStockStatus } from '../utils';
 
 interface StockModalProps {
     item: StockItem | null;
@@ -16,7 +17,6 @@ const initialFormState: StockItem = {
     name: '',
     category: STOCK_CATEGORIES[0],
     quantity: 0,
-    // FIX: Add missing 'quantityReserved' property to satisfy the StockItem type.
     quantityReserved: 0,
     unit: 'ลิตร',
     minStock: 0,
@@ -75,15 +75,7 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
             }
         }
         
-        let newStatus: StockItem['status'] = 'ปกติ';
-        if (formData.quantity <= 0) {
-// FIX: Corrected typo in Thai word for "out of stock"
-            newStatus = 'หมดสต็อก';
-        } else if (formData.quantity <= formData.minStock) {
-            newStatus = 'สต๊อกต่ำ';
-        } else if (formData.maxStock && formData.quantity > formData.maxStock) {
-            newStatus = 'สต๊อกเกิน';
-        }
+        const newStatus = calculateStockStatus(formData.quantity, formData.minStock, formData.maxStock);
         
         onSave({ ...formData, status: newStatus }, { sourceRepairOrderNo });
     };

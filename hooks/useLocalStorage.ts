@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 export function useLocalStorage<T,>(key: string, initialValue: T | (() => T)): [T, React.Dispatch<React.SetStateAction<T>>] {

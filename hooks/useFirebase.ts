@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { database } from '../firebase/firebase';
+import { ref, onValue, set } from 'firebase/database';
 
 type SetValue<T> = React.Dispatch<React.SetStateAction<T>>;
 
@@ -10,10 +11,10 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
   const writeTimeout = useRef<number | null>(null);
 
   useEffect(() => {
-    const dbRef = database.ref(key);
+    const dbRef = ref(database, key);
     const resolvedInitial = initialValueRef.current instanceof Function ? initialValueRef.current() : initialValueRef.current;
     
-    const listener = dbRef.on('value', (snapshot) => {
+    const unsubscribe = onValue(dbRef, (snapshot) => {
       // Ignore updates that are likely echoes of our own writes.
       if (isWriting.current) {
         return;
@@ -30,7 +31,7 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
       } else {
         // Path doesn't exist, initialize it.
         const dataToSet = resolvedInitial;
-        dbRef.set(dataToSet);
+        set(dbRef, dataToSet);
         setValueState(dataToSet); // Set local state immediately
       }
     }, (error) => {
@@ -39,7 +40,7 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
 
     // Cleanup function for when the component unmounts.
     return () => {
-      dbRef.off('value', listener);
+      unsubscribe();
       if (writeTimeout.current) {
         clearTimeout(writeTimeout.current);
       }
@@ -57,7 +58,7 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
         isWriting.current = false;
     }, 1000);
 
-    const dbRef = database.ref(key);
+    const dbRef = ref(database, key);
 
     // Perform an optimistic update locally first for instant UI feedback.
     setValueState(prevState => {
@@ -66,7 +67,7 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
             : newValueOrFn;
         
         // After determining the new state, push it to Firebase.
-        dbRef.set(resolvedValue).catch(error => {
+        set(dbRef, resolvedValue).catch(error => {
             console.error(`Firebase set failed for key "${key}":`, error);
             // In a production app, you might want to roll back the optimistic update here.
             isWriting.current = false; // Reset flag immediately on error

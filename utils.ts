@@ -1,3 +1,5 @@
+import type { StockStatus } from './types';
+
 // utils.ts
 export const formatHoursToHHMM = (decimalHours: number): string => {
   if (isNaN(decimalHours) || decimalHours < 0) {
@@ -41,4 +43,20 @@ export const promptForPassword = (action: string): boolean => {
     }
     alert('รหัสผ่านไม่ถูกต้อง!');
     return false;
+};
+
+export const calculateStockStatus = (quantity: number, minStock: number, maxStock: number | null): StockStatus => {
+    const numQuantity = Number(quantity);
+    const numMinStock = Number(minStock);
+
+    if (numQuantity <= 0) {
+        return 'หมดสต็อก';
+    }
+    if (numQuantity <= numMinStock) {
+        return 'สต๊อกต่ำ';
+    }
+    if (maxStock !== null && maxStock > 0 && numQuantity > Number(maxStock)) {
+        return 'สต๊อกเกิน';
+    }
+    return 'ปกติ';
 };

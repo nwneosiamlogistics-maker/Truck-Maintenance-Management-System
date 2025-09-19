@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { StockItem } from '../types';
+import { calculateStockStatus } from '../utils';
 
 interface ReturnStockModalProps {
     stock: StockItem[];

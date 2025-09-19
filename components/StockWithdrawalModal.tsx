@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { StockItem } from '../types';
 import { useToast } from '../context/ToastContext';
+import { calculateStockStatus } from '../utils';
 
 interface StockWithdrawalModalProps {
     stock: StockItem[];
