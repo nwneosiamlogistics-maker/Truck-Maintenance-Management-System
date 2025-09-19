@@ -73,6 +73,7 @@ const JobModal: React.FC<JobModalProps> = ({ technician, jobs, onClose, onStatus
 type EnrichedTechnician = Technician & {
     jobs: Repair[];
     currentJobsCount: number;
+    derivedStatus: Technician['status'];
 };
 
 const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions }) => {
@@ -96,15 +97,15 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
             
             return {
                 ...tech,
-                status: derivedStatus,
+                derivedStatus: derivedStatus,
                 currentJobsCount: currentJobs.length,
                 jobs: currentJobs,
             };
         }).sort((a,b) => {
             // Sort by Busy > Available > On Leave
             const statusOrder = { 'ไม่ว่าง': 0, 'ว่าง': 1, 'ลา': 2 };
-            const statusA = statusOrder[a.status] ?? 3;
-            const statusB = statusOrder[b.status] ?? 3;
+            const statusA = statusOrder[a.derivedStatus] ?? 3;
+            const statusB = statusOrder[b.derivedStatus] ?? 3;
             if (statusA !== statusB) {
                 return statusA - statusB;
             }
@@ -222,7 +223,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                         <div>
                             <div className="flex justify-between items-start">
                                 <h3 className="text-xl font-bold text-gray-800">{tech.name}</h3>
-                                <span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(tech.status)}`}>{tech.status}</span>
+                                <span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(tech.derivedStatus)}`}>{tech.derivedStatus}</span>
                             </div>
                             <p className="text-gray-500 text-sm font-semibold">{tech.role}</p>
                             <p className="text-gray-500 text-sm">ID: {tech.id} | ประสบการณ์ {tech.experience} ปี</p>

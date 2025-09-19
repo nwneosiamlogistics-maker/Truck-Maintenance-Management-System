@@ -1,7 +1,5 @@
-
-
 import React, { useState, useMemo } from 'react';
-import type { Technician, Repair } from '../types';
+import type { Technician, Repair, RepairStatus } from '../types';
 import TechnicianModal from './TechnicianModal';
 import TechnicianEditModal from './TechnicianEditModal';
 import { useToast } from '../context/ToastContext';
@@ -37,19 +35,58 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
     };
 
     const filteredAndSortedTechnicians = useMemo(() => {
-        return safeTechnicians
-            .filter(tech => statusFilter === 'all' || tech.status === statusFilter)
-            .filter(tech => skillFilter.length === 0 || skillFilter.every(skill => (Array.isArray(tech.skills) ? tech.skills : []).includes(skill)))
-            .sort((a, b) => {
-                switch (sortBy) {
-                    case 'rating-desc': return b.rating - a.rating;
-                    case 'rating-asc': return a.rating - b.rating;
-                    case 'experience-desc': return b.experience - a.experience;
-                    case 'experience-asc': return a.experience - b.experience;
-                    default: return 0;
-                }
-            });
-    }, [safeTechnicians, statusFilter, skillFilter, sortBy]);
+        const safeRepairs = Array.isArray(repairs) ? repairs : [];
+        const activeJobStatuses: RepairStatus[] = ['รอซ่อม', 'กำลังซ่อม', 'รออะไหล่'];
+
+        // 1. Enrich technicians with calculated status and job count
+        const enrichedTechnicians = safeTechnicians.map(tech => {
+            const activeJobs = safeRepairs.filter(r =>
+                activeJobStatuses.includes(r.status) &&
+                (r.assignedTechnicianId === tech.id || (r.assistantTechnicianIds || []).includes(tech.id))
+            );
+            
+            let calculatedStatus: Technician['status'];
+            // Prioritize manually set "On Leave" status
+            if (tech.status === 'ลา') {
+                calculatedStatus = 'ลา';
+            } else {
+                calculatedStatus = activeJobs.length > 0 ? 'ไม่ว่าง' : 'ว่าง';
+            }
+
+            return {
+                ...tech,
+                calculatedStatus: calculatedStatus,
+                activeJobsCount: activeJobs.length,
+            };
+        });
+
+        // 2. Filter based on UI controls
+        const filtered = enrichedTechnicians
+            .filter(tech => statusFilter === 'all' || tech.calculatedStatus === statusFilter)
+            .filter(tech => skillFilter.length === 0 || skillFilter.every(skill => (tech.skills || []).includes(skill)));
+        
+        // 3. Sort
+        return filtered.sort((a, b) => {
+            // Primary sort: by calculated status
+            const statusOrder: Record<Technician['status'], number> = { 'ไม่ว่าง': 0, 'ว่าง': 1, 'ลา': 2 };
+            const statusA = statusOrder[a.calculatedStatus];
+            const statusB = statusOrder[b.calculatedStatus];
+            if (statusA !== statusB) {
+                return statusA - statusB;
+            }
+
+            // Secondary sort: by user selection
+            switch (sortBy) {
+                case 'rating-desc': return b.rating - a.rating;
+                case 'rating-asc': return a.rating - b.rating;
+                case 'experience-desc': return b.experience - a.experience;
+                case 'experience-asc': return a.experience - b.experience;
+                default: return 0;
+            }
+        });
+
+    }, [safeTechnicians, repairs, statusFilter, skillFilter, sortBy]);
+
 
     const getStatusBadge = (status: Technician['status']) => {
         switch (status) {
@@ -143,7 +180,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                         <div>
                             <div className="flex justify-between items-start">
                                 <h3 className="text-xl font-bold text-gray-800">{tech.name}</h3>
-                                <span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(tech.status)}`}>{tech.status}</span>
+                                <span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(tech.calculatedStatus)}`}>{tech.calculatedStatus}</span>
                             </div>
                             <p className="text-gray-500 text-sm font-semibold">{tech.role}</p>
                             <p className="text-gray-500 text-sm">ID: {tech.id} | ประสบการณ์ {tech.experience} ปี</p>
@@ -156,7 +193,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                         <div className="mt-6 border-t pt-4">
                              <div className="flex justify-around text-center">
                                 <div><p className="text-lg font-bold text-gray-800">{tech.completedJobs}</p><p className="text-sm text-gray-500">งานเสร็จ</p></div>
-                                <div><p className="text-lg font-bold text-yellow-600">{tech.currentJobs}</p><p className="text-sm text-gray-500">กำลังทำ</p></div>
+                                <div><p className="text-lg font-bold text-yellow-600">{tech.activeJobsCount}</p><p className="text-sm text-gray-500">กำลังทำ</p></div>
                                 <div><p className="text-lg font-bold text-green-600">{tech.rating} ★</p><p className="text-sm text-gray-500">เรตติ้ง</p></div>
                             </div>
                             <div className="mt-4 grid grid-cols-3 gap-2">
