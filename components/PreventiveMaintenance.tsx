@@ -215,10 +215,11 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = ({ plans, se
 
     return (
         <div className="space-y-6">
+            {/* FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop. */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard title="ถึงกำหนดใน 30 วัน" value={kpiStats.dueThisMonth} bgColor="bg-blue-50" textColor="text-blue-600" />
-                <StatCard title="เกินกำหนดซ่อม" value={kpiStats.overdue} bgColor="bg-red-50" textColor="text-red-600" />
-                <StatCard title="แผน PM ทั้งหมด" value={kpiStats.totalPlans} bgColor="bg-gray-100" textColor="text-gray-800" />
+                <StatCard title="ถึงกำหนดใน 30 วัน" value={kpiStats.dueThisMonth} theme="blue" />
+                <StatCard title="เกินกำหนดซ่อม" value={kpiStats.overdue} theme="red" />
+                <StatCard title="แผน PM ทั้งหมด" value={kpiStats.totalPlans} theme="gray" />
                 <div className="bg-white p-6 rounded-2xl shadow-sm">
                     <h3 className="text-base font-medium text-gray-600 mb-2">ภาพรวมสถานะ</h3>
                     <div className="flex justify-around items-center">

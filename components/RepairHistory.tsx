@@ -124,7 +124,9 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     };
 
     const calculateTotalCost = (repair: Repair) => {
-        const partsCost = (repair.parts || []).reduce((sum, part) => sum + (part.quantity * part.unitPrice), 0);
+        const partsCost = (repair.parts || []).reduce((sum, part) => {
+            return sum + (Number(part.quantity) || 0) * (Number(part.unitPrice) || 0);
+        }, 0);
         const laborCost = Number(repair.repairCost) || 0;
         const vat = Number(repair.partsVat) || 0;
         return partsCost + laborCost + vat;

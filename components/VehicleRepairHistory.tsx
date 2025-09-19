@@ -4,7 +4,9 @@ import StatCard from './StatCard';
 
 // Helper function to calculate total cost for a single repair
 const calculateTotalCost = (repair: Repair): number => {
-    const partsCost = (repair.parts || []).reduce((sum, part) => sum + (part.quantity * part.unitPrice), 0);
+    const partsCost = (repair.parts || []).reduce((sum, part) => {
+        return sum + (Number(part.quantity) || 0) * (Number(part.unitPrice) || 0);
+    }, 0);
     return (Number(repair.repairCost) || 0) + partsCost + (Number(repair.partsVat) || 0);
 };
 
@@ -117,9 +119,10 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
 
                 {selectedVehicleStats && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard title="จำนวนการซ่อมทั้งหมด" value={selectedVehicleStats.totalRepairs} bgColor="bg-blue-50" textColor="text-blue-600" />
-                        <StatCard title="ค่าใช้จ่ายซ่อมรวม" value={`${selectedVehicleStats.totalCost.toLocaleString()} ฿`} bgColor="bg-red-50" textColor="text-red-600" />
-                        <StatCard title="ค่าใช้จ่ายเฉลี่ย" value={`${selectedVehicleStats.avgCost.toLocaleString('en-US', {maximumFractionDigits: 0})} ฿`} bgColor="bg-yellow-50" textColor="text-yellow-600" />
+                        
+                        <StatCard title="จำนวนการซ่อมทั้งหมด" value={selectedVehicleStats.totalRepairs} theme="blue" />
+                        <StatCard title="ค่าใช้จ่ายซ่อมรวม" value={`${selectedVehicleStats.totalCost.toLocaleString()} ฿`} theme="red" />
+                        <StatCard title="ค่าใช้จ่ายเฉลี่ย" value={`${selectedVehicleStats.avgCost.toLocaleString('en-US', {maximumFractionDigits: 0})} ฿`} theme="yellow" />
                     </div>
                 )}
                 

@@ -326,7 +326,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
     const { totalPartsCost, grandTotal } = useMemo(() => {
         const safeParts = Array.isArray(formData.parts) ? formData.parts : [];
-        const partsCost = safeParts.reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
+        const partsCost = safeParts.reduce((total, part) => {
+            return total + (Number(part.quantity) || 0) * (Number(part.unitPrice) || 0);
+        }, 0);
         const total = partsCost + (Number(formData.partsVat) || 0) + (Number(formData.repairCost) || 0);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat]);

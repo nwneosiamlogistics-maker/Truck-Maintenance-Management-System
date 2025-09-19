@@ -88,7 +88,9 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             
             const totalValue = techRepairs.reduce((sum, r) => {
                 const repairParts = Array.isArray(r.parts) ? r.parts : [];
-                const partsCost = repairParts.reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
+                const partsCost = repairParts.reduce((pSum, p) => {
+                    return pSum + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0);
+                }, 0);
                 return sum + (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0);
             }, 0);
 
@@ -114,7 +116,9 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         // Calculate total value directly from the filtered repairs list to avoid double counting.
         const totalValue = filteredRepairs.reduce((sum, r) => {
             const repairParts = Array.isArray(r.parts) ? r.parts : [];
-            const partsCost = repairParts.reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0);
+            const partsCost = repairParts.reduce((pSum, p) => {
+                return pSum + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0);
+            }, 0);
             const repairVat = Number(r.partsVat) || 0;
             const laborCost = Number(r.repairCost) || 0;
             return sum + partsCost + laborCost + repairVat;
@@ -198,11 +202,12 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                 </div>
             </div>
 
+            
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard title="งานเสร็จสิ้นทั้งหมด" value={performanceData.kpis.totalJobs} bgColor="bg-blue-50" textColor="text-blue-600" />
-                <StatCard title="เวลาซ่อมเฉลี่ย" value={formatHoursToHHMM(performanceData.kpis.avgTime)} bgColor="bg-yellow-50" textColor="text-yellow-600" />
-                <StatCard title="อัตราตรงต่อเวลา" value={`${performanceData.kpis.onTimeRate.toFixed(1)}%`} bgColor="bg-green-50" textColor="text-green-600" />
-                <StatCard title="มูลค่าซ่อมรวม" value={`${performanceData.kpis.totalValue.toLocaleString()} ฿`} bgColor="bg-purple-50" textColor="text-purple-600" />
+                <StatCard title="งานเสร็จสิ้นทั้งหมด" value={performanceData.kpis.totalJobs} theme="blue" />
+                <StatCard title="เวลาซ่อมเฉลี่ย" value={formatHoursToHHMM(performanceData.kpis.avgTime)} theme="yellow" />
+                <StatCard title="อัตราตรงต่อเวลา" value={`${performanceData.kpis.onTimeRate.toFixed(1)}%`} theme="green" />
+                <StatCard title="มูลค่าซ่อมรวม" value={`${performanceData.kpis.totalValue.toLocaleString()} ฿`} theme="purple" />
             </div>
 
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

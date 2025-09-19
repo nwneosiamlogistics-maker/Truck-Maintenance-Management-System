@@ -109,11 +109,12 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts }) => {
 
     return (
         <div className="space-y-6">
+            {/* FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop. */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard title="จำนวนรอจัดการ" value={stats.pendingQuantity} bgColor="bg-blue-50" textColor="text-blue-600" />
-                <StatCard title="จัดการบางส่วน (ชุด)" value={stats['จัดการบางส่วน']} bgColor="bg-yellow-50" textColor="text-yellow-600" />
-                <StatCard title="จัดการครบแล้ว (ชุด)" value={stats['จัดการครบแล้ว']} bgColor="bg-green-50" textColor="text-green-600" />
-                <StatCard title="มูลค่าที่ขายได้ทั้งหมด" value={`${stats.totalSaleValue.toLocaleString()} ฿`} bgColor="bg-emerald-50" textColor="text-emerald-600" />
+                <StatCard title="จำนวนรอจัดการ" value={stats.pendingQuantity} theme="blue" />
+                <StatCard title="จัดการบางส่วน (ชุด)" value={stats['จัดการบางส่วน']} theme="yellow" />
+                <StatCard title="จัดการครบแล้ว (ชุด)" value={stats['จัดการครบแล้ว']} theme="green" />
+                <StatCard title="มูลค่าที่ขายได้ทั้งหมด" value={`${stats.totalSaleValue.toLocaleString()} ฿`} theme="green" />
             </div>
 
             <div className="bg-white p-4 rounded-2xl shadow-sm">

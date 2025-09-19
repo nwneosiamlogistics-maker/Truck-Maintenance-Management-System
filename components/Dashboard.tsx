@@ -65,14 +65,15 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
       return '🚗';
   };
 
-  const getVehicleColor = (index: number) => {
-      const colors = [
-          { bg: 'bg-indigo-50', text: 'text-indigo-600' },
-          { bg: 'bg-emerald-50', text: 'text-emerald-600' },
-          { bg: 'bg-amber-50', text: 'text-amber-600' },
-          { bg: 'bg-rose-50', text: 'text-rose-600' },
+  // FIX: Replaced getVehicleColor with getVehicleTheme to match StatCard's 'theme' prop.
+  const getVehicleTheme = (index: number): 'purple' | 'green' | 'yellow' | 'red' => {
+      const themes: ('purple' | 'green' | 'yellow' | 'red')[] = [
+          'purple',
+          'green',
+          'yellow',
+          'red',
       ];
-      return colors[index % colors.length];
+      return themes[index % themes.length];
   };
 
   const getAlertClasses = (type: string) => {
@@ -97,11 +98,12 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
   return (
     <div className="space-y-6">
       {/* Main Stats */}
+      {/* FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop. */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard title="งานซ่อมทั้งหมด" value={totalRepairs} bgColor="bg-blue-50" textColor="text-blue-600" />
-        <StatCard title="ซ่อมเสร็จแล้ว" value={completedRepairs} bgColor="bg-green-50" textColor="text-green-600" />
-        <StatCard title="กำลังซ่อม" value={inProgressRepairs} bgColor="bg-yellow-50" textColor="text-yellow-600" />
-        <StatCard title="รถทั้งหมด" value={totalVehicles} bgColor="bg-purple-50" textColor="text-purple-600" />
+        <StatCard title="งานซ่อมทั้งหมด" value={totalRepairs} theme="blue" />
+        <StatCard title="ซ่อมเสร็จแล้ว" value={completedRepairs} theme="green" />
+        <StatCard title="กำลังซ่อม" value={inProgressRepairs} theme="yellow" />
+        <StatCard title="รถทั้งหมด" value={totalVehicles} theme="purple" />
       </div>
 
       {/* Vehicle Type Stats */}
@@ -110,15 +112,14 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
         {vehicleTypeStats.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
               {vehicleTypeStats.map(([type, count], index) => {
-                  const colors = getVehicleColor(index);
+                  // FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop.
                   return (
                       <StatCard 
                           key={type} 
                           title={type} 
                           value={count} 
                           icon={getVehicleIcon(type)} 
-                          bgColor={colors.bg} 
-                          textColor={colors.text} 
+                          theme={getVehicleTheme(index)} 
                       />
                   );
               })}

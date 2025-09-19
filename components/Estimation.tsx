@@ -113,11 +113,12 @@ const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
 
     return (
         <div className="space-y-6">
+            {/* FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop. */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard title="ประมาณการทั้งหมด" value={estimationStats.totalEstimations} bgColor="bg-blue-50" textColor="text-blue-600" />
-                <StatCard title="ตรงเวลา" value={estimationStats.onTime} bgColor="bg-green-50" textColor="text-green-600" />
-                <StatCard title="ล่าช้า" value={estimationStats.delayed} bgColor="bg-red-50" textColor="text-red-600" />
-                <StatCard title="ความแม่นยำเฉลี่ย" value={`${estimationStats.avgAccuracy.toFixed(1)}%`} bgColor="bg-indigo-50" textColor="text-indigo-600" />
+                <StatCard title="ประมาณการทั้งหมด" value={estimationStats.totalEstimations} theme="blue" />
+                <StatCard title="ตรงเวลา" value={estimationStats.onTime} theme="green" />
+                <StatCard title="ล่าช้า" value={estimationStats.delayed} theme="red" />
+                <StatCard title="ความแม่นยำเฉลี่ย" value={`${estimationStats.avgAccuracy.toFixed(1)}%`} theme="purple" />
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">รายการประมาณการณ์ (เฉพาะงานที่เสร็จสิ้น)</h2>

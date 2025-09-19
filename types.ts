@@ -340,6 +340,15 @@ export interface Tool {
   status: ToolStatus;
   lowStockThreshold: number;
   notes: string | null;
+  // --- New Detailed Fields ---
+  importDate: string; // ISO string
+  serialNumber: string | null;
+  manualRefNumber: string | null;
+  distributorName: string | null;
+  distributorContact: string | null; // Text field for address, phone, fax, email
+  usageDetails: string | null;
+  mechanicalProperties: string | null;
+  electricalData: string | null;
 }
 
 export interface ToolTransaction {

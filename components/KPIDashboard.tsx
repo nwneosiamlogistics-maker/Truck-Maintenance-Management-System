@@ -86,7 +86,9 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         const avgDowntimeHours = completedRepairs.length > 0 ? totalDowntime / completedRepairs.length / (1000 * 60 * 60) : 0;
 
         const totalCost = completedRepairs.reduce((acc, r) => {
-            const partsCost = (r.parts || []).reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0);
+            const partsCost = (r.parts || []).reduce((pAcc, p) => {
+                return pAcc + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0);
+            }, 0);
             return acc + (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0);
         }, 0);
         const avgCost = completedRepairs.length > 0 ? totalCost / completedRepairs.length : 0;
@@ -110,9 +112,12 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             .sort((a, b) => b.count - a.count).slice(0, 5);
             
         const costByVehicle = allRepairs.reduce((acc, r) => {
-            const partsCost = (r.parts || []).reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0);
+            const partsCost = (r.parts || []).reduce((pAcc, p) => {
+                return pAcc + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0);
+            }, 0);
             const totalRepairCost = (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0);
-            return { ...acc, [r.licensePlate]: (acc[r.licensePlate] || 0) + totalRepairCost };
+            acc[r.licensePlate] = (acc[r.licensePlate] || 0) + totalRepairCost;
+            return acc;
         }, {} as Record<string, number>);
         const mostExpensiveVehicles = Object.entries(costByVehicle)
             .map(([plate, totalCost]) => ({ plate, totalCost }))
@@ -186,25 +191,25 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
                 <StatCard 
                     title="MTTR (เวลาซ่อมเฉลี่ย)" 
                     value={formatHoursToHHMM(kpiData.mttr)} 
-                    bgColor="bg-blue-50" 
-                    textColor="text-blue-600"
+                    theme="blue"
                     trend="เป้าหมาย: < 24:00" 
                 />
+                
                 <StatCard 
                     title="Downtime เฉลี่ย" 
                     value={formatHoursToHHMM(kpiData.avgDowntime)} 
-                    bgColor="bg-yellow-50" 
-                    textColor="text-yellow-600"
+                    theme="yellow"
                     trend="เวลาที่รถจอดรอซ่อม" 
                 />
+                
                 <StatCard 
                     title="ค่าซ่อมเฉลี่ย" 
                     value={`${kpiData.avgCost.toLocaleString('th-TH', { maximumFractionDigits: 0 })} ฿`} 
-                    bgColor="bg-green-50" 
-                    textColor="text-green-600"
+                    theme="green"
                     trend="ต่อใบแจ้งซ่อม"
                 />
             </div>

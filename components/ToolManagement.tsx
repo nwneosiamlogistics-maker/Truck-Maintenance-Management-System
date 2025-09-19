@@ -50,14 +50,17 @@ interface ToolModalProps {
 const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTools }) => {
     const { addToast } = useToast();
     const getInitialState = () => tool || {
-        code: '', name: '', category: TOOL_CATEGORIES[0], brand: '', totalQuantity: 1, quantityCheckedOut: 0,
-        storageLocation: '', status: 'ปกติ' as ToolStatus, lowStockThreshold: 1, notes: ''
+        code: '', name: '', category: TOOL_CATEGORIES[0], brand: null, totalQuantity: 1, quantityCheckedOut: 0,
+        storageLocation: null, status: 'ปกติ' as ToolStatus, lowStockThreshold: 1, notes: null,
+        importDate: '', // Will be set on save for new items
+        serialNumber: null, manualRefNumber: null, distributorName: null, distributorContact: null,
+        usageDetails: null, mechanicalProperties: null, electricalData: null,
     };
     const [formData, setFormData] = useState(getInitialState);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
-        const finalValue = type === 'number' ? Number(value) : value;
+        const finalValue = type === 'number' ? Number(value) : (value || null);
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
 
@@ -84,20 +87,42 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
                 <button onClick={handleSubmit} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
             </>}
         >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium">รหัสเครื่องมือ *</label><input type="text" name="code" value={formData.code} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium">ชื่อเครื่องมือ *</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
-                <div>
-                    <label className="block text-sm font-medium">หมวดหมู่</label>
-                    <select name="category" value={formData.category} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg">
-                        {TOOL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
+             <div className="space-y-4">
+                <h4 className="font-semibold text-gray-700 border-b pb-1">ข้อมูลพื้นฐาน</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-sm font-medium">รหัสเครื่องมือ *</label><input type="text" name="code" value={formData.code} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div><label className="block text-sm font-medium">ชื่อเครื่องมือ *</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div>
+                        <label className="block text-sm font-medium">หมวดหมู่</label>
+                        <select name="category" value={formData.category} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg">
+                            {TOOL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                    </div>
+                    <div><label className="block text-sm font-medium">ยี่ห้อ/รุ่น</label><input type="text" name="brand" value={formData.brand || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
                 </div>
-                <div><label className="block text-sm font-medium">ยี่ห้อ/รุ่น</label><input type="text" name="brand" value={formData.brand || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium">จำนวนทั้งหมด *</label><input type="number" min="0" name="totalQuantity" value={formData.totalQuantity} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium">จุดสั่งซื้อ (แจ้งเตือนเหลือน้อย)</label><input type="number" min="0" name="lowStockThreshold" value={formData.lowStockThreshold} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium">ตำแหน่งจัดเก็บ</label><input type="text" name="storageLocation" value={formData.storageLocation || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium">หมายเหตุ</label><textarea name="notes" value={formData.notes || ''} onChange={handleChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" /></div>
+
+                <h4 className="font-semibold text-gray-700 border-b pb-1 mt-4">ข้อมูลคลัง</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label className="block text-sm font-medium">จำนวนทั้งหมด *</label><input type="number" min="0" name="totalQuantity" value={formData.totalQuantity} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div><label className="block text-sm font-medium">จุดแจ้งเตือน</label><input type="number" min="0" name="lowStockThreshold" value={formData.lowStockThreshold} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div className="md:col-span-3"><label className="block text-sm font-medium">ตำแหน่งจัดเก็บ</label><input type="text" name="storageLocation" value={formData.storageLocation || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                </div>
+
+                <h4 className="font-semibold text-gray-700 border-b pb-1 mt-4">ข้อมูลทางเทคนิค</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-sm font-medium">หมายเลขเครื่อง (S/N)</label><input type="text" name="serialNumber" value={formData.serialNumber || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div><label className="block text-sm font-medium">เลขที่อ้างอิงคู่มือ</label><input type="text" name="manualRefNumber" value={formData.manualRefNumber || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-medium">รายละเอียดการใช้งาน</label><textarea name="usageDetails" value={formData.usageDetails || ''} onChange={handleChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-medium">ข้อมูลทางกล</label><textarea name="mechanicalProperties" value={formData.mechanicalProperties || ''} onChange={handleChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-medium">ข้อมูลทางไฟฟ้า</label><textarea name="electricalData" value={formData.electricalData || ''} onChange={handleChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                </div>
+                
+                <h4 className="font-semibold text-gray-700 border-b pb-1 mt-4">ข้อมูลผู้จำหน่าย</h4>
+                <div><label className="block text-sm font-medium">ชื่อตัวแทนจำหน่าย</label><input type="text" name="distributorName" value={formData.distributorName || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                <div><label className="block text-sm font-medium">ข้อมูลติดต่อ (ที่อยู่, โทร, อีเมล)</label><textarea name="distributorContact" value={formData.distributorContact || ''} onChange={handleChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" /></div>
+                
+                <h4 className="font-semibold text-gray-700 border-b pb-1 mt-4">หมายเหตุเพิ่มเติม</h4>
+                <textarea name="notes" value={formData.notes || ''} onChange={handleChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
             </div>
         </Modal>
     );
@@ -189,6 +214,19 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, toolTr
     const [editingTool, setEditingTool] = useState<Tool | null>(null);
     const [checkoutTool, setCheckoutTool] = useState<Tool | null>(null);
     const { addToast } = useToast();
+    const [expandedToolIds, setExpandedToolIds] = useState<Set<string>>(new Set());
+
+    const toggleExpand = (toolId: string) => {
+        setExpandedToolIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(toolId)) {
+                newSet.delete(toolId);
+            } else {
+                newSet.add(toolId);
+            }
+            return newSet;
+        });
+    };
 
     const safeTools = useMemo(() => Array.isArray(tools) ? tools : [], [tools]);
     const safeTransactions = useMemo(() => Array.isArray(toolTransactions) ? toolTransactions : [], [toolTransactions]);
@@ -206,10 +244,14 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, toolTr
 
     const handleSaveTool = (toolData: Omit<Tool, 'id'> | Tool) => {
         if ('id' in toolData && toolData.id) { // Edit
-            setTools(prev => prev.map(t => t.id === toolData.id ? toolData : t));
+            setTools(prev => prev.map(t => t.id === toolData.id ? (toolData as Tool) : t));
             addToast('อัปเดตข้อมูลเครื่องมือสำเร็จ', 'success');
         } else { // Add
-            const newTool: Tool = { ...toolData, id: `TOOL-${Date.now()}` };
+            const newTool: Tool = {
+                ...(toolData as Omit<Tool, 'id'>),
+                id: `TOOL-${Date.now()}`,
+                importDate: new Date().toISOString(),
+            };
             setTools(prev => [newTool, ...prev]);
             addToast('เพิ่มเครื่องมือใหม่สำเร็จ', 'success');
         }
@@ -279,6 +321,7 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, toolTr
                 {activeTab === 'inventory' ? (
                     <table className="min-w-full divide-y">
                         <thead className="bg-gray-50"><tr>
+                            <th className="px-2 py-3 w-10"></th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">รหัส/ชื่อเครื่องมือ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">หมวดหมู่</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">จำนวน (พร้อมใช้/ทั้งหมด)</th>
@@ -289,18 +332,38 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, toolTr
                             {filteredTools.map(tool => {
                                 const available = tool.totalQuantity - tool.quantityCheckedOut;
                                 const status = getStatusIndicator(tool);
+                                const isExpanded = expandedToolIds.has(tool.id);
                                 return (
-                                <tr key={tool.id}>
-                                    <td className="px-4 py-3"><div className="font-semibold">{tool.name}</div><div className="text-sm text-gray-500 font-mono">{tool.code}</div></td>
-                                    <td className="px-4 py-3 text-sm">{tool.category}</td>
-                                    <td className="px-4 py-3 text-center"><span className="font-bold text-lg">{available}</span> / {tool.totalQuantity}</td>
-                                    <td className="px-4 py-3"><span className={`font-semibold ${status.color}`}>{status.icon} {status.text}</span></td>
-                                    <td className="px-4 py-3 text-center space-x-2">
-                                        <button onClick={() => setCheckoutTool(tool)} className="text-white bg-green-500 hover:bg-green-600 font-medium px-3 py-1 rounded-md text-sm">ยืม/คืน</button>
-                                        <button onClick={() => { if (promptForPassword('แก้ไข')) { setEditingTool(tool); setIsToolModalOpen(true); } }} className="text-yellow-600 hover:text-yellow-800">แก้</button>
-                                        <button onClick={() => handleDeleteTool(tool)} className="text-red-500 hover:text-red-700">ลบ</button>
-                                    </td>
-                                </tr>
+                                <React.Fragment key={tool.id}>
+                                    <tr>
+                                        <td className="px-2 py-3 text-center"><button onClick={() => toggleExpand(tool.id)} className="text-blue-500 font-bold">{isExpanded ? '−' : '+'}</button></td>
+                                        <td className="px-4 py-3"><div className="font-semibold">{tool.name}</div><div className="text-sm text-gray-500 font-mono">{tool.code}</div></td>
+                                        <td className="px-4 py-3 text-sm">{tool.category}</td>
+                                        <td className="px-4 py-3 text-center"><span className="font-bold text-lg">{available}</span> / {tool.totalQuantity}</td>
+                                        <td className="px-4 py-3"><span className={`font-semibold ${status.color}`}>{status.icon} {status.text}</span></td>
+                                        <td className="px-4 py-3 text-center space-x-2">
+                                            <button onClick={() => setCheckoutTool(tool)} className="text-white bg-green-500 hover:bg-green-600 font-medium px-3 py-1 rounded-md text-sm">ยืม/คืน</button>
+                                            <button onClick={() => { if (promptForPassword('แก้ไข')) { setEditingTool(tool); setIsToolModalOpen(true); } }} className="text-yellow-600 hover:text-yellow-800">แก้</button>
+                                            <button onClick={() => handleDeleteTool(tool)} className="text-red-500 hover:text-red-700">ลบ</button>
+                                        </td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr>
+                                            <td colSpan={6} className="p-4 bg-gray-50 border-y">
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+                                                    <div><strong className="text-gray-600">วันที่นำเข้า:</strong> {new Date(tool.importDate).toLocaleDateString('th-TH')}</div>
+                                                    <div><strong className="text-gray-600">S/N:</strong> {tool.serialNumber || '-'}</div>
+                                                    <div><strong className="text-gray-600">เลขที่คู่มือ:</strong> {tool.manualRefNumber || '-'}</div>
+                                                    <div className="md:col-span-3"><strong className="text-gray-600">ผู้จำหน่าย:</strong> {tool.distributorName || '-'}</div>
+                                                    <div className="md:col-span-3"><strong className="text-gray-600">ข้อมูลติดต่อ:</strong> <pre className="font-sans whitespace-pre-wrap">{tool.distributorContact || '-'}</pre></div>
+                                                    <div className="md:col-span-3"><strong className="text-gray-600">การใช้งาน:</strong> <pre className="font-sans whitespace-pre-wrap">{tool.usageDetails || '-'}</pre></div>
+                                                    <div className="md:col-span-3"><strong className="text-gray-600">ข้อมูลทางกล:</strong> <pre className="font-sans whitespace-pre-wrap">{tool.mechanicalProperties || '-'}</pre></div>
+                                                    <div className="md:col-span-3"><strong className="text-gray-600">ข้อมูลทางไฟฟ้า:</strong> <pre className="font-sans whitespace-pre-wrap">{tool.electricalData || '-'}</pre></div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             )})}
                         </tbody>
                     </table>
