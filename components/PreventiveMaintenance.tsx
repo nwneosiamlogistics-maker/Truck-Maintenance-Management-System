@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import type { MaintenancePlan, AnnualPMPlan, PMHistory, Repair, Vehicle, Technician } from '../types';
+import type { MaintenancePlan, AnnualPMPlan, PMHistory, Repair, Vehicle, Technician, MonthStatus } from '../types';
 import AnnualPMPlanComponent from './AnnualPMPlan';
 import PMHistoryView from './PMHistoryView';
 import CalendarView from './CalendarView';
 import TimelineView from './TimelineView';
 import { useToast } from '../context/ToastContext';
+import { EditAnnualPMModal, EditModalData } from './EditAnnualPMModal';
+
 
 export type PlanStatus = 'ok' | 'due' | 'overdue';
 
@@ -35,6 +37,8 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
     const [statusFilter, setStatusFilter] = useState<PlanStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingPlanData, setEditingPlanData] = useState<EditModalData | null>(null);
 
     const vehicleMap = useMemo(() => new Map(props.vehicles.map(v => [v.licensePlate, v])), [props.vehicles]);
 
@@ -78,6 +82,80 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                 };
             });
     }, [props.plans, props.repairs, vehicleMap]);
+    
+    const handleOpenEditModal = (plan: any, monthIndex: number) => {
+        const effectiveStatus = (): MonthStatus => {
+            const manual = plan.manualMonths[monthIndex];
+            const calculated = !!plan.calculatedMonths[monthIndex];
+
+            if (manual === 'completed') return 'completed';
+            if (manual === 'completed_unplanned') return 'completed_unplanned';
+            if (manual === 'planned') return 'planned';
+            if (manual === 'none') return 'none';
+            // manual is undefined
+            if (calculated) return 'planned';
+            return 'none';
+        };
+
+        setEditingPlanData({ 
+            plan: plan,
+            monthIndex: monthIndex, 
+            currentStatus: effectiveStatus()
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleSaveMonthStatus = (planId: string, monthIndex: number, status: MonthStatus, historyLog?: Omit<PMHistory, 'id'>) => {
+        const planInfo = editingPlanData?.plan;
+        if (!planInfo) {
+            addToast('ไม่พบข้อมูลแผนที่ต้องการอัปเดต', 'error');
+            return;
+        }
+
+        props.setAnnualPlans(prev => {
+            const plans = Array.isArray(prev) ? prev : [];
+            const existingPlanIndex = plans.findIndex(p =>
+                p.vehicleLicensePlate === planInfo.vehicleLicensePlate &&
+                p.year === planInfo.year &&
+                p.maintenancePlanId === planInfo.maintenancePlanId
+            );
+            
+            if (existingPlanIndex > -1) {
+                const newPlans = [...plans];
+                const updatedMonths = { ...newPlans[existingPlanIndex].months };
+                 if (status === 'none' && !planInfo.calculatedMonths[monthIndex]) {
+                    delete updatedMonths[monthIndex];
+                } else {
+                    updatedMonths[monthIndex] = status;
+                }
+                newPlans[existingPlanIndex] = { ...newPlans[existingPlanIndex], months: updatedMonths };
+                return newPlans;
+            } else {
+                if (status === 'none' && !planInfo.calculatedMonths[monthIndex]) {
+                    return plans;
+                }
+                const newPlan: AnnualPMPlan = {
+                    id: planInfo.id,
+                    vehicleLicensePlate: planInfo.vehicleLicensePlate,
+                    maintenancePlanId: planInfo.maintenancePlanId,
+                    year: planInfo.year,
+                    months: { [monthIndex]: status },
+                };
+                return [...plans, newPlan];
+            }
+        });
+
+        if (historyLog) {
+            const newHistoryItem: PMHistory = {
+                ...historyLog,
+                id: `PMH-${Date.now()}`,
+            };
+            props.setHistory(prev => [newHistoryItem, ...(Array.isArray(prev) ? prev : [])]);
+            addToast('บันทึกประวัติการทำ PM สำเร็จ', 'success');
+        }
+
+        setIsEditModalOpen(false);
+    };
 
     const handleDeleteHistory = (historyId: string) => {
         props.setHistory(prev => (Array.isArray(prev) ? prev : []).filter(h => h.id !== historyId));
@@ -125,11 +203,11 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
             {activeTab === 'plan' && (
                 <AnnualPMPlanComponent 
                     annualPlans={props.annualPlans}
-                    setAnnualPlans={props.setAnnualPlans}
                     enrichedPlans={enrichedPlans}
                     vehicles={props.vehicles}
                     searchTerm={searchTerm}
                     statusFilter={statusFilter}
+                    onOpenEditModal={handleOpenEditModal}
                 />
             )}
             {activeTab === 'calendar' && (
@@ -147,6 +225,16 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                     history={props.history}
                     technicians={props.technicians}
                     onDelete={handleDeleteHistory}
+                />
+            )}
+
+            {isEditModalOpen && editingPlanData && (
+                <EditAnnualPMModal
+                    planData={editingPlanData}
+                    vehicle={vehicleMap.get(editingPlanData.plan.vehicleLicensePlate)}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onSave={handleSaveMonthStatus}
+                    technicians={props.technicians}
                 />
             )}
         </div>

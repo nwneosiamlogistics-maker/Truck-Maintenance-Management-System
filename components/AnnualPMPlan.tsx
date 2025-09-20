@@ -6,21 +6,19 @@ import type { EnrichedPlan, PlanStatus } from './PreventiveMaintenance';
 
 interface AnnualPMPlanProps {
     annualPlans: AnnualPMPlan[];
-    setAnnualPlans: React.Dispatch<React.SetStateAction<AnnualPMPlan[]>>;
     enrichedPlans: EnrichedPlan[];
     vehicles: Vehicle[];
     searchTerm: string;
     statusFilter: PlanStatus | 'all';
+    onOpenEditModal: (plan: any, monthIndex: number) => void;
 }
 
 const MONTH_NAMES = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
-const AnnualPMPlanComponent: React.FC<AnnualPMPlanProps> = ({ annualPlans, setAnnualPlans, enrichedPlans, vehicles, searchTerm, statusFilter }) => {
+const AnnualPMPlanComponent: React.FC<AnnualPMPlanProps> = ({ annualPlans, enrichedPlans, vehicles, searchTerm, statusFilter, onOpenEditModal }) => {
     const { addToast } = useToast();
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingPlanData, setEditingPlanData] = useState<EditModalData | null>(null);
-
+    
     const vehicleMap = useMemo(() => new Map(vehicles.map(v => [v.licensePlate, v])), [vehicles]);
 
     const displayPlans = useMemo(() => {
@@ -79,83 +77,9 @@ const AnnualPMPlanComponent: React.FC<AnnualPMPlanProps> = ({ annualPlans, setAn
             });
     }, [enrichedPlans, annualPlans, selectedYear, searchTerm, statusFilter]);
 
-    const handleOpenEditModal = (plan: any, monthIndex: number) => {
-        const effectiveStatus = (): MonthStatus => {
-            const manual = plan.manualMonths[monthIndex];
-            const calculated = !!plan.calculatedMonths[monthIndex];
-
-            if (manual === 'completed') return 'completed';
-            if (manual === 'completed_unplanned') return 'completed_unplanned';
-            if (manual === 'planned') return 'planned';
-            if (manual === 'none') return 'none';
-            // manual is undefined
-            if (calculated) return 'planned';
-            return 'none';
-        };
-
-        setEditingPlanData({ 
-            plan: plan,
-            monthIndex: monthIndex, 
-            currentStatus: effectiveStatus()
-        });
-        setIsEditModalOpen(true);
-    };
-
-    const handleSaveMonthStatus = (planId: string, monthIndex: number, status: MonthStatus) => {
-        const planInfo = displayPlans.find(p => p.id === planId) || editingPlanData?.plan;
-        if (!planInfo) {
-            addToast('ไม่พบข้อมูลแผนที่ต้องการอัปเดต', 'error');
-            return;
-        }
-
-        setAnnualPlans(prev => {
-            const plans = Array.isArray(prev) ? prev : [];
-            const existingPlanIndex = plans.findIndex(p => 
-                p.vehicleLicensePlate === planInfo.vehicleLicensePlate && 
-                p.year === selectedYear &&
-                p.maintenancePlanId === planInfo.maintenancePlanId
-            );
-            
-            if (existingPlanIndex > -1) {
-                const newPlans = [...plans];
-                const updatedMonths = { ...newPlans[existingPlanIndex].months };
-                 if (status === 'none' && !planInfo.calculatedMonths[monthIndex]) {
-                    delete updatedMonths[monthIndex];
-                } else {
-                    updatedMonths[monthIndex] = status;
-                }
-                newPlans[existingPlanIndex] = { ...newPlans[existingPlanIndex], months: updatedMonths };
-                return newPlans;
-            } else {
-                if (status === 'none' && !planInfo.calculatedMonths[monthIndex]) {
-                    return plans; // No need to create a new entry for 'none'
-                }
-                const newPlan: AnnualPMPlan = {
-                    id: planInfo.id,
-                    vehicleLicensePlate: planInfo.vehicleLicensePlate,
-                    maintenancePlanId: planInfo.maintenancePlanId,
-                    year: planInfo.year,
-                    months: { [monthIndex]: status },
-                };
-                return [...plans, newPlan];
-            }
-        });
-        setIsEditModalOpen(false);
-    };
-
+    
     return (
         <>
-            <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setSelectedYear(y => y - 1)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">‹</button>
-                    <span className="text-xl font-bold w-24 text-center">{selectedYear}</span>
-                    <button onClick={() => setSelectedYear(y => y + 1)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">›</button>
-                </div>
-                <p className="text-sm text-gray-600">
-                    <span className="text-lime-700 font-bold">●</span> (บน) = วางแผนแล้ว | <span className="text-sky-600 font-bold">●</span> (ล่าง) = ดำเนินการแล้ว
-                </p>
-            </div>
-
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                 <table className="min-w-full border-collapse">
                     <thead className="bg-gray-50 sticky top-0 z-20">
@@ -183,7 +107,7 @@ const AnnualPMPlanComponent: React.FC<AnnualPMPlanProps> = ({ annualPlans, setAn
                                    const showCompletedDot = manualStatus === 'completed' || manualStatus === 'completed_unplanned';
 
                                    return (
-                                       <td key={index} className="p-0 border text-center cursor-pointer hover:bg-blue-50 h-16 align-middle" onClick={() => handleOpenEditModal(plan, index)}>
+                                       <td key={index} className="p-0 border text-center cursor-pointer hover:bg-blue-50 h-16 align-middle" onClick={() => onOpenEditModal(plan, index)}>
                                            <div className="flex flex-col items-center justify-center h-full -space-y-2.5">
                                                {/* Slot 1: Plan */}
                                                <span className={`text-2xl ${showPlanDot ? 'text-lime-700' : 'text-transparent'}`}>●</span>
@@ -206,14 +130,6 @@ const AnnualPMPlanComponent: React.FC<AnnualPMPlanProps> = ({ annualPlans, setAn
                 </table>
             </div>
 
-            {isEditModalOpen && editingPlanData && (
-                <EditAnnualPMModal
-                    planData={editingPlanData}
-                    vehicle={vehicleMap.get(editingPlanData.plan.vehicleLicensePlate)}
-                    onClose={() => setIsEditModalOpen(false)}
-                    onSave={handleSaveMonthStatus}
-                />
-            )}
         </>
     );
 };
