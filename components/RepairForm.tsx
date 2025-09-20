@@ -1,6 +1,6 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
@@ -16,6 +16,8 @@ interface RepairFormProps {
     setActiveTab: (tab: Tab) => void;
     vehicles: Vehicle[];
     suppliers: Supplier[];
+    initialData?: RepairFormSeed | null;
+    clearInitialData: () => void;
 }
 
 interface EstimationResult {
@@ -23,7 +25,7 @@ interface EstimationResult {
     reasoning: string;
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData }) => {
     
     const getInitialState = () => ({
         repairOrderNo: 'จะถูกสร้างอัตโนมัติ',
@@ -105,6 +107,23 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     }, [vehicles]);
     
     const activeEstimation = formData.estimations[formData.estimations.length - 1];
+
+    useEffect(() => {
+        if (initialData) {
+            setFormData(prev => ({
+                ...prev,
+                licensePlate: initialData.licensePlate,
+                vehicleType: initialData.vehicleType,
+                reportedBy: initialData.reportedBy,
+                problemDescription: initialData.problemDescription,
+            }));
+            const vehicle = vehicles.find(v => v.licensePlate === initialData.licensePlate);
+            if(vehicle) {
+                 setFormData(prev => ({ ...prev, vehicleMake: vehicle.make, vehicleModel: vehicle.model }));
+            }
+            clearInitialData();
+        }
+    }, [initialData, clearInitialData, vehicles]);
 
     useEffect(() => {
         const validateAll = () => {

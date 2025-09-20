@@ -27,10 +27,11 @@ import TechnicianView from './components/TechnicianView';
 import VehicleRepairHistory from './components/VehicleRepairHistory';
 import TireCheckPage from './components/TireCheckPage';
 import ToolManagement from './components/ToolManagement';
+import DailyChecklistPage from './components/DailyChecklistPage';
 
 
 // Types and Constants
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, TireInspection, Tool, ToolTransaction, AnnualPMPlan, PMHistory } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, TireInspection, Tool, ToolTransaction, AnnualPMPlan, PMHistory, DailyChecklist, RepairFormSeed } from './types';
 import { TABS } from './constants';
 
 // Hooks
@@ -56,6 +57,7 @@ import PMHistoryView from './components/PMHistoryView';
 function App() {
     // State Management
     const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+    const [repairFormSeed, setRepairFormSeed] = useState<RepairFormSeed | null>(null);
     
     // Data states using useFirebase
     const [repairs, setRepairs] = useFirebase<Repair[]>('repairs', getDefaultRepairs);
@@ -74,6 +76,7 @@ function App() {
     const [tireInspections, setTireInspections] = useFirebase<TireInspection[]>('tireInspections', () => []);
     const [tools, setTools] = useFirebase<Tool[]>('tools', () => []);
     const [toolTransactions, setToolTransactions] = useFirebase<ToolTransaction[]>('toolTransactions', () => []);
+    const [dailyChecklists, setDailyChecklists] = useFirebase<DailyChecklist[]>('dailyChecklists', () => []);
 
     const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', () => []);
 
@@ -363,7 +366,7 @@ function App() {
             case 'kpi-dashboard':
                 return <KPIDashboard repairs={repairs} plans={plans} vehicles={vehicles} />;
             case 'form':
-                return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} />;
+                return <RepairForm technicians={technicians} stock={stock} addRepair={addRepair} repairs={repairs} setActiveTab={setActiveTab} vehicles={vehicles} suppliers={suppliers} initialData={repairFormSeed} clearInitialData={() => setRepairFormSeed(null)} />;
             case 'list':
                 return <RepairList repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} addUsedParts={addUsedParts} suppliers={suppliers} usedParts={usedParts} />;
             case 'technician-view':
@@ -413,6 +416,8 @@ function App() {
                 />;
             case 'vehicles':
                 return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
+            case 'daily-checklist':
+                return <DailyChecklistPage checklists={dailyChecklists} setChecklists={setDailyChecklists} vehicles={vehicles} technicians={technicians} setRepairFormSeed={setRepairFormSeed} setActiveTab={setActiveTab} />;
             case 'tire-check':
                 return <TireCheckPage inspections={tireInspections} setInspections={setTireInspections} vehicles={vehicles} />;
             case 'tool-management':
