@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, UsedPart, AnnualPMPlan, PMHistory, RepairFormSeed } from './types';
 import { TABS } from './constants';
@@ -106,7 +105,7 @@ const App: React.FC = () => {
             else if (plan.frequencyUnit === 'weeks') nextServiceDate.setDate(nextServiceDate.getDate() + plan.frequencyValue * 7);
             else nextServiceDate.setMonth(nextServiceDate.getMonth() + plan.frequencyValue);
             const daysUntil = (nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
-            return daysUntil <= 7;
+            return daysUntil <= 30;
         }).length;
 
         return { pendingRepairs, lowStock, dueMaintenance };
@@ -211,6 +210,9 @@ const App: React.FC = () => {
                     technicians={technicians}
                     history={pmHistory}
                     setHistory={setPmHistory}
+                    setRepairFormSeed={setRepairFormSeed}
+                    setActiveTab={setActiveTab}
+                    vehicles={vehicles}
                 />;
             case 'kpi-dashboard':
                 return <KPIDashboard repairs={repairs} plans={maintenancePlans} vehicles={vehicles} />;

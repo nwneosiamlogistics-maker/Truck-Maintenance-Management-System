@@ -1,12 +1,20 @@
-
 import React, { useState, useMemo } from 'react';
-import type { MaintenancePlan, Repair, Technician, PMHistory } from '../types';
+import type { MaintenancePlan, Repair, Technician, PMHistory, RepairFormSeed, Tab, Vehicle } from '../types';
 import MaintenancePlanModal from './MaintenancePlanModal';
 import LogMaintenanceModal from './LogMaintenanceModal';
 import { useToast } from '../context/ToastContext';
 import { promptForPassword } from '../utils';
 
 type PlanStatus = 'ok' | 'due' | 'overdue';
+
+interface EnrichedPlan extends MaintenancePlan {
+  status: PlanStatus;
+  nextServiceDate: Date;
+  daysUntilNextService: number;
+  currentMileage: number | null;
+  nextServiceMileage: number;
+  kmUntilNextService: number | null;
+}
 
 interface MaintenancePlannerProps {
     plans: MaintenancePlan[];
@@ -15,9 +23,12 @@ interface MaintenancePlannerProps {
     technicians: Technician[];
     history: PMHistory[];
     setHistory: React.Dispatch<React.SetStateAction<PMHistory[]>>;
+    setRepairFormSeed: (seed: RepairFormSeed | null) => void;
+    setActiveTab: (tab: Tab) => void;
+    vehicles: Vehicle[];
 }
 
-const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans, repairs, technicians, history, setHistory }) => {
+const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans, repairs, technicians, history, setHistory, setRepairFormSeed, setActiveTab, vehicles }) => {
     const [isModalOpen, setModalOpen] = useState(false);
     const [isLogModalOpen, setLogModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<MaintenancePlan | null>(null);
@@ -26,7 +37,9 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
 
-    const enrichedPlans = useMemo(() => {
+    const vehicleMap = useMemo(() => new Map(vehicles.map(v => [v.licensePlate, v])), [vehicles]);
+
+    const enrichedPlans = useMemo<EnrichedPlan[]>(() => {
         return (Array.isArray(plans) ? plans : [])
             .map(plan => {
                 const lastDate = new Date(plan.lastServiceDate);
@@ -47,7 +60,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                 let status: PlanStatus = 'ok';
                 if ((daysUntilNextService < 0) || (kmUntilNextService !== null && kmUntilNextService < 0)) {
                     status = 'overdue';
-                } else if ((daysUntilNextService <= 7) || (kmUntilNextService !== null && kmUntilNextService <= 500)) {
+                } else if ((daysUntilNextService <= 30) || (kmUntilNextService !== null && kmUntilNextService <= 1500)) {
                     status = 'due';
                 }
 
@@ -107,6 +120,19 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
         setLogModalOpen(false);
     };
 
+    const handleCreateRepair = (plan: EnrichedPlan) => {
+        const vehicle = vehicleMap.get(plan.vehicleLicensePlate);
+        const seedData: RepairFormSeed = {
+            licensePlate: plan.vehicleLicensePlate,
+            vehicleType: vehicle?.vehicleType || '',
+            reportedBy: 'ระบบแผนซ่อมบำรุง',
+            problemDescription: `ซ่อมบำรุงตามแผน: ${plan.planName}`,
+        };
+        setRepairFormSeed(seedData);
+        setActiveTab('form');
+        addToast(`กำลังสร้างใบแจ้งซ่อมสำหรับ ${plan.vehicleLicensePlate}`, 'info');
+    };
+
     const getStatusBadge = (status: PlanStatus) => {
         switch (status) {
             case 'overdue': return 'bg-red-100 text-red-800';
@@ -163,7 +189,10 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                                         <div className="text-xs mt-1">({plan.kmUntilNextService > 0 ? `อีก ${plan.kmUntilNextService.toLocaleString()} กม.` : 'เกินระยะ'})</div>
                                     }
                                 </td>
-                                <td className="px-4 py-3 text-center space-x-2">
+                                <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
+                                     {['due', 'overdue'].includes(plan.status) && (
+                                        <button onClick={() => handleCreateRepair(plan)} className="text-purple-600 hover:text-purple-800 text-base font-medium">สร้างงานซ่อม</button>
+                                     )}
                                      <button onClick={() => { setLoggingPlan(plan); setLogModalOpen(true); }} className="text-green-600 hover:text-green-800 text-base font-medium">บันทึก</button>
                                      <button onClick={() => handleOpenModal(plan)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้</button>
                                      <button onClick={() => handleDeletePlan(plan)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>

@@ -143,10 +143,10 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
 
             // Determine status based on BOTH date and mileage with new grace period rules
             let status: PlanStatus = 'ok';
-            const isOverdueByDate = daysUntilNextService < -7; // Overdue after 7 days grace period
+            const isOverdueByDate = daysUntilNextService < 0;
             const isOverdueByMileage = kmUntilNextService !== null && kmUntilNextService < 0; // Overdue immediately on mileage
-            const isDueByDate = daysUntilNextService <= 15; // Due within 15 days
-            const isDueByMileage = kmUntilNextService !== null && kmUntilNextService <= 1000; // Due within 1000 km
+            const isDueByDate = daysUntilNextService <= 30;
+            const isDueByMileage = kmUntilNextService !== null && kmUntilNextService <= 1500;
 
             if (isOverdueByDate || isOverdueByMileage) {
                 status = 'overdue';

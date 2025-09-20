@@ -40,7 +40,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, setActiveTab }) =
       type: 'warning',
       icon: '⚠️',
       title: 'แผนบำรุงรักษาใกล้ถึงกำหนด',
-      description: 'มีรายการที่ต้องดำเนินการภายใน 7 วัน หรือใกล้ถึงระยะ',
+      description: 'มีรายการที่ต้องดำเนินการภายใน 30 วัน หรือใกล้ถึงระยะ',
       tab: 'maintenance',
       buttonText: 'ดูรายละเอียด'
     },

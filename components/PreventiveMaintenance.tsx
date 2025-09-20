@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import type { MaintenancePlan, AnnualPMPlan, PMHistory, Repair, Vehicle, Technician } from '../types';
 import AnnualPMPlanComponent from './AnnualPMPlan';
@@ -58,9 +57,9 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                 const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
 
                 let status: PlanStatus = 'ok';
-                if ((daysUntilNextService < -7) || (kmUntilNextService !== null && kmUntilNextService < 0)) {
+                if ((daysUntilNextService < 0) || (kmUntilNextService !== null && kmUntilNextService < 0)) {
                     status = 'overdue';
-                } else if ((daysUntilNextService <= 15) || (kmUntilNextService !== null && kmUntilNextService <= 1000)) {
+                } else if ((daysUntilNextService <= 30) || (kmUntilNextService !== null && kmUntilNextService <= 1500)) {
                     status = 'due';
                 }
                 
