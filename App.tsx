@@ -182,10 +182,7 @@ function App() {
         const safePlans = Array.isArray(plans) ? plans : [];
 
         const pendingRepairs = safeRepairs.filter(r => ['รอซ่อม', 'รออะไหล่'].includes(r.status)).length;
-        const lowStock = safeStock.filter(s => {
-            const available = s.quantity - (s.quantityReserved || 0);
-            return available <= s.minStock;
-        }).length;
+        const lowStock = safeStock.filter(s => s.quantity <= s.minStock).length;
         
         const dueMaintenance = safePlans.filter(plan => {
              const lastDate = new Date(plan.lastServiceDate);

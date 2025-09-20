@@ -127,7 +127,6 @@ export interface StockItem {
     name: string;
     category: string;
     quantity: number;
-    quantityReserved: number;
     unit: string;
     minStock: number;
     maxStock: number | null;
@@ -138,7 +137,7 @@ export interface StockItem {
     status: StockStatus;
 }
 
-export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า' | 'ปรับสต็อก' | 'จอง' | 'ยกเลิกจอง';
+export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า' | 'ปรับสต็อก';
 
 export interface StockTransaction {
     id: string;

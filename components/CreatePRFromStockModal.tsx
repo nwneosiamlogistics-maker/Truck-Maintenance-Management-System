@@ -14,7 +14,8 @@ interface CreatePRFromStockModalProps {
 }
 
 const CreatePRFromStockModal: React.FC<CreatePRFromStockModalProps> = ({ item, suppliers, onSave, onClose }) => {
-    const suggestedQuantity = Math.max(1, (item.maxStock || item.minStock * 2) - (item.quantity - (item.quantityReserved || 0)));
+    // FIX: Removed reference to non-existent 'quantityReserved' property.
+    const suggestedQuantity = Math.max(1, (item.maxStock || item.minStock * 2) - item.quantity);
     
     const [quantity, setQuantity] = useState<number>(suggestedQuantity);
     const [supplier, setSupplier] = useState<string>(item.supplier || '');
@@ -56,7 +57,8 @@ const CreatePRFromStockModal: React.FC<CreatePRFromStockModalProps> = ({ item, s
                     <p className="text-sm text-gray-600">
                         สร้างใบขอซื้อสำหรับ <span className="font-semibold">{item.name} ({item.code})</span>
                         <br />
-                        ปัจจุบันมี <span className="font-bold">{item.quantity - (item.quantityReserved || 0)}</span> ชิ้น (ขั้นต่ำ: {item.minStock})
+                        {/* FIX: Removed reference to non-existent 'quantityReserved' property. */}
+                        ปัจจุบันมี <span className="font-bold">{item.quantity}</span> ชิ้น (ขั้นต่ำ: {item.minStock})
                     </p>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">จำนวนที่ต้องการสั่งซื้อ *</label>

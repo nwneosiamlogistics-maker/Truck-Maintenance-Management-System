@@ -178,9 +178,8 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                     if (stockUpdates[s.id]) {
                         const change = stockUpdates[s.id];
                         const newQuantity = Number(s.quantity) - Number(change);
-                        const newReserved = Math.max(0, (Number(s.quantityReserved) || 0) - Number(change));
                         const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
-                        return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
+                        return { ...s, quantity: newQuantity, status: newStatus };
                     }
                     return s;
                 }));

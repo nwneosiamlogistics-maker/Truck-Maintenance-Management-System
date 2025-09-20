@@ -42,7 +42,6 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     };
     
     const [formData, setFormData] = useState<Repair>(getInitialState(repair));
-    const [partsBeforeEdit] = useState(repair.parts || []);
     
     const [openSections, setOpenSections] = useState({
         status: true,
@@ -152,43 +151,11 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     };
 
     const removePart = (partId: string) => {
-        const partToRemove = (formData.parts || []).find(p => p.partId === partId);
-        if (!partToRemove) return;
-
-        if (partToRemove.source === 'สต็อกอู่') {
-            // Revert stock reservation
-            setStock(prevStock => prevStock.map(s => 
-                s.id === partToRemove.partId ? { ...s, quantityReserved: (s.quantityReserved || 0) - partToRemove.quantity } : s
-            ));
-            // Create cancellation transaction
-            const newTransaction: StockTransaction = {
-                id: `TXN-${Date.now()}`, stockItemId: partToRemove.partId, stockItemName: partToRemove.name, type: 'ยกเลิกจอง',
-                quantity: partToRemove.quantity, transactionDate: new Date().toISOString(), actor: 'ระบบ', notes: `ยกเลิกจองสำหรับใบซ่อม ${formData.repairOrderNo}`
-            };
-            setTransactions(prev => [newTransaction, ...prev]);
-        }
-        
         setFormData(prev => ({ ...prev, parts: (prev.parts || []).filter(p => p.partId !== partId) }));
     };
 
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
         setFormData(prev => ({ ...prev, parts: [...(prev.parts || []), ...newParts] }));
-        
-        newParts.forEach(part => {
-             // Update stock reservation
-            setStock(prevStock => prevStock.map(s => 
-                s.id === part.partId ? { ...s, quantityReserved: (s.quantityReserved || 0) + part.quantity } : s
-            ));
-            // Create reservation transaction
-            const newTransaction: StockTransaction = {
-                id: `TXN-${Date.now()}-${part.partId}`, stockItemId: part.partId, stockItemName: part.name, type: 'จอง',
-                quantity: -part.quantity, transactionDate: new Date().toISOString(), actor: 'ระบบ', notes: `จองสำหรับใบซ่อม ${formData.repairOrderNo}`,
-                relatedRepairOrder: formData.repairOrderNo, pricePerUnit: part.unitPrice
-            };
-            setTransactions(prev => [newTransaction, ...prev]);
-        });
-        
-        addToast(`จองอะไหล่ ${newParts.length} รายการ`, 'info');
         setStockModalOpen(false);
     };
 
@@ -234,21 +201,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     
         const partsAfterEdit = finalFormData.parts || [];
     
-        // 2. Un-reserve parts that were removed
-        partsBeforeEdit.forEach(oldPart => {
-            if (oldPart.source === 'สต็อกอู่' && !partsAfterEdit.some(newPart => newPart.partId === oldPart.partId)) {
-                setStock(prevStock => prevStock.map(s => 
-                    s.id === oldPart.partId ? { ...s, quantityReserved: Math.max(0, (s.quantityReserved || 0) - oldPart.quantity) } : s
-                ));
-                const newTransaction: StockTransaction = {
-                    id: `TXN-${Date.now()}-cancel-${oldPart.partId}`, stockItemId: oldPart.partId, stockItemName: oldPart.name, type: 'ยกเลิกจอง',
-                    quantity: oldPart.quantity, transactionDate: new Date().toISOString(), actor: 'ระบบ', notes: `ยกเลิกจองสำหรับใบซ่อม ${finalFormData.repairOrderNo}`
-                };
-                setTransactions(prev => [newTransaction, ...prev]);
-            }
-        });
-    
-        // 3. Create 'เบิกใช้' transactions and finalize stock if repair is completed
+        // 2. Create 'เบิกใช้' transactions and finalize stock if repair is completed
         if (finalFormData.status === 'ซ่อมเสร็จ') {
             const allTechIds = [finalFormData.assignedTechnicianId, ...(finalFormData.assistantTechnicianIds || [])].filter(Boolean);
             const technicianNames = technicians.filter(t => allTechIds.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
@@ -260,19 +213,15 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                     .map(t => t.stockItemId)
             );
     
-            const stockToUpdate: Record<string, { quantityChange: number, reservedChange: number }> = {};
+            const stockToUpdate: Record<string, number> = {};
             const transactionsToAdd: StockTransaction[] = [];
 
             partsAfterEdit.forEach(part => {
                 if (part.source === 'สต็อกอู่') {
-                    // This part's reservation is now fulfilled.
-                    stockToUpdate[part.partId] = { 
-                        quantityChange: (stockToUpdate[part.partId]?.quantityChange || 0) + part.quantity,
-                        reservedChange: (stockToUpdate[part.partId]?.reservedChange || 0) + part.quantity,
-                    };
-                    
                     // Only create a new withdrawal transaction if one doesn't already exist for this part in this repair order
                     if (!existingWithdrawalPartIds.has(part.partId)) {
+                        stockToUpdate[part.partId] = (stockToUpdate[part.partId] || 0) + part.quantity;
+
                         transactionsToAdd.push({
                             id: `TXN-${now}-${part.partId}`,
                             stockItemId: part.partId,
@@ -292,55 +241,18 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             if (Object.keys(stockToUpdate).length > 0) {
                 setStock(prevStock => prevStock.map(s => {
                     if (stockToUpdate[s.id]) {
-                        const { quantityChange, reservedChange } = stockToUpdate[s.id];
+                        const quantityChange = stockToUpdate[s.id];
                         const newQuantity = Number(s.quantity) - Number(quantityChange);
-                        const newReserved = Math.max(0, (Number(s.quantityReserved) || 0) - Number(reservedChange));
-                        
                         const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
-                        
-                        return { ...s, quantity: newQuantity, quantityReserved: newReserved, status: newStatus };
+                        return { ...s, quantity: newQuantity, status: newStatus };
                     }
                     return s;
                 }));
-                 addToast(`หักสต็อกและเคลียร์ยอดจอง ${Object.keys(stockToUpdate).length} รายการ`, 'info');
+                 addToast(`หักสต็อก ${Object.keys(stockToUpdate).length} รายการ`, 'info');
             }
             if (transactionsToAdd.length > 0) {
                 setTransactions(prev => [...transactionsToAdd, ...prev]);
                 addToast(`สร้างประวัติการเบิกจ่ายใหม่ ${transactionsToAdd.length} รายการ`, 'info');
-            }
-        } else if (finalFormData.status === 'ยกเลิก') {
-            const partsToUnreserve = (finalFormData.parts || []).filter(p => p.source === 'สต็อกอู่');
-            if (partsToUnreserve.length > 0) {
-                const stockToUpdate: Record<string, { reservedChange: number }> = {};
-                const transactionsToAdd: StockTransaction[] = [];
-                const now = new Date().toISOString();
-                partsToUnreserve.forEach(part => {
-                    stockToUpdate[part.partId] = {
-                        reservedChange: (stockToUpdate[part.partId]?.reservedChange || 0) + part.quantity
-                    };
-                    transactionsToAdd.push({
-                        id: `TXN-cancel-${now}-${part.partId}`,
-                        stockItemId: part.partId,
-                        stockItemName: part.name,
-                        type: 'ยกเลิกจอง',
-                        quantity: part.quantity,
-                        transactionDate: now,
-                        actor: 'ระบบ (ยกเลิกใบซ่อม)',
-                        notes: `จากใบซ่อม ${finalFormData.repairOrderNo}`,
-                        relatedRepairOrder: finalFormData.repairOrderNo,
-                        pricePerUnit: part.unitPrice
-                    });
-                });
-                setStock(prevStock => prevStock.map(s => {
-                    if (stockToUpdate[s.id]) {
-                        const { reservedChange } = stockToUpdate[s.id];
-                        const newReserved = Math.max(0, (s.quantityReserved || 0) - reservedChange);
-                        return { ...s, quantityReserved: newReserved };
-                    }
-                    return s;
-                }));
-                setTransactions(prev => [...transactionsToAdd, ...prev]);
-                addToast(`ยกเลิกการจองอะไหล่ ${partsToUnreserve.length} รายการ`, 'info');
             }
         }
         

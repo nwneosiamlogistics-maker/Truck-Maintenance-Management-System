@@ -84,11 +84,6 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
         if (activeTab === 'internal') {
             return (Array.isArray(transactions) ? transactions : [])
                 .filter(t => {
-                    // Per user request, hide reservation transactions to reduce confusion.
-                    if (t.type === 'จอง' || t.type === 'ยกเลิกจอง') {
-                        return false;
-                    }
-
                     // For 'เบิกใช้' transactions, verify the part source from the original repair.
                     // This prevents parts bought from stores from appearing in internal stock history.
                     if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
@@ -231,7 +226,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                         <tbody className="bg-white divide-y divide-gray-200">
                             {paginatedData.map((t: any) => {
                                 const isOut = t.quantity < 0;
-                                const isAdjustment = ['ปรับสต็อก', 'จอง', 'ยกเลิกจอง'].includes(t.type);
+                                const isAdjustment = ['ปรับสต็อก'].includes(t.type);
                                 let quantityColor = isAdjustment ? 'text-gray-600' : (isOut ? 'text-red-600' : 'text-green-600');
                                 const totalValue = (t.pricePerUnit ?? stockMap.get(t.stockItemId)?.price ?? 0) * t.quantity;
 

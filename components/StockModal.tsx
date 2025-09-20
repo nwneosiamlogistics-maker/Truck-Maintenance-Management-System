@@ -11,13 +11,12 @@ interface StockModalProps {
     existingStock: StockItem[];
 }
 
-const initialFormState: StockItem = {
+const initialFormState: Omit<StockItem, 'quantityReserved'> = {
     id: '',
     code: '',
     name: '',
     category: STOCK_CATEGORIES[0],
     quantity: 0,
-    quantityReserved: 0,
     unit: 'ลิตร',
     minStock: 0,
     maxStock: 0,
@@ -30,7 +29,7 @@ const initialFormState: StockItem = {
 
 const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existingStock }) => {
     // State Isolation: Initialize with a blank state.
-    const [formData, setFormData] = useState<StockItem>(initialFormState);
+    const [formData, setFormData] = useState<StockItem>(initialFormState as StockItem);
     const [sourceRepairOrderNo, setSourceRepairOrderNo] = useState('');
     const { addToast } = useToast();
 
@@ -40,7 +39,7 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
             // Create a shallow copy to prevent prop mutation.
             setFormData({ ...item });
         } else {
-            setFormData(initialFormState);
+            setFormData(initialFormState as StockItem);
         }
         setSourceRepairOrderNo('');
     }, [item]);

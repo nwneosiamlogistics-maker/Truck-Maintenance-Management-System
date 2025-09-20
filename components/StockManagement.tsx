@@ -13,40 +13,6 @@ import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
 import { promptForPassword, calculateStockStatus } from '../utils';
 
-type ReservationInfo = {
-    repairOrderNo: string;
-    licensePlate: string;
-    quantity: number;
-};
-
-interface ReservationModalProps {
-    reservations: ReservationInfo[];
-    onClose: () => void;
-}
-
-const ReservationModal: React.FC<ReservationModalProps> = ({ reservations, onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-[120] flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-lg shadow-lg w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b flex justify-between items-center">
-                <h4 className="font-bold text-lg">รายการที่จอง</h4>
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <ul className="p-4 space-y-2 max-h-60 overflow-y-auto">
-                {reservations.map((res, index) => (
-                    <li key={index} className="text-base p-2 bg-gray-50 rounded-md">
-                        <div className="font-semibold text-blue-600">{res.repairOrderNo}</div>
-                        <div className="text-sm text-gray-700">ทะเบียน: {res.licensePlate} - จำนวน: {res.quantity} ชิ้น</div>
-                    </li>
-                ))}
-            </ul>
-            <div className="p-4 border-t flex justify-end">
-                <button onClick={onClose} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold">ปิด</button>
-            </div>
-        </div>
-    </div>
-);
-
-
 interface StockManagementProps {
     stock: StockItem[];
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
@@ -94,7 +60,6 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const [isUpdateUsedPartStatusModalOpen, setUpdateUsedPartStatusModalOpen] = useState(false);
     const [partToUpdateStatus, setPartToUpdateStatus] = useState<UsedPart | null>(null);
     
-    const [reservationsToShow, setReservationsToShow] = useState<ReservationInfo[] | null>(null);
     const [itemToRequest, setItemToRequest] = useState<StockItem | null>(null);
 
 
@@ -270,31 +235,6 @@ const StockManagement: React.FC<StockManagementProps> = ({
         setReturnModalOpen(false);
     };
     
-    const handleIconClick = (event: React.MouseEvent<HTMLDivElement>, itemId: string) => {
-        event.stopPropagation();
-
-        const activeRepairs = (Array.isArray(repairs) ? repairs : []).filter(r => ['รอซ่อม', 'กำลังซ่อม', 'รออะไหล่'].includes(r.status));
-        const reservations: ReservationInfo[] = [];
-
-        for (const repair of activeRepairs) {
-            for (const part of (repair.parts || [])) {
-                if (part.partId === itemId && part.source === 'สต็อกอู่') {
-                    reservations.push({
-                        repairOrderNo: repair.repairOrderNo,
-                        licensePlate: repair.licensePlate,
-                        quantity: part.quantity
-                    });
-                }
-            }
-        }
-        
-        if (reservations.length > 0) {
-            setReservationsToShow(reservations);
-        } else {
-            addToast('ไม่พบข้อมูลการจองสำหรับรายการนี้', 'info');
-        }
-    };
-
     const handleSavePurchaseRequest = (data: { supplier: string; quantity: number; notes: string; }) => {
         if (!itemToRequest) return;
 
@@ -439,26 +379,14 @@ const StockManagement: React.FC<StockManagementProps> = ({
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredStock.map(item => {
-                                const available = item.quantity - (item.quantityReserved || 0);
-                                const needsPurchase = available <= item.minStock;
+                                const needsPurchase = item.quantity <= item.minStock;
                                 const isRequested = activePRStockIds.has(item.id);
                                 return (
                                 <tr key={item.id} className="hover:bg-gray-50">
                                     <td className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500 font-mono">{item.code}</div></td>
                                     <td className="px-4 py-3 text-sm">{item.category}</td>
                                     <td className="px-4 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <span className={`font-bold text-lg ${available <= item.minStock ? 'text-red-600' : ''}`}>{available} {item.unit}</span>
-                                            {(item.quantityReserved || 0) > 0 && (
-                                                <div 
-                                                    className="inline-block" 
-                                                    onClick={(e) => handleIconClick(e, item.id)}
-                                                    title={`มีจองอยู่ ${item.quantityReserved || 0} ชิ้น`}
-                                                >
-                                                    <span className="cursor-pointer">🔍</span>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <span className={`font-bold text-lg ${item.quantity <= item.minStock ? 'text-red-600' : ''}`}>{item.quantity} {item.unit}</span>
                                     </td>
                                     <td className="px-4 py-3 text-right text-sm">{item.minStock}</td>
                                     <td className="px-4 py-3 text-right text-sm">{item.price.toLocaleString()}</td>
@@ -565,13 +493,6 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     suppliers={suppliers}
                     onSave={handleSavePurchaseRequest}
                     onClose={() => setItemToRequest(null)}
-                />
-            )}
-
-            {reservationsToShow && (
-                <ReservationModal 
-                    reservations={reservationsToShow} 
-                    onClose={() => setReservationsToShow(null)} 
                 />
             )}
         </div>
