@@ -178,7 +178,7 @@ export interface PMHistory {
 }
 
 
-export type MonthStatus = 'none' | 'planned' | 'completed';
+export type MonthStatus = 'none' | 'planned' | 'completed' | 'completed_unplanned';
 
 export interface AnnualPMPlan {
     id: string; // e.g., "70-6937-MP-1-2024"

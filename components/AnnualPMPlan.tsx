@@ -80,22 +80,23 @@ const AnnualPMPlanComponent: React.FC<AnnualPMPlanProps> = ({ annualPlans, setAn
     }, [enrichedPlans, annualPlans, selectedYear, searchTerm, statusFilter]);
 
     const handleOpenEditModal = (plan: any, monthIndex: number) => {
-        const manualStatus = plan.manualMonths[monthIndex];
-        const isCalculatedPlan = !!plan.calculatedMonths[monthIndex];
-        const hasCompleted = manualStatus === 'completed';
-        const hasPlan = manualStatus === 'planned' || manualStatus === 'completed' || (manualStatus !== 'none' && isCalculatedPlan);
+        const effectiveStatus = (): MonthStatus => {
+            const manual = plan.manualMonths[monthIndex];
+            const calculated = !!plan.calculatedMonths[monthIndex];
 
-        let currentStatus: MonthStatus = 'none';
-        if (hasCompleted) {
-            currentStatus = 'completed';
-        } else if (hasPlan) {
-            currentStatus = 'planned';
-        }
+            if (manual === 'completed') return 'completed';
+            if (manual === 'completed_unplanned') return 'completed_unplanned';
+            if (manual === 'planned') return 'planned';
+            if (manual === 'none') return 'none';
+            // manual is undefined
+            if (calculated) return 'planned';
+            return 'none';
+        };
 
         setEditingPlanData({ 
             plan: plan,
             monthIndex: monthIndex, 
-            currentStatus: currentStatus
+            currentStatus: effectiveStatus()
         });
         setIsEditModalOpen(true);
     };
@@ -155,39 +156,39 @@ const AnnualPMPlanComponent: React.FC<AnnualPMPlanProps> = ({ annualPlans, setAn
                 </p>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                 <table className="min-w-full border-collapse">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 sticky top-0 z-20">
                         <tr>
-                            <th className="sticky left-0 bg-gray-50 z-10 p-2 border text-sm font-medium text-gray-500 w-48">ทะเบียน / ประเภทรถ</th>
-                            <th className="p-2 border text-sm font-medium text-gray-500 w-48">แผน</th>
+                            <th className="sticky left-0 bg-gray-50 z-30 p-2 border text-sm font-medium text-gray-500 w-48">ทะเบียน / ประเภทรถ</th>
+                            <th className="sticky left-[12rem] bg-gray-50 z-20 p-2 border text-sm font-medium text-gray-500 w-48">แผน</th>
                             {MONTH_NAMES.map(month => <th key={month} className="p-2 border text-sm font-medium text-gray-500 w-24">{month}</th>)}
                         </tr>
                     </thead>
                     <tbody className="bg-white">
                         {displayPlans.map(plan => (
-                            <tr key={plan.maintenancePlanId} className="hover:bg-gray-50">
-                                <td className="sticky left-0 bg-white hover:bg-gray-50 z-10 p-2 border font-semibold">
+                            <tr key={plan.maintenancePlanId} className="group hover:bg-gray-50">
+                                <td className="sticky left-0 bg-white group-hover:bg-gray-50 z-10 p-2 border font-semibold">
                                     <div>{plan.vehicleLicensePlate}</div>
                                     <div className="text-xs text-gray-500 font-normal">{vehicleMap.get(plan.vehicleLicensePlate)?.vehicleType || '-'}</div>
                                 </td>
-                                <td className="p-2 border text-sm">
+                                <td className="sticky left-[12rem] bg-white group-hover:bg-gray-50 z-10 p-2 border text-sm">
                                     {plan.planName}
                                 </td>
                                 {MONTH_NAMES.map((_, index) => {
                                    const manualStatus = plan.manualMonths[index];
                                    const isCalculatedPlan = !!plan.calculatedMonths[index];
                                    
-                                   const hasCompleted = manualStatus === 'completed';
-                                   const hasPlan = manualStatus === 'planned' || manualStatus === 'completed' || (manualStatus !== 'none' && isCalculatedPlan);
+                                   const showPlanDot = manualStatus === 'planned' || manualStatus === 'completed' || (manualStatus !== 'none' && manualStatus !== 'completed_unplanned' && isCalculatedPlan);
+                                   const showCompletedDot = manualStatus === 'completed' || manualStatus === 'completed_unplanned';
 
                                    return (
                                        <td key={index} className="p-0 border text-center cursor-pointer hover:bg-blue-50 h-16 align-middle" onClick={() => handleOpenEditModal(plan, index)}>
                                            <div className="flex flex-col items-center justify-center h-full -space-y-2.5">
                                                {/* Slot 1: Plan */}
-                                               <span className={`text-2xl ${hasPlan ? 'text-lime-700' : 'text-transparent'}`}>●</span>
+                                               <span className={`text-2xl ${showPlanDot ? 'text-lime-700' : 'text-transparent'}`}>●</span>
                                                {/* Slot 2: Completion */}
-                                               <span className={`text-2xl ${hasCompleted ? 'text-sky-600' : 'text-transparent'}`}>●</span>
+                                               <span className={`text-2xl ${showCompletedDot ? 'text-sky-600' : 'text-transparent'}`}>●</span>
                                            </div>
                                        </td>
                                    );

@@ -29,7 +29,6 @@ export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, 
         none: {
             label: "ไม่มีแผน",
             icon: null,
-            color: 'gray'
         },
         planned: {
             label: "วางแผนแล้ว",
@@ -39,7 +38,6 @@ export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, 
                     <span className="text-2xl text-transparent">●</span>
                 </div>
             ),
-            color: 'lime'
         },
         completed: {
             label: "ดำเนินการแล้ว",
@@ -49,7 +47,15 @@ export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, 
                     <span className="text-2xl text-sky-600">●</span>
                 </div>
             ),
-            color: 'sky'
+        },
+        completed_unplanned: {
+            label: "ดำเนินการไม่ตรงตามแผน",
+            icon: (
+                <div className="flex flex-col items-center justify-center -space-y-2.5 mr-2">
+                    <span className="text-2xl text-transparent">●</span>
+                    <span className="text-2xl text-sky-600">●</span>
+                </div>
+            ),
         }
     };
 
@@ -73,7 +79,8 @@ export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, 
                                 const checkedClasses = {
                                     none: "bg-gray-100 border-gray-400 ring-2 ring-gray-200",
                                     planned: "bg-lime-50 border-lime-400 ring-2 ring-lime-200",
-                                    completed: "bg-sky-50 border-sky-400 ring-2 ring-sky-200"
+                                    completed: "bg-sky-50 border-sky-400 ring-2 ring-sky-200",
+                                    completed_unplanned: "bg-sky-50 border-sky-400 ring-2 ring-sky-200"
                                 };
                                 const uncheckedClasses = "bg-white border-gray-300 hover:bg-gray-50";
 
