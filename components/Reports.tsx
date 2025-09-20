@@ -311,7 +311,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 totalRepairs: safeRepairs.length,
                 totalCost,
                 avgCost: safeRepairs.length > 0 ? totalCost / safeRepairs.length : 0,
-                lowStock: safeStock.filter(s => s.quantity <= s.minStock).length,
+                lowStock: safeStock.filter(s => s.status === 'สต็อกต่ำ').length,
             },
         };
     }, [filteredRepairs, repairs, stock]);

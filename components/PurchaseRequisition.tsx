@@ -13,7 +13,18 @@ interface PurchaseRequisitionProps {
     suppliers: Supplier[];
 }
 
-const PurchaseRequisition: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers }) => {
+const STATUS_FILTER_ORDER: { value: PurchaseRequisitionStatus | 'all', label: string }[] = [
+    { value: 'all', label: 'สถานะทั้งหมด' },
+    { value: 'ฉบับร่าง', label: 'ฉบับร่าง' },
+    { value: 'รออนุมัติ', label: 'รออนุมัติ' },
+    { value: 'อนุมัติแล้ว', label: 'อนุมัติแล้ว' },
+    { value: 'รอสินค้า', label: 'รอสินค้า' },
+    { value: 'รับของแล้ว', label: 'รับของแล้ว' },
+    { value: 'ยกเลิก', label: 'ยกเลิก' },
+];
+
+
+const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers }) => {
     const [statusFilter, setStatusFilter] = useState<PurchaseRequisitionStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,10 +47,31 @@ const PurchaseRequisition: React.FC<PurchaseRequisitionProps> = ({ purchaseRequi
     };
 
     const filteredRequisitions = useMemo(() => {
+        // Define the desired sort order for statuses to bring active items to the top
+        const statusOrder: Record<PurchaseRequisitionStatus, number> = {
+            'รออนุมัติ': 1,
+            'อนุมัติแล้ว': 2,
+            'รอสินค้า': 3,
+            'ฉบับร่าง': 4,
+            'รับของแล้ว': 5,
+            'ยกเลิก': 6,
+        };
+
         return (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : [])
             .filter(pr => statusFilter === 'all' || pr.status === statusFilter)
             .filter(pr => searchTerm === '' || pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase()) || pr.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            .sort((a, b) => {
+                // When viewing 'all', sort by status order first, then by date
+                if (statusFilter === 'all') {
+                    const orderA = statusOrder[a.status];
+                    const orderB = statusOrder[b.status];
+                    if (orderA !== orderB) {
+                        return orderA - orderB;
+                    }
+                }
+                // For specific status filters or as a secondary sort, use creation date
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
     }, [purchaseRequisitions, statusFilter, searchTerm]);
 
     const totalPages = useMemo(() => Math.ceil(filteredRequisitions.length / itemsPerPage), [filteredRequisitions.length, itemsPerPage]);
@@ -244,13 +276,9 @@ const PurchaseRequisition: React.FC<PurchaseRequisitionProps> = ({ purchaseRequi
                         className="w-72 p-2 border border-gray-300 rounded-lg text-base"
                     />
                     <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
-                        <option value="all">สถานะทั้งหมด</option>
-                        <option value="ฉบับร่าง">ฉบับร่าง</option>
-                        <option value="รออนุมัติ">รออนุมัติ</option>
-                        <option value="อนุมัติแล้ว">อนุมัติแล้ว</option>
-                        <option value="รอสินค้า">รอสินค้า</option>
-                        <option value="รับของแล้ว">รับของแล้ว</option>
-                        <option value="ยกเลิก">ยกเลิก</option>
+                        {STATUS_FILTER_ORDER.map(option => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                     </select>
                 </div>
                 <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
@@ -371,4 +399,4 @@ const PurchaseRequisition: React.FC<PurchaseRequisitionProps> = ({ purchaseRequi
     );
 };
 
-export default PurchaseRequisition;
+export default PurchaseRequisitionComponent;
