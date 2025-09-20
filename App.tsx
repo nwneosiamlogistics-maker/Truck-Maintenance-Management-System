@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, UsedPart, AnnualPMPlan, PMHistory, RepairFormSeed } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, UsedPart, AnnualPMPlan, PMHistory, RepairFormSeed, RepairKPI, Holiday } from './types';
 import { TABS } from './constants';
-import { getDefaultTechnicians, getDefaultRepairs, getDefaultStock, getDefaultReports, getDefaultMaintenancePlans, getDefaultStockTransactions, getDefaultPurchaseRequisitions, getDefaultVehicles, getDefaultSuppliers, getDefaultUsedPartBuyers, getDefaultAnnualPMPlans } from './data/defaultData';
+import { getDefaultTechnicians, getDefaultRepairs, getDefaultStock, getDefaultReports, getDefaultMaintenancePlans, getDefaultStockTransactions, getDefaultPurchaseRequisitions, getDefaultVehicles, getDefaultSuppliers, getDefaultUsedPartBuyers, getDefaultAnnualPMPlans, getDefaultKpiData } from './data/defaultData';
 import { useFirebase } from './hooks/useFirebase';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -30,8 +30,10 @@ import PreventiveMaintenance from './components/PreventiveMaintenance';
 import DailyChecklistPage from './components/DailyChecklistPage';
 import TireCheckPage from './components/TireCheckPage';
 import ToolManagement from './components/ToolManagement';
-// FIX: Import KPIDashboard to resolve 'Cannot find name' error.
 import KPIDashboard from './components/KPIDashboard';
+import KPIManagement from './components/KPIManagement';
+import Settings from './components/Settings';
+
 
 const App: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -58,6 +60,8 @@ const App: React.FC = () => {
     const [tireInspections, setTireInspections] = useFirebase('tireInspections', []);
     const [tools, setTools] = useFirebase('tools', []);
     const [toolTransactions, setToolTransactions] = useFirebase('toolTransactions', []);
+    const [kpiData, setKpiData] = useFirebase<RepairKPI[]>('kpiData', getDefaultKpiData);
+    const [holidays, setHolidays] = useFirebase<Holiday[]>('companyHolidays', []);
 
 
     const addRepair = (newRepairData: Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>) => {
@@ -128,6 +132,8 @@ const App: React.FC = () => {
                     suppliers={suppliers}
                     initialData={repairFormSeed}
                     clearInitialData={() => setRepairFormSeed(null)}
+                    kpiData={kpiData}
+                    holidays={holidays}
                 />;
             case 'list':
                 return <RepairList 
@@ -201,7 +207,7 @@ const App: React.FC = () => {
             case 'reports':
                 return <Reports repairs={repairs} stock={stock} technicians={technicians} />;
             case 'estimation':
-                return <Estimation repairs={repairs} />;
+                return <Estimation repairs={repairs} kpiData={kpiData} />;
             case 'maintenance':
                 return <MaintenancePlanner 
                     plans={maintenancePlans} 
@@ -216,6 +222,8 @@ const App: React.FC = () => {
                 />;
             case 'kpi-dashboard':
                 return <KPIDashboard repairs={repairs} plans={maintenancePlans} vehicles={vehicles} />;
+             case 'kpi-management':
+                return <KPIManagement kpiData={kpiData} setKpiData={setKpiData} />;
             case 'vehicles':
                 return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
             case 'preventive-maintenance':
@@ -248,6 +256,8 @@ const App: React.FC = () => {
                     setTransactions={setToolTransactions}
                     technicians={technicians}
                 />;
+            case 'settings':
+                return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:
                 return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
         }

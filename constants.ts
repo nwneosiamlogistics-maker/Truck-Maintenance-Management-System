@@ -9,6 +9,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'ภาพรวม KPI',
         subtitle: 'ตัวชี้วัดประสิทธิภาพการซ่อมบำรุง'
     },
+     'kpi-management': {
+        title: 'จัดการ KPI',
+        subtitle: 'เพิ่ม แก้ไข และลบรายการซ่อมมาตรฐาน (KPI)'
+    },
     form: {
         title: 'เพิ่มใบแจ้งซ่อม',
         subtitle: 'สร้างใบแจ้งซ่อมใหม่สำหรับรถบรรทุกทุกประเภท'
@@ -70,8 +74,8 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         subtitle: 'บันทึกการปฏิบัติงานของช่างแต่ละคนโดยละเอียด'
     },
     estimation: {
-        title: 'ระบบประมาณการณ์',
-        subtitle: 'ประมาณเวลาและติดตามความแม่นยำ'
+        title: 'วิเคราะห์ประสิทธิภาพ (KPI)',
+        subtitle: 'เปรียบเทียบเวลาซ่อมจริงกับเวลาที่ประเมิน'
     },
     maintenance: {
         title: 'วางแผนซ่อมบำรุง',
@@ -100,5 +104,9 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
     'tool-management': {
         title: 'จัดการเครื่องมือ',
         subtitle: 'คลังเครื่องมือและประวัติการยืม-คืนสำหรับช่าง'
+    },
+    settings: {
+        title: 'ตั้งค่าระบบ',
+        subtitle: 'จัดการข้อมูลหลัก เช่น วันหยุดบริษัท และการตั้งค่าอื่นๆ'
     },
 };

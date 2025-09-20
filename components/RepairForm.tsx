@@ -1,13 +1,13 @@
-
-import React, { useState, FormEvent, useMemo, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed } from '../types';
+import React, { useState, FormEvent, useMemo, useEffect, useRef, useCallback } from 'react';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
 import Stepper from './Stepper';
-import { formatDateTime24h } from '../utils';
+import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime } from '../utils';
+import KPIPickerModal from './KPIPickerModal';
+
 
 interface RepairFormProps {
     technicians: Technician[];
@@ -19,60 +19,71 @@ interface RepairFormProps {
     suppliers: Supplier[];
     initialData?: RepairFormSeed | null;
     clearInitialData: () => void;
+    kpiData: RepairKPI[];
+    holidays: Holiday[];
 }
 
-interface EstimationResult {
-    laborHours: number;
-    reasoning: string;
-}
-
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays }) => {
     
-    const getInitialState = () => ({
-        repairOrderNo: 'จะถูกสร้างอัตโนมัติ',
-        licensePlate: '',
-        vehicleType: '',
-        vehicleMake: '',
-        vehicleModel: '',
-        currentMileage: '',
-        reportedBy: '',
-        repairCategory: 'ซ่อมทั่วไป',
-        priority: 'ปกติ' as const,
-        problemDescription: '',
-        assignedTechnicianId: null,
-        assistantTechnicianIds: [] as string[],
-        externalTechnicianName: '',
-        notes: '',
-        dispatchType: 'ภายใน' as 'ภายใน' | 'ภายนอก',
-        repairLocation: '',
-        coordinator: '',
-        returnDate: '',
-        repairResult: '',
-        repairCost: 0,
-        partsVat: 0,
-        parts: [] as PartRequisitionItem[],
-        attachments: [] as FileAttachment[],
-        estimations: [{
-            sequence: 1,
-            createdAt: new Date().toISOString(),
-            estimatedStartDate: new Date().toISOString(),
-            estimatedEndDate: '',
-            estimatedLaborHours: 0,
-            status: 'Active' as const,
-            failureReason: null,
-            aiReasoning: null,
-        }] as EstimationAttempt[],
-        checklists: {
-            preRepair: [],
-            postRepair: [],
-        }
-    });
+    const getInitialState = () => {
+        const getRoundedStartDate = () => {
+            const now = new Date();
+            // If we are not exactly at the top of an hour, round up.
+            if (now.getMinutes() > 0 || now.getSeconds() > 0 || now.getMilliseconds() > 0) {
+                now.setHours(now.getHours() + 1);
+            }
+            now.setMinutes(0, 0, 0); // Set minutes and seconds to zero.
+            return now.toISOString();
+        };
+
+        return {
+            repairOrderNo: 'จะถูกสร้างอัตโนมัติ',
+            licensePlate: '',
+            vehicleType: '',
+            vehicleMake: '',
+            vehicleModel: '',
+            currentMileage: '',
+            reportedBy: '',
+            repairCategory: 'ซ่อมทั่วไป',
+            priority: 'ปกติ' as const,
+            problemDescription: '',
+            assignedTechnicianId: null,
+            assistantTechnicianIds: [] as string[],
+            externalTechnicianName: '',
+            notes: '',
+            dispatchType: 'ภายใน' as 'ภายใน' | 'ภายนอก',
+            repairLocation: '',
+            coordinator: '',
+            returnDate: '',
+            repairResult: '',
+            repairCost: 0,
+            partsVat: 0,
+            parts: [] as PartRequisitionItem[],
+            attachments: [] as FileAttachment[],
+            estimations: [{
+                sequence: 1,
+                createdAt: new Date().toISOString(),
+                estimatedStartDate: getRoundedStartDate(),
+                estimatedEndDate: '',
+                estimatedLaborHours: 0,
+                status: 'Active' as const,
+                failureReason: null,
+                aiReasoning: null,
+            }] as EstimationAttempt[],
+            checklists: {
+                preRepair: [],
+                postRepair: [],
+            },
+            kpiTaskIds: [],
+        };
+    };
 
     const [formData, setFormData] = useState(getInitialState());
     const [otherVehicleType, setOtherVehicleType] = useState('');
     const [isStockModalOpen, setStockModalOpen] = useState(false);
     const [isExternalPartModalOpen, setExternalPartModalOpen] = useState(false);
-    const [isEstimating, setIsEstimating] = useState(false);
+    const [isKPIModalOpen, setKPIModalOpen] = useState(false);
+
     
     const [currentStep, setCurrentStep] = useState(0);
     const steps = ['ข้อมูลรถและปัญหา', 'การประเมินและมอบหมาย', 'อะไหล่และค่าใช้จ่าย', 'สรุปและยืนยัน'];
@@ -80,10 +91,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [suggestions, setSuggestions] = useState<Vehicle[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const suggestionsRef = useRef<HTMLDivElement>(null);
-    
-    const [estimationMode, setEstimationMode] = useState<'duration' | 'date'>('duration');
-    const [durationValue, setDurationValue] = useState<number>(8);
-    const [durationUnit, setDurationUnit] = useState<'hours' | 'days'>('hours');
     
     const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>('internal');
     const [isConfirmed, setIsConfirmed] = useState(false);
@@ -108,6 +115,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     }, [vehicles]);
     
     const activeEstimation = formData.estimations[formData.estimations.length - 1];
+    
+    const kpiMap = useMemo(() => new Map(kpiData.map(k => [k.id, k])), [kpiData]);
+
+    const holidayDates = useMemo(() => (Array.isArray(holidays) ? holidays : []).map(h => h.date), [holidays]);
+
+    const selectedKpis = useMemo(() => {
+        return (formData.kpiTaskIds || []).map(id => kpiMap.get(id)).filter((k): k is RepairKPI => k !== undefined);
+    }, [formData.kpiTaskIds, kpiMap]);
+    
+    const totalKpiHours = useMemo(() => {
+        return selectedKpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
+    }, [selectedKpis]);
 
     useEffect(() => {
         if (initialData) {
@@ -154,21 +173,26 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setIsFormGloballyValid(validateAll());
     }, [formData, otherVehicleType, assignmentType]);
     
+    // Auto-calculate finish time
     useEffect(() => {
-        if (estimationMode === 'duration' && activeEstimation) {
-            const startDate = new Date(activeEstimation.estimatedStartDate || Date.now());
-            if (isNaN(startDate.getTime())) return;
-
-            const multiplier = durationUnit === 'hours' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-            const endDate = new Date(startDate.getTime() + (durationValue * multiplier));
-            
-            const newEstimations = formData.estimations.map(e => 
-                e.sequence === activeEstimation.sequence ? { ...e, estimatedEndDate: endDate.toISOString() } : e
-            );
-            
-            setFormData(prev => ({ ...prev, estimations: newEstimations }));
+        if (totalKpiHours > 0 && activeEstimation?.estimatedStartDate) {
+            try {
+                const startDate = new Date(activeEstimation.estimatedStartDate);
+                if (!isNaN(startDate.getTime())) {
+                    const finishDate = calculateFinishTime(startDate, totalKpiHours, holidayDates);
+                    const newEstimations = formData.estimations.map(e => 
+                        e.sequence === activeEstimation.sequence 
+                            ? { ...e, estimatedEndDate: finishDate.toISOString() } 
+                            : e
+                    );
+                    setFormData(prev => ({ ...prev, estimations: newEstimations }));
+                }
+            } catch (e) {
+                console.error("Error calculating finish time:", e);
+            }
         }
-    }, [estimationMode, durationValue, durationUnit, activeEstimation?.estimatedStartDate, activeEstimation?.sequence]);
+    }, [totalKpiHours, activeEstimation?.estimatedStartDate, activeEstimation?.sequence, holidayDates]);
+
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -230,10 +254,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 : e
         );
         setFormData(prev => ({ ...prev, estimations: newEstimations }));
-        
-        if (field === 'estimatedEndDate') {
-            setEstimationMode('date');
-        }
     };
 
     const handleSuggestionClick = (vehicle: Vehicle) => {
@@ -271,61 +291,48 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setIsConfirmed(false);
     };
 
-    const handleEstimate = async () => {
-        setIsEstimating(true);
-        
-        const newEstimations = [...formData.estimations];
-        newEstimations[newEstimations.length - 1].aiReasoning = null;
-        setFormData(prev => ({ ...prev, estimations: newEstimations}));
+    const updateEstimationFromKPIs = useCallback((kpiIds: string[]) => {
+        const kpis = kpiIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
+        const totalHours = kpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
 
-        const prompt = `
-            Vehicle Type: ${formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}
-            Make: ${formData.vehicleMake}
-            Model: ${formData.vehicleModel}
-            Repair Category: ${formData.repairCategory}
-            Problem Description: ${formData.problemDescription}
-            Based on the information above, estimate the labor hours required for the repair.
-        `;
+        const newDescription = kpis.map(k => `- ${k.item}`).join('\n');
+        const newCategory = kpis.length > 0 ? kpis[0].category : 'ซ่อมทั่วไป';
 
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            laborHours: { type: Type.NUMBER, description: "Estimated labor hours" },
-                            reasoning: { type: Type.STRING, description: "Brief reason for the estimation" }
-                        },
-                        required: ["laborHours", "reasoning"]
-                    }
-                }
-            });
-            const result: EstimationResult = JSON.parse(response.text);
-            
-            const laborHours = Math.round(result.laborHours) || 1;
-            
-            setEstimationMode('duration');
-            setDurationUnit('hours');
-            setDurationValue(laborHours);
-            
-            const updatedEstimations = formData.estimations.map(e => 
-                e.sequence === activeEstimation.sequence 
-                    ? { ...e, estimatedLaborHours: laborHours, aiReasoning: result.reasoning }
+        setFormData(prev => {
+            const activeEst = prev.estimations[prev.estimations.length - 1];
+            const startDate = new Date(activeEst.estimatedStartDate || Date.now());
+            const endDate = calculateFinishTime(startDate, totalHours, holidayDates);
+
+            const updatedEstimations = prev.estimations.map(e =>
+                e.sequence === activeEst.sequence
+                    ? { ...e, estimatedLaborHours: totalHours, estimatedEndDate: endDate.toISOString(), aiReasoning: 'คำนวณจาก KPI มาตรฐานและเวลาทำงาน' }
                     : e
             );
-            setFormData(prev => ({...prev, estimations: updatedEstimations}));
-            addToast('AI ประมาณการณ์สำเร็จ', 'success');
 
-        } catch (error) {
-            console.error("Error calling Gemini API:", error);
-            addToast("ไม่สามารถประมาณการณ์ได้", "error");
-        } finally {
-            setIsEstimating(false);
-        }
+            return {
+                ...prev,
+                kpiTaskIds: kpiIds,
+                problemDescription: newDescription,
+                repairCategory: newCategory,
+                estimations: updatedEstimations
+            };
+        });
+    }, [kpiMap, holidayDates]);
+
+    const handleAddKPIs = (newKpis: RepairKPI[]) => {
+        const newIds = newKpis.map(k => k.id);
+        const currentIds = new Set(formData.kpiTaskIds || []);
+        newIds.forEach(id => currentIds.add(id));
+        
+        updateEstimationFromKPIs(Array.from(currentIds));
+        
+        addToast(`เพิ่ม ${newKpis.length} รายการ KPI สำเร็จ`, 'success');
+        setKPIModalOpen(false);
+    };
+
+    const handleRemoveKpi = (kpiId: string) => {
+        const newIds = (formData.kpiTaskIds || []).filter(id => id !== kpiId);
+        updateEstimationFromKPIs(newIds);
     };
     
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
@@ -553,37 +560,29 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         <div>
                             <label className="block text-sm font-medium text-gray-700">การประมาณการณ์เวลาซ่อม *</label>
                             <div className="p-4 border rounded-lg bg-gray-50 mt-1 space-y-4">
-                                <div className="flex items-center gap-6">
-                                    <label className="flex items-center cursor-pointer">
-                                        <input type="radio" name="estimationMode" value="duration" checked={estimationMode === 'duration'} onChange={() => setEstimationMode('duration')} className="mr-2 h-4 w-4"/>
-                                        <span className="font-semibold text-gray-700">ระบุระยะเวลา</span>
-                                    </label>
-                                    <label className="flex items-center cursor-pointer">
-                                        <input type="radio" name="estimationMode" value="date" checked={estimationMode === 'date'} onChange={() => setEstimationMode('date')} className="mr-2 h-4 w-4"/>
-                                        <span className="font-semibold text-gray-700">กำหนดวันเสร็จ</span>
-                                    </label>
-                                    <div className="flex-1 flex justify-end">
-                                        <button type="button" onClick={handleEstimate} disabled={isEstimating} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50">
-                                            {isEstimating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : "🤖"}
-                                            <span>AI ช่วยประมาณการณ์</span>
-                                        </button>
-                                    </div>
+                                <div className="flex justify-end">
+                                    <button type="button" onClick={() => setKPIModalOpen(true)} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">
+                                        <span>📊 + เพิ่มงาน KPI</span>
+                                    </button>
                                 </div>
                                 
-                                {estimationMode === 'duration' && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">ระยะเวลา</label>
-                                        <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                {selectedKpis.length > 0 && (
+                                    <div className="border-t pt-3 mt-3">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="block text-sm font-medium text-gray-700">รายการ KPI ที่เลือก:</label>
+                                            <div className="text-sm font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
+                                                เวลามาตรฐานรวม: {formatHoursDescriptive(totalKpiHours)}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedKpis.map(kpi => (
+                                                <span key={kpi.id} className="flex items-center gap-2 bg-blue-100 text-blue-800 text-sm font-semibold pl-3 pr-1 py-1 rounded-full">
+                                                    {kpi.item}
+                                                    <button type="button" onClick={() => handleRemoveKpi(kpi.id)} className="text-blue-600 hover:text-blue-800 font-bold w-5 h-5 flex items-center justify-center rounded-full bg-blue-200 hover:bg-blue-300">&times;</button>
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">หน่วย</label>
-                                        <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
-                                            <option value="hours">ชั่วโมง</option>
-                                            <option value="days">วัน</option>
-                                        </select>
-                                    </div>
-                                </div>
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -597,14 +596,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                             type="datetime-local" 
                                             value={toLocalISOString(activeEstimation.estimatedEndDate) || ''} 
                                             onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)} 
-                                            className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                                            readOnly={estimationMode === 'duration'}
+                                            className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100"
+                                            readOnly
                                             required
                                         />
                                     </div>
                                 </div>
                                 
-                                {activeEstimation.aiReasoning && <p className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 italic">"{activeEstimation.aiReasoning}"</p>}
+                                {totalKpiHours > 0 && 
+                                    <p className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 italic">
+                                       "{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}"
+                                    </p>
+                                }
                             </div>
                         </div>
                          <div>
@@ -718,7 +721,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <p><strong>ทะเบียนรถ:</strong> {formData.licensePlate}</p>
                             <p><strong>ประเภทรถ:</strong> {formData.vehicleType === 'อื่นๆ' ? otherVehicleType : formData.vehicleType}</p>
-                            <p><strong>อาการเสีย:</strong> {formData.problemDescription}</p>
+                            <p><strong>อาการเสีย:</strong> <pre className="font-sans whitespace-pre-wrap">{formData.problemDescription}</pre></p>
                         </div>
                         <div className="p-4 border rounded-lg bg-gray-50">
                              <div className="flex justify-between items-center mb-2">
@@ -788,6 +791,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         {isStockModalOpen && <StockSelectionModal stock={stock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
         {isExternalPartModalOpen && <ExternalPartModal onClose={() => setExternalPartModalOpen(false)} onAddExternalParts={handleAddExternalParts} suppliers={suppliers} />}
+        {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} />}
         </>
     );
 };

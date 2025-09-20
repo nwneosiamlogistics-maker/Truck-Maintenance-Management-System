@@ -90,8 +90,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             { id: 'technicianPerformance', icon: '🧑‍📈', label: 'รายงานประสิทธิภาพช่าง' },
             { id: 'technicianWorkLog', icon: '📖', label: 'ประวัติงานซ่อมช่าง' },
         ]},
-        { section: 'รายงาน', items: [
+        { section: 'รายงานและการตั้งค่า', items: [
             { id: 'reports', icon: '📈', label: 'รายงานและสถิติ' },
+            { id: 'kpi-management', icon: '🔧', label: 'จัดการ KPI' },
+            { id: 'settings', icon: '⚙️', label: 'ตั้งค่าระบบ' },
         ]},
     ];
 

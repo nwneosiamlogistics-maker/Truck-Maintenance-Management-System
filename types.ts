@@ -3,6 +3,7 @@
 export type Tab =
     | 'dashboard'
     | 'kpi-dashboard'
+    | 'kpi-management'
     | 'form'
     | 'list'
     | 'technician-view'
@@ -25,7 +26,8 @@ export type Tab =
     | 'vehicles'
     | 'daily-checklist'
     | 'tire-check'
-    | 'tool-management';
+    | 'tool-management'
+    | 'settings';
 
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
@@ -97,6 +99,7 @@ export interface Repair {
         preRepair: any[];
         postRepair: any[];
     };
+    kpiTaskIds?: string[];
 }
 
 export type TechnicianRole = 'ช่าง' | 'ผู้ช่วยช่าง';
@@ -396,4 +399,17 @@ export interface RepairFormSeed {
     vehicleType: string;
     reportedBy: string;
     problemDescription: string;
+}
+
+export interface RepairKPI {
+    id: string;
+    category: string;
+    item: string;
+    standardHours: number;
+}
+
+export interface Holiday {
+    id: string;
+    date: string; // YYYY-MM-DD format
+    name: string;
 }

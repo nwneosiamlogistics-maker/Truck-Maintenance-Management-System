@@ -1,86 +1,100 @@
 import React, { useMemo } from 'react';
-import type { Repair, EstimationAttempt } from '../types';
+import type { Repair, RepairKPI, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
-import { formatHoursToHHMM } from '../utils';
+import { formatHoursDescriptive, calculateDurationHours } from '../utils';
+
 
 interface EstimationProps {
     repairs: Repair[];
+    kpiData: RepairKPI[];
 }
 
 const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
-
+    
     const estimationData = useMemo(() => {
         const completedRepairs = (Array.isArray(repairs) ? repairs : [])
-            .filter(r => r.status === 'ซ่อมเสร็จ' && r.repairEndDate && r.repairStartDate);
+            .filter(r => 
+                r.status === 'ซ่อมเสร็จ' && 
+                r.repairEndDate && 
+                r.repairStartDate
+            );
 
         const allDetailedEstimations = completedRepairs.map(r => {
-            const finalEstimation = r.estimations?.find(e => e.status === 'Completed') || [...(r.estimations || [])].sort((a, b) => b.sequence - a.sequence)[0];
-            const hasValidEstimate = finalEstimation && finalEstimation.estimatedLaborHours > 0 && finalEstimation.estimatedEndDate;
+            const actualHours = calculateDurationHours(r.repairStartDate, r.repairEndDate);
             
-            const actualMillis = new Date(r.repairEndDate!).getTime() - new Date(r.repairStartDate!).getTime();
-            
-            if (hasValidEstimate) {
-                const estimatedMillis = finalEstimation.estimatedLaborHours * 60 * 60 * 1000;
-                const deviationMillis = actualMillis - estimatedMillis;
-                const isOnTime = new Date(r.repairEndDate!) <= new Date(finalEstimation.estimatedEndDate);
-
-                return {
-                    repairOrderNo: r.repairOrderNo,
-                    licensePlate: r.licensePlate,
-                    problemDescription: r.problemDescription,
-                    estimatedHours: finalEstimation.estimatedLaborHours,
-                    actualHours: actualMillis / (1000 * 60 * 60),
-                    deviationHours: deviationMillis / (1000 * 60 * 60),
-                    isOnTime,
-                    isValid: true,
-                };
-            } else {
-                 return {
-                    repairOrderNo: r.repairOrderNo,
-                    licensePlate: r.licensePlate,
-                    problemDescription: r.problemDescription,
-                    estimatedHours: 0,
-                    actualHours: actualMillis / (1000 * 60 * 60),
-                    deviationHours: null,
-                    isOnTime: null,
-                    isValid: false,
-                };
+            // Find the most relevant estimation (completed or latest active)
+            let relevantEstimation: EstimationAttempt | undefined = (r.estimations || []).find(e => e.status === 'Completed');
+            if (!relevantEstimation && r.estimations && r.estimations.length > 0) {
+                 relevantEstimation = [...r.estimations].sort((a,b) => b.sequence - a.sequence)[0];
             }
-        });
 
-        // Filter for valid estimations to be used in KPI calculations
-        const validEstimations = allDetailedEstimations.filter(e => e.isValid);
+            if (!relevantEstimation || !relevantEstimation.estimatedStartDate || !relevantEstimation.estimatedEndDate) {
+                return null; // Skip if no valid estimation data
+            }
 
-        const totalCount = validEstimations.length;
-        const onTimeCount = validEstimations.filter(e => e.isOnTime).length;
-        const totalDeviationMillis = validEstimations.reduce((acc, e) => acc + (e.deviationHours! * 1000 * 60 * 60), 0);
+            const estimatedHours = calculateDurationHours(relevantEstimation.estimatedStartDate, relevantEstimation.estimatedEndDate);
+            const deviationHours = actualHours - estimatedHours;
+
+            return {
+                repairOrderNo: r.repairOrderNo,
+                licensePlate: r.licensePlate,
+                problemDescription: r.problemDescription,
+                actualHours,
+                estimatedHours,
+                deviationHours,
+            };
+        }).filter((e): e is NonNullable<typeof e> => e !== null);
         
-        const accuracyRate = totalCount > 0 ? (onTimeCount / totalCount) * 100 : 0;
-        const avgDeviationHours = totalCount > 0 ? (totalDeviationMillis / totalCount) / (1000 * 60 * 60) : 0;
+        const totalJobsWithEstimation = allDetailedEstimations.length;
+        if (totalJobsWithEstimation === 0) {
+             return {
+                totalJobsWithEstimation: 0,
+                accuracy: 0,
+                avgDeviationHours: 0,
+                avgActualHours: 0,
+                details: [],
+            };
+        }
+
+        const onTimeJobs = allDetailedEstimations.filter(e => e.deviationHours <= 0).length;
+        const accuracy = (onTimeJobs / totalJobsWithEstimation) * 100;
+
+        const totalDeviationHours = allDetailedEstimations.reduce((acc, e) => acc + e.deviationHours, 0);
+        const avgDeviationHours = totalDeviationHours / totalJobsWithEstimation;
+        
+        const totalActualHours = allDetailedEstimations.reduce((acc, e) => acc + e.actualHours, 0);
+        const avgActualHours = totalActualHours / totalJobsWithEstimation;
 
         return {
-            totalCount,
-            accuracyRate,
+            totalJobsWithEstimation,
+            accuracy,
             avgDeviationHours,
-            details: allDetailedEstimations.sort((a,b) => {
-                const absA = a.deviationHours !== null ? Math.abs(a.deviationHours) : -1;
-                const absB = b.deviationHours !== null ? Math.abs(b.deviationHours) : -1;
-                return absB - absA;
-            }),
+            avgActualHours,
+            details: allDetailedEstimations.sort((a,b) => Math.abs(b.deviationHours) - Math.abs(a.deviationHours)),
         };
-
     }, [repairs]);
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard title="จำนวนงานที่ประเมิน" value={estimationData.totalCount} theme="blue" />
-                <StatCard title="ความแม่นยำ (ตรงเวลา)" value={`${estimationData.accuracyRate.toFixed(1)}%`} theme="green" trend={estimationData.accuracyRate >= 80 ? 'เป้าหมายสำเร็จ' : 'ต่ำกว่าเป้าหมาย (80%)'} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard title="จำนวนงานที่เสร็จสิ้น" value={estimationData.totalJobsWithEstimation} theme="blue" />
                 <StatCard 
-                    title="ค่าเบี่ยงเบนเฉลี่ย" 
-                    value={`${estimationData.avgDeviationHours >= 0 ? '+' : ''}${formatHoursToHHMM(estimationData.avgDeviationHours)}`} 
-                    theme={Math.abs(estimationData.avgDeviationHours) > 2 ? 'red' : 'yellow'}
-                    trend={estimationData.avgDeviationHours > 0 ? 'ช้ากว่าประมาณ' : 'เร็วกว่าประมาณ'}
+                    title="ความแม่นยำในการประเมิน" 
+                    value={`${estimationData.accuracy.toFixed(1)}%`} 
+                    theme="green" 
+                    trend="งานที่เสร็จตรงเวลาหรือเร็วกว่า"
+                />
+                 <StatCard 
+                    title="ส่วนต่างเวลาเฉลี่ย" 
+                    value={`${estimationData.avgDeviationHours >= 0 ? '+' : ''}${formatHoursDescriptive(estimationData.avgDeviationHours)}`} 
+                    theme={Math.abs(estimationData.avgDeviationHours) > 1 ? 'red' : 'purple'}
+                    trend={estimationData.avgDeviationHours > 0 ? 'ช้ากว่าที่ประเมิน' : 'เร็วกว่าที่ประเมิน'}
+                />
+                <StatCard 
+                    title="เวลาซ่อมเฉลี่ย" 
+                    value={formatHoursDescriptive(estimationData.avgActualHours)} 
+                    theme="yellow"
+                    trend="เวลาที่ใช้จริงต่อ 1 งาน"
                 />
             </div>
 
@@ -101,28 +115,24 @@ const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
                             <tr key={item.repairOrderNo}>
                                 <td className="px-4 py-3"><div className="font-semibold">{item.repairOrderNo}</div><div className="text-sm text-gray-500">{item.licensePlate}</div></td>
                                 <td className="px-4 py-3 text-sm max-w-xs truncate" title={item.problemDescription}>{item.problemDescription}</td>
-                                <td className="px-4 py-3 text-right text-sm">
-                                    {item.isValid ? formatHoursToHHMM(item.estimatedHours) : <span className="text-gray-500 italic">ไม่ได้ประเมิน</span>}
+                                <td className="px-4 py-3 text-right text-sm font-semibold text-blue-600">
+                                    {formatHoursDescriptive(item.estimatedHours)}
                                 </td>
-                                <td className="px-4 py-3 text-right text-sm">{formatHoursToHHMM(item.actualHours)}</td>
-                                <td className={`px-4 py-3 text-right text-sm font-bold ${!item.isValid ? 'text-gray-500' : (item.deviationHours! > 0 ? 'text-red-600' : 'text-green-600')}`}>
-                                    {item.isValid ? `${item.deviationHours! >= 0 ? '+' : ''}${formatHoursToHHMM(item.deviationHours!)}` : '-'}
+                                <td className="px-4 py-3 text-right text-sm font-bold">{formatHoursDescriptive(item.actualHours)}</td>
+                                <td className={`px-4 py-3 text-right text-sm font-bold ${item.deviationHours > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    {item.deviationHours >= 0 ? '+' : ''}{formatHoursDescriptive(item.deviationHours)}
                                 </td>
-                                <td className="px-4 py-3 text-sm">
-                                    {item.isValid ? (
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.isOnTime ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                            {item.isOnTime ? 'ตรงเวลา' : 'ล่าช้า'}
-                                        </span>
-                                    ) : (
-                                        <span className="text-gray-500">-</span>
-                                    )}
+                                <td className="px-4 py-3">
+                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.deviationHours <= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        {item.deviationHours <= 0 ? 'ตรงเวลา' : 'ช้ากว่ากำหนด'}
+                                    </span>
                                 </td>
                             </tr>
                         ))}
                          {estimationData.details.length === 0 && (
                             <tr>
                                 <td colSpan={6} className="text-center py-10 text-gray-500">
-                                    ไม่มีข้อมูลการประเมินที่เสร็จสมบูรณ์
+                                    ไม่มีข้อมูลการซ่อมที่เสร็จสมบูรณ์เพื่อวิเคราะห์
                                 </td>
                             </tr>
                         )}
