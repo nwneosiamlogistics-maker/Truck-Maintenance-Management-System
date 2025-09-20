@@ -53,7 +53,8 @@ export const calculateStockStatus = (quantity: number, minStock: number, maxStoc
         return 'หมดสต็อก';
     }
     if (numQuantity <= numMinStock) {
-        return 'สต๊อกต่ำ';
+        // FIX: Corrected typo from "สต๊อกต่ำ" to "สต็อกต่ำ" to match StockStatus type.
+        return 'สต็อกต่ำ';
     }
     if (maxStock !== null && maxStock > 0 && numQuantity > Number(maxStock)) {
         return 'สต๊อกเกิน';

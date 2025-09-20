@@ -301,7 +301,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
 
     const getStatusBadge = (status: StockStatus) => {
         switch (status) {
-            case 'สต๊อกต่ำ': return 'bg-yellow-100 text-yellow-800';
+            // FIX: Corrected typo from "สต๊อกต่ำ" to "สต็อกต่ำ" to match StockStatus type.
+            case 'สต็อกต่ำ': return 'bg-yellow-100 text-yellow-800';
             case 'หมดสต็อก': return 'bg-red-100 text-red-800';
             case 'สต๊อกเกิน': return 'bg-purple-100 text-purple-800';
             default: return 'bg-green-100 text-green-800';
@@ -351,7 +352,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
                         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="w-full p-2 border border-gray-300 rounded-lg">
                             <option value="all">ทุกสถานะ</option>
                             <option value="ปกติ">ปกติ</option>
-                            <option value="สต๊อกต่ำ">สต๊อกต่ำ</option>
+                            <option value="สต็อกต่ำ">สต็อกต่ำ</option>
                             <option value="หมดสต็อก">หมดสต็อก</option>
                             <option value="สต๊อกเกิน">สต๊อกเกิน</option>
                         </select>

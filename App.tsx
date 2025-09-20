@@ -30,7 +30,7 @@ import ToolManagement from './components/ToolManagement';
 
 
 // Types and Constants
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, TireInspection, Tool, ToolTransaction } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, UsedPart, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, TireInspection, Tool, ToolTransaction, AnnualPMPlan, PMHistory } from './types';
 import { TABS } from './constants';
 
 // Hooks
@@ -48,8 +48,10 @@ import {
     getDefaultVehicles,
     getDefaultSuppliers,
     getDefaultUsedPartBuyers,
+    getDefaultAnnualPMPlans,
 } from './data/defaultData';
 import { STOCK_CATEGORIES } from './data/categories';
+import PMHistoryView from './components/PMHistoryView';
 
 function App() {
     // State Management
@@ -62,6 +64,8 @@ function App() {
     const [transactions, setTransactions] = useFirebase<StockTransaction[]>('stockTransactions', getDefaultStockTransactions);
     const [reports, setReports] = useFirebase<Report[]>('reports', getDefaultReports);
     const [plans, setPlans] = useFirebase<MaintenancePlan[]>('maintenancePlans', getDefaultMaintenancePlans);
+    const [annualPlans, setAnnualPlans] = useFirebase<AnnualPMPlan[]>('annualPMPlans', getDefaultAnnualPMPlans);
+    const [pmHistory, setPmHistory] = useFirebase<PMHistory[]>('pmHistory', () => []);
     const [usedParts, setUsedParts] = useFirebase<UsedPart[]>('usedParts', () => []);
     const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', getDefaultPurchaseRequisitions);
     const [vehicles, setVehicles] = useFirebase<Vehicle[]>('vehicles', getDefaultVehicles);
@@ -174,6 +178,63 @@ function App() {
         }
     }, [technicians, setTechnicians]);
 
+    // One-time migration for AnnualPMPlan structure
+    useEffect(() => {
+        const safeAnnualPlans = Array.isArray(annualPlans) ? annualPlans : [];
+        if (safeAnnualPlans.length === 0) return;
+
+        const migrationKey = 'annual_plan_migration_v2_20240802';
+        if (localStorage.getItem(migrationKey)) return;
+
+        const needsMigration = safeAnnualPlans.some(p => !(p as any).maintenancePlanId);
+
+        if (needsMigration) {
+            console.log('Running annual PM plan data structure migration...');
+
+            const plansByVehicle = (Array.isArray(plans) ? plans : []).reduce((acc, plan) => {
+                if (!acc[plan.vehicleLicensePlate]) {
+                    acc[plan.vehicleLicensePlate] = [];
+                }
+                acc[plan.vehicleLicensePlate].push(plan.id);
+                return acc;
+            }, {} as Record<string, string[]>);
+
+            const migratedPlans: AnnualPMPlan[] = [];
+            const ambiguousPlates = new Set<string>();
+
+            safeAnnualPlans.forEach(oldPlan => {
+                if ((oldPlan as any).maintenancePlanId) {
+                    migratedPlans.push(oldPlan); // Already new format, keep it
+                    return;
+                }
+
+                const vehiclePlans = plansByVehicle[oldPlan.vehicleLicensePlate];
+                if (vehiclePlans && vehiclePlans.length === 1) {
+                    // Unambiguous case: only one maintenance plan for this vehicle.
+                    const maintenancePlanId = vehiclePlans[0];
+                    migratedPlans.push({
+                        ...oldPlan,
+                        id: `${oldPlan.vehicleLicensePlate}-${maintenancePlanId}-${oldPlan.year}`,
+                        maintenancePlanId: maintenancePlanId,
+                    });
+                } else {
+                    // Ambiguous case: multiple plans or no plans found. Discard the manual override.
+                    ambiguousPlates.add(oldPlan.vehicleLicensePlate);
+                }
+            });
+
+            if (ambiguousPlates.size > 0) {
+                console.warn(`Could not migrate ambiguous manual PM overrides for vehicles: ${Array.from(ambiguousPlates).join(', ')}. Their settings have been reset.`);
+            }
+
+            setAnnualPlans(migratedPlans);
+            localStorage.setItem(migrationKey, 'true');
+            console.log('Annual PM plan data migration complete.');
+        } else {
+            localStorage.setItem(migrationKey, 'true');
+        }
+    }, [annualPlans, plans, setAnnualPlans]);
+
 
     // Derived state for badges and stats
     const stats = useMemo(() => {
@@ -251,6 +312,48 @@ function App() {
     const deletePlan = (planId: string) => {
         setPlans(prev => (Array.isArray(prev) ? prev : []).filter(p => p.id !== planId));
     };
+    
+    const addPmHistory = (historyData: Omit<PMHistory, 'id'>) => {
+        const newHistory: PMHistory = { ...historyData, id: `PMH-${Date.now()}` };
+        setPmHistory(prev => [newHistory, ...(Array.isArray(prev) ? prev : [])]);
+
+        const serviceDate = new Date(historyData.serviceDate);
+        const year = serviceDate.getFullYear();
+        const monthIndex = serviceDate.getMonth();
+
+        setAnnualPlans(prev => {
+            const safePrev = Array.isArray(prev) ? prev : [];
+            const existingPlanIndex = safePrev.findIndex(p => 
+                p.vehicleLicensePlate === historyData.vehicleLicensePlate && 
+                p.year === year &&
+                p.maintenancePlanId === historyData.maintenancePlanId
+            );
+            
+            if (existingPlanIndex > -1) {
+                return safePrev.map((p, index) => {
+                    if (index === existingPlanIndex) {
+                        const newMonths = { ...p.months, [monthIndex]: 'completed' as const };
+                        return { ...p, months: newMonths };
+                    }
+                    return p;
+                });
+            } else {
+                const newAnnualPlan: AnnualPMPlan = {
+                    id: `${historyData.vehicleLicensePlate}-${historyData.maintenancePlanId}-${year}`,
+                    vehicleLicensePlate: historyData.vehicleLicensePlate,
+                    maintenancePlanId: historyData.maintenancePlanId,
+                    year: year,
+                    months: { [monthIndex]: 'completed' as const },
+                };
+                return [...safePrev, newAnnualPlan];
+            }
+        });
+    };
+
+    const deletePmHistory = (historyId: string) => {
+        setPmHistory(prev => (Array.isArray(prev) ? prev : []).filter(h => h.id !== historyId));
+    };
+
 
     // Main content renderer
     const renderContent = () => {
@@ -294,7 +397,20 @@ function App() {
             case 'maintenance':
                 return <MaintenancePlanner plans={plans} setPlans={setPlans} repairs={repairs} deletePlan={deletePlan} technicians={technicians} />;
             case 'preventive-maintenance':
-                 return <PreventiveMaintenance plans={plans} setPlans={setPlans} repairs={repairs} deletePlan={deletePlan} vehicles={vehicles} />;
+                 return <PreventiveMaintenance 
+                    plans={plans} 
+                    setPlans={setPlans} 
+                    annualPlans={annualPlans} 
+                    setAnnualPlans={setAnnualPlans} 
+                    repairs={repairs} 
+                    deletePlan={deletePlan} 
+                    vehicles={vehicles}
+                    addPmHistory={addPmHistory}
+                    pmHistory={pmHistory}
+                    technicians={technicians}
+                    deletePmHistory={deletePmHistory}
+                    setActiveTab={setActiveTab}
+                />;
             case 'vehicles':
                 return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
             case 'tire-check':

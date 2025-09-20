@@ -44,9 +44,12 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
         }
     };
 
-    const handleLogMaintenance = (planId: string, logData: { serviceDate: string; mileage: number }) => {
+    // FIX: Updated function signature to match what LogMaintenanceModal's onSave prop expects.
+    // It now takes a single object and gets the planId from the `loggingPlan` state.
+    const handleLogMaintenance = (logData: { serviceDate: string; mileage: number; technicianId: string | null; notes: string; }) => {
+        if (!loggingPlan) return;
         setPlans(prev => prev.map(p => 
-            p.id === planId 
+            p.id === loggingPlan.id 
                 ? { ...p, lastServiceDate: logData.serviceDate, lastServiceMileage: logData.mileage }
                 : p
         ));
@@ -244,6 +247,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                     plan={loggingPlan}
                     onSave={handleLogMaintenance}
                     onClose={() => setLoggingPlan(null)}
+                    technicians={technicians}
                 />
             )}
         </div>

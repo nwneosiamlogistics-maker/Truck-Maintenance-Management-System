@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import type { MaintenancePlan } from '../types';
+import type { MaintenancePlan, Technician } from '../types';
 
 interface LogMaintenanceModalProps {
     plan: MaintenancePlan;
-    onSave: (planId: string, logData: { serviceDate: string; mileage: number }) => void;
+    technicians: Technician[];
+    onSave: (logData: { serviceDate: string; mileage: number; technicianId: string | null; notes: string; }) => void;
     onClose: () => void;
 }
 
-const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, onSave, onClose }) => {
+const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, technicians, onSave, onClose }) => {
     const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
     const [mileage, setMileage] = useState(plan.lastServiceMileage + plan.mileageFrequency);
+    const [technicianId, setTechnicianId] = useState<string | null>(null);
+    const [notes, setNotes] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -17,7 +20,7 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, onSave,
             alert('กรุณากรอกข้อมูลให้ถูกต้อง (เลขไมล์ต้องมากกว่าครั้งล่าสุด)');
             return;
         }
-        onSave(plan.id, { serviceDate, mileage });
+        onSave({ serviceDate, mileage, technicianId, notes });
     };
     
     return (
@@ -53,6 +56,17 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, onSave,
                             className="w-full p-2 border border-gray-300 rounded-lg"
                             placeholder={`เลขไมล์ล่าสุด: ${plan.lastServiceMileage.toLocaleString()}`}
                         />
+                    </div>
+                     <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">ช่างที่รับผิดชอบ</label>
+                         <select value={technicianId || ''} onChange={e => setTechnicianId(e.target.value || null)} className="w-full p-2 border border-gray-300 rounded-lg">
+                             <option value="">-- ไม่ระบุ --</option>
+                             {technicians.map(tech => <option key={tech.id} value={tech.id}>{tech.name}</option>)}
+                         </select>
+                    </div>
+                     <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1">หมายเหตุ</label>
+                         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full p-2 border border-gray-300 rounded-lg" placeholder="เช่น เปลี่ยนกรองอากาศ, สลับยาง" />
                     </div>
                 </form>
                 <div className="p-6 border-t flex justify-end space-x-4">

@@ -1,12 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import type { MaintenancePlan } from '../types';
-
-type PlanStatus = 'ok' | 'due' | 'overdue';
-
-interface EnrichedPlan extends MaintenancePlan {
-    nextServiceDate: Date;
-    status: PlanStatus;
-}
+// FIX: Import EnrichedPlan and PlanStatus from PreventiveMaintenance to resolve type conflict.
+import type { EnrichedPlan, PlanStatus } from './PreventiveMaintenance';
 
 interface CalendarViewProps {
     plans: EnrichedPlan[];

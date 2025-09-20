@@ -14,6 +14,7 @@ export type Tab =
   | 'estimation'
   | 'maintenance'
   | 'preventive-maintenance' // New Tab for PM
+  | 'pm-history' // New Tab for PM History
   | 'vehicles'
   | 'used-part-buyers'
   | 'used-part-report'
@@ -119,7 +120,7 @@ export interface Technician {
     currentJobs: number;
 }
 
-export type StockStatus = 'ปกติ' | 'สต๊อกต่ำ' | 'หมดสต็อก' | 'สต๊อกเกิน';
+export type StockStatus = 'ปกติ' | 'สต็อกต่ำ' | 'หมดสต็อก' | 'สต๊อกเกิน';
 
 export interface StockItem {
     id: string;
@@ -163,6 +164,30 @@ export interface MaintenancePlan {
     lastServiceMileage: number;
     mileageFrequency: number;
 }
+
+export interface PMHistory {
+    id: string;
+    maintenancePlanId: string;
+    vehicleLicensePlate: string;
+    planName: string;
+    serviceDate: string; // ISO String
+    mileage: number;
+    technicianId: string | null;
+    notes: string;
+    relatedRepairOrderId?: string | null;
+}
+
+
+export type MonthStatus = 'none' | 'planned' | 'completed';
+
+export interface AnnualPMPlan {
+    id: string; // e.g., "70-6937-MP-1-2024"
+    vehicleLicensePlate: string;
+    maintenancePlanId: string; // Link to the specific MaintenancePlan
+    year: number;
+    months: { [monthIndex: number]: MonthStatus }; // 0 for Jan, 1 for Feb, etc.
+}
+
 
 export type UsedPartCondition = 'ดีมาก' | 'ดี' | 'พอใช้' | 'ต้องซ่อม' | 'ชำรุด';
 export type UsedPartDispositionType = 'ขาย' | 'ทิ้ง' | 'เก็บไว้ใช้ต่อ' | 'นำไปใช้แล้ว';

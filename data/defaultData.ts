@@ -1,4 +1,4 @@
-import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Supplier, UsedPartBuyer } from '../types';
+import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Supplier, UsedPartBuyer, AnnualPMPlan } from '../types';
 
 export const getDefaultTechnicians = (): Technician[] => [
     {
@@ -68,7 +68,52 @@ export const getDefaultRepairs = (): Repair[] => {
 
 export const getDefaultReports = (): Report[] => [];
 
-export const getDefaultMaintenancePlans = (): MaintenancePlan[] => [];
+export const getDefaultMaintenancePlans = (): MaintenancePlan[] => [
+    {
+        id: 'MP-6937-1',
+        vehicleLicensePlate: '70-6937',
+        planName: 'เช็กช่วงล่างทั้งระบบ',
+        lastServiceDate: '2024-02-15T10:00:00.000Z',
+        frequencyValue: 6,
+        frequencyUnit: 'months',
+        lastServiceMileage: 120000,
+        mileageFrequency: 30000,
+    },
+    {
+        id: 'MP-6937-2',
+        vehicleLicensePlate: '70-6937',
+        planName: 'ถ่ายน้ำมันเครื่อง ตรวจเช็กช่วงล่าง ระบบเบรค ยาง',
+        lastServiceDate: '2024-04-01T10:00:00.000Z',
+        frequencyValue: 3,
+        frequencyUnit: 'months',
+        lastServiceMileage: 135000,
+        mileageFrequency: 15000,
+    },
+    {
+        id: 'MP-0141-1',
+        vehicleLicensePlate: '71-0141',
+        planName: 'ตรวจเช็คระบบทั่วไป',
+        lastServiceDate: '2024-04-20T10:00:00.000Z',
+        frequencyValue: 2,
+        frequencyUnit: 'months',
+        lastServiceMileage: 85000,
+        mileageFrequency: 10000,
+    },
+];
+
+export const getDefaultAnnualPMPlans = (): AnnualPMPlan[] => {
+    const year = 2024;
+    return [
+        {
+            id: `71-0141-MP-0141-1-${year}`,
+            vehicleLicensePlate: '71-0141',
+            maintenancePlanId: 'MP-0141-1',
+            year: year,
+            months: { 4: 'completed' } // Manual override example
+        },
+    ];
+};
+
 
 export const getDefaultPurchaseRequisitions = (): PurchaseRequisition[] => {
     const now = new Date();
@@ -384,7 +429,7 @@ const rawVehicleData = `ทะเบียน	ประเภท	ยี่ห้
 71-1106	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	30 ก.ย. 25	-
 71-1117	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	30 ก.ย. 25	-
 71-1319	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-	เออร์โก	31 มี.ค. 26	-
-71-1637	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	---- START OF FILE hooks/useLocalStorage.ts ---
+71-1637	หางตู้ คอนเทนเนอร์ 40 ฟุต 12 ล้อ	-	-	-	-	-	-
 `;
 // FIX: Add missing 'getDefaultVehicles' function to parse and export vehicle data.
 export const getDefaultVehicles = (): Vehicle[] => {
