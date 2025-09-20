@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Priority, Supplier, StockTransaction } from '../types';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import type { Repair, Technician, RepairStatus, StockItem, UsedPart, Supplier, StockTransaction } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
+import AddUsedPartsModal from './AddUsedPartsModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPassword, formatDateTime24h } from '../utils';
 
 interface RepairListProps {
     repairs: Repair[];
@@ -18,107 +20,62 @@ interface RepairListProps {
     suppliers: Supplier[];
 }
 
-const getPriorityValue = (priority: Priority) => {
-    switch (priority) {
-        case 'ด่วนที่สุด': return 0;
-        case 'ด่วน': return 1;
-        case 'ปกติ': return 2;
-        default: return 3;
-    }
-};
-
-const getStatusValue = (status: RepairStatus) => {
-    switch (status) {
-        case 'กำลังซ่อม': return 0;
-        case 'รออะไหล่': return 1;
-        case 'รอซ่อม': return 2;
-        case 'ซ่อมเสร็จ': return 3;
-        case 'ยกเลิก': return 4;
-        default: return 5;
-    }
-};
-
-
-const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions, addUsedParts, suppliers, usedParts }) => {
+const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions, addUsedParts, usedParts, suppliers }) => {
     const [statusFilter, setStatusFilter] = useState<RepairStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
     const [viewingRepair, setViewingRepair] = useState<Repair | null>(null);
+    const [addUsedPartsRepair, setAddUsedPartsRepair] = useState<Repair | null>(null);
     const { addToast } = useToast();
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    const filteredRepairs = useMemo(() => {
-        return repairs
+    const activeRepairs = useMemo(() => {
+        return (Array.isArray(repairs) ? repairs : [])
+            .filter(r => r.status !== 'ซ่อมเสร็จ' && r.status !== 'ยกเลิก')
             .filter(r => statusFilter === 'all' || r.status === statusFilter)
-            .filter(r => 
+            .filter(r =>
                 searchTerm === '' ||
                 r.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                r.vehicleMake.toLowerCase().includes(searchTerm.toLowerCase())
+                r.problemDescription.toLowerCase().includes(searchTerm.toLowerCase())
             )
             .sort((a, b) => {
-                // 1. Sort by Status
-                const statusA = getStatusValue(a.status);
-                const statusB = getStatusValue(b.status);
-                if (statusA !== statusB) {
-                    return statusA - statusB;
+                const priorityOrder = { 'ด่วนที่สุด': 0, 'ด่วน': 1, 'ปกติ': 2 };
+                if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                    return priorityOrder[a.priority] - priorityOrder[b.priority];
                 }
-
-                // 2. Sort by Priority
-                const priorityA = getPriorityValue(a.priority);
-                const priorityB = getPriorityValue(b.priority);
-                if (priorityA !== priorityB) {
-                    return priorityA - priorityB;
-                }
-
-                // 3. Sort by Newest First
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
             });
     }, [repairs, statusFilter, searchTerm]);
+
+    const totalPages = useMemo(() => Math.ceil(activeRepairs.length / itemsPerPage), [activeRepairs.length, itemsPerPage]);
+    const paginatedRepairs = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return activeRepairs.slice(startIndex, startIndex + itemsPerPage);
+    }, [activeRepairs, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, searchTerm, itemsPerPage]);
 
     const handleSaveRepair = (updatedRepair: Repair) => {
         setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
         setEditingRepair(null);
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
-
-        // If the repair is marked as completed and has parts, check for and add missing used parts.
-        // This logic is now robust and handles both initial completion and subsequent edits.
-        if (updatedRepair.status === 'ซ่อมเสร็จ' && updatedRepair.parts && updatedRepair.parts.length > 0) {
-            
-            // Find used parts that have already been created for this repair order.
-            const existingUsedPartOriginalIds = new Set(
-                (Array.isArray(usedParts) ? usedParts : [])
-                    .filter(up => up.fromRepairId === updatedRepair.id)
-                    .map(up => up.originalPartId) // Use originalPartId for matching
-            );
-
-            // Find parts from the repair that haven't been turned into used parts yet.
-            const newPartsToLog = updatedRepair.parts.filter(
-                part => !existingUsedPartOriginalIds.has(part.partId)
-            );
-
-            if (newPartsToLog.length > 0) {
-                const newUsedParts: Omit<UsedPart, 'id'>[] = newPartsToLog.map(part => ({
-                    originalPartId: part.partId, // Link to the PartRequisitionItem
-                    name: part.name,
-                    fromRepairId: updatedRepair.id,
-                    fromRepairOrderNo: updatedRepair.repairOrderNo,
-                    fromLicensePlate: updatedRepair.licensePlate,
-                    dateRemoved: new Date().toISOString(),
-                    initialQuantity: part.quantity,
-                    unit: part.unit,
-                    status: 'รอจัดการ',
-                    dispositions: [],
-                    notes: '',
-                }));
-
-                addUsedParts(newUsedParts);
-                addToast(`เพิ่มอะไหล่เก่า ${newPartsToLog.length} รายการจากใบซ่อม ${updatedRepair.repairOrderNo} เข้าระบบแล้ว`, 'info');
+        
+        const originalRepair = repairs.find(r => r.id === updatedRepair.id);
+        if (originalRepair?.status !== 'ซ่อมเสร็จ' && updatedRepair.status === 'ซ่อมเสร็จ') {
+            const hasParts = updatedRepair.parts && updatedRepair.parts.length > 0;
+            const hasLoggedUsedParts = (Array.isArray(usedParts) ? usedParts : []).some(up => up.fromRepairId === updatedRepair.id);
+            if (hasParts && !hasLoggedUsedParts) {
+                setAddUsedPartsRepair(updatedRepair);
             }
         }
     };
     
     const handleDeleteRepair = (repairId: string, repairOrderNo: string) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}?`)) {
             setRepairs(prev => prev.filter(r => r.id !== repairId));
             addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
         }
@@ -129,9 +86,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             case 'รอซ่อม': return 'bg-gray-200 text-gray-800';
             case 'กำลังซ่อม': return 'bg-blue-100 text-blue-800';
             case 'รออะไหล่': return 'bg-yellow-100 text-yellow-800';
-            case 'ซ่อมเสร็จ': return 'bg-green-100 text-green-800';
-            case 'ยกเลิก': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
+            default: return 'bg-gray-100';
         }
     };
     
@@ -151,101 +106,90 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             display.push(`ผู้ช่วย: ${assistants.map(a => a.name).join(', ')}`);
         }
 
-        return display.length > 0 ? display.join(' | ') : 'N/A';
+        return display.length > 0 ? display.join(' | ') : 'ยังไม่มอบหมาย';
     };
-    
+
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                     <input
-                        type="text"
-                        placeholder="ค้นหา (ทะเบียน, เลขที่)..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-72 p-2 border border-gray-300 rounded-lg text-base"
-                    />
-                    <div>
-                        <label className="font-medium text-gray-700 mr-2 text-base">สถานะ:</label>
-                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
-                            <option value="all">ทั้งหมด</option>
-                            <option value="รอซ่อม">รอซ่อม</option>
-                            <option value="กำลังซ่อม">กำลังซ่อม</option>
-                            <option value="รออะไหล่">รออะไหล่</option>
-                            <option value="ซ่อมเสร็จ">ซ่อมเสร็จ</option>
-                            <option value="ยกเลิก">ยกเลิก</option>
-                        </select>
-                    </div>
-                </div>
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
+                <input
+                    type="text"
+                    placeholder="ค้นหา (ทะเบียน, เลขที่, อาการ)..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full md:w-80 p-2 border border-gray-300 rounded-lg text-base"
+                />
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
+                    <option value="all">สถานะทั้งหมด</option>
+                    <option value="รอซ่อม">รอซ่อม</option>
+                    <option value="กำลังซ่อม">กำลังซ่อม</option>
+                    <option value="รออะไหล่">รออะไหล่</option>
+                </select>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                 <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / ทะเบียน</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รถ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อาการ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่แจ้ง</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่แจ้ง / คาดว่าจะเสร็จ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredRepairs.map(repair => (
+                        {paginatedRepairs.map(repair => (
                             <tr key={repair.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3"><div className="font-semibold">{repair.repairOrderNo}</div><div className="text-sm text-gray-500">{repair.licensePlate}</div></td>
-                                <td className="px-4 py-3"><div className="font-medium">{repair.vehicleMake} {repair.vehicleModel}</div><div className="text-sm text-gray-500">{repair.vehicleType}</div></td>
-                                <td className="px-4 py-3 text-sm max-w-xs truncate">{repair.problemDescription}</td>
+                                <td className="px-4 py-3 text-sm max-w-xs truncate" title={repair.problemDescription}>{repair.problemDescription}</td>
                                 <td className="px-4 py-3 text-sm">{getTechnicianDisplay(repair)}</td>
-                                <td className="px-4 py-3 text-base">{new Date(repair.createdAt).toLocaleDateString('th-TH')}</td>
+                                <td className="px-4 py-3 text-sm"><div>แจ้ง: {formatDateTime24h(repair.createdAt)}</div><div>เสร็จ: {formatDateTime24h(repair.estimations[repair.estimations.length - 1]?.estimatedEndDate)}</div></td>
                                 <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
                                 <td className="px-4 py-3 text-center space-x-2">
-                                    <button onClick={() => {
-                                        if (repair.status === 'ซ่อมเสร็จ') {
-                                            if (promptForPassword('แก้ไข')) {
-                                                setEditingRepair(repair);
-                                            }
-                                        } else {
-                                            setEditingRepair(repair);
-                                        }
-                                    }} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
+                                    <button onClick={() => setEditingRepair(repair)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
                                     <button onClick={() => setViewingRepair(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดู</button>
                                     <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}
-                         {filteredRepairs.length === 0 && (
+                         {paginatedRepairs.length === 0 && (
                             <tr>
-                                <td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
+                                <td colSpan={6} className="text-center py-10 text-gray-500">ไม่พบใบแจ้งซ่อม</td>
                             </tr>
                         )}
                     </tbody>
-                 </table>
+                </table>
             </div>
             
-            {editingRepair && (
-                <RepairEditModal 
-                    repair={editingRepair}
-                    onSave={handleSaveRepair}
-                    onClose={() => setEditingRepair(null)}
-                    technicians={technicians}
-                    stock={stock}
-                    setStock={setStock}
-                    transactions={transactions}
-                    setTransactions={setTransactions}
-                    suppliers={suppliers}
-                />
-            )}
-            {viewingRepair && (
-                <VehicleDetailModal
-                    repair={viewingRepair}
-                    allRepairs={repairs}
-                    technicians={technicians}
-                    onClose={() => setViewingRepair(null)}
-                />
-            )}
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                    <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
+                    <select
+                        id="items-per-page"
+                        value={itemsPerPage}
+                        onChange={e => setItemsPerPage(Number(e.target.value))}
+                        className="p-1 border border-gray-300 rounded-lg text-sm"
+                    >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                    <span className="text-sm text-gray-700">
+                        จาก {activeRepairs.length} รายการ
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <span className="text-sm font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                </div>
+            </div>
+
+            {editingRepair && <RepairEditModal repair={editingRepair} onSave={handleSaveRepair} onClose={() => setEditingRepair(null)} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} suppliers={suppliers} />}
+            {viewingRepair && <VehicleDetailModal repair={viewingRepair} allRepairs={repairs} technicians={technicians} onClose={() => setViewingRepair(null)} />}
+            {addUsedPartsRepair && <AddUsedPartsModal repair={addUsedPartsRepair} onSave={addUsedParts} onClose={() => setAddUsedPartsRepair(null)} />}
         </div>
     );
 };

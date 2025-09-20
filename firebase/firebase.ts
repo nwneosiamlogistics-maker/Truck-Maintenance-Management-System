@@ -1,5 +1,7 @@
-// FIX: Changed import to namespace to resolve module export error.
-import * as firebaseApp from "firebase/app";
+
+
+// FIX: Changed import to a named import for initializeApp and updated the call to match Firebase v9+ modular SDK.
+import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
@@ -14,7 +16,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = firebaseApp.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // Get a reference to the database service
 export const database = getDatabase(app);

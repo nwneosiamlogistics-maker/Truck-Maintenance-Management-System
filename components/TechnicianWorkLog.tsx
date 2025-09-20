@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Repair, Technician, PartRequisitionItem } from '../types';
 
 interface TechnicianWorkLogProps {
@@ -30,13 +30,14 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
     const [endDate, setEndDate] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [viewingParts, setViewingParts] = useState<PartRequisitionItem[] | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     const filteredRepairs = useMemo(() => {
         return (Array.isArray(repairs) ? repairs : [])
             .filter(r => r.status === 'ซ่อมเสร็จ')
             .filter(r => {
                 if (selectedTechId === 'all') return true;
-                // FIX: Use assignedTechnicianId and assistantTechnicianIds instead of deprecated assignedTechnicians
                 return r.assignedTechnicianId === selectedTechId || (r.assistantTechnicianIds || []).includes(selectedTechId);
             })
             .filter(r => {
@@ -57,7 +58,16 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
             .sort((a, b) => new Date(b.repairEndDate || b.createdAt).getTime() - new Date(a.repairEndDate || a.createdAt).getTime());
     }, [repairs, selectedTechId, startDate, endDate, searchTerm]);
     
-    // FIX: Updated function to correctly display main and assistant technicians using new data model
+    const totalPages = useMemo(() => Math.ceil(filteredRepairs.length / itemsPerPage), [filteredRepairs.length, itemsPerPage]);
+    const paginatedRepairs = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredRepairs.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredRepairs, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedTechId, startDate, endDate, searchTerm, itemsPerPage]);
+    
     const getTechnicianDisplay = (repair: Repair) => {
         if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
@@ -108,7 +118,6 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
 
         const csvString = [headers.join(','), ...rows].join('\r\n');
 
-        // Use Blob to ensure correct encoding with BOM for Excel compatibility
         const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         
@@ -118,7 +127,6 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
         document.body.appendChild(link);
         link.click();
         
-        // Clean up the object URL
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     };
@@ -179,9 +187,9 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                 <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ซ่อม / เสร็จ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใบแจ้งซ่อม / ทะเบียน</th>
@@ -191,7 +199,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredRepairs.map(r => (
+                        {paginatedRepairs.map(r => (
                             <tr key={r.id}>
                                 <td className="px-4 py-3 align-top">
                                     <div className="text-sm">เริ่ม: {formatDate(r.repairStartDate)}</div>
@@ -227,6 +235,30 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                    <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
+                    <select
+                        id="items-per-page"
+                        value={itemsPerPage}
+                        onChange={e => setItemsPerPage(Number(e.target.value))}
+                        className="p-1 border border-gray-300 rounded-lg text-sm"
+                    >
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                    <span className="text-sm text-gray-700">
+                        จาก {filteredRepairs.length} รายการ
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <span className="text-sm font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                </div>
             </div>
             
             {viewingParts && <PartsListModal parts={viewingParts} onClose={() => setViewingParts(null)} />}

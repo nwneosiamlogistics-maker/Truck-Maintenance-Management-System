@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction, Supplier } from '../types';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
@@ -13,13 +13,15 @@ interface PurchaseRequisitionProps {
     suppliers: Supplier[];
 }
 
-const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers }) => {
+const PurchaseRequisition: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers }) => {
     const [statusFilter, setStatusFilter] = useState<PurchaseRequisitionStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRequisition, setEditingRequisition] = useState<PurchaseRequisition | null>(null);
     const { addToast } = useToast();
     const [expandedPrIds, setExpandedPrIds] = useState<Set<string>>(new Set());
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     const toggleExpand = (prId: string) => {
         setExpandedPrIds(prev => {
@@ -39,6 +41,16 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
             .filter(pr => searchTerm === '' || pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase()) || pr.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [purchaseRequisitions, statusFilter, searchTerm]);
+
+    const totalPages = useMemo(() => Math.ceil(filteredRequisitions.length / itemsPerPage), [filteredRequisitions.length, itemsPerPage]);
+    const paginatedRequisitions = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredRequisitions.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredRequisitions, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, searchTerm, itemsPerPage]);
 
     const handleOpenModal = (requisition: PurchaseRequisition | null = null) => {
         setEditingRequisition(requisition);
@@ -197,7 +209,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                     </>
                 );
             case 'อนุมัติแล้ว':
-                return (
+                 return (
                      <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'รอสินค้า')} className="text-white bg-blue-500 hover:bg-blue-600 font-medium px-3 py-1 rounded-md text-sm">ยืนยันสั่งซื้อ</button>
                         <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
@@ -246,9 +258,9 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                 </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
+            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                 <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 w-12 text-center"></th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / วันที่</th>
@@ -260,7 +272,7 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredRequisitions.map(pr => (
+                        {paginatedRequisitions.map(pr => (
                              <React.Fragment key={pr.id}>
                                 <tr className="hover:bg-gray-50">
                                      <td className="px-4 py-3 text-center">
@@ -316,9 +328,33 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
                                 )}
                             </React.Fragment>
                         ))}
-                        {filteredRequisitions.length === 0 && ( <tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr> )}
+                        {paginatedRequisitions.length === 0 && ( <tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr> )}
                     </tbody>
                 </table>
+            </div>
+            
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                    <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
+                    <select
+                        id="items-per-page"
+                        value={itemsPerPage}
+                        onChange={e => setItemsPerPage(Number(e.target.value))}
+                        className="p-1 border border-gray-300 rounded-lg text-sm"
+                    >
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                    <span className="text-sm text-gray-700">
+                        จาก {filteredRequisitions.length} รายการ
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <span className="text-sm font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                </div>
             </div>
 
             {isModalOpen && (
@@ -335,4 +371,4 @@ const PurchaseRequisitionPage: React.FC<PurchaseRequisitionProps> = ({ purchaseR
     );
 };
 
-export default PurchaseRequisitionPage;
+export default PurchaseRequisition;

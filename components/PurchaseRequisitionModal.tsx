@@ -23,11 +23,12 @@ type PRDataWithRowIdItems = Omit<PurchaseRequisition, 'id' | 'prNumber' | 'creat
 interface ItemRowProps {
     item: PRItemWithRowId;
     isEditable: boolean;
+    areFinancialsEditable: boolean;
     onItemChange: (rowId: string, field: keyof PurchaseRequisitionItem, value: any) => void;
     onRemoveItem: (rowId: string) => void;
 }
 
-const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, onItemChange, onRemoveItem }) => {
+const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditable, onItemChange, onRemoveItem }) => {
     // An item is considered a non-editable product if it has a stockId from being selected from stock.
     const isProductFromStock = !!item.stockId;
 
@@ -48,7 +49,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, onItemChange, onRem
                     type="number" 
                     value={item.quantity} 
                     onChange={e => onItemChange(item.rowId, 'quantity', Number(e.target.value))} 
-                    disabled={!isEditable} 
+                    disabled={!areFinancialsEditable} 
                     className="w-24 p-1 border rounded text-right disabled:bg-gray-100 disabled:border-transparent"
                     min="1"
                 />
@@ -67,7 +68,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, onItemChange, onRem
                     type="number" 
                     value={item.unitPrice} 
                     onChange={e => onItemChange(item.rowId, 'unitPrice', Number(e.target.value))} 
-                    disabled={!isEditable} 
+                    disabled={!areFinancialsEditable} 
                     className="w-24 p-1 border rounded text-right disabled:bg-gray-100 disabled:border-transparent"
                     min="0"
                 />
@@ -353,10 +354,11 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     };
 
     const isDraft = prData.status === 'ฉบับร่าง';
+    const areFinancialsEditable = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว', 'รอสินค้า'].includes(prData.status);
     const isFormHeaderEditable = isDraft;
     const isItemsEditable = isDraft;
-    const isSupplierEditable = isDraft; // Supplier should only be editable in draft state
-    const isVatEditable = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว'].includes(prData.status);
+    const isSupplierEditable = isDraft;
+    const canSaveChanges = isDraft || areFinancialsEditable;
 
 
     const renderWorkflowButtons = () => {
@@ -492,6 +494,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                         key={item.rowId}
                                         item={item}
                                         isEditable={isItemsEditable}
+                                        areFinancialsEditable={areFinancialsEditable}
                                         onItemChange={handleItemChange}
                                         onRemoveItem={handleRemoveItem}
                                     />
@@ -511,7 +514,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                     id="vat-checkbox" 
                                     checked={isVatEnabled} 
                                     onChange={e => setIsVatEnabled(e.target.checked)} 
-                                    disabled={!isVatEditable}
+                                    disabled={!areFinancialsEditable}
                                     className="h-4 w-4 rounded"
                                 />
                                 <label htmlFor="vat-checkbox" className="text-gray-700">ภาษีมูลค่าเพิ่ม (VAT)</label>
@@ -519,7 +522,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                     type="number"
                                     value={vatRate}
                                     onChange={e => setVatRate(Number(e.target.value))}
-                                    disabled={!isVatEnabled || !isVatEditable}
+                                    disabled={!isVatEnabled || !areFinancialsEditable}
                                     className="w-20 p-1 border rounded text-right disabled:bg-gray-100"
                                     step="0.01"
                                 />
@@ -547,7 +550,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     </div>
                     <div className="space-x-4 flex items-center">
                         <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ปิด</button>
-                        {(isDraft || isVatEditable) && (
+                        {canSaveChanges && (
                            <button onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">บันทึก</button>
                         )}
                     </div>

@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import type { Repair, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
@@ -8,157 +9,102 @@ interface EstimationProps {
 }
 
 const Estimation: React.FC<EstimationProps> = ({ repairs }) => {
-    const estimationStats = useMemo(() => {
-        const safeRepairs = Array.isArray(repairs) ? repairs : [];
 
-        const completedRepairs = safeRepairs.filter(r => 
-            r.status === 'ซ่อมเสร็จ' && 
-            r.repairStartDate && 
-            r.repairEndDate &&
-            r.estimations &&
-            r.estimations.length > 0
-        );
+    const estimationData = useMemo(() => {
+        const completedWithEstimations = (Array.isArray(repairs) ? repairs : [])
+            .filter(r => r.status === 'ซ่อมเสร็จ' && r.repairEndDate && r.repairStartDate && Array.isArray(r.estimations) && r.estimations.length > 0);
 
-        const list = completedRepairs.flatMap(r => {
-            let finalEstimation: EstimationAttempt | undefined = r.estimations.find(e => e.status === 'Completed');
-            
-            if (!finalEstimation && r.estimations.length > 0) {
-                finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
+        let totalDeviationMillis = 0;
+        let onTimeCount = 0;
+
+        const detailedEstimations = completedWithEstimations.map(r => {
+            const finalEstimation = r.estimations.find(e => e.status === 'Completed') || [...r.estimations].sort((a,b) => b.sequence - a.sequence)[0];
+            const actualMillis = new Date(r.repairEndDate!).getTime() - new Date(r.repairStartDate!).getTime();
+            const estimatedMillis = finalEstimation.estimatedLaborHours * 60 * 60 * 1000;
+            const deviationMillis = actualMillis - estimatedMillis;
+
+            const isOnTime = new Date(r.repairEndDate!) <= new Date(finalEstimation.estimatedEndDate);
+            if (isOnTime) {
+                onTimeCount++;
             }
             
-            if (!finalEstimation) {
-                return []; 
-            }
+            totalDeviationMillis += deviationMillis;
 
-            const estimatedEnd = new Date(finalEstimation.estimatedEndDate).getTime();
-            const actualEnd = new Date(r.repairEndDate!).getTime();
-
-            const estimatedStart = new Date(finalEstimation.estimatedStartDate).getTime();
-            const actualStart = new Date(r.repairStartDate!).getTime();
-            
-            const estimatedDuration = estimatedEnd - estimatedStart;
-            const actualDuration = actualEnd - actualStart;
-
-            let accuracy: number | null = null;
-            if (estimatedDuration > 0) {
-                const diff = Math.abs(actualDuration - estimatedDuration);
-                accuracy = Math.max(0, (1 - (diff / estimatedDuration))) * 100;
-            }
-
-            const isDelayed = actualEnd > estimatedEnd;
-            const deviation = actualDuration - estimatedDuration; // Negative means early, positive means late
-
-            const estimatedHours = estimatedDuration / (1000 * 3600);
-            const actualHours = actualDuration / (1000 * 3600);
-
-            return [{
-                id: `${r.id}-${finalEstimation.sequence}`,
+            return {
                 repairOrderNo: r.repairOrderNo,
-                vehicle: r.licensePlate,
-                repair: r.problemDescription,
-                estimated: `${formatHoursToHHMM(estimatedHours)} (ครั้งที่ ${finalEstimation.sequence})`,
-                actual: `${formatHoursToHHMM(actualHours)}`,
-                accuracy: accuracy,
-                isDelayed,
-                deviation,
-            }];
+                licensePlate: r.licensePlate,
+                problemDescription: r.problemDescription,
+                estimatedHours: finalEstimation.estimatedLaborHours,
+                actualHours: actualMillis / (1000 * 60 * 60),
+                deviationHours: deviationMillis / (1000 * 60 * 60),
+                isOnTime,
+            };
         });
         
-        if (list.length === 0) {
-            return {
-                totalEstimations: 0,
-                onTime: 0,
-                delayed: 0,
-                avgAccuracy: 0,
-                list: []
-            };
-        }
+        const totalCount = detailedEstimations.length;
+        const accuracyRate = totalCount > 0 ? (onTimeCount / totalCount) * 100 : 0;
+        const avgDeviationHours = totalCount > 0 ? totalDeviationMillis / totalCount / (1000 * 60 * 60) : 0;
 
-        const onTimeCount = list.filter(item => !item.isDelayed).length;
-        const totalAccuracy = list.reduce((sum, item) => sum + (item.accuracy || 0), 0);
-        
         return {
-            totalEstimations: list.length,
-            onTime: onTimeCount,
-            delayed: list.length - onTimeCount,
-            avgAccuracy: list.length > 0 ? totalAccuracy / list.length : 0,
-            list,
+            totalCount,
+            accuracyRate,
+            avgDeviationHours,
+            details: detailedEstimations.sort((a,b) => Math.abs(b.deviationHours) - Math.abs(a.deviationHours)),
         };
+
     }, [repairs]);
-
-    const AccuracyDisplay: React.FC<{ accuracy: number | null, isDelayed: boolean, deviation: number }> = ({ accuracy, isDelayed, deviation }) => {
-        if (accuracy === null) return <span className="text-gray-500">-</span>;
-
-        const isEarly = !isDelayed && accuracy < 99.9;
-        let colorClass = 'text-gray-700';
-        let contextText = '';
-
-        if (isDelayed) {
-            colorClass = 'text-red-600';
-            contextText = '(ล่าช้า)';
-        } else {
-            colorClass = 'text-green-600';
-            if (isEarly) {
-                contextText = '(เร็วกว่า)';
-            }
-        }
-
-        return (
-            <div className={`text-center font-bold ${colorClass}`}>
-                <span>{accuracy.toFixed(1)}%</span>
-                {contextText && <span className="text-xs font-normal ml-1">{contextText}</span>}
-            </div>
-        );
-    };
 
     return (
         <div className="space-y-6">
-            {/* FIX: Replaced incorrect bgColor/textColor props with the correct 'theme' prop. */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard title="ประมาณการทั้งหมด" value={estimationStats.totalEstimations} theme="blue" />
-                <StatCard title="ตรงเวลา" value={estimationStats.onTime} theme="green" />
-                <StatCard title="ล่าช้า" value={estimationStats.delayed} theme="red" />
-                <StatCard title="ความแม่นยำเฉลี่ย" value={`${estimationStats.avgAccuracy.toFixed(1)}%`} theme="purple" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard title="จำนวนงานที่ประเมิน" value={estimationData.totalCount} theme="blue" />
+                <StatCard title="ความแม่นยำ (ตรงเวลา)" value={`${estimationData.accuracyRate.toFixed(1)}%`} theme="green" trend={estimationData.accuracyRate >= 80 ? 'เป้าหมายสำเร็จ' : 'ต่ำกว่าเป้าหมาย (80%)'} />
+                <StatCard 
+                    title="ค่าเบี่ยงเบนเฉลี่ย" 
+                    value={`${estimationData.avgDeviationHours >= 0 ? '+' : ''}${formatHoursToHHMM(estimationData.avgDeviationHours)}`} 
+                    theme={Math.abs(estimationData.avgDeviationHours) > 2 ? 'red' : 'yellow'}
+                    trend={estimationData.avgDeviationHours > 0 ? 'ช้ากว่าประมาณ' : 'เร็วกว่าประมาณ'}
+                />
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">รายการประมาณการณ์ (เฉพาะงานที่เสร็จสิ้น)</h2>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียนรถ</th>
-                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประมาณการ (ครั้งล่าสุด)</th>
-                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใช้จริง</th>
-                                <th className="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase">ความแม่นยำ</th>
+
+            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใบซ่อม / ทะเบียน</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อาการ</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">เวลาประเมิน</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">เวลาจริง</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ส่วนต่าง</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {estimationData.details.map(item => (
+                            <tr key={item.repairOrderNo}>
+                                <td className="px-4 py-3"><div className="font-semibold">{item.repairOrderNo}</div><div className="text-sm text-gray-500">{item.licensePlate}</div></td>
+                                <td className="px-4 py-3 text-sm max-w-xs truncate" title={item.problemDescription}>{item.problemDescription}</td>
+                                <td className="px-4 py-3 text-right text-sm">{formatHoursToHHMM(item.estimatedHours)}</td>
+                                <td className="px-4 py-3 text-right text-sm">{formatHoursToHHMM(item.actualHours)}</td>
+                                <td className={`px-4 py-3 text-right text-sm font-bold ${item.deviationHours > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    {item.deviationHours >= 0 ? '+' : ''}{formatHoursToHHMM(item.deviationHours)}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.isOnTime ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        {item.isOnTime ? 'ตรงเวลา' : 'ล่าช้า'}
+                                    </span>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {estimationStats.list.length > 0 ? estimationStats.list.map(item => (
-                                <tr key={item.id}>
-                                    <td className="px-6 py-4">
-                                        <div className="text-base font-semibold">{item.vehicle}</div>
-                                        <div className="text-sm text-gray-500 truncate max-w-xs">{item.repair}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-base">{item.estimated}</td>
-                                    <td className="px-6 py-4 text-base">{item.actual}</td>
-                                    <td className="px-6 py-4 text-base">
-                                        <AccuracyDisplay 
-                                            accuracy={item.accuracy} 
-                                            isDelayed={item.isDelayed} 
-                                            deviation={item.deviation} 
-                                        />
-                                    </td>
-                                </tr>
-                            )) : (
-                                <tr>
-                                    <td colSpan={4} className="text-center py-10 text-gray-500">
-                                        ยังไม่มีข้อมูลการประมาณการณ์ที่เสร็จสิ้น
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                         {estimationData.details.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="text-center py-10 text-gray-500">
+                                    ไม่มีข้อมูลการประเมินที่เสร็จสมบูรณ์
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

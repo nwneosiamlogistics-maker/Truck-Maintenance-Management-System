@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction } from '../types';
 import StockSelectionModal from './StockSelectionModal';
@@ -302,8 +303,8 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     
     return (
     <>
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-0 sm:p-4">
+            <div className="bg-white shadow-xl w-full max-w-full h-full sm:max-w-4xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-2xl" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="p-6 border-b flex justify-between items-center">
                     <div>
@@ -324,7 +325,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium">สถานะ</label>
-                                    <select name="status" value={formData.status} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                    <select name="status" value={formData.status} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg">
                                         <option value="รอซ่อม">รอซ่อม</option>
                                         <option value="กำลังซ่อม">กำลังซ่อม</option>
                                         <option value="รออะไหล่">รออะไหล่</option>
@@ -334,15 +335,15 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                 </div>
                                  <div>
                                     <label className="block text-sm font-medium">วันที่อนุมัติ</label>
-                                    <input type="datetime-local" value={toLocalISOString(formData.approvalDate)} onChange={(e) => handleDateChange('approvalDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                    <input type="datetime-local" value={toLocalISOString(formData.approvalDate)} onChange={(e) => handleDateChange('approvalDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg"/>
                                 </div>
                                  <div>
                                     <label className="block text-sm font-medium">วันที่เริ่มซ่อม</label>
-                                    <input type="datetime-local" value={toLocalISOString(formData.repairStartDate)} onChange={(e) => handleDateChange('repairStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                    <input type="datetime-local" value={toLocalISOString(formData.repairStartDate)} onChange={(e) => handleDateChange('repairStartDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg"/>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">วันที่ซ่อมเสร็จ</label>
-                                    <input type="datetime-local" value={toLocalISOString(formData.repairEndDate)} onChange={(e) => handleDateChange('repairEndDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                    <input type="datetime-local" value={toLocalISOString(formData.repairEndDate)} onChange={(e) => handleDateChange('repairEndDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg"/>
                                 </div>
                             </div>
                         )}
@@ -368,11 +369,11 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ระยะเวลา</label>
-                                            <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                            <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-3 border border-gray-300 rounded-lg"/>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">หน่วย</label>
-                                            <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                            <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-3 border border-gray-300 rounded-lg">
                                                 <option value="hours">ชั่วโมง</option>
                                                 <option value="days">วัน</option>
                                             </select>
@@ -382,7 +383,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
-                                            <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleEstimationChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                            <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleEstimationChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ *</label>
@@ -390,7 +391,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                                 type="datetime-local" 
                                                 value={toLocalISOString(activeEstimation.estimatedEndDate) || ''} 
                                                 onChange={(e) => handleEstimationChange('estimatedEndDate', e.target.value)} 
-                                                className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                                className="mt-1 w-full p-3 border border-gray-300 rounded-lg"
                                                 readOnly={estimationMode === 'duration'}
                                                 required
                                             />
@@ -410,23 +411,23 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ</label>
-                                        <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required />
+                                        <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" required />
                                     </div>
                                      <div>
                                         <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
-                                        <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                        <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">รุ่น</label>
-                                        <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                        <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
-                                        <input type="text" name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                        <input type="text" name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
-                                        <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                        <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg">
                                             <option>ซ่อมทั่วไป</option>
                                             <option>เปลี่ยนอะไหล่</option>
                                             <option>ตรวจเช็ก</option>
@@ -434,11 +435,11 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">เลขไมล์</label>
-                                        <input type="number" name="currentMileage" value={formData.currentMileage} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                        <input type="number" name="currentMileage" value={formData.currentMileage} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">ความสำคัญ</label>
-                                        <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-2 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`}>
+                                        <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-3 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`}>
                                             <option value="ปกติ">ปกติ</option>
                                             <option value="ด่วน">ด่วน</option>
                                             <option value="ด่วนที่สุด">ด่วนที่สุด</option>
@@ -450,17 +451,17 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                             type="datetime-local" 
                                             value={toLocalISOString(formData.createdAt)} 
                                             onChange={(e) => handleCreatedAtChange(e.target.value)} 
-                                            className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                            className="mt-1 w-full p-3 border border-gray-300 rounded-lg"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">ชื่อผู้แจ้งซ่อม</label>
-                                        <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                        <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">อาการเสีย</label>
-                                    <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={3} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required></textarea>
+                                    <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={3} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" required></textarea>
                                 </div>
                             </div>
                         )}
@@ -491,7 +492,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                                     name="assignedTechnicianId"
                                                     value={formData.assignedTechnicianId || ''}
                                                     onChange={handleInputChange}
-                                                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                                    className="mt-1 w-full p-3 border border-gray-300 rounded-lg"
                                                 >
                                                     <option value="">-- ไม่ระบุช่างหลัก --</option>
                                                     {mainTechnicians.map(tech => (
@@ -515,17 +516,17 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                             value={formData.externalTechnicianName || ''} 
                                             onChange={handleInputChange} 
                                             placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก"
-                                            className="w-full p-2 border border-gray-300 rounded-lg" 
+                                            className="w-full p-3 border border-gray-300 rounded-lg" 
                                         />
                                     )}
                                 </div>
                                  <div>
                                     <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ไม่รวมอะไหล่)</label>
-                                    <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                    <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">VAT (7%)</label>
-                                    <input type="number" name="partsVat" value={formData.partsVat} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                    <input type="number" name="partsVat" value={formData.partsVat} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
                                 </div>
                              </div>
                         )}
@@ -586,10 +587,10 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                 )}
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <button type="button" onClick={() => setStockModalOpen(true)} className="w-full text-blue-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-blue-500 hover:bg-blue-50 flex items-center justify-center gap-2">
+                                    <button type="button" onClick={() => setStockModalOpen(true)} className="w-full text-blue-600 font-semibold py-3 px-4 rounded-lg border-2 border-dashed border-blue-500 hover:bg-blue-50 flex items-center justify-center gap-2">
                                        📦 + เลือกจากสต็อกอู่
                                     </button>
-                                     <button type="button" onClick={() => setExternalPartModalOpen(true)} className="w-full text-green-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-green-500 hover:bg-green-50 flex items-center justify-center gap-2">
+                                     <button type="button" onClick={() => setExternalPartModalOpen(true)} className="w-full text-green-600 font-semibold py-3 px-4 rounded-lg border-2 border-dashed border-green-500 hover:bg-green-50 flex items-center justify-center gap-2">
                                        🏪 + เพิ่มรายการจากร้านค้า
                                     </button>
                                 </div>
@@ -603,7 +604,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                         {openSections.result && (
                             <div className="p-6">
                                  <label className="block text-sm font-medium text-gray-700">บันทึกผลการซ่อม</label>
-                                <textarea name="repairResult" value={formData.repairResult} onChange={handleInputChange} rows={4} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"></textarea>
+                                <textarea name="repairResult" value={formData.repairResult} onChange={handleInputChange} rows={4} className="mt-1 w-full p-3 border border-gray-300 rounded-lg"></textarea>
                             </div>
                         )}
                     </div>
@@ -611,8 +612,8 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                 
                 {/* Footer */}
                 <div className="p-6 border-t flex justify-end space-x-4 bg-gray-50">
-                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button type="button" onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึกการเปลี่ยนแปลง</button>
+                    <button type="button" onClick={onClose} className="px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                    <button type="button" onClick={handleSave} className="px-8 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึกการเปลี่ยนแปลง</button>
                 </div>
             </div>
         </div>

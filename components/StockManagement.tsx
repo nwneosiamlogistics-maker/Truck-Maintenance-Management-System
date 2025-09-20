@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { StockItem, StockStatus, StockTransaction, UsedPart, PurchaseRequisition, Supplier, UsedPartBuyer, PurchaseRequisitionItem, UsedPartBatchStatus, Repair, PurchaseRequisitionStatus } from '../types';
 import StockModal from './StockModal';
@@ -344,12 +345,12 @@ const StockManagement: React.FC<StockManagementProps> = ({
                 <>
                 <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <input type="text" placeholder="ค้นหา (รหัส, ชื่อ)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg lg:col-span-2" />
-                        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg">
+                        <input type="text" placeholder="ค้นหา (รหัส, ชื่อ)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg lg:col-span-2" />
+                        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg">
                             <option value="all">ทุกหมวดหมู่</option>
                             {STOCK_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
-                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="w-full p-2 border border-gray-300 rounded-lg">
+                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="w-full p-3 border border-gray-300 rounded-lg">
                             <option value="all">ทุกสถานะ</option>
                             <option value="ปกติ">ปกติ</option>
                             <option value="สต็อกต่ำ">สต็อกต่ำ</option>
@@ -365,9 +366,9 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     </div>
                 </div>
                 
-                <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh] relative">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0 z-10">
+                <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh] relative">
+                    <table className="min-w-full responsive-table">
+                        <thead>
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รหัส / ชื่อ</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
@@ -378,21 +379,21 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white">
                             {filteredStock.map(item => {
                                 const needsPurchase = item.quantity <= item.minStock;
                                 const isRequested = activePRStockIds.has(item.id);
                                 return (
-                                <tr key={item.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500 font-mono">{item.code}</div></td>
-                                    <td className="px-4 py-3 text-sm">{item.category}</td>
-                                    <td className="px-4 py-3 text-right">
+                                <tr key={item.id}>
+                                    <td data-label="รหัส / ชื่อ" className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500 font-mono">{item.code}</div></td>
+                                    <td data-label="หมวดหมู่" className="px-4 py-3 text-sm">{item.category}</td>
+                                    <td data-label="สต็อก" className="px-4 py-3 text-right">
                                         <span className={`font-bold text-lg ${item.quantity <= item.minStock ? 'text-red-600' : ''}`}>{item.quantity} {item.unit}</span>
                                     </td>
-                                    <td className="px-4 py-3 text-right text-sm">{item.minStock}</td>
-                                    <td className="px-4 py-3 text-right text-sm">{item.price.toLocaleString()}</td>
-                                    <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(item.status)}`}>{item.status}</span></td>
-                                    <td className="px-4 py-3 text-center whitespace-nowrap space-x-1">
+                                    <td data-label="ขั้นต่ำ" className="px-4 py-3 text-right text-sm">{item.minStock}</td>
+                                    <td data-label="ราคาทุน" className="px-4 py-3 text-right text-sm">{item.price.toLocaleString()}</td>
+                                    <td data-label="สถานะ" className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(item.status)}`}>{item.status}</span></td>
+                                    <td data-label="จัดการ" className="px-4 py-3 text-center lg:text-right whitespace-nowrap space-x-1">
                                         <button onClick={() => {
                                             if (promptForPassword('แก้ไข')) {
                                                 handleOpenStockModal(item);
@@ -423,11 +424,11 @@ const StockManagement: React.FC<StockManagementProps> = ({
             ) : (
                 <>
                 <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6">
-                    <input type="text" placeholder="ค้นหา (ชื่อ, เลขที่ซ่อม, ทะเบียน)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    <input type="text" placeholder="ค้นหา (ชื่อ, เลขที่ซ่อม, ทะเบียน)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg"/>
                 </div>
-                <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                    <table className="min-w-full divide-y divide-gray-200">
-                         <thead className="bg-gray-50 sticky top-0 z-10">
+                <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh]">
+                    <table className="min-w-full responsive-table">
+                         <thead>
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่ / วันที่ถอด</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ที่มา (ใบซ่อม / ทะเบียน)</th>
@@ -436,14 +437,14 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white">
                             {filteredUsedParts.map(part => (
                                 <tr key={part.id}>
-                                    <td className="px-4 py-3"><div className="font-semibold">{part.name}</div><div className="text-sm text-gray-500">{new Date(part.dateRemoved).toLocaleDateString('th-TH')}</div></td>
-                                    <td className="px-4 py-3"><div className="font-medium">{part.fromRepairOrderNo}</div><div className="text-sm text-gray-500">{part.fromLicensePlate}</div></td>
-                                    <td className="px-4 py-3 text-right"><div className="font-bold text-lg">{part.initialQuantity}</div><div className="text-sm text-gray-500">เหลือ: {getUsedPartRemaining(part)}</div></td>
-                                    <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
-                                    <td className="px-4 py-3 text-center whitespace-nowrap space-x-1">
+                                    <td data-label="ชื่ออะไหล่" className="px-4 py-3"><div className="font-semibold">{part.name}</div><div className="text-sm text-gray-500">{new Date(part.dateRemoved).toLocaleDateString('th-TH')}</div></td>
+                                    <td data-label="ที่มา" className="px-4 py-3"><div className="font-medium">{part.fromRepairOrderNo}</div><div className="text-sm text-gray-500">{part.fromLicensePlate}</div></td>
+                                    <td data-label="จำนวน" className="px-4 py-3 text-right"><div className="font-bold text-lg">{part.initialQuantity}</div><div className="text-sm text-gray-500">เหลือ: {getUsedPartRemaining(part)}</div></td>
+                                    <td data-label="สถานะ" className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
+                                    <td data-label="จัดการ" className="px-4 py-3 text-center lg:text-right whitespace-nowrap space-x-1">
                                         <button onClick={() => {
                                             if (promptForPassword('จัดการ')) {
                                                 setPartToManage(part); setManageUsedPartModalOpen(true);

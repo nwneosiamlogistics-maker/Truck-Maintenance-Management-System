@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Supplier, StockTransaction, PartRequisitionItem } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
@@ -26,6 +26,8 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [expandedRepairIds, setExpandedRepairIds] = useState<Set<string>>(new Set());
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     const toggleExpand = (repairId: string) => {
         setExpandedRepairIds(prev => {
@@ -59,6 +61,16 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
             )
             .sort((a, b) => new Date(b.repairEndDate || b.createdAt).getTime() - new Date(a.repairEndDate || a.createdAt).getTime());
     }, [repairs, searchTerm, startDate, endDate]);
+    
+    const totalPages = useMemo(() => Math.ceil(filteredRepairs.length / itemsPerPage), [filteredRepairs.length, itemsPerPage]);
+    const paginatedRepairs = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredRepairs.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredRepairs, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, startDate, endDate, itemsPerPage]);
 
     const handleSaveRepair = (updatedRepair: Repair) => {
         setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
@@ -174,7 +186,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredRepairs.map(repair => (
+                        {paginatedRepairs.map(repair => (
                             <React.Fragment key={repair.id}>
                                 <tr className="hover:bg-gray-50">
                                      <td className="px-4 py-3 text-center">
@@ -250,6 +262,30 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                         )}
                     </tbody>
                  </table>
+            </div>
+            
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                    <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
+                    <select
+                        id="items-per-page"
+                        value={itemsPerPage}
+                        onChange={e => setItemsPerPage(Number(e.target.value))}
+                        className="p-1 border border-gray-300 rounded-lg text-sm"
+                    >
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                    <span className="text-sm text-gray-700">
+                        จาก {filteredRepairs.length} รายการ
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <span className="text-sm font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                </div>
             </div>
             
             {editingRepair && (

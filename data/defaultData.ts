@@ -1,3 +1,4 @@
+
 import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Supplier, UsedPartBuyer, AnnualPMPlan } from '../types';
 
 export const getDefaultTechnicians = (): Technician[] => [
