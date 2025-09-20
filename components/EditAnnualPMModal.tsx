@@ -91,14 +91,14 @@ export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                     <div className="p-6 border-b">
                         <h3 className="text-2xl font-bold text-gray-800">อัปเดตสถานะแผน PM</h3>
                         <p className="text-gray-600">
                             {plan.vehicleLicensePlate} ({vehicle?.vehicleType || '-'}) ({plan.planName}) - เดือน{MONTH_NAMES[monthIndex]} {plan.year}
                         </p>
                     </div>
-                    <div className="p-6 space-y-4 overflow-y-auto">
+                    <div className="p-6 space-y-4 overflow-y-auto flex-1">
                         <p className="font-semibold text-gray-800">เลือกสถานะ:</p>
                         <div className="flex flex-col gap-3">
                             {(Object.keys(statusConfig) as (keyof typeof statusConfig)[]).map((statusKey) => {
