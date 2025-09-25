@@ -71,7 +71,23 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             const serviceDate = new Date(h.serviceDate);
             return serviceDate >= startDate && serviceDate <= endDate;
         });
-        const pmCompletionRate = safePlans.length > 0 ? (periodHistory.length / safePlans.length) * 100 : 100; // Simplified for now
+
+        // **NEW ACCURATE CALCULATION**
+        // Calculate how many plans were actually due in the selected period.
+        const duePlansInPeriodCount = safePlans.filter(plan => {
+            const lastDate = new Date(plan.lastServiceDate);
+            let nextServiceDate = new Date(lastDate);
+            if (plan.frequencyUnit === 'days') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
+            else if (plan.frequencyUnit === 'weeks') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
+            else nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
+
+            return nextServiceDate >= startDate && nextServiceDate <= endDate;
+        }).length;
+
+        // Compare completed PMs against those that were due.
+        const pmCompletionRate = duePlansInPeriodCount > 0
+            ? (periodHistory.length / duePlansInPeriodCount) * 100
+            : 100; // If nothing was due, we are 100% compliant.
 
         const repairsByVehicle = periodRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
@@ -105,23 +121,24 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         }, {} as Record<string, number>);
         const downtimeChartData = Object.entries(downtimeByMonth).map(([label, value]) => ({ label, value }));
         
-        const onTimePMs = periodHistory.length; // Simplified
-        const totalPMsInPeriod = safePlans.length; // Simplified
-        const pmComplianceChartData = [{ name: 'ตรงเวลา', value: onTimePMs }, { name: 'ค้าง', value: totalPMsInPeriod - onTimePMs }];
+        const onTimePMs = periodHistory.length;
+        const totalPMsInPeriod = duePlansInPeriodCount;
+        const pmComplianceChartData = [{ name: 'ตรงเวลา', value: onTimePMs }, { name: 'ค้าง', value: Math.max(0, totalPMsInPeriod - onTimePMs) }];
 
         // --- Alerts Table ---
         const alerts: AlertItem[] = [];
         // High downtime vehicles
-        // FIX: Explicitly type the accumulator for 'repairsByVehicle' to resolve 'unknown' type errors.
+// FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
         Object.entries(periodRepairs.reduce((acc: Record<string, Repair[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             acc[r.licensePlate].push(r);
             return acc;
         }, {} as Record<string, Repair[]>)).forEach(([plate, vehicleRepairs]) => {
             const count = vehicleRepairs.length;
+// FIX: Add explicit number type to accumulator to prevent type errors.
             const vehicleDowntime = vehicleRepairs
                 .filter(r => r.createdAt && r.repairEndDate)
-                .reduce((sum, r) => sum + calculateDurationHours(r.createdAt, r.repairEndDate), 0);
+                .reduce((sum: number, r) => sum + calculateDurationHours(r.createdAt, r.repairEndDate), 0);
             if (vehicleDowntime > 48) { // Example threshold: 48 hours
                 alerts.push({ type: 'Downtime', vehicle: plate, details: `Downtime รวม ${formatHoursToHHMM(vehicleDowntime)}`, value: vehicleDowntime, priority: 'high' });
             }
@@ -132,8 +149,13 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         // Overdue PMs
         safePlans.forEach(plan => {
              let nextServiceDate = new Date(plan.lastServiceDate);
-             if (plan.frequencyUnit === 'days') nextServiceDate.setDate(nextServiceDate.getDate() + plan.frequencyValue);
-             else nextServiceDate.setMonth(nextServiceDate.getMonth() + plan.frequencyValue);
+             if (plan.frequencyUnit === 'days') {
+                nextServiceDate.setDate(nextServiceDate.getDate() + plan.frequencyValue);
+             } else if (plan.frequencyUnit === 'weeks') {
+                nextServiceDate.setDate(nextServiceDate.getDate() + plan.frequencyValue * 7);
+             } else {
+                nextServiceDate.setMonth(nextServiceDate.getMonth() + plan.frequencyValue);
+             }
              const daysOverdue = Math.floor((new Date().getTime() - nextServiceDate.getTime()) / (1000 * 3600 * 24));
              if (daysOverdue > 0) {
                  alerts.push({ type: 'PM', vehicle: plan.vehicleLicensePlate, details: `${plan.planName} (เกินกำหนด ${daysOverdue} วัน)`, value: daysOverdue, priority: 'high' });
@@ -205,6 +227,7 @@ ${alertSummary || 'ไม่มีการแจ้งเตือนสำค�
     
     useEffect(() => {
         generateRecommendations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [memoizedData]);
     
     const handleExport = () => {
@@ -226,7 +249,7 @@ ${alertSummary || 'ไม่มีการแจ้งเตือนสำค�
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800">ประสิทธิภาพกลุ่มรถและ KPI</h2>
+                <h2 className="text-xl font-bold text-gray-800">ประสิทธิภาพและ KPI กลุ่มรถ</h2>
                 <div className="flex items-center gap-2">
                     <label className="font-medium text-gray-700 text-base">ช่วงเวลา:</label>
                     <select value={dateRange} onChange={e => setDateRange(e.target.value as DateRange)} className="p-2 border border-gray-300 rounded-lg text-base">

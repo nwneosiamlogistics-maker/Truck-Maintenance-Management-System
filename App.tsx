@@ -35,6 +35,7 @@ import KPIManagement from './components/KPIManagement';
 import Settings from './components/Settings';
 import FleetKPIDashboard from './components/FleetKPIDashboard';
 import { useToast } from './context/ToastContext';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 
 
 const AppContent: React.FC = () => {
@@ -397,6 +398,15 @@ const AppContent: React.FC = () => {
         switch (activeTab) {
             case 'dashboard':
                 return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
+            case 'analytics':
+                return <AnalyticsDashboard
+                    repairs={repairs}
+                    maintenancePlans={maintenancePlans}
+                    vehicles={vehicles}
+                    pmHistory={pmHistory}
+                    stock={stock}
+                    technicians={technicians}
+                />;
             case 'form':
                 return <RepairForm 
                     technicians={technicians} 
@@ -483,8 +493,6 @@ const AppContent: React.FC = () => {
                 return <TechnicianWorkLog repairs={repairs} technicians={technicians} />;
             case 'technician-view':
                 return <TechnicianView repairs={repairs} setRepairs={setRepairs} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} />;
-            case 'reports':
-                return <Reports repairs={repairs} stock={stock} technicians={technicians} />;
             case 'estimation':
                 return <Estimation repairs={repairs} kpiData={kpiData} />;
             case 'maintenance':
@@ -498,15 +506,6 @@ const AppContent: React.FC = () => {
                     setRepairFormSeed={setRepairFormSeed}
                     setActiveTab={setActiveTab}
                     vehicles={vehicles}
-                />;
-            case 'kpi-dashboard':
-                return <KPIDashboard repairs={repairs} plans={maintenancePlans} vehicles={vehicles} />;
-             case 'fleet-kpi':
-                return <FleetKPIDashboard 
-                    repairs={repairs} 
-                    maintenancePlans={maintenancePlans}
-                    vehicles={vehicles} 
-                    pmHistory={pmHistory}
                 />;
              case 'kpi-management':
                 return <KPIManagement kpiData={kpiData} setKpiData={setKpiData} />;

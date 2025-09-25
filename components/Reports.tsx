@@ -438,7 +438,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         });
         const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().slice(-6).map(key => ({ label: monthlyExpenses[key].label, value: monthlyExpenses[key].value }));
         
-        // FIX: Explicitly type the accumulator for 'repairsByVehicleType' to resolve 'unknown' type errors.
+// FIX: Explicitly type the accumulator for 'repairsByVehicleType' to resolve 'unknown' type errors.
         const repairsByVehicleType = dateFilteredCompletedRepairs.reduce((acc: Record<string, { count: number; totalCost: number }>, r) => {
             const type = r.vehicleType || 'ไม่ระบุ';
             if (!acc[type]) {

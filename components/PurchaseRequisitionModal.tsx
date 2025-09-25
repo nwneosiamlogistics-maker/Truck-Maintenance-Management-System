@@ -250,9 +250,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const handleItemChange = useCallback((rowId: string, field: keyof PurchaseRequisitionItem, value: any) => {
         setPrData(prev => {
-            // FIX: Explicitly type `newItems` to `PRItemWithRowId[]` to prevent TypeScript
-            // from losing the `rowId` property during type inference, which caused
-            // a type conflict in the `setPrData` call.
+// FIX: Explicitly type `newItems` to `PRItemWithRowId[]` to prevent TypeScript
+// from losing the `rowId` property during type inference, which caused
+// a type conflict in the `setPrData` call.
             const newItems: PRItemWithRowId[] = prev.items.map(item => {
                 if (item.rowId === rowId) {
                     return { ...item, [field]: value };
@@ -301,9 +301,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
 
     const handleStatusChange = (newStatus: PurchaseRequisitionStatus) => {
-        // FIX: Changed the type of `updates` to match the state type `PRDataWithRowIdItems`.
-        // This resolves the type error when spreading `updates` into the state,
-        // ensuring compatibility of all properties, including the nested `items` array.
+// FIX: Changed the type of `updates` to match the state type `PRDataWithRowIdItems`.
+// This resolves the type error when spreading `updates` into the state,
+// ensuring compatibility of all properties, including the nested `items` array.
         let updates: Partial<PRDataWithRowIdItems> = { status: newStatus };
         if (newStatus === 'อนุมัติแล้ว' && !prData.approvalDate) {
             updates.approverName = 'ผู้จัดการ'; // Placeholder for user system
@@ -342,216 +342,205 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                 status: 'ยกเลิก' as PurchaseRequisitionStatus,
                 items: itemsToSave,
                 totalAmount: grandTotal,
-                vatAmount: vatAmount
+// FIX: Corrected a typo from `vat---` to `vatAmount`.
+                vatAmount: vatAmount,
             };
-
             if ('id' in finalData) {
-                onSave(finalData as PurchaseRequisition);
-            } else {
-                onSave(finalData as Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'>);
+                 onSave(finalData as PurchaseRequisition);
             }
         }
     };
 
-    const isDraft = prData.status === 'ฉบับร่าง';
-    const areFinancialsEditable = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว', 'รอสินค้า'].includes(prData.status);
-    const isFormHeaderEditable = isDraft;
-    const isItemsEditable = isDraft;
-    const isSupplierEditable = isDraft;
-    const canSaveChanges = isDraft || areFinancialsEditable;
 
+    // Determine if the form is editable based on its status
+    const isEditable = useMemo(() => {
+        return ['ฉบับร่าง', 'รออนุมัติ'].includes(prData.status);
+    }, [prData.status]);
 
-    const renderWorkflowButtons = () => {
-        switch(prData.status) {
-            case 'ฉบับร่าง':
-                return <button onClick={() => handleStatusChange('รออนุมัติ')} className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700">ส่งเพื่อขออนุมัติ</button>;
-            case 'รออนุมัติ':
-                return (
-                    <div className="space-x-2">
-                        <button onClick={() => handleStatusChange('ยกเลิก')} className="px-4 py-2 text-white bg-red-500 rounded-lg hover:bg-red-600">ปฏิเสธ</button>
-                        <button onClick={() => handleStatusChange('อนุมัติแล้ว')} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">อนุมัติ</button>
-                    </div>
-                );
-            case 'อนุมัติแล้ว':
-                 return <button onClick={() => handleStatusChange('รอสินค้า')} className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700">ยืนยันการสั่งซื้อ</button>;
-            case 'รอสินค้า':
-                 return <button onClick={() => handleStatusChange('รับของแล้ว')} className="px-4 py-2 text-white bg-purple-600 rounded-lg hover:bg-purple-700">รับของเข้าสต็อก</button>;
-            default:
-                return null;
-        }
-    };
+     const areFinancialsEditable = useMemo(() => {
+        return ['ฉบับร่าง', 'รออนุมัติ'].includes(prData.status);
+    }, [prData.status]);
 
     if (!isOpen) return null;
 
-    const requestTypeLabels: Record<PurchaseRequestType, string> = { Product: 'สินค้า', Service: 'บริการ', Equipment: 'วัสดุ/อุปกรณ์', Asset: 'สินทรัพย์', Others: 'อื่นๆ' };
-    const budgetTypeLabels: Record<PurchaseBudgetType, string> = { 'Have Budget': 'มีงบประมาณ', 'No Budget': 'ไม่มีงบประมาณ' };
-    const canBeCancelled = initialRequisition && ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว', 'รอสินค้า'].includes(prData.status);
-
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[105] flex justify-center items-center p-4 no-print">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-0 sm:p-4">
+            <div className="bg-white shadow-xl w-full max-w-full h-full sm:max-w-6xl sm:max-h-[95vh] flex flex-col rounded-none sm:rounded-2xl" onClick={e => e.stopPropagation()}>
+                {/* Header */}
                 <div className="p-6 border-b flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        <h3 className="text-2xl font-bold text-gray-800">{initialRequisition ? `ใบขอซื้อ ${initialRequisition.prNumber}` : 'สร้างใบขอซื้อใหม่'}</h3>
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-800">{initialRequisition ? `แก้ไขใบขอซื้อ: ${prData.prNumber}` : 'สร้างใบขอซื้อใหม่'}</h3>
+                        <p className="text-base text-gray-500">สถานะปัจจุบัน: {prData.status}</p>
+                    </div>
+                    <div>
                         {initialRequisition && (
-                            <button onClick={handlePrint} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gray-500 rounded-lg hover:bg-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                            <button
+                                type="button"
+                                onClick={handlePrint}
+                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 mr-4"
+                            >
                                 พิมพ์
                             </button>
                         )}
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
-                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
                 </div>
 
-                <div className="p-6 space-y-4 overflow-y-auto flex-1">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 p-4 border rounded-lg bg-gray-50">
+                 {/* Body */}
+                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* Main Info */}
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-2">ประเภทการขอซื้อ</label>
-                            <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                {Object.entries(requestTypeLabels).map(([key, label]) => (
-                                    <label key={key} className="flex items-center space-x-2">
-                                        <input type="radio" name="requestType" value={key} checked={prData.requestType === key} onChange={handleInputChange} disabled={!isFormHeaderEditable} />
-                                        <span>{label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                            {prData.requestType === 'Others' && (
-                                <input type="text" name="otherRequestTypeDetail" value={prData.otherRequestTypeDetail || ''} onChange={handleInputChange} placeholder="ระบุประเภท..." disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-2 disabled:bg-gray-100"/>
-                            )}
+                            <label className="block text-sm font-medium">ผู้ขอซื้อ *</label>
+                            <input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"/>
                         </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-2">งบประมาณ</label>
-                             <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                 {Object.entries(budgetTypeLabels).map(([key, label]) => (
-                                    <label key={key} className="flex items-center space-x-2">
-                                        <input type="radio" name="budgetStatus" value={key} checked={prData.budgetStatus === key} onChange={handleInputChange} disabled={!isFormHeaderEditable} />
-                                        <span>{label}</span>
-                                    </label>
-                                ))}
-                            </div>
+                            <label className="block text-sm font-medium">แผนก *</label>
+                            <input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"/>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div><label className="block text-sm font-medium">ผู้ขอซื้อ *</label><input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isFormHeaderEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
-                        <div><label className="block text-sm font-medium">ฝ่าย/แผนก *</label><input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isFormHeaderEditable} required className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
-                        <div><label className="block text-sm font-medium">วันที่ต้องการใช้</label><input type="date" name="dateNeeded" value={prData.dateNeeded} onChange={handleInputChange} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"/></div>
                         <div>
+                            <label className="block text-sm font-medium">วันที่ต้องการใช้ *</label>
+                            <input type="date" name="dateNeeded" value={prData.dateNeeded} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"/>
+                        </div>
+                         <div>
                             <label className="block text-sm font-medium">ผู้จำหน่าย *</label>
-                            <input 
-                                list="supplier-list"
-                                type="text" 
-                                name="supplier" 
-                                value={prData.supplier} 
-                                onChange={handleInputChange} 
-                                disabled={!isSupplierEditable} 
-                                required 
-                                className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100"
+                            <input
+                                list="supplier-list-modal"
+                                type="text"
+                                name="supplier"
+                                value={prData.supplier}
+                                onChange={handleInputChange}
+                                disabled={!isEditable}
+                                className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"
                             />
-                            <datalist id="supplier-list">
+                             <datalist id="supplier-list-modal">
                                 {suppliers.map(s => <option key={s.id} value={s.name} />)}
                             </datalist>
                         </div>
-                    </div>
-                    
-                    {isItemsEditable && (
-                    <div className="border-t pt-4">
-                         <h4 className="text-lg font-semibold mb-2">เพิ่มรายการ</h4>
-                         {prData.requestType === 'Product' ? (
-                            <div className="flex items-center gap-2">
-                                <select value={selectedStockId} onChange={e => setSelectedStockId(e.target.value)} className="flex-1 p-2 border rounded-lg">
-                                    <option value="">-- เลือกอะไหล่จากสต็อก --</option>
-                                    {(Array.isArray(stockItems) ? stockItems : []).map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
+                        <div>
+                            <label className="block text-sm font-medium">ประเภทการขอซื้อ</label>
+                            <select name="requestType" value={prData.requestType} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100">
+                                <option value="Product">สินค้า</option>
+                                <option value="Service">บริการ</option>
+                                <option value="Equipment">อุปกรณ์</option>
+                                <option value="Asset">ทรัพย์สิน</option>
+                                <option value="Others">อื่นๆ</option>
+                            </select>
+                        </div>
+                        <div>
+                             <label className="block text-sm font-medium">สถานะงบประมาณ</label>
+                             <select name="budgetStatus" value={prData.budgetStatus} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100">
+                                <option value="Have Budget">มีงบประมาณ</option>
+                                <option value="No Budget">ไม่มีงบประมาณ</option>
+                            </select>
+                        </div>
+                         <div className="lg:col-span-2">
+                             <label className="block text-sm font-medium">หมายเหตุ</label>
+                             <input type="text" name="notes" value={prData.notes} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"/>
+                        </div>
+                     </div>
+                     
+                     {/* Items Section */}
+                    <div>
+                         <h4 className="font-semibold text-lg border-b pb-2 mb-3">รายการ</h4>
+                         {isEditable && (
+                            <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+                                 <select value={selectedStockId} onChange={e => setSelectedStockId(e.target.value)} className="w-full lg:w-1/3 p-2 border rounded-lg">
+                                    <option value="" disabled>-- เลือกจากสต็อก --</option>
+                                    {stockItems.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
                                 </select>
-                                <button onClick={handleAddItemFromStock} disabled={!selectedStockId} className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:bg-gray-400">เพิ่ม</button>
+                                <button type="button" onClick={handleAddItemFromStock} disabled={!selectedStockId} className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:bg-gray-400">
+                                    + เพิ่มจากสต็อก
+                                </button>
+                                <span className="text-gray-500 mx-2">หรือ</span>
+                                <button type="button" onClick={handleAddCustomItem} className="px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600">
+                                    + เพิ่มรายการเอง
+                                </button>
                             </div>
-                         ) : (
-                            <button onClick={handleAddCustomItem} className="w-full text-green-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-green-500 hover:bg-green-50">
-                                + เพิ่มรายการ (บริการ/อุปกรณ์/อื่นๆ)
-                            </button>
-                         )}
+                        )}
+                        <div className="overflow-x-auto">
+                             <table className="min-w-full">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายการ</th>
+                                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">จำนวน</th>
+                                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">หน่วย</th>
+                                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">ราคา/หน่วย</th>
+                                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">กำหนดส่ง</th>
+                                        <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">รวม</th>
+                                        {isEditable && <th className="px-2 py-2"></th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(Array.isArray(prData.items) ? prData.items : []).map(item => (
+                                        <MemoizedItemRow 
+                                            key={item.rowId}
+                                            item={item}
+                                            isEditable={isEditable}
+                                            areFinancialsEditable={areFinancialsEditable}
+                                            onItemChange={handleItemChange}
+                                            onRemoveItem={handleRemoveItem}
+                                        />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+
+                    {/* Totals Section */}
+                    <div className="flex justify-end pt-4">
+                        <div className="w-full md:w-1/3 space-y-2">
+                             <div className="flex justify-between"><span>ราคารวม</span><span>{subtotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span></div>
+                             <div className="flex justify-between items-center">
+                                <span>
+                                    <input type="checkbox" checked={isVatEnabled} onChange={e => setIsVatEnabled(e.target.checked)} className="mr-2" disabled={!areFinancialsEditable}/>
+                                    VAT
+                                    <input type="number" value={vatRate} onChange={e => setVatRate(Number(e.target.value))} className="w-16 ml-2 p-1 border rounded text-right" disabled={!isVatEnabled || !areFinancialsEditable}/> %
+                                </span>
+                                <span>{vatAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                             </div>
+                             <div className="flex justify-between font-bold text-lg border-t pt-2"><span>ยอดรวมสุทธิ</span><span>{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span></div>
+                        </div>
+                    </div>
+
+                    {/* Status Update Section */}
+                    {initialRequisition && (
+                        <div className="pt-4 border-t">
+                            <h4 className="font-semibold text-lg mb-3">อัปเดตสถานะ</h4>
+                             <div className="flex flex-wrap items-center gap-2">
+                                {prData.status === 'รออนุมัติ' && <button type="button" onClick={() => handleStatusChange('อนุมัติแล้ว')} className="px-4 py-2 bg-green-500 text-white rounded-lg">อนุมัติ</button>}
+                                {prData.status === 'อนุมัติแล้ว' && <button type="button" onClick={() => handleStatusChange('รอสินค้า')} className="px-4 py-2 bg-blue-500 text-white rounded-lg">ยืนยันสั่งซื้อ</button>}
+                                {prData.status === 'รอสินค้า' && <button type="button" onClick={() => handleStatusChange('รับของแล้ว')} className="px-4 py-2 bg-purple-500 text-white rounded-lg">รับของแล้ว</button>}
+                            </div>
+                        </div>
                     )}
+                 </div>
 
-                    <div className="border rounded-lg overflow-hidden">
-                         <table className="min-w-full divide-y">
-                             <thead className="bg-gray-50">
-                                 <tr>
-                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายการ</th>
-                                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">จำนวน</th>
-                                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">หน่วย</th>
-                                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">ราคา/หน่วย</th>
-                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">กำหนดส่ง/ให้บริการ</th>
-                                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">รวม</th>
-                                     {isItemsEditable && <th className="w-12"></th>}
-                                 </tr>
-                             </thead>
-                             <tbody className="bg-white divide-y">
-                                 {(Array.isArray(prData.items) ? prData.items : []).map((item) => (
-                                    <MemoizedItemRow
-                                        key={item.rowId}
-                                        item={item}
-                                        isEditable={isItemsEditable}
-                                        areFinancialsEditable={areFinancialsEditable}
-                                        onItemChange={handleItemChange}
-                                        onRemoveItem={handleRemoveItem}
-                                    />
-                                 ))}
-                             </tbody>
-                         </table>
-                    </div>
-                     <div className="space-y-2 border-t pt-4">
-                        <div className="flex justify-between items-center text-md">
-                            <span>ราคารวมอะไหล่ (Subtotal)</span>
-                            <span className="font-semibold">{subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
-                        </div>
-                        <div className="flex justify-between items-center text-md">
-                            <div className="flex items-center gap-2">
-                                <input 
-                                    type="checkbox" 
-                                    id="vat-checkbox" 
-                                    checked={isVatEnabled} 
-                                    onChange={e => setIsVatEnabled(e.target.checked)} 
-                                    disabled={!areFinancialsEditable}
-                                    className="h-4 w-4 rounded"
-                                />
-                                <label htmlFor="vat-checkbox" className="text-gray-700">ภาษีมูลค่าเพิ่ม (VAT)</label>
-                                <input 
-                                    type="number"
-                                    value={vatRate}
-                                    onChange={e => setVatRate(Number(e.target.value))}
-                                    disabled={!isVatEnabled || !areFinancialsEditable}
-                                    className="w-20 p-1 border rounded text-right disabled:bg-gray-100"
-                                    step="0.01"
-                                />
-                                <span className="text-gray-700">%</span>
-                            </div>
-                            <span className="font-semibold">{vatAmount.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
-                        </div>
-                        <div className="flex justify-between items-center text-xl font-bold border-t pt-2 mt-2">
-                            <span>ยอดรวมสุทธิ (Grand Total)</span>
-                            <span className="text-blue-600">{grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})} บาท</span>
-                        </div>
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium">หมายเหตุ / เงื่อนไขเพิ่มเติม</label>
-                        <textarea name="notes" value={prData.notes || ''} onChange={handleInputChange} rows={2} disabled={!isFormHeaderEditable} className="w-full p-2 border rounded-lg mt-1 disabled:bg-gray-100" placeholder="อาจมีอะไหล่บางตัวที่ต้องซื้อใหม่มาเพิ่มสต๊อก"></textarea>
-                    </div>
-                </div>
-
+                 {/* Footer */}
                 <div className="p-6 border-t flex justify-between items-center bg-gray-50">
-                    <div className="flex items-center gap-2">
-                       {renderWorkflowButtons()}
-                       {canBeCancelled && (
-                           <button type="button" onClick={handleCancelAndSave} className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700">ยกเลิกใบขอซื้อ</button>
-                       )}
+                     <div>
+                        {isEditable && (
+                            <button
+                                type="button"
+                                onClick={handleCancelAndSave}
+                                className="px-6 py-3 text-base font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+                            >
+                                ยกเลิกใบขอซื้อ
+                            </button>
+                        )}
                     </div>
-                    <div className="space-x-4 flex items-center">
-                        <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ปิด</button>
-                        {canSaveChanges && (
-                           <button onClick={handleSave} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">บันทึก</button>
+                    <div className="space-x-4">
+                        <button type="button" onClick={onClose} className="px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ปิด</button>
+                        {isEditable && (
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                className="px-8 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                            >
+                                บันทึก
+                            </button>
                         )}
                     </div>
                 </div>

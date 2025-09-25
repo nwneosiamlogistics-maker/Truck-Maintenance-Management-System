@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Repair, MaintenancePlan, Vehicle } from '../types';
+import type { Repair, MaintenancePlan, Vehicle, PMHistory } from '../types';
 import StatCard from './StatCard';
 import { formatHoursToHHMM } from '../utils';
 
@@ -111,7 +111,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             .map(([plate, totalMillis]) => ({ plate, hours: totalMillis / (1000 * 60 * 60) }))
             .sort((a, b) => b.hours - a.hours).slice(0, 5);
 
-        // FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
+// FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
         const repairsByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
             return acc;
@@ -120,7 +120,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             .map(([plate, count]) => ({ plate, count }))
             .sort((a, b) => b.count - a.count).slice(0, 5);
             
-        // FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
+// FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
         const costByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             const partsCost = (r.parts || []).reduce((pAcc, p) => {
                 const quantity = Number(p.quantity) || 0;
@@ -173,7 +173,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         });
 
 
-        // FIX: Explicitly type the accumulator for 'complianceByVehicle' to resolve 'unknown' type errors.
+// FIX: Explicitly type the accumulator for 'complianceByVehicle' to resolve 'unknown' type errors.
         const complianceByVehicle = planDetails.reduce((acc: Record<string, { onTimeCount: number; totalPlans: number }>, plan) => {
             const plate = plan.vehicleLicensePlate;
             if (!acc[plate]) acc[plate] = { onTimeCount: 0, totalPlans: 0 };

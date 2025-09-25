@@ -117,7 +117,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         const totalJobs = techStats.reduce((sum, t) => sum + t.jobs, 0);
 
         // --- CORRECTED CALCULATION ---
-        // FIX: Calculate total value directly from the filtered repairs list to avoid double counting.
+// FIX: Calculate total value directly from the filtered repairs list to avoid double counting.
         const totalValue = filteredRepairs.reduce((sum: number, r) => {
             const repairParts = Array.isArray(r.parts) ? r.parts : [];
             const partsCost = repairParts.reduce((pSum: number, p) => {
@@ -132,7 +132,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         const overallAvgTime = totalJobs > 0 ? techStats.reduce((sum, t) => sum + (t.avgTime * t.jobs), 0) / totalJobs : 0;
         
         const totalWeightedOnTime = techStats.reduce((sum: number, t) => {
-            // FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
+// FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
             const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
             const estimatedJobsCount = techRepairs.filter(r => {
                 let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
@@ -146,7 +146,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         }, 0);
 
         const totalEstimatedJobs = techStats.reduce((sum: number, t) => {
-             // FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
+// FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
              const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
              return sum + techRepairs.filter(r => {
                 let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');

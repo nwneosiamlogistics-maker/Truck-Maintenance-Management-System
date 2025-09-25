@@ -5,13 +5,9 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'แดชบอร์ด',
         subtitle: 'ภาพรวมระบบจัดการซ่อมบำรุงรถบรรทุก'
     },
-    'kpi-dashboard': {
-        title: 'ภาพรวม KPI',
-        subtitle: 'ตัวชี้วัดประสิทธิภาพการซ่อมบำรุง'
-    },
-     'fleet-kpi': {
-        title: 'ประสิทธิภาพและ KPI กลุ่มรถ',
-        subtitle: 'ภาพรวมและวิเคราะห์ประสิทธิภาพของกลุ่มรถ'
+    analytics: {
+        title: 'รายงานและวิเคราะห์',
+        subtitle: 'ภาพรวม KPI, ประสิทธิภาพกลุ่มรถ, และสถิติต่างๆ'
     },
      'kpi-management': {
         title: 'จัดการ KPI',
@@ -60,10 +56,6 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
     'used-part-report': {
         title: 'รายงานอะไหล่เก่า',
         subtitle: 'สรุปและวิเคราะห์ข้อมูลอะไหล่เก่าทั้งหมด'
-    },
-    reports: {
-        title: 'รายงานและสถิติ',
-        subtitle: 'วิเคราะห์ข้อมูลและส่งออกรายงาน'
     },
     technicians: {
         title: 'จัดการช่าง',

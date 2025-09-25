@@ -9,8 +9,7 @@ export interface ChatMessage {
 
 export type Tab =
     | 'dashboard'
-    | 'kpi-dashboard'
-    | 'fleet-kpi'
+    | 'analytics'
     | 'kpi-management'
     | 'form'
     | 'list'
@@ -23,7 +22,6 @@ export type Tab =
     | 'suppliers'
     | 'used-part-buyers'
     | 'used-part-report'
-    | 'reports'
     | 'technicians'
     | 'technicianPerformance'
     | 'technicianWorkLog'

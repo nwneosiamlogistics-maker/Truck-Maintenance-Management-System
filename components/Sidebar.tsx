@@ -55,8 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
     const navItems = [
         { section: 'ภาพรวม', items: [
             { id: 'dashboard', icon: '🏠', label: 'แดชบอร์ด' },
-            { id: 'fleet-kpi', icon: '🚀', label: 'Fleet KPI & Performance' },
-            { id: 'kpi-dashboard', icon: '🎯', label: 'ภาพรวม KPI' },
+            { id: 'analytics', icon: '📈', label: 'รายงานและวิเคราะห์' },
         ]},
         { section: 'งานซ่อมบำรุง', items: [
             { id: 'form', icon: '📝', label: 'เพิ่มใบแจ้งซ่อม' },
@@ -92,7 +91,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             { id: 'technicianWorkLog', icon: '📖', label: 'ประวัติงานซ่อมช่าง' },
         ]},
         { section: 'รายงานและการตั้งค่า', items: [
-            { id: 'reports', icon: '📈', label: 'รายงานและสถิติ' },
             { id: 'kpi-management', icon: '🔧', label: 'จัดการ KPI' },
             { id: 'settings', icon: '⚙️', label: 'ตั้งค่าระบบ' },
         ]},

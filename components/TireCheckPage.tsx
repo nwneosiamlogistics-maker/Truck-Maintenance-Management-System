@@ -509,11 +509,11 @@ const TruckDiagram: React.FC<{
         );
     }
     
-    // FIX: Replaced unreachable fallback code with `null`.
-    // The previous series of `if/else if` statements handled all possible values of `layout`,
-    // making the fallback code unreachable. TypeScript inferred the `layout` variable as type `never`
-    // in this block, causing a type error on `axles.map`. Returning null ensures the component
-    // has a valid return path without containing unreachable logic.
+// FIX: Replaced unreachable fallback code with `null`.
+// The previous series of `if/else if` statements handled all possible values of `layout`,
+// making the fallback code unreachable. TypeScript inferred the `layout` variable as type `never`
+// in this block, causing a type error on `axles.map`. Returning null ensures the component
+// has a valid return path without containing unreachable logic.
     return null;
 };
 
@@ -656,7 +656,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
             return;
         }
 
-        // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
+// FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
         const filledTires = Object.values(formData.tires).filter((t: TireData) => t.isFilled).length;
         if (filledTires === 0) {
             addToast('กรุณากรอกข้อมูลยางอย่างน้อย 1 เส้น', 'warning');
@@ -680,7 +680,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
         onComplete();
     };
     
-    // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
+// FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
     const filledTireCount = useMemo(() => Object.values(formData.tires).filter((t: TireData) => t.isFilled).length, [formData.tires]);
     const totalTires = useMemo(() => Object.keys(formData.tires).length, [formData.tires]);
     const progress = totalTires > 0 ? (filledTireCount / totalTires) * 100 : 0;
@@ -791,7 +791,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                 {filteredInspections.map(insp => {
                     const isExpanded = expandedId === insp.id;
                     const layoutPositions = VEHICLE_LAYOUTS[insp.vehicleLayout] || [];
-                    // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
+// FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
                     const tireList = Object.values(insp.tires).filter((t: TireData) => t.isFilled);
 
                     return (
