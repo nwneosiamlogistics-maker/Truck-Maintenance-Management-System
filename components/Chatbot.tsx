@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import type { Chat } from "@google/genai";
@@ -45,11 +46,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, repairs, technicians
         const totalRepairTime = completedRepairs.reduce((acc, r) => acc + calculateDurationHours(r.repairStartDate, r.repairEndDate), 0);
         const mttrHours = completedRepairs.length > 0 ? totalRepairTime / completedRepairs.length : 0;
         
-        // FIX: Add explicit number type to accumulator to prevent type errors.
+// FIX: Add explicit number type to accumulator to prevent type errors.
         const totalDowntime = completedRepairs.reduce((acc: number, r) => acc + calculateDurationHours(r.createdAt, r.repairEndDate), 0);
         const avgDowntimeHours = completedRepairs.length > 0 ? totalDowntime / completedRepairs.length : 0;
         
-        // FIX: Add explicit number type to accumulator to prevent type errors.
+// FIX: Add explicit number type to accumulator to prevent type errors.
         const totalCost = completedRepairs.reduce((acc: number, r) => {
             const partsCost = (r.parts || []).reduce((pAcc: number, p) => pAcc + (p.quantity * p.unitPrice), 0);
             return acc + r.repairCost + partsCost + (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0);

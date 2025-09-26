@@ -179,21 +179,30 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredVehicles.map(vehicle => (
-                    <div key={vehicle.id} className="bg-white p-5 rounded-2xl shadow-sm flex flex-col justify-between transition-all hover:shadow-lg hover:-translate-y-1">
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-800">{vehicle.licensePlate}</h3>
-                            <p className="text-gray-500 text-sm">{vehicle.vehicleType} - {vehicle.make}</p>
-                        </div>
-                        <div className="mt-4 border-t pt-4">
-                            <div className="flex justify-around text-center">
-                                <div><p className="text-lg font-bold">{vehicle.repairCount}</p><p className="text-sm text-gray-500">ครั้ง</p></div>
-                                <div><p className="text-lg font-bold">{vehicle.totalCost.toLocaleString()}</p><p className="text-sm text-gray-500">บาท</p></div>
+                    <div key={vehicle.id} className="bg-white rounded-xl shadow-sm border border-gray-200/80 flex flex-col p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                        <div className="flex-grow">
+                            <div>
+                                <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{vehicle.licensePlate}</h3>
+                                <p className="text-base text-slate-500">{vehicle.vehicleType} - {vehicle.make || 'N/A'}</p>
                             </div>
+                            <hr className="my-4 border-gray-200" />
+                            <div className="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <p className="text-3xl font-bold text-slate-700">{vehicle.repairCount}</p>
+                                    <p className="text-sm text-slate-500">ครั้ง</p>
+                                </div>
+                                <div>
+                                    <p className="text-3xl font-bold text-slate-700">{vehicle.totalCost.toLocaleString()}</p>
+                                    <p className="text-sm text-slate-500">บาท</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6">
                             <button 
                                 onClick={() => setSelectedVehiclePlate(vehicle.licensePlate)} 
-                                className="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                                 ดูประวัติ
                             </button>

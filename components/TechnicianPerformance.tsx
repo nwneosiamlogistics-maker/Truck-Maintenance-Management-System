@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, EstimationAttempt } from '../types';
 import StatCard from './StatCard';

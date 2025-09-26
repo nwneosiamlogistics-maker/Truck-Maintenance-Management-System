@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPassword } from '../utils';
@@ -873,19 +873,41 @@ interface TireChangeHistoryProps {
 }
 
 const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehicles }) => {
-    const [selectedPlate, setSelectedPlate] = useState<string>('');
+    const [selectedPlate, setSelectedPlate] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+    const vehicleMap = useMemo(() => new Map(vehicles.map(v => [v.licensePlate, v])), [vehicles]);
+    
+    const vehicleChangeStats = useMemo(() => {
+        const stats: Record<string, { changeEventCount: number }> = {};
+        
+        const platesWithChanges = new Set<string>();
+        (Array.isArray(inspections) ? inspections : []).forEach(insp => {
+            const hasChange = Object.values(insp.tires).some((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled);
+            if (hasChange) {
+                platesWithChanges.add(insp.licensePlate);
+            }
+        });
 
-    const safeVehicles = useMemo(() => Array.isArray(vehicles) ? vehicles.sort((a,b) => a.licensePlate.localeCompare(b.licensePlate)) : [], [vehicles]);
+        platesWithChanges.forEach(plate => {
+            const vehicleInspections = inspections.filter(insp => insp.licensePlate === plate && Object.values(insp.tires).some((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled));
+            stats[plate] = { changeEventCount: vehicleInspections.length };
+        });
+
+        return (Array.isArray(vehicles) ? vehicles : [])
+            .filter(v => stats[v.licensePlate])
+            .map(v => ({ ...v, ...stats[v.licensePlate] }));
+    }, [inspections, vehicles]);
+
+    const filteredVehicleStats = useMemo(() => {
+        if (!searchTerm) return vehicleChangeStats.sort((a, b) => b.changeEventCount - a.changeEventCount);
+        return vehicleChangeStats.filter(v => v.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [searchTerm, vehicleChangeStats]);
 
     const toggleExpand = (id: string) => {
         setExpandedIds(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(id)) {
-                newSet.delete(id);
-            } else {
-                newSet.add(id);
-            }
+            newSet.has(id) ? newSet.delete(id) : newSet.add(id);
             return newSet;
         });
     };
@@ -902,20 +924,20 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
 
         const events = vehicleInspectionsWithChange.map((currentInsp, index, arr) => {
             const isLastEvent = index === arr.length - 1;
-            let lifespan: string;
+            const changedTires = Object.values(currentInsp.tires).filter((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled);
+            const firstChangeDate = changedTires.map(t => t.changeDate).filter(Boolean).sort()[0] || currentInsp.inspectionDate;
 
+            let lifespan: string;
             if (isLastEvent) {
-                lifespan = `ใช้งานอยู่: ${calculateDateDifference(currentInsp.inspectionDate, new Date().toISOString())}`;
+                lifespan = `ใช้งานอยู่: ${calculateDateDifference(firstChangeDate, new Date().toISOString())}`;
             } else {
                 const nextInsp = arr[index + 1];
-                lifespan = calculateDateDifference(currentInsp.inspectionDate, nextInsp.inspectionDate);
+                lifespan = calculateDateDifference(firstChangeDate, nextInsp.inspectionDate);
             }
-
-            const changedTires = Object.values(currentInsp.tires).filter((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled);
             
             return {
                 id: currentInsp.id,
-                inspectionDate: currentInsp.inspectionDate,
+                inspectionDate: firstChangeDate,
                 lifespan,
                 changedTires,
                 vehicleLayout: currentInsp.vehicleLayout,
@@ -926,74 +948,104 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
         return events.reverse(); // Show newest first
     }, [inspections, selectedPlate]);
 
-
-    return (
-        <div className="bg-white p-6 rounded-2xl shadow-lg space-y-4">
-            <div className="flex items-center gap-4">
-                <label htmlFor="vehicle-select" className="font-semibold">เลือกรถเพื่อดูประวัติการเปลี่ยนยาง:</label>
-                <input
-                    list="vehicle-history-list"
-                    id="vehicle-select-input"
-                    value={selectedPlate}
-                    onChange={e => setSelectedPlate(e.target.value)}
-                    placeholder="พิมพ์เพื่อค้นหาทะเบียนรถ..."
-                    className="p-2 border rounded-lg w-full max-w-xs"
-                />
-                <datalist id="vehicle-history-list">
-                    {safeVehicles.map(v => <option key={v.id} value={v.licensePlate} />)}
-                </datalist>
-            </div>
-            {selectedPlate && (
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ลำดับ</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">วันที่เปลี่ยน</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">อายุการใช้งาน</th>
-                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">จำนวนที่เปลี่ยน</th>
-                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">รายละเอียด</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y">
-                            {changeEvents.length > 0 ? changeEvents.map((event, index) => (
-                                <React.Fragment key={event.id}>
-                                    <tr className="hover:bg-gray-50">
-                                        <td className="px-4 py-3">{index + 1}</td>
-                                        <td className="px-4 py-3 font-semibold">{new Date(event.inspectionDate).toLocaleDateString('th-TH')}</td>
-                                        <td className={`px-4 py-3 ${event.isCurrentSet ? 'font-bold text-blue-600' : ''}`}>{event.lifespan}</td>
-                                        <td className="px-4 py-3 text-center">{event.changedTires.length} เส้น</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <button onClick={() => toggleExpand(event.id)} className="text-blue-600 hover:underline">
-                                                {expandedIds.has(event.id) ? 'ซ่อน' : 'ดู'}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {expandedIds.has(event.id) && (
-                                        <tr>
-                                            <td colSpan={5} className="p-4 bg-blue-50">
-                                                <h4 className="font-bold mb-2">รายละเอียดยางที่เปลี่ยน:</h4>
-                                                <ul className="list-disc list-inside space-y-1 text-sm pl-4">
+    if (selectedPlate) {
+        return (
+             <div className="bg-white p-6 rounded-2xl shadow-lg space-y-6">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setSelectedPlate(null)} className="px-4 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+                        &larr; กลับ
+                    </button>
+                    <h2 className="text-2xl font-bold">
+                        ประวัติการเปลี่ยนยาง: <span className="text-blue-600">{selectedPlate}</span>
+                    </h2>
+                </div>
+                {changeEvents.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">ไม่พบประวัติการเปลี่ยนยางสำหรับรถคันนี้</p>
+                ) : (
+                    <div className="relative border-l-4 border-gray-200 pl-8 space-y-8">
+                        {changeEvents.map(event => (
+                            <div key={event.id} className="relative">
+                                <div className={`absolute -left-[39px] top-1 w-6 h-6 rounded-full border-4 border-white ${event.isCurrentSet ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                                <div className="bg-gray-50 p-4 rounded-lg shadow-sm border">
+                                    <div className="flex justify-between items-center">
+                                        <p className="font-bold text-lg">{new Date(event.inspectionDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${event.isCurrentSet ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                            {event.isCurrentSet ? 'ชุดปัจจุบัน' : 'ชุดก่อนหน้า'}
+                                        </span>
+                                    </div>
+                                    <p className="text-gray-600 mt-1">อายุการใช้งาน: <span className="font-semibold">{event.lifespan}</span></p>
+                                    
+                                    <div className="mt-4">
+                                        <button onClick={() => toggleExpand(event.id)} className="text-blue-600 text-sm font-semibold hover:underline">
+                                            {expandedIds.has(event.id) ? 'ซ่อน' : 'ดู'}รายละเอียด ({event.changedTires.length} เส้น)
+                                        </button>
+                                        {expandedIds.has(event.id) && (
+                                            <div className="mt-2 p-3 bg-white rounded border">
+                                                <ul className="list-disc list-inside space-y-1 text-sm">
                                                     {event.changedTires.map((tire: TireData) => {
                                                         const positionLabel = VEHICLE_LAYOUTS[event.vehicleLayout]?.find(p => p.id === tire.positionId)?.label || tire.positionId;
                                                         return (
                                                             <li key={tire.positionId}>
-                                                                <strong>{positionLabel}:</strong> {tire.brand} {tire.model} (S/N: {tire.serialNumber || ''}, Prod: {tire.productionDate || ''})
+                                                                <strong>{positionLabel}:</strong> {tire.brand || 'N/A'} {tire.model || ''} (S/N: {tire.serialNumber || 'N/A'}, Prod: {tire.productionDate || 'N/A'})
                                                             </li>
                                                         )
                                                     })}
                                                 </ul>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </React.Fragment>
-                            )) : (
-                                <tr>
-                                    <td colSpan={5} className="text-center py-8 text-gray-500">ไม่พบประวัติการเปลี่ยนยางสำหรับรถคันนี้</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white p-4 rounded-2xl shadow-sm">
+                <input
+                    type="text"
+                    placeholder="ค้นหาด้วยทะเบียนรถ..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full md:w-1/2 p-3 border border-gray-300 rounded-lg text-lg"
+                />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredVehicleStats.map(vehicle => (
+                    <div key={vehicle.id} className="bg-white rounded-xl shadow-sm border border-gray-200/80 flex flex-col p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                        <div className="flex-grow">
+                            <div>
+                                <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{vehicle.licensePlate}</h3>
+                                <p className="text-base text-slate-500">{vehicle.vehicleType} - {vehicle.make || 'N/A'}</p>
+                            </div>
+                            <hr className="my-4 border-gray-200" />
+                            <div className="grid grid-cols-1 gap-4 text-center">
+                                <div>
+                                    <p className="text-3xl font-bold text-slate-700">{vehicle.changeEventCount}</p>
+                                    <p className="text-sm text-slate-500">ครั้งที่เปลี่ยนยาง</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6">
+                            <button 
+                                onClick={() => setSelectedPlate(vehicle.licensePlate)} 
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                ดูประวัติการเปลี่ยน
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            {filteredVehicleStats.length === 0 && (
+                <div className="bg-white p-10 rounded-2xl shadow-sm text-center">
+                    <p className="text-gray-500">ไม่พบรถที่มีประวัติการเปลี่ยนยาง</p>
                 </div>
             )}
         </div>
