@@ -1,12 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Repair, MaintenancePlan, Vehicle, PMHistory } from '../types';
-import { GoogleGenAI } from "@google/genai";
+import type { Repair, MaintenancePlan, Vehicle, PMHistory, AnnualPMPlan } from '../types';
 import { KPICard, BarChart, PieChart } from './Charts';
 import { calculateDurationHours, formatHoursToHHMM } from '../utils';
 
 type DateRange = '7d' | '30d' | 'this_month' | 'last_month';
 type AlertItem = {
-    type: 'Downtime' | 'PM' | 'Breakdown';
+    type: 'Downtime' | 'PM' | 'Breakdown' | 'Rework' | 'Unplanned PM';
     vehicle: string;
     details: string;
     value: number | string;
@@ -18,17 +17,17 @@ interface FleetKPIDashboardProps {
     maintenancePlans: MaintenancePlan[];
     vehicles: Vehicle[];
     pmHistory: PMHistory[];
+    annualPlans: AnnualPMPlan[];
 }
 
-const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintenancePlans, vehicles, pmHistory }) => {
+const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintenancePlans, vehicles, pmHistory, annualPlans }) => {
     const [dateRange, setDateRange] = useState<DateRange>('30d');
-    const [recommendations, setRecommendations] = useState<string>('');
-    const [isLoadingRecs, setIsLoadingRecs] = useState<boolean>(false);
 
     const safeRepairs = useMemo(() => Array.isArray(repairs) ? repairs : [], [repairs]);
     const safePlans = useMemo(() => Array.isArray(maintenancePlans) ? maintenancePlans : [], [maintenancePlans]);
     const safeVehicles = useMemo(() => Array.isArray(vehicles) ? vehicles : [], [vehicles]);
     const safeHistory = useMemo(() => Array.isArray(pmHistory) ? pmHistory : [], [pmHistory]);
+    const safeAnnualPlans = useMemo(() => Array.isArray(annualPlans) ? annualPlans : [], [annualPlans]);
 
     const memoizedData = useMemo(() => {
         const now = new Date();
@@ -63,7 +62,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         const totalVehicles = safeVehicles.length;
         const periodHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
         const totalPossibleHours = totalVehicles * periodHours;
-        const totalDowntimeHours = completedPeriodRepairs.reduce((sum, r) => sum + calculateDurationHours(r.createdAt, r.repairEndDate), 0);
+        const totalDowntimeHours = completedPeriodRepairs.reduce((sum: number, r) => sum + calculateDurationHours(r.createdAt, r.repairEndDate), 0);
 
         const fleetAvailability = totalPossibleHours > 0 ? ((totalPossibleHours - totalDowntimeHours) / totalPossibleHours) * 100 : 100;
 
@@ -71,9 +70,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             const serviceDate = new Date(h.serviceDate);
             return serviceDate >= startDate && serviceDate <= endDate;
         });
-
-        // **NEW ACCURATE CALCULATION**
-        // Calculate how many plans were actually due in the selected period.
+        
         const duePlansInPeriodCount = safePlans.filter(plan => {
             const lastDate = new Date(plan.lastServiceDate);
             let nextServiceDate = new Date(lastDate);
@@ -84,18 +81,63 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             return nextServiceDate >= startDate && nextServiceDate <= endDate;
         }).length;
 
-        // Compare completed PMs against those that were due.
         const pmCompletionRate = duePlansInPeriodCount > 0
             ? (periodHistory.length / duePlansInPeriodCount) * 100
-            : 100; // If nothing was due, we are 100% compliant.
+            : 100;
 
-        const repairsByVehicle = periodRepairs.reduce((acc: Record<string, number>, r) => {
-            acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
+        // --- REWORK CALCULATION (replaces recurring breakdown) ---
+        // FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
+        const repairsByVehicleForRework = periodRepairs.reduce((acc: Record<string, { description: string, date: string }[]>, r) => {
+            if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
+            // Store description and date to better identify reworks
+            acc[r.licensePlate].push({ description: r.problemDescription, date: r.createdAt });
             return acc;
-        }, {} as Record<string, number>);
-        const recurringBreakdownVehicles = Object.values(repairsByVehicle).filter(count => count > 1).length;
-        const uniqueVehicleRepairCount = Object.keys(repairsByVehicle).length;
-        const recurringBreakdownRate = uniqueVehicleRepairCount > 0 ? (recurringBreakdownVehicles / uniqueVehicleRepairCount) * 100 : 0;
+        }, {} as Record<string, { description: string, date: string }[]>);
+
+        const uniqueVehicleRepairCount = Object.keys(repairsByVehicleForRework).length;
+
+        // Helper function for simple text similarity
+        const areProblemsSimilar = (desc1: string, desc2: string): boolean => {
+            if (!desc1 || !desc2) return false;
+            const normalize = (str: string) => {
+                const thaiStopwords = ['ที่', 'มี', 'ตอน', 'แล้ว', 'ครับ', 'ค่ะ', 'ผิดปกติ', 'ระบบ', 'และ', 'กับ', 'ของ', 'ใน'];
+                return str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").replace(/\s+/g, ' ').split(' ').filter(word => !thaiStopwords.includes(word) && word.length > 2).map(word => word.replace(/ๆ/g, ''));
+            };
+            const words1 = new Set(normalize(desc1));
+            const words2 = new Set(normalize(desc2));
+            if (words1.size === 0 || words2.size === 0) return false;
+            const intersection = new Set([...words1].filter(x => words2.has(x)));
+            const union = new Set([...words1, ...words2]);
+            if (union.size === 0) return false;
+            const jaccardSimilarity = intersection.size / union.size;
+            return jaccardSimilarity > 0.4; // Threshold for similarity
+        };
+
+        let reworkVehicleCount = 0;
+        const reworkedVehicles: { plate: string, descriptions: string[] }[] = [];
+
+        Object.entries(repairsByVehicleForRework).forEach(([plate, repairs]) => {
+            if (repairs.length > 1) {
+                const sortedRepairs = repairs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                let foundRework = false;
+                for (let i = 0; i < sortedRepairs.length; i++) {
+                    for (let j = i + 1; j < sortedRepairs.length; j++) {
+                        const daysBetween = (new Date(sortedRepairs[j].date).getTime() - new Date(sortedRepairs[i].date).getTime()) / (1000 * 3600 * 24);
+                        if (daysBetween <= 30 && areProblemsSimilar(sortedRepairs[i].description, sortedRepairs[j].description)) {
+                            foundRework = true;
+                            break;
+                        }
+                    }
+                    if (foundRework) break;
+                }
+                if (foundRework) {
+                    reworkVehicleCount++;
+                    reworkedVehicles.push({ plate, descriptions: repairs.map(r => r.description) });
+                }
+            }
+        });
+
+        const reworkRate = uniqueVehicleRepairCount > 0 ? (reworkVehicleCount / uniqueVehicleRepairCount) * 100 : 0;
         
         const avgDowntime = completedPeriodRepairs.length > 0 ? totalDowntimeHours / completedPeriodRepairs.length : 0;
         
@@ -111,8 +153,33 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             return sum + repairCost + partsCost + partsVat + laborVat;
         }, 0);
 
+        // --- NEW Unplanned PM Calculation ---
+        const completedPmsInPeriod = periodHistory;
+        let unplannedCompletionsCount = 0;
+        const annualPlansMap = new Map<string, AnnualPMPlan>(safeAnnualPlans.map(p => [`${p.vehicleLicensePlate}-${p.maintenancePlanId}-${p.year}`, p]));
+        const unplannedPmItems: { vehicle: string, planName: string, date: string }[] = [];
+
+        completedPmsInPeriod.forEach(historyItem => {
+            const serviceDate = new Date(historyItem.serviceDate);
+            const year = serviceDate.getFullYear();
+            const month = serviceDate.getMonth(); // 0-11
+            const key = `${historyItem.vehicleLicensePlate}-${historyItem.maintenancePlanId}-${year}`;
+            
+            const annualPlan = annualPlansMap.get(key);
+            if (annualPlan && annualPlan.months[month] === 'completed_unplanned') {
+                unplannedCompletionsCount++;
+                unplannedPmItems.push({
+                    vehicle: historyItem.vehicleLicensePlate,
+                    planName: historyItem.planName,
+                    date: historyItem.serviceDate
+                });
+            }
+        });
+
+        const unplannedPmRate = completedPmsInPeriod.length > 0 ? (unplannedCompletionsCount / completedPmsInPeriod.length) * 100 : 0;
+
         // --- Chart Data ---
-        const downtimeByMonth = periodRepairs.reduce((acc, r) => {
+        const downtimeByMonth = periodRepairs.reduce((acc: Record<string, number>, r) => {
             if (!r.createdAt || !r.repairEndDate) return acc;
             const month = new Date(r.createdAt).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
             const downtime = calculateDurationHours(r.createdAt, r.repairEndDate);
@@ -128,14 +195,13 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         // --- Alerts Table ---
         const alerts: AlertItem[] = [];
         // High downtime vehicles
-// FIX: Corrected undefined variable 'tech' to 't' inside reduce callback.
+        // FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
         Object.entries(periodRepairs.reduce((acc: Record<string, Repair[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             acc[r.licensePlate].push(r);
             return acc;
         }, {} as Record<string, Repair[]>)).forEach(([plate, vehicleRepairs]) => {
             const count = vehicleRepairs.length;
-// FIX: Add explicit number type to accumulator to prevent type errors.
             const vehicleDowntime = vehicleRepairs
                 .filter(r => r.createdAt && r.repairEndDate)
                 .reduce((sum: number, r) => sum + calculateDurationHours(r.createdAt, r.repairEndDate), 0);
@@ -161,74 +227,54 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                  alerts.push({ type: 'PM', vehicle: plan.vehicleLicensePlate, details: `${plan.planName} (เกินกำหนด ${daysOverdue} วัน)`, value: daysOverdue, priority: 'high' });
              }
         });
+        
+        // Add Rework alerts
+        reworkedVehicles.forEach(rework => {
+            alerts.push({
+                type: 'Rework',
+                vehicle: rework.plate,
+                details: `ซ่อมซ้ำอาการเดิม (${rework.descriptions.length} ครั้ง)`,
+                value: rework.descriptions.length,
+                priority: 'high',
+            });
+        });
+
+        // Add Unplanned PM alerts
+        unplannedPmItems.forEach(item => {
+            alerts.push({
+                type: 'Unplanned PM',
+                vehicle: item.vehicle,
+                details: `PM นอกแผน: ${item.planName}`,
+                value: 1,
+                priority: 'medium',
+            });
+        });
 
 
         return {
             kpis: {
                 fleetAvailability,
                 pmCompletionRate,
-                recurringBreakdownRate,
+                reworkRate,
                 avgDowntime,
                 totalCost,
+                unplannedCompletionsCount,
+                unplannedPmRate,
             },
             charts: {
                 downtimeChartData,
                 pmComplianceChartData,
             },
-            alerts: alerts.sort((a,b) => (b.value as number) - (a.value as number)),
+            alerts: alerts.sort((a,b) => {
+                const priorityOrder = { high: 0, medium: 1, low: 2 };
+                if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                    return priorityOrder[a.priority] - priorityOrder[b.priority];
+                }
+                return (b.value as number) - (a.value as number)
+            }),
         };
 
-    }, [dateRange, safeRepairs, safePlans, safeVehicles, safeHistory]);
-    
-    const generateRecommendations = async () => {
-        setIsLoadingRecs(true);
-        setRecommendations('');
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-            
-            const kpiSummary = `
-- Fleet Availability: ${memoizedData.kpis.fleetAvailability.toFixed(1)}%
-- PM Completion Rate: ${memoizedData.kpis.pmCompletionRate.toFixed(1)}%
-- Recurring Breakdown Rate: ${memoizedData.kpis.recurringBreakdownRate.toFixed(1)}%
-- Average Downtime: ${formatHoursToHHMM(memoizedData.kpis.avgDowntime)}
-- Total Maintenance Cost: ${memoizedData.kpis.totalCost.toLocaleString()} บาท
-            `;
-            
-            const alertSummary = memoizedData.alerts.slice(0, 5).map(a => `- ${a.type} alert for ${a.vehicle}: ${a.details}`).join('\n');
-
-            const prompt = `
-คุณคือผู้เชี่ยวชาญด้านการจัดการกลุ่มรถบรรทุก (Fleet Management Expert) โปรดวิเคราะห์ข้อมูล KPI และรายการแจ้งเตือนต่อไปนี้ และให้คำแนะนำที่เป็นรูปธรรมเพื่อปรับปรุงประสิทธิภาพ ลดค่าใช้จ่าย และเพิ่มความปลอดภัย ตอบเป็นภาษาไทยในรูปแบบมาร์กดาวน์ โดยแบ่งเป็นหัวข้อชัดเจน
-
-**ข้อมูล KPI สรุป:**
-${kpiSummary}
-
-**รายการแจ้งเตือนสำคัญ:**
-${alertSummary || 'ไม่มีการแจ้งเตือนสำคัญ'}
-
-**คำแนะนำของคุณ (แบ่งเป็น 3 หัวข้อ):**
-1.  **การซ่อมบำรุงเชิงป้องกัน (Preventive Maintenance):**
-2.  **การลด Downtime และปรับปรุง Response Time:**
-3.  **การจัดการค่าใช้จ่ายและอะไหล่:**
-`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-            });
-            setRecommendations(response.text);
-
-        } catch (error) {
-            console.error("Gemini API error:", error);
-            setRecommendations("เกิดข้อผิดพลาดในการสร้างคำแนะนำจาก AI");
-        } finally {
-            setIsLoadingRecs(false);
-        }
-    };
-    
-    useEffect(() => {
-        generateRecommendations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [memoizedData]);
+    }, [dateRange, safeRepairs, safePlans, safeVehicles, safeHistory, safeAnnualPlans]);
     
     const handleExport = () => {
         const headers = ["Type", "Vehicle", "Details", "Value", "Priority"];
@@ -247,7 +293,7 @@ ${alertSummary || 'ไม่มีการแจ้งเตือนสำค�
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800">ประสิทธิภาพและ KPI กลุ่มรถ</h2>
                 <div className="flex items-center gap-2">
@@ -261,22 +307,40 @@ ${alertSummary || 'ไม่มีการแจ้งเตือนสำค�
                 </div>
             </div>
 
-            {/* Section 1: KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                <KPICard title="ความพร้อมใช้งาน" value={`${memoizedData.kpis.fleetAvailability.toFixed(1)}%`} target={95} lowerIsBetter={false} />
-                <KPICard title="อัตราการทำ PM สำเร็จ" value={`${memoizedData.kpis.pmCompletionRate.toFixed(1)}%`} target={90} lowerIsBetter={false} />
-                <KPICard title="อัตราการเสียซ้ำ" value={`${memoizedData.kpis.recurringBreakdownRate.toFixed(1)}%`} target={5} lowerIsBetter={true} />
-                <KPICard title="Downtime เฉลี่ย" value={formatHoursToHHMM(memoizedData.kpis.avgDowntime)} target={24} lowerIsBetter={true} />
-                <KPICard title="ค่าใช้จ่ายซ่อมบำรุงรวม" value={Math.round(memoizedData.kpis.totalCost).toLocaleString()} target={500000} lowerIsBetter={true} unit="บาท" />
+            {/* Section 1: Fleet Health */}
+            <div>
+                <h3 className="text-xl font-bold text-gray-800 mb-4 px-2">ภาพรวมความพร้อมของกลุ่มรถ</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <KPICard title="ความพร้อมใช้งาน" value={`${memoizedData.kpis.fleetAvailability.toFixed(1)}%`} target={95} lowerIsBetter={false} />
+                    <KPICard title="Downtime เฉลี่ย" value={formatHoursToHHMM(memoizedData.kpis.avgDowntime)} target={24} lowerIsBetter={true} />
+                </div>
             </div>
 
-            {/* Section 2: Graphs */}
+            {/* Section 2: Maintenance Quality */}
+            <div>
+                <h3 className="text-xl font-bold text-gray-800 mb-4 px-2">คุณภาพการซ่อมบำรุง</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <KPICard title="อัตราการซ่อมซ้ำอาการเดิม" value={`${memoizedData.kpis.reworkRate.toFixed(1)}%`} target={5} lowerIsBetter={true} />
+                    <KPICard title="ค่าใช้จ่ายซ่อมบำรุงรวม" value={Math.round(memoizedData.kpis.totalCost).toLocaleString()} target={500000} lowerIsBetter={true} unit="บาท" />
+                </div>
+            </div>
+            
+            {/* Section 3: PM Program Health */}
+            <div>
+                <h3 className="text-xl font-bold text-gray-800 mb-4 px-2">ประสิทธิภาพโปรแกรม PM</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <KPICard title="อัตราการทำ PM สำเร็จ" value={`${memoizedData.kpis.pmCompletionRate.toFixed(1)}%`} target={90} lowerIsBetter={false} />
+                    <KPICard title="PM ไม่ตรงตามแผน" value={`${memoizedData.kpis.unplannedCompletionsCount} (${memoizedData.kpis.unplannedPmRate.toFixed(1)}%)`} target={10} lowerIsBetter={true} unit="ครั้ง" />
+                </div>
+            </div>
+
+            {/* Section 4: Graphs */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <BarChart title="Downtime ต่อเดือน (ชั่วโมง)" data={memoizedData.charts.downtimeChartData.map(d => ({ label: d.label, value: d.value, formattedValue: formatHoursToHHMM(d.value) }))} />
                 <PieChart title="สัดส่วนการทำ PM" data={memoizedData.charts.pmComplianceChartData} />
             </div>
             
-            {/* Section 3: Alerts */}
+            {/* Section 5: Alerts */}
             <div className="bg-white p-6 rounded-2xl shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-gray-800">รายการแจ้งเตือนและปัญหาหลัก</h3>
@@ -302,24 +366,6 @@ ${alertSummary || 'ไม่มีการแจ้งเตือนสำค�
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            {/* Section 4: Recommendations */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">💡 แผนปฏิบัติการและคำแนะนำจาก AI</h3>
-                {isLoadingRecs ? (
-                    <div className="flex justify-center items-center h-40">
-                         <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="prose prose-sm max-w-none text-gray-800 whitespace-pre-wrap">
-                        {recommendations}
-                    </div>
-                )}
             </div>
 
         </div>

@@ -21,7 +21,7 @@ type FlattenedPart = {
     dateUsed: string;
     repairOrderNo: string;
     licensePlate: string;
-// FIX: Use a combined technician ID list instead of deprecated assignedTechnicians
+    // FIX: Use a combined technician ID list instead of deprecated assignedTechnicians
     allTechnicianIds: string[];
 };
 
@@ -69,7 +69,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     dateUsed: r.repairEndDate!,
                     repairOrderNo: r.repairOrderNo,
                     licensePlate: r.licensePlate,
-// FIX: Use assignedTechnicianId and assistantTechnicianIds to create a combined list
+                    // FIX: Use assignedTechnicianId and assistantTechnicianIds to create a combined list
                     allTechnicianIds: [r.assignedTechnicianId, ...(r.assistantTechnicianIds || [])].filter(Boolean) as string[],
                 }))
             );

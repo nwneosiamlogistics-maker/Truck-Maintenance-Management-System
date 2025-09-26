@@ -406,6 +406,7 @@ const AppContent: React.FC = () => {
                     pmHistory={pmHistory}
                     stock={stock}
                     technicians={technicians}
+                    annualPlans={annualPlans}
                 />;
             case 'form':
                 return <RepairForm 

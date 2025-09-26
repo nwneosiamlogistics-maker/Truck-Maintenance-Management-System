@@ -96,13 +96,13 @@ const TIRE_TYPES: TireType[] = ['เรเดียล', 'ไบแอส', 'อ
 // --- HELPER FUNCTIONS ---
 type TireStatus = 'good' | 'warning' | 'danger' | 'unchecked';
 
-const calculateTireAge = (changeDateStr: string | null | undefined): string => {
-    if (!changeDateStr) {
+const calculateDateDifference = (startDateStr: string | null | undefined, endDateStr: string | null | undefined): string => {
+    if (!startDateStr || !endDateStr) {
         return '-';
     }
-    const startDate = new Date(changeDateStr);
-    const endDate = new Date();
-    if (isNaN(startDate.getTime()) || startDate > endDate) {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
         return '-';
     }
     let years = endDate.getFullYear() - startDate.getFullYear();
@@ -121,7 +121,15 @@ const calculateTireAge = (changeDateStr: string | null | undefined): string => {
     if (years > 0) parts.push(`${years} ปี`);
     if (months > 0) parts.push(`${months} เดือน`);
     if (days > 0) parts.push(`${days} วัน`);
-    return parts.length > 0 ? parts.join(' ') : 'วันนี้';
+    return parts.length > 0 ? parts.join(' ') : '0 วัน';
+};
+
+
+const calculateTireAge = (changeDateStr: string | null | undefined): string => {
+    if (!changeDateStr) {
+        return '-';
+    }
+    return calculateDateDifference(changeDateStr, new Date().toISOString());
 };
 
 const getTireStatus = (tire: Partial<TireData> | undefined): TireStatus => {
@@ -509,11 +517,11 @@ const TruckDiagram: React.FC<{
         );
     }
     
-// FIX: Replaced unreachable fallback code with `null`.
-// The previous series of `if/else if` statements handled all possible values of `layout`,
-// making the fallback code unreachable. TypeScript inferred the `layout` variable as type `never`
-// in this block, causing a type error on `axles.map`. Returning null ensures the component
-// has a valid return path without containing unreachable logic.
+    // FIX: Replaced unreachable fallback code with `null`.
+    // The previous series of `if/else if` statements handled all possible values of `layout`,
+    // making the fallback code unreachable. TypeScript inferred the `layout` variable as type `never`
+    // in this block, causing a type error on `axles.map`. Returning null ensures the component
+    // has a valid return path without containing unreachable logic.
     return null;
 };
 
@@ -525,7 +533,7 @@ interface TireCheckPageProps {
 }
 
 const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspections, vehicles }) => {
-    const [view, setView] = useState<'form' | 'history'>('form');
+    const [view, setView] = useState<'form' | 'history' | 'changeHistory'>('form');
     const [editingInspection, setEditingInspection] = useState<TireInspection | null>(null);
 
     const handleEdit = (inspection: TireInspection) => {
@@ -546,18 +554,24 @@ const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspectio
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-2 rounded-2xl shadow-sm flex items-center justify-center gap-2 max-w-md mx-auto">
+            <div className="bg-white p-2 rounded-2xl shadow-sm flex items-center justify-center gap-2 max-w-2xl mx-auto">
                 <button
                     onClick={() => { setView('form'); setEditingInspection(null); }}
-                    className={`px-6 py-2 rounded-lg font-semibold transition-colors w-full ${view === 'form' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-colors w-full ${view === 'form' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 >
                     📝 บันทึกการตรวจเช็ค
                 </button>
                 <button
                     onClick={() => { setView('history'); setEditingInspection(null); }}
-                    className={`px-6 py-2 rounded-lg font-semibold transition-colors w-full ${view === 'history' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-colors w-full ${view === 'history' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 >
                     📜 ประวัติการตรวจเช็ค
+                </button>
+                 <button
+                    onClick={() => { setView('changeHistory'); setEditingInspection(null); }}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-colors w-full ${view === 'changeHistory' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                >
+                    🔄 ประวัติการเปลี่ยนยาง
                 </button>
             </div>
 
@@ -569,8 +583,10 @@ const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspectio
                     onComplete={handleComplete}
                     onCancel={handleCancel}
                 />
-            ) : (
+            ) : view === 'history' ? (
                 <TireCheckHistory inspections={inspections} onEdit={handleEdit} setInspections={setInspections} />
+            ) : (
+                <TireChangeHistory inspections={inspections} vehicles={vehicles} />
             )}
         </div>
     );
@@ -656,7 +672,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
             return;
         }
 
-// FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
+        // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
         const filledTires = Object.values(formData.tires).filter((t: TireData) => t.isFilled).length;
         if (filledTires === 0) {
             addToast('กรุณากรอกข้อมูลยางอย่างน้อย 1 เส้น', 'warning');
@@ -680,7 +696,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
         onComplete();
     };
     
-// FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
+    // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
     const filledTireCount = useMemo(() => Object.values(formData.tires).filter((t: TireData) => t.isFilled).length, [formData.tires]);
     const totalTires = useMemo(() => Object.keys(formData.tires).length, [formData.tires]);
     const progress = totalTires > 0 ? (filledTireCount / totalTires) * 100 : 0;
@@ -791,7 +807,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                 {filteredInspections.map(insp => {
                     const isExpanded = expandedId === insp.id;
                     const layoutPositions = VEHICLE_LAYOUTS[insp.vehicleLayout] || [];
-// FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
+                    // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
                     const tireList = Object.values(insp.tires).filter((t: TireData) => t.isFilled);
 
                     return (
@@ -850,5 +866,139 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
         </div>
     );
 }
+
+interface TireChangeHistoryProps {
+    inspections: TireInspection[];
+    vehicles: Vehicle[];
+}
+
+const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehicles }) => {
+    const [selectedPlate, setSelectedPlate] = useState<string>('');
+    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+    const safeVehicles = useMemo(() => Array.isArray(vehicles) ? vehicles.sort((a,b) => a.licensePlate.localeCompare(b.licensePlate)) : [], [vehicles]);
+
+    const toggleExpand = (id: string) => {
+        setExpandedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const changeEvents = useMemo(() => {
+        if (!selectedPlate) return [];
+        
+        const vehicleInspectionsWithChange = inspections
+            .filter(insp => insp.licensePlate === selectedPlate)
+            .filter(insp => Object.values(insp.tires).some((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled))
+            .sort((a, b) => new Date(a.inspectionDate).getTime() - new Date(b.inspectionDate).getTime());
+
+        if (vehicleInspectionsWithChange.length === 0) return [];
+
+        const events = vehicleInspectionsWithChange.map((currentInsp, index, arr) => {
+            const isLastEvent = index === arr.length - 1;
+            let lifespan: string;
+
+            if (isLastEvent) {
+                lifespan = `ใช้งานอยู่: ${calculateDateDifference(currentInsp.inspectionDate, new Date().toISOString())}`;
+            } else {
+                const nextInsp = arr[index + 1];
+                lifespan = calculateDateDifference(currentInsp.inspectionDate, nextInsp.inspectionDate);
+            }
+
+            const changedTires = Object.values(currentInsp.tires).filter((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled);
+            
+            return {
+                id: currentInsp.id,
+                inspectionDate: currentInsp.inspectionDate,
+                lifespan,
+                changedTires,
+                vehicleLayout: currentInsp.vehicleLayout,
+                isCurrentSet: isLastEvent
+            };
+        });
+        
+        return events.reverse(); // Show newest first
+    }, [inspections, selectedPlate]);
+
+
+    return (
+        <div className="bg-white p-6 rounded-2xl shadow-lg space-y-4">
+            <div className="flex items-center gap-4">
+                <label htmlFor="vehicle-select" className="font-semibold">เลือกรถเพื่อดูประวัติการเปลี่ยนยาง:</label>
+                <input
+                    list="vehicle-history-list"
+                    id="vehicle-select-input"
+                    value={selectedPlate}
+                    onChange={e => setSelectedPlate(e.target.value)}
+                    placeholder="พิมพ์เพื่อค้นหาทะเบียนรถ..."
+                    className="p-2 border rounded-lg w-full max-w-xs"
+                />
+                <datalist id="vehicle-history-list">
+                    {safeVehicles.map(v => <option key={v.id} value={v.licensePlate} />)}
+                </datalist>
+            </div>
+            {selectedPlate && (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ลำดับ</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">วันที่เปลี่ยน</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">อายุการใช้งาน</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">จำนวนที่เปลี่ยน</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">รายละเอียด</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y">
+                            {changeEvents.length > 0 ? changeEvents.map((event, index) => (
+                                <React.Fragment key={event.id}>
+                                    <tr className="hover:bg-gray-50">
+                                        <td className="px-4 py-3">{index + 1}</td>
+                                        <td className="px-4 py-3 font-semibold">{new Date(event.inspectionDate).toLocaleDateString('th-TH')}</td>
+                                        <td className={`px-4 py-3 ${event.isCurrentSet ? 'font-bold text-blue-600' : ''}`}>{event.lifespan}</td>
+                                        <td className="px-4 py-3 text-center">{event.changedTires.length} เส้น</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <button onClick={() => toggleExpand(event.id)} className="text-blue-600 hover:underline">
+                                                {expandedIds.has(event.id) ? 'ซ่อน' : 'ดู'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {expandedIds.has(event.id) && (
+                                        <tr>
+                                            <td colSpan={5} className="p-4 bg-blue-50">
+                                                <h4 className="font-bold mb-2">รายละเอียดยางที่เปลี่ยน:</h4>
+                                                <ul className="list-disc list-inside space-y-1 text-sm pl-4">
+                                                    {event.changedTires.map((tire: TireData) => {
+                                                        const positionLabel = VEHICLE_LAYOUTS[event.vehicleLayout]?.find(p => p.id === tire.positionId)?.label || tire.positionId;
+                                                        return (
+                                                            <li key={tire.positionId}>
+                                                                <strong>{positionLabel}:</strong> {tire.brand} {tire.model} (S/N: {tire.serialNumber || ''}, Prod: {tire.productionDate || ''})
+                                                            </li>
+                                                        )
+                                                    })}
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            )) : (
+                                <tr>
+                                    <td colSpan={5} className="text-center py-8 text-gray-500">ไม่พบประวัติการเปลี่ยนยางสำหรับรถคันนี้</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 export default TireCheckPage;

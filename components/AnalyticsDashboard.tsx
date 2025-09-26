@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Repair, MaintenancePlan, Vehicle, PMHistory, StockItem, Technician } from '../types';
+import type { Repair, MaintenancePlan, Vehicle, PMHistory, StockItem, Technician, AnnualPMPlan } from '../types';
 
 import FleetKPIDashboard from './FleetKPIDashboard';
 import Reports from './Reports';
@@ -12,6 +12,7 @@ interface AnalyticsDashboardProps {
     pmHistory: PMHistory[];
     stock: StockItem[];
     technicians: Technician[];
+    annualPlans: AnnualPMPlan[];
 }
 
 type AnalyticsTab = 'fleet' | 'reports' | 'kpi';

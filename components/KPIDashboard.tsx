@@ -85,8 +85,9 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         const totalDowntime = completedRepairs.reduce((acc, r) => acc + (new Date(r.repairEndDate!).getTime() - new Date(r.createdAt).getTime()), 0);
         const avgDowntimeHours = completedRepairs.length > 0 ? totalDowntime / completedRepairs.length / (1000 * 60 * 60) : 0;
 
-        const totalCost = completedRepairs.reduce((acc, r) => {
-            const partsCost = (r.parts || []).reduce((pAcc, p) => {
+        // FIX: Explicitly type the accumulators 'acc' and 'pAcc' to prevent type errors.
+        const totalCost = completedRepairs.reduce((acc: number, r) => {
+            const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
                 const quantity = Number(p.quantity) || 0;
                 const unitPrice = Number(p.unitPrice) || 0;
                 return pAcc + (quantity * unitPrice);
@@ -111,7 +112,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             .map(([plate, totalMillis]) => ({ plate, hours: totalMillis / (1000 * 60 * 60) }))
             .sort((a, b) => b.hours - a.hours).slice(0, 5);
 
-// FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
         const repairsByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
             return acc;
@@ -120,9 +120,9 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             .map(([plate, count]) => ({ plate, count }))
             .sort((a, b) => b.count - a.count).slice(0, 5);
             
-// FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
+        // FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
         const costByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
-            const partsCost = (r.parts || []).reduce((pAcc, p) => {
+            const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
                 const quantity = Number(p.quantity) || 0;
                 const unitPrice = Number(p.unitPrice) || 0;
                 return pAcc + (quantity * unitPrice);
@@ -173,7 +173,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         });
 
 
-// FIX: Explicitly type the accumulator for 'complianceByVehicle' to resolve 'unknown' type errors.
+        // FIX: Explicitly type the accumulator for 'complianceByVehicle' to resolve 'unknown' type errors.
         const complianceByVehicle = planDetails.reduce((acc: Record<string, { onTimeCount: number; totalPlans: number }>, plan) => {
             const plate = plan.vehicleLicensePlate;
             if (!acc[plate]) acc[plate] = { onTimeCount: 0, totalPlans: 0 };
