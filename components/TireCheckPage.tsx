@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPassword, calculateDateDifference } from '../utils';
 
 // --- CONFIG & CONSTANTS ---
 const TREAD_DEPTH_THRESHOLDS = {
@@ -95,35 +95,6 @@ const TIRE_TYPES: TireType[] = ['เรเดียล', 'ไบแอส', 'อ
 
 // --- HELPER FUNCTIONS ---
 type TireStatus = 'good' | 'warning' | 'danger' | 'unchecked';
-
-const calculateDateDifference = (startDateStr: string | null | undefined, endDateStr: string | null | undefined): string => {
-    if (!startDateStr || !endDateStr) {
-        return '-';
-    }
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
-        return '-';
-    }
-    let years = endDate.getFullYear() - startDate.getFullYear();
-    let months = endDate.getMonth() - startDate.getMonth();
-    let days = endDate.getDate() - startDate.getDate();
-    if (days < 0) {
-        months--;
-        const lastDayOfPreviousMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 0).getDate();
-        days += lastDayOfPreviousMonth;
-    }
-    if (months < 0) {
-        years--;
-        months += 12;
-    }
-    const parts = [];
-    if (years > 0) parts.push(`${years} ปี`);
-    if (months > 0) parts.push(`${months} เดือน`);
-    if (days > 0) parts.push(`${days} วัน`);
-    return parts.length > 0 ? parts.join(' ') : '0 วัน';
-};
-
 
 const calculateTireAge = (changeDateStr: string | null | undefined): string => {
     if (!changeDateStr) {
@@ -289,15 +260,19 @@ const TruckDiagram: React.FC<{
     const TireButton = ({ positionId, label, className = '' }: { positionId: string, label: string | number, className?: string }) => {
         const tire = tires[positionId.toString()];
         const status = getTireStatus(tire);
-        const positionLabel = VEHICLE_LAYOUTS[layout]?.find(p => p.id === positionId.toString())?.label || `Tire ${positionId}`;
+        const positionInfo = VEHICLE_LAYOUTS[layout]?.find(p => p.id === positionId.toString());
+        const positionLabel = positionInfo?.label || `Tire ${positionId}`;
+        const fullLabel = `${positionLabel} (ตำแหน่ง ${label})`;
+    
         return (
             <button
                 onClick={() => onSelectTire(positionId.toString())}
-                className={`w-12 h-20 rounded-lg border-2 flex flex-col items-center justify-center transition-all shadow-sm hover:shadow-md ${getTireStyling(status)} ${className}`}
-                title={positionLabel}
+                className={`w-20 h-24 rounded-lg border-2 flex flex-col items-center justify-center transition-all shadow-sm hover:shadow-md text-center p-1 ${getTireStyling(status)} ${className}`}
+                title={fullLabel}
             >
-                <span className="font-bold text-lg">{label}</span>
-                <span className="text-xs">{tire?.isFilled ? (tire.treadDepth != null ? `${tire.treadDepth}mm` : '-') : '...'}</span>
+                <span className="font-bold text-xs leading-tight">{positionLabel}</span>
+                <span className="text-[10px] text-gray-500">(ตำแหน่ง {label})</span>
+                <span className="text-base font-bold mt-1">{tire?.isFilled ? (tire.treadDepth != null ? `${tire.treadDepth}mm` : '-') : '...'}</span>
             </button>
         );
     };
@@ -329,7 +304,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={11} pos2={12} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="13" label={13} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="13" label={13} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                 </div>
@@ -352,7 +327,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={7} pos2={8} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="9" label={9} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="9" label={9} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                 </div>
@@ -384,7 +359,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={11} pos2={12} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="13" label={13} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="13" label={13} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                  </div>
@@ -408,7 +383,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={5} pos2={6} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="7" label={7} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="7" label={7} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                  </div>
@@ -432,7 +407,7 @@ const TruckDiagram: React.FC<{
                             <TireButton positionId="4" label={4} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="5" label={5} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="5" label={5} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                  </div>
@@ -460,7 +435,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={9} pos2={10} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="23" label={23} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="23" label={23} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                  </div>
@@ -483,7 +458,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={21} pos2={22} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="24" label={24} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="24" label={24} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                 </div>
@@ -509,7 +484,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={9} pos2={10} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="11" label={11} className="w-16 h-16 rounded-full" />
+                             <TireButton positionId="11" label={11} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                  </div>
@@ -517,11 +492,6 @@ const TruckDiagram: React.FC<{
         );
     }
     
-    // FIX: Replaced unreachable fallback code with `null`.
-    // The previous series of `if/else if` statements handled all possible values of `layout`,
-    // making the fallback code unreachable. TypeScript inferred the `layout` variable as type `never`
-    // in this block, causing a type error on `axles.map`. Returning null ensures the component
-    // has a valid return path without containing unreachable logic.
     return null;
 };
 
@@ -672,7 +642,6 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
             return;
         }
 
-        // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
         const filledTires = Object.values(formData.tires).filter((t: TireData) => t.isFilled).length;
         if (filledTires === 0) {
             addToast('กรุณากรอกข้อมูลยางอย่างน้อย 1 เส้น', 'warning');
@@ -696,10 +665,12 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
         onComplete();
     };
     
-    // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
     const filledTireCount = useMemo(() => Object.values(formData.tires).filter((t: TireData) => t.isFilled).length, [formData.tires]);
     const totalTires = useMemo(() => Object.keys(formData.tires).length, [formData.tires]);
     const progress = totalTires > 0 ? (filledTireCount / totalTires) * 100 : 0;
+    
+    const positionInfoForModal = selectedTirePos ? VEHICLE_LAYOUTS[formData.vehicleLayout].find(p => p.id === selectedTirePos) : null;
+    const positionLabelForModal = positionInfoForModal ? `${positionInfoForModal.label} (ตำแหน่ง ${positionInfoForModal.id})` : '';
 
     return (
         <div className="bg-white p-6 rounded-2xl shadow-lg space-y-6">
@@ -757,7 +728,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
                     onClose={() => setSelectedTirePos(null)}
                     onSave={handleTireDataSave}
                     tireData={formData.tires[selectedTirePos]}
-                    positionLabel={VEHICLE_LAYOUTS[formData.vehicleLayout].find(p => p.id === selectedTirePos)?.label || ''}
+                    positionLabel={positionLabelForModal}
                 />
             )}
         </div>
@@ -807,7 +778,6 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                 {filteredInspections.map(insp => {
                     const isExpanded = expandedId === insp.id;
                     const layoutPositions = VEHICLE_LAYOUTS[insp.vehicleLayout] || [];
-                    // FIX: Explicitly type parameter 't' as TireData to resolve 'unknown' type error.
                     const tireList = Object.values(insp.tires).filter((t: TireData) => t.isFilled);
 
                     return (
@@ -838,7 +808,6 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {/* FIX: Explicitly type parameter 'tire' as TireData to resolve multiple property access errors. */}
                                             {tireList.map((tire: TireData) => {
                                                 const positionLabel = layoutPositions.find(p => p.id === tire.positionId)?.label || tire.positionId;
                                                 return (
@@ -875,12 +844,8 @@ interface TireChangeHistoryProps {
 const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehicles }) => {
     const [selectedPlate, setSelectedPlate] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-    const vehicleMap = useMemo(() => new Map(vehicles.map(v => [v.licensePlate, v])), [vehicles]);
-    
+
     const vehicleChangeStats = useMemo(() => {
-        const stats: Record<string, { changeEventCount: number }> = {};
-        
         const platesWithChanges = new Set<string>();
         (Array.isArray(inspections) ? inspections : []).forEach(insp => {
             const hasChange = Object.values(insp.tires).some((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled);
@@ -888,122 +853,135 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                 platesWithChanges.add(insp.licensePlate);
             }
         });
-
-        platesWithChanges.forEach(plate => {
-            const vehicleInspections = inspections.filter(insp => insp.licensePlate === plate && Object.values(insp.tires).some((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled));
-            stats[plate] = { changeEventCount: vehicleInspections.length };
-        });
-
         return (Array.isArray(vehicles) ? vehicles : [])
-            .filter(v => stats[v.licensePlate])
-            .map(v => ({ ...v, ...stats[v.licensePlate] }));
+            .filter(v => platesWithChanges.has(v.licensePlate))
+            .map(v => ({ ...v, changeEventCount: inspections.filter(i => i.licensePlate === v.licensePlate && Object.values(i.tires).some((t: TireData) => t.action === 'เปลี่ยน')).length }));
     }, [inspections, vehicles]);
-
+    
     const filteredVehicleStats = useMemo(() => {
         if (!searchTerm) return vehicleChangeStats.sort((a, b) => b.changeEventCount - a.changeEventCount);
         return vehicleChangeStats.filter(v => v.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [searchTerm, vehicleChangeStats]);
 
-    const toggleExpand = (id: string) => {
-        setExpandedIds(prev => {
-            const newSet = new Set(prev);
-            newSet.has(id) ? newSet.delete(id) : newSet.add(id);
-            return newSet;
-        });
-    };
+    const { changeEvents, currentTires } = useMemo(() => {
+        if (!selectedPlate) return { changeEvents: [], currentTires: [] };
 
-    const changeEvents = useMemo(() => {
-        if (!selectedPlate) return [];
-        
-        const vehicleInspectionsWithChange = inspections
+        const vehicleInspections = inspections
             .filter(insp => insp.licensePlate === selectedPlate)
-            .filter(insp => Object.values(insp.tires).some((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled))
             .sort((a, b) => new Date(a.inspectionDate).getTime() - new Date(b.inspectionDate).getTime());
 
-        if (vehicleInspectionsWithChange.length === 0) return [];
+        // FIX: Add `layout` property to history items to track vehicle layout over time.
+        const positionHistory: Record<string, { date: string; tire: TireData; layout: VehicleLayout }[]> = {};
 
-        const events = vehicleInspectionsWithChange.map((currentInsp, index, arr) => {
-            const isLastEvent = index === arr.length - 1;
-            const changedTires = Object.values(currentInsp.tires).filter((tire: TireData) => tire.action === 'เปลี่ยน' && tire.isFilled);
-            const firstChangeDate = changedTires.map(t => t.changeDate).filter(Boolean).sort()[0] || currentInsp.inspectionDate;
-
-            let lifespan: string;
-            if (isLastEvent) {
-                lifespan = `ใช้งานอยู่: ${calculateDateDifference(firstChangeDate, new Date().toISOString())}`;
-            } else {
-                const nextInsp = arr[index + 1];
-                lifespan = calculateDateDifference(firstChangeDate, nextInsp.inspectionDate);
+        for (const insp of vehicleInspections) {
+            // FIX: Cast Object.values to TireData[] to resolve type errors.
+            for (const tire of Object.values(insp.tires) as TireData[]) {
+                if (tire.isFilled && tire.action === 'เปลี่ยน' && tire.changeDate) {
+                    if (!positionHistory[tire.positionId]) {
+                        positionHistory[tire.positionId] = [];
+                    }
+                    positionHistory[tire.positionId].push({ date: tire.changeDate, tire, layout: insp.vehicleLayout });
+                }
             }
-            
-            return {
-                id: currentInsp.id,
-                inspectionDate: firstChangeDate,
-                lifespan,
-                changedTires,
-                vehicleLayout: currentInsp.vehicleLayout,
-                isCurrentSet: isLastEvent
-            };
-        });
+        }
         
-        return events.reverse(); // Show newest first
-    }, [inspections, selectedPlate]);
+        Object.values(positionHistory).forEach(history => history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        
+        const eventsByDate: Record<string, { tires: (TireData & { lifespan?: string })[] }> = {};
+
+        for (const [posId, history] of Object.entries(positionHistory)) {
+            for (let i = 0; i < history.length; i++) {
+                const installEvent = history[i];
+                const removalEvent = history[i + 1];
+                
+                const eventDate = installEvent.date;
+                if (!eventsByDate[eventDate]) {
+                    eventsByDate[eventDate] = { tires: [] };
+                }
+                
+                const lifespan = removalEvent ? calculateDateDifference(installEvent.date, removalEvent.date) : undefined;
+                eventsByDate[eventDate].tires.push({ ...installEvent.tire, lifespan });
+            }
+        }
+        
+        const finalEvents = Object.entries(eventsByDate)
+            .map(([date, data]) => ({ date, ...data }))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+        const latestTires = Object.entries(positionHistory).map(([posId, history]) => {
+            const latestChange = history[history.length - 1];
+            const latestTire = latestChange.tire;
+            // FIX: Use the correct layout from the history item instead of an incorrect property on TireData.
+            const latestLayout = latestChange.layout;
+            const positionInfo = (VEHICLE_LAYOUTS[latestLayout] || []).find(p => p.id === posId);
+            return {
+                ...latestTire,
+                positionLabel: positionInfo?.label || posId,
+                currentAge: calculateDateDifference(latestTire.changeDate, new Date().toISOString())
+            };
+        }).sort((a,b) => parseInt(a.positionId) - parseInt(b.positionId));
+
+        return { changeEvents: finalEvents, currentTires: latestTires };
+    }, [selectedPlate, inspections]);
 
     if (selectedPlate) {
+        const mostRecentEvent = changeEvents[0];
+
         return (
-             <div className="bg-white p-6 rounded-2xl shadow-lg space-y-6">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setSelectedPlate(null)} className="px-4 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
-                        &larr; กลับ
-                    </button>
-                    <h2 className="text-2xl font-bold">
-                        ประวัติการเปลี่ยนยาง: <span className="text-blue-600">{selectedPlate}</span>
-                    </h2>
+            <div className="space-y-6">
+                <button onClick={() => setSelectedPlate(null)} className="px-4 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
+                    &larr; กลับไปที่รายการรถ
+                </button>
+
+                <div className="bg-white p-6 rounded-2xl shadow-lg">
+                    <h3 className="text-xl font-bold mb-4 border-b pb-2">ชุดยางปัจจุบัน: {selectedPlate}</h3>
+                    {mostRecentEvent && <p className="text-sm text-gray-600">เปลี่ยนล่าสุดเมื่อ: {new Date(mostRecentEvent.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+
+                    <div className="overflow-x-auto mt-4">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    <th className="p-2 text-left">ตำแหน่ง</th>
+                                    <th className="p-2 text-left">ยี่ห้อ/รุ่น</th>
+                                    <th className="p-2 text-left">วันที่เปลี่ยน</th>
+                                    <th className="p-2 text-left">อายุการใช้งานปัจจุบัน</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {currentTires.map(tire => (
+                                    <tr key={tire.positionId} className="border-b">
+                                        <td className="p-2 font-medium">{tire.positionLabel}</td>
+                                        <td className="p-2">{tire.brand} {tire.model}</td>
+                                        <td className="p-2">{new Date(tire.changeDate).toLocaleDateString('th-TH')}</td>
+                                        <td className="p-2 font-semibold text-green-600">{tire.currentAge}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                {changeEvents.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">ไม่พบประวัติการเปลี่ยนยางสำหรับรถคันนี้</p>
-                ) : (
-                    <div className="relative border-l-4 border-gray-200 pl-8 space-y-8">
-                        {changeEvents.map(event => (
-                            <div key={event.id} className="relative">
-                                <div className={`absolute -left-[39px] top-1 w-6 h-6 rounded-full border-4 border-white ${event.isCurrentSet ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                                <div className="bg-gray-50 p-4 rounded-lg shadow-sm border">
-                                    <div className="flex justify-between items-center">
-                                        <p className="font-bold text-lg">{new Date(event.inspectionDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${event.isCurrentSet ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                            {event.isCurrentSet ? 'ชุดปัจจุบัน' : 'ชุดก่อนหน้า'}
-                                        </span>
-                                    </div>
-                                    <p className="text-gray-600 mt-1">อายุการใช้งาน: <span className="font-semibold">{event.lifespan}</span></p>
-                                    
-                                    <div className="mt-4">
-                                        <button onClick={() => toggleExpand(event.id)} className="text-blue-600 text-sm font-semibold hover:underline">
-                                            {expandedIds.has(event.id) ? 'ซ่อน' : 'ดู'}รายละเอียด ({event.changedTires.length} เส้น)
-                                        </button>
-                                        {expandedIds.has(event.id) && (
-                                            <div className="mt-2 p-3 bg-white rounded border">
-                                                <ul className="list-disc list-inside space-y-1 text-sm">
-                                                    {event.changedTires.map((tire: TireData) => {
-                                                        const positionLabel = VEHICLE_LAYOUTS[event.vehicleLayout]?.find(p => p.id === tire.positionId)?.label || tire.positionId;
-                                                        return (
-                                                            <li key={tire.positionId}>
-                                                                <strong>{positionLabel}:</strong> {tire.brand || 'N/A'} {tire.model || ''} (S/N: {tire.serialNumber || 'N/A'}, Prod: {tire.productionDate || 'N/A'})
-                                                            </li>
-                                                        )
-                                                    })}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+
+                <div className="bg-white p-6 rounded-2xl shadow-lg">
+                     <h3 className="text-xl font-bold mb-4 border-b pb-2">ประวัติการเปลี่ยนยางชุดก่อนหน้า</h3>
+                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                        {changeEvents.slice(1).map(event => (
+                            <div key={event.date} className="bg-gray-50 p-4 rounded-lg">
+                                <p className="font-bold">เปลี่ยนเมื่อ: {new Date(event.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} (จำนวน {event.tires.length} เส้น)</p>
+                                <ul className="list-disc list-inside mt-2 text-sm pl-2 space-y-1">
+                                    {event.tires.map((tire, idx) => (
+                                        <li key={idx}>
+                                            {(VEHICLE_LAYOUTS[tire.vehicleLayout as VehicleLayout] || []).find(p => p.id === tire.positionId)?.label || tire.positionId}: {tire.brand || 'N/A'} {tire.model || ''} - <span className="font-semibold text-blue-600">อายุการใช้งาน: {tire.lifespan || 'ยังใช้งานอยู่'}</span>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         ))}
-                    </div>
-                )}
+                     </div>
+                </div>
             </div>
         );
     }
-
-
+    
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm">

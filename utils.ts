@@ -240,3 +240,31 @@ export const isYesterday = (dateString: string | null | undefined): boolean => {
         return false;
     }
 };
+
+export const calculateDateDifference = (startDateStr: string | null | undefined, endDateStr: string | null | undefined): string => {
+    if (!startDateStr || !endDateStr) {
+        return '-';
+    }
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
+        return '-';
+    }
+    let years = endDate.getFullYear() - startDate.getFullYear();
+    let months = endDate.getMonth() - startDate.getMonth();
+    let days = endDate.getDate() - startDate.getDate();
+    if (days < 0) {
+        months--;
+        const lastDayOfPreviousMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 0).getDate();
+        days += lastDayOfPreviousMonth;
+    }
+    if (months < 0) {
+        years--;
+        months += 12;
+    }
+    const parts = [];
+    if (years > 0) parts.push(`${years} ปี`);
+    if (months > 0) parts.push(`${months} เดือน`);
+    if (days > 0) parts.push(`${days} วัน`);
+    return parts.length > 0 ? parts.join(' ') : '0 วัน';
+};

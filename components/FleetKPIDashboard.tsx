@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Repair, MaintenancePlan, Vehicle, PMHistory, AnnualPMPlan } from '../types';
 import { KPICard, BarChart, PieChart } from './Charts';
@@ -87,7 +90,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             : 100;
 
         // --- REWORK CALCULATION (replaces recurring breakdown) ---
-// FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
+        // FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
         const repairsByVehicleForRework = periodRepairs.reduce((acc: Record<string, { description: string, date: string }[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             // Store description and date to better identify reworks
@@ -196,7 +199,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         // --- Alerts Table ---
         const alerts: AlertItem[] = [];
         // High downtime vehicles
-// FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
+        // FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
         Object.entries(periodRepairs.reduce((acc: Record<string, Repair[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             acc[r.licensePlate].push(r);

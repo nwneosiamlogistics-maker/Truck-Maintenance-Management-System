@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useMemo } from 'react';
 import type { Repair, MaintenancePlan, Vehicle, PMHistory, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
@@ -87,7 +90,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         const avgDowntimeHours = completedRepairs.length > 0 ? totalDowntime / completedRepairs.length / (1000 * 60 * 60) : 0;
 
         // FIX: Explicitly type the accumulators 'acc' and 'pAcc' to prevent type errors.
-// FIX: Explicitly type the accumulators 'acc' and 'pAcc' to prevent type errors.
         const totalCost = completedRepairs.reduce((acc: number, r) => {
             const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
                 const quantity = Number(p.quantity) || 0;
@@ -123,7 +125,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             .sort((a, b) => b.count - a.count).slice(0, 5);
             
         // FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
-// FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
         const costByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
                 const quantity = Number(p.quantity) || 0;
@@ -177,7 +178,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
 
 
         // FIX: Explicitly type the accumulator for 'complianceByVehicle' to resolve 'unknown' type errors.
-// FIX: Explicitly type the accumulator for 'complianceByVehicle' to resolve 'unknown' type errors.
         const complianceByVehicle = planDetails.reduce((acc: Record<string, { onTimeCount: number; totalPlans: number }>, plan) => {
             const plate = plan.vehicleLicensePlate;
             if (!acc[plate]) acc[plate] = { onTimeCount: 0, totalPlans: 0 };

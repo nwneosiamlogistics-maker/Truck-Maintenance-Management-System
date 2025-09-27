@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useState, useMemo } from 'react';
 import type { Repair, StockItem, Technician } from '../types';
 import StatCard from './StatCard';
@@ -439,7 +442,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         });
         const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().slice(-6).map(key => ({ label: monthlyExpenses[key].label, value: monthlyExpenses[key].value }));
         
-// FIX: Explicitly typed the accumulator for 'repairsByVehicleType' to resolve 'unknown' type errors.
+        // FIX: Explicitly typed the accumulator for 'repairsByVehicleType' to resolve 'unknown' type errors.
         const repairsByVehicleType = dateFilteredCompletedRepairs.reduce((acc: Record<string, { count: number; totalCost: number }>, r) => {
             const type = r.vehicleType || 'ไม่ระบุ';
             if (!acc[type]) {

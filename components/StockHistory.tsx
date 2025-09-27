@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo } from 'react';
 import type { StockTransaction, StockTransactionType, StockItem, Repair, Technician } from '../types';
 import { STOCK_CATEGORIES } from '../data/categories';

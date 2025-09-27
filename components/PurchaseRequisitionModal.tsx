@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType, Supplier } from '../types';
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
@@ -251,7 +254,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const handleItemChange = useCallback((rowId: string, field: keyof PurchaseRequisitionItem, value: any) => {
         setPrData(prev => {
-// FIX: Explicitly type `newItems` to `PRItemWithRowId[]` to prevent TypeScript
+            // FIX: Explicitly type `newItems` to `PRItemWithRowId[]` to prevent TypeScript
             // from losing the `rowId` property during type inference, which caused
             // a type conflict in the `setPrData` call.
             const newItems: PRItemWithRowId[] = prev.items.map(item => {
@@ -302,7 +305,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
 
     const handleStatusChange = (newStatus: PurchaseRequisitionStatus) => {
-// FIX: Changed the type of `updates` to match the state type `PRDataWithRowIdItems`.
+        // FIX: Changed the type of `updates` to match the state type `PRDataWithRowIdItems`.
         // This resolves the type error when spreading `updates` into the state,
         // ensuring compatibility of all properties, including the nested `items` array.
         let updates: Partial<PRDataWithRowIdItems> = { status: newStatus };
@@ -343,7 +346,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                 status: 'ยกเลิก' as PurchaseRequisitionStatus,
                 items: itemsToSave,
                 totalAmount: grandTotal,
-// FIX: Corrected a typo from vat--- to vatAmount.
+                // FIX: Corrected a typo from vat--- to vatAmount.
                 vatAmount: vatAmount,
             };
             if ('id' in finalData) {
