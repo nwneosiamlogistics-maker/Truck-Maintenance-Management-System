@@ -339,6 +339,7 @@ export interface TireData {
     tireType: TireType;
     action: TireAction;
     changeDate: string; // YYYY-MM-DD
+    mileageInstalled: number | null;
     notes: string;
 }
 
@@ -349,6 +350,7 @@ export interface TireInspection {
     vehicleLayout: VehicleLayout;
     inspectionDate: string;
     inspectorName: string;
+    mileage: number;
     tires: Record<string, TireData>;
 }
 

@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useMemo } from 'react';
 import type { Repair, MaintenancePlan, Vehicle, PMHistory, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
@@ -89,7 +86,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         const totalDowntime = completedRepairs.reduce((acc, r) => acc + (new Date(r.repairEndDate!).getTime() - new Date(r.createdAt).getTime()), 0);
         const avgDowntimeHours = completedRepairs.length > 0 ? totalDowntime / completedRepairs.length / (1000 * 60 * 60) : 0;
 
-        // FIX: Explicitly type the accumulators 'acc' and 'pAcc' to prevent type errors.
         const totalCost = completedRepairs.reduce((acc: number, r) => {
             const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
                 const quantity = Number(p.quantity) || 0;
@@ -108,12 +104,12 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         const downtimeByVehicle: Record<string, number> = {};
         allRepairs.forEach(r => {
              if (r.repairEndDate && r.createdAt) {
-                const downtime = new Date(r.repairEndDate).getTime() - new Date(r.createdAt).getTime();
+                const downtime = Number(new Date(r.repairEndDate).getTime()) - Number(new Date(r.createdAt).getTime());
                 downtimeByVehicle[r.licensePlate] = (downtimeByVehicle[r.licensePlate] || 0) + downtime;
             }
         });
         const vehicleDowntime = Object.entries(downtimeByVehicle)
-            .map(([plate, totalMillis]) => ({ plate, hours: totalMillis / (1000 * 60 * 60) }))
+            .map(([plate, totalMillis]: [string, number]) => ({ plate, hours: totalMillis / (1000 * 60 * 60) }))
             .sort((a, b) => b.hours - a.hours).slice(0, 5);
 
         const repairsByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
@@ -121,10 +117,9 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             return acc;
         }, {} as Record<string, number>);
         const mostRepairedVehicles = Object.entries(repairsByVehicle)
-            .map(([plate, count]) => ({ plate, count }))
+            .map(([plate, count]: [string, number]) => ({ plate, count }))
             .sort((a, b) => b.count - a.count).slice(0, 5);
             
-        // FIX: Explicitly type the accumulator in reduce to ensure correct type inference.
         const costByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
                 const quantity = Number(p.quantity) || 0;
@@ -139,7 +134,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             return acc;
         }, {} as Record<string, number>);
         const mostExpensiveVehicles = Object.entries(costByVehicle)
-            .map(([plate, totalCost]) => ({ plate, totalCost }))
+            .map(([plate, totalCost]: [string, number]) => ({ plate, totalCost }))
             .sort((a, b) => b.totalCost - a.totalCost).slice(0, 5);
 
         // --- New PM Compliance Calculation (with 7-day grace period) ---
@@ -177,7 +172,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         });
 
 
-        // FIX: Explicitly type the accumulator for 'complianceByVehicle' to resolve 'unknown' type errors.
         const complianceByVehicle = planDetails.reduce((acc: Record<string, { onTimeCount: number; totalPlans: number }>, plan) => {
             const plate = plan.vehicleLicensePlate;
             if (!acc[plate]) acc[plate] = { onTimeCount: 0, totalPlans: 0 };
@@ -190,7 +184,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
         }, {} as Record<string, { onTimeCount: number; totalPlans: number }>);
 
         const pmComplianceRate = Object.entries(complianceByVehicle)
-            .map(([plate, data]) => ({
+            .map(([plate, data]: [string, { onTimeCount: number; totalPlans: number }]) => ({
                 plate,
                 onTimeRate: data.totalPlans > 0 ? (data.onTimeCount / data.totalPlans) * 100 : 0,
                 ...data

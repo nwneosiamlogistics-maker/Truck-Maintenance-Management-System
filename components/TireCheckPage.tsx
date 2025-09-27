@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction } from '../types';
+import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction, Repair } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPassword, calculateDateDifference } from '../utils';
 
@@ -127,7 +127,8 @@ const TireDataModal: React.FC<{
     onSave: (data: TireData) => void;
     tireData: TireData;
     positionLabel: string;
-}> = ({ isOpen, onClose, onSave, tireData, positionLabel }) => {
+    currentVehicleMileage: number;
+}> = ({ isOpen, onClose, onSave, tireData, positionLabel, currentVehicleMileage }) => {
     const [formData, setFormData] = useState<TireData>(tireData);
 
     useEffect(() => {
@@ -136,25 +137,20 @@ const TireDataModal: React.FC<{
 
     useEffect(() => {
         if (formData.action === 'เปลี่ยน') {
-            // When action changes to 'เปลี่ยน', pre-fill the date with today if it's currently empty.
-            // This prevents overwriting a date the user may have explicitly set.
-            setFormData(prev => {
-                if (prev && !prev.changeDate) {
-                    return { ...prev, changeDate: new Date().toISOString().split('T')[0] };
-                }
-                return prev; // No change needed
-            });
+            setFormData(prev => ({
+                ...prev,
+                changeDate: prev.changeDate || new Date().toISOString().split('T')[0],
+                mileageInstalled: (prev.mileageInstalled == null || prev.mileageInstalled === 0) ? currentVehicleMileage : prev.mileageInstalled
+            }));
         } else {
-            // If the action is anything other than 'เปลี่ยน', the change date is irrelevant.
-            // Clear it if it has a value to maintain data consistency.
-            setFormData(prev => {
-                if (prev && prev.changeDate !== '') {
-                    return { ...prev, changeDate: '' };
-                }
-                return prev; // No change needed
-            });
+             setFormData(prev => ({
+                ...prev,
+                changeDate: '',
+                mileageInstalled: null
+            }));
         }
-    }, [formData.action]);
+    }, [formData.action, currentVehicleMileage]);
+
 
     if (!isOpen) return null;
 
@@ -165,7 +161,13 @@ const TireDataModal: React.FC<{
     };
 
     const handleSave = () => {
-        onSave({ ...formData, isFilled: true });
+        let dataToSave = { ...formData, isFilled: true };
+        // Ensure data consistency: if action is not 'เปลี่ยน', clear change-related fields.
+        if (dataToSave.action !== 'เปลี่ยน') {
+            dataToSave.changeDate = '';
+            dataToSave.mileageInstalled = null;
+        }
+        onSave(dataToSave);
         onClose();
     };
 
@@ -218,7 +220,7 @@ const TireDataModal: React.FC<{
                                 {TIRE_ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
                             </select>
                         </div>
-                        <div>
+                         <div>
                             <label className="block text-sm font-medium text-gray-700">วันที่เปลี่ยนยาง</label>
                             <input
                                 type="date"
@@ -229,6 +231,17 @@ const TireDataModal: React.FC<{
                                 disabled={formData.action !== 'เปลี่ยน'}
                             />
                         </div>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">เลขไมล์ที่เปลี่ยน</label>
+                        <input
+                            type="number"
+                            name="mileageInstalled"
+                            value={formData.mileageInstalled ?? ''}
+                            onChange={handleChange}
+                            className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"
+                            disabled={formData.action !== 'เปลี่ยน'}
+                        />
                     </div>
 
                     {/* Misc */}
@@ -500,9 +513,10 @@ interface TireCheckPageProps {
     inspections: TireInspection[];
     setInspections: React.Dispatch<React.SetStateAction<TireInspection[]>>;
     vehicles: Vehicle[];
+    repairs: Repair[];
 }
 
-const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspections, vehicles }) => {
+const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspections, vehicles, repairs }) => {
     const [view, setView] = useState<'form' | 'history' | 'changeHistory'>('form');
     const [editingInspection, setEditingInspection] = useState<TireInspection | null>(null);
 
@@ -552,6 +566,7 @@ const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspectio
                     inspectionToEdit={editingInspection}
                     onComplete={handleComplete}
                     onCancel={handleCancel}
+                    repairs={repairs}
                 />
             ) : view === 'history' ? (
                 <TireCheckHistory inspections={inspections} onEdit={handleEdit} setInspections={setInspections} />
@@ -568,9 +583,10 @@ interface TireCheckFormProps {
     inspectionToEdit: TireInspection | null;
     onComplete: () => void;
     onCancel: () => void;
+    repairs: Repair[];
 }
 
-const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections, inspectionToEdit, onComplete, onCancel }) => {
+const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections, inspectionToEdit, onComplete, onCancel, repairs }) => {
     const { addToast } = useToast();
 
     const getInitialInspectionState = useCallback((inspection: TireInspection | null): Omit<TireInspection, 'id'> => {
@@ -581,6 +597,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
                 vehicleLayout: inspection.vehicleLayout,
                 inspectionDate: inspection.inspectionDate.split('T')[0],
                 inspectorName: inspection.inspectorName,
+                mileage: inspection.mileage || 0,
                 tires: inspection.tires,
             };
         }
@@ -590,6 +607,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
             vehicleLayout: 'รถ 10 ล้อ',
             inspectionDate: new Date().toISOString().split('T')[0],
             inspectorName: '',
+            mileage: 0,
             tires: {},
         };
     }, []);
@@ -621,6 +639,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
                     action: 'ปกติ',
                     notes: '',
                     changeDate: '',
+                    mileageInstalled: null,
                     brand: '',
                     model: '',
                 };
@@ -636,9 +655,22 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
         }));
     };
     
+    const handleVehicleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const plate = e.target.value;
+        const latestRepair = (Array.isArray(repairs) ? repairs : [])
+            .filter(r => r.licensePlate === plate && r.currentMileage)
+            .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        setFormData(prev => ({
+            ...prev,
+            licensePlate: plate,
+            mileage: latestRepair ? Number(latestRepair.currentMileage) : (prev.mileage || 0),
+        }));
+    };
+
     const handleSaveInspection = () => {
-        if (!formData.licensePlate.trim() || !formData.inspectorName.trim()) {
-            addToast('กรุณากรอกทะเบียนรถและชื่อผู้ตรวจ', 'warning');
+        if (!formData.licensePlate.trim() || !formData.inspectorName.trim() || !formData.mileage) {
+            addToast('กรุณากรอกทะเบียนรถ, ชื่อผู้ตรวจ, และเลขไมล์', 'warning');
             return;
         }
 
@@ -676,10 +708,10 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
         <div className="bg-white p-6 rounded-2xl shadow-lg space-y-6">
             <h2 className="text-2xl font-bold text-center">{inspectionToEdit ? `แก้ไขการตรวจเช็ค: ${inspectionToEdit.licensePlate}` : 'สร้างใบตรวจเช็คยาง'}</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                  <div>
                     <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ *</label>
-                    <input list="license-plates" name="licensePlate" value={formData.licensePlate} onChange={e => setFormData(p => ({...p, licensePlate: e.target.value}))} className="mt-1 w-full p-2 border rounded-lg" required/>
+                    <input list="license-plates" name="licensePlate" value={formData.licensePlate} onChange={handleVehicleSelect} className="mt-1 w-full p-2 border rounded-lg" required/>
                     <datalist id="license-plates">
                         {safeVehicles.map(v => <option key={v.id} value={v.licensePlate} />)}
                     </datalist>
@@ -699,6 +731,10 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
                  <div>
                     <label className="block text-sm font-medium text-gray-700">ผู้ตรวจ *</label>
                     <input type="text" name="inspectorName" value={formData.inspectorName} onChange={e => setFormData(p => ({...p, inspectorName: e.target.value}))} className="mt-1 w-full p-2 border rounded-lg" required />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-700">เลขไมล์ (กม.) *</label>
+                    <input type="number" name="mileage" value={formData.mileage || ''} onChange={e => setFormData(p => ({...p, mileage: Number(e.target.value)}))} className="mt-1 w-full p-2 border rounded-lg" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">วันที่ตรวจ</label>
@@ -729,6 +765,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
                     onSave={handleTireDataSave}
                     tireData={formData.tires[selectedTirePos]}
                     positionLabel={positionLabelForModal}
+                    currentVehicleMileage={formData.mileage}
                 />
             )}
         </div>
@@ -785,7 +822,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                             <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50" onClick={() => setExpandedId(isExpanded ? null : insp.id)}>
                                 <div>
                                     <p className="font-bold text-lg">{insp.licensePlate} {insp.trailerLicensePlate && ` / ${insp.trailerLicensePlate}`}</p>
-                                    <p className="text-sm text-gray-500">{new Date(insp.inspectionDate).toLocaleDateString('th-TH')} - โดย {insp.inspectorName}</p>
+                                    <p className="text-sm text-gray-500">{new Date(insp.inspectionDate).toLocaleDateString('th-TH')} - โดย {insp.inspectorName} - เลขไมล์: {insp.mileage.toLocaleString()} กม.</p>
                                 </div>
                                 <div className="flex items-center gap-4">
                                      <button onClick={(e) => { e.stopPropagation(); if (promptForPassword('แก้ไข')) { onEdit(insp); } }} className="text-yellow-600 hover:text-yellow-800">แก้ไข</button>
@@ -804,6 +841,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                                                 <th className="p-2 text-left">การดำเนินการ</th>
                                                 <th className="p-2 text-left">ยี่ห้อ/รุ่น</th>
                                                 <th className="p-2 text-left">วันที่เปลี่ยน</th>
+                                                <th className="p-2 text-right">เลขไมล์ที่เปลี่ยน</th>
                                                 <th className="p-2 text-left">อายุการใช้งาน</th>
                                             </tr>
                                         </thead>
@@ -818,6 +856,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                                                     <td className="p-2">{tire.action}</td>
                                                     <td className="p-2">{tire.brand} {tire.model}</td>
                                                     <td className="p-2">{tire.changeDate ? new Date(tire.changeDate).toLocaleDateString('th-TH') : '-'}</td>
+                                                    <td className="p-2 text-right">{tire.mileageInstalled ? tire.mileageInstalled.toLocaleString() : '-'}</td>
                                                     <td className="p-2">{calculateTireAge(tire.changeDate)}</td>
                                                 </tr>
                                             )})}
@@ -870,11 +909,9 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
             .filter(insp => insp.licensePlate === selectedPlate)
             .sort((a, b) => new Date(a.inspectionDate).getTime() - new Date(b.inspectionDate).getTime());
 
-        // FIX: Add `layout` property to history items to track vehicle layout over time.
         const positionHistory: Record<string, { date: string; tire: TireData; layout: VehicleLayout }[]> = {};
 
         for (const insp of vehicleInspections) {
-            // FIX: Cast Object.values to TireData[] to resolve type errors.
             for (const tire of Object.values(insp.tires) as TireData[]) {
                 if (tire.isFilled && tire.action === 'เปลี่ยน' && tire.changeDate) {
                     if (!positionHistory[tire.positionId]) {
@@ -887,7 +924,7 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
         
         Object.values(positionHistory).forEach(history => history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
         
-        const eventsByDate: Record<string, { tires: (TireData & { lifespan?: string })[] }> = {};
+        const eventsByDate: Record<string, { tires: (TireData & { layout: VehicleLayout, lifespan?: string, mileageLifespan?: number })[] }> = {};
 
         for (const [posId, history] of Object.entries(positionHistory)) {
             for (let i = 0; i < history.length; i++) {
@@ -900,7 +937,11 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                 }
                 
                 const lifespan = removalEvent ? calculateDateDifference(installEvent.date, removalEvent.date) : undefined;
-                eventsByDate[eventDate].tires.push({ ...installEvent.tire, lifespan });
+                const mileageLifespan = (removalEvent && installEvent.tire.mileageInstalled != null && removalEvent.tire.mileageInstalled != null)
+                    ? removalEvent.tire.mileageInstalled - installEvent.tire.mileageInstalled
+                    : undefined;
+                    
+                eventsByDate[eventDate].tires.push({ ...installEvent.tire, layout: installEvent.layout, lifespan, mileageLifespan });
             }
         }
         
@@ -911,18 +952,33 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
         const latestTires = Object.entries(positionHistory).map(([posId, history]) => {
             const latestChange = history[history.length - 1];
             const latestTire = latestChange.tire;
-            // FIX: Use the correct layout from the history item instead of an incorrect property on TireData.
             const latestLayout = latestChange.layout;
             const positionInfo = (VEHICLE_LAYOUTS[latestLayout] || []).find(p => p.id === posId);
+            
+            const latestInspection = vehicleInspections.length > 0 ? vehicleInspections[vehicleInspections.length - 1] : null;
+            const currentMileage = latestInspection?.mileage || null;
+            const mileageAge = (currentMileage && latestTire.mileageInstalled != null) ? currentMileage - latestTire.mileageInstalled : null;
+
             return {
                 ...latestTire,
                 positionLabel: positionInfo?.label || posId,
-                currentAge: calculateDateDifference(latestTire.changeDate, new Date().toISOString())
+                currentAge: calculateDateDifference(latestTire.changeDate, new Date().toISOString()),
+                currentMileageAge: mileageAge
             };
         }).sort((a,b) => parseInt(a.positionId) - parseInt(b.positionId));
 
         return { changeEvents: finalEvents, currentTires: latestTires };
     }, [selectedPlate, inspections]);
+
+    const getLifespanText = (tire: { lifespan?: string, mileageLifespan?: number }) => {
+        if (tire.mileageLifespan != null && tire.mileageLifespan > 0) {
+            return `${tire.mileageLifespan.toLocaleString()} กิโลเมตร`;
+        }
+        if (tire.lifespan) {
+            return tire.lifespan; // Fallback to date difference
+        }
+        return 'N/A';
+    };
 
     if (selectedPlate) {
         const mostRecentEvent = changeEvents[0];
@@ -944,7 +1000,9 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                                     <th className="p-2 text-left">ตำแหน่ง</th>
                                     <th className="p-2 text-left">ยี่ห้อ/รุ่น</th>
                                     <th className="p-2 text-left">วันที่เปลี่ยน</th>
-                                    <th className="p-2 text-left">อายุการใช้งานปัจจุบัน</th>
+                                    <th className="p-2 text-right">เลขไมล์ที่เปลี่ยน</th>
+                                    <th className="p-2 text-left">อายุใช้งาน (เวลา)</th>
+                                    <th className="p-2 text-left">อายุใช้งาน (กม.)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -953,7 +1011,9 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                                         <td className="p-2 font-medium">{tire.positionLabel}</td>
                                         <td className="p-2">{tire.brand} {tire.model}</td>
                                         <td className="p-2">{new Date(tire.changeDate).toLocaleDateString('th-TH')}</td>
-                                        <td className="p-2 font-semibold text-green-600">{tire.currentAge}</td>
+                                        <td className="p-2 text-right">{tire.mileageInstalled ? tire.mileageInstalled.toLocaleString() : '-'}</td>
+                                        <td className="p-2 font-semibold text-blue-600">{tire.currentAge}</td>
+                                        <td className="p-2 font-semibold text-green-600">{tire.currentMileageAge ? `${tire.currentMileageAge.toLocaleString()} กม.` : '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -968,11 +1028,13 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                             <div key={event.date} className="bg-gray-50 p-4 rounded-lg">
                                 <p className="font-bold">เปลี่ยนเมื่อ: {new Date(event.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} (จำนวน {event.tires.length} เส้น)</p>
                                 <ul className="list-disc list-inside mt-2 text-sm pl-2 space-y-1">
-                                    {event.tires.map((tire, idx) => (
+                                    {event.tires.map((tire, idx) => {
+                                         const positionLabel = (VEHICLE_LAYOUTS[tire.layout] || []).find(p => p.id === tire.positionId)?.label || tire.positionId;
+                                        return (
                                         <li key={idx}>
-                                            {(VEHICLE_LAYOUTS[tire.vehicleLayout as VehicleLayout] || []).find(p => p.id === tire.positionId)?.label || tire.positionId}: {tire.brand || 'N/A'} {tire.model || ''} - <span className="font-semibold text-blue-600">อายุการใช้งาน: {tire.lifespan || 'ยังใช้งานอยู่'}</span>
+                                            {positionLabel}: {tire.brand || 'N/A'} {tire.model || ''} - อายุการใช้งาน: <span className="font-semibold text-blue-600">{getLifespanText(tire)}</span>
                                         </li>
-                                    ))}
+                                    )})}
                                 </ul>
                             </div>
                         ))}

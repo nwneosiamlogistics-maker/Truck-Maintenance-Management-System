@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType, Supplier } from '../types';
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
@@ -13,13 +9,7 @@ import { promptForPassword } from '../utils';
 // Define temporary item type with a unique rowId for UI management
 type PRItemWithRowId = PurchaseRequisitionItem & { rowId: string };
 
-// FIX: Update PRDataWithRowIdItems to allow optional id, prNumber, createdAt, and updatedAt.
-// This correctly models the state for both new (no id) and existing (with id) requisitions.
-type PRDataWithRowIdItems = Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt' | 'items'> & {
-    id?: string;
-    prNumber?: string;
-    createdAt?: string;
-    updatedAt?: string;
+type PRDataWithRowIdItems = Omit<PurchaseRequisition, 'items'> & {
     items: PRItemWithRowId[];
 };
 
@@ -117,6 +107,10 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     
     const getInitialState = useCallback((): PRDataWithRowIdItems => {
         const base = initialRequisition || {
+            id: undefined,
+            prNumber: undefined,
+            createdAt: undefined,
+            updatedAt: undefined,
             requesterName: 'เจ้าหน้าที่ธุรการซ่อมบำรุง',
             department: 'แผนกซ่อมบำรุง',
             dateNeeded: new Date().toISOString().split('T')[0],
@@ -145,7 +139,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             rowId: `item-${Date.now()}-${Math.random()}`
         }));
 
-        return { ...base, items: itemsWithId };
+        return { ...base, items: itemsWithId } as PRDataWithRowIdItems;
     }, [initialRequisition, initialItem, stockItems]);
 
     const [prData, setPrData] = useState(getInitialState());
@@ -178,7 +172,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const { subtotal, vatAmount, grandTotal } = useMemo(() => {
         const items = Array.isArray(prData.items) ? prData.items : [];
-        const sub = items.reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
+        const sub = items.reduce((total: number, item) => total + (item.quantity * item.unitPrice), 0);
         const vat = isVatEnabled ? sub * (vatRate / 100) : 0;
         const grand = sub + vat;
         return { subtotal: sub, vatAmount: vat, grandTotal: grand };
@@ -254,9 +248,6 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const handleItemChange = useCallback((rowId: string, field: keyof PurchaseRequisitionItem, value: any) => {
         setPrData(prev => {
-            // FIX: Explicitly type `newItems` to `PRItemWithRowId[]` to prevent TypeScript
-            // from losing the `rowId` property during type inference, which caused
-            // a type conflict in the `setPrData` call.
             const newItems: PRItemWithRowId[] = prev.items.map(item => {
                 if (item.rowId === rowId) {
                     return { ...item, [field]: value };
@@ -305,9 +296,6 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
 
     const handleStatusChange = (newStatus: PurchaseRequisitionStatus) => {
-        // FIX: Changed the type of `updates` to match the state type `PRDataWithRowIdItems`.
-        // This resolves the type error when spreading `updates` into the state,
-        // ensuring compatibility of all properties, including the nested `items` array.
         let updates: Partial<PRDataWithRowIdItems> = { status: newStatus };
         if (newStatus === 'อนุมัติแล้ว' && !prData.approvalDate) {
             updates.approverName = 'ผู้จัดการ'; // Placeholder for user system
@@ -331,10 +319,11 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         const itemsToSave = safeItems.map(({ rowId, ...rest }) => rest);
         const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount };
 
-        if ('id' in finalData) {
+        if ('id' in finalData && finalData.id) {
              onSave(finalData as PurchaseRequisition);
         } else {
-            onSave(finalData as Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'>);
+            const { id, prNumber, createdAt, updatedAt, ...newData } = finalData;
+            onSave(newData as Omit<PurchaseRequisition, 'id' | 'prNumber' | 'createdAt' | 'updatedAt'>);
         }
     };
 
@@ -346,10 +335,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                 status: 'ยกเลิก' as PurchaseRequisitionStatus,
                 items: itemsToSave,
                 totalAmount: grandTotal,
-                // FIX: Corrected a typo from vat--- to vatAmount.
                 vatAmount: vatAmount,
             };
-            if ('id' in finalData) {
+            if ('id' in finalData && finalData.id) {
                  onSave(finalData as PurchaseRequisition);
             }
         }

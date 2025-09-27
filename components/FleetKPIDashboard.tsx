@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Repair, MaintenancePlan, Vehicle, PMHistory, AnnualPMPlan } from '../types';
 import { KPICard, BarChart, PieChart } from './Charts';
@@ -90,7 +87,6 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             : 100;
 
         // --- REWORK CALCULATION (replaces recurring breakdown) ---
-        // FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
         const repairsByVehicleForRework = periodRepairs.reduce((acc: Record<string, { description: string, date: string }[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             // Store description and date to better identify reworks
@@ -120,7 +116,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         let reworkVehicleCount = 0;
         const reworkedVehicles: { plate: string, descriptions: string[] }[] = [];
 
-        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]) => {
+        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, { description: string; date: string }[]]) => {
             if (vehicleRepairs.length > 1) {
                 const sortedRepairs = vehicleRepairs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 let foundRework = false;
@@ -145,8 +141,8 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         
         const avgDowntime = completedPeriodRepairs.length > 0 ? totalDowntimeHours / completedPeriodRepairs.length : 0;
         
-        const totalCost = completedPeriodRepairs.reduce((sum, r) => {
-            const partsCost = (r.parts || []).reduce((pSum, p) => {
+        const totalCost = completedPeriodRepairs.reduce((sum: number, r) => {
+            const partsCost = (r.parts || []).reduce((pSum: number, p) => {
                 const quantity = Number(p.quantity) || 0;
                 const unitPrice = Number(p.unitPrice) || 0;
                 return pSum + (quantity * unitPrice);
@@ -199,12 +195,11 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         // --- Alerts Table ---
         const alerts: AlertItem[] = [];
         // High downtime vehicles
-        // FIX: Explicitly typed the accumulator in `reduce` to prevent type errors.
         Object.entries(periodRepairs.reduce((acc: Record<string, Repair[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             acc[r.licensePlate].push(r);
             return acc;
-        }, {} as Record<string, Repair[]>)).forEach(([plate, vehicleRepairs]) => {
+        }, {} as Record<string, Repair[]>)).forEach(([plate, vehicleRepairs]: [string, Repair[]]) => {
             const count = vehicleRepairs.length;
             const vehicleDowntime = vehicleRepairs
                 .filter(r => r.createdAt && r.repairEndDate)

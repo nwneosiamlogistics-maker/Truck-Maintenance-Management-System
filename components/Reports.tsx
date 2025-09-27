@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo } from 'react';
 import type { Repair, StockItem, Technician } from '../types';
 import StatCard from './StatCard';
@@ -354,7 +351,7 @@ const Card: React.FC<{ title: string; children: React.ReactNode; className?: str
 
 // Helper function
 const calculateTotalCost = (repair: Repair): number => {
-    const partsCost = (repair.parts || []).reduce((sum, part) => {
+    const partsCost = (repair.parts || []).reduce((sum: number, part) => {
         return sum + (Number(part.quantity) || 0) * (Number(part.unitPrice) || 0);
     }, 0);
     return (Number(repair.repairCost) || 0) + partsCost + (Number(repair.partsVat) || 0) + (Number(repair.laborVat) || 0);
@@ -442,7 +439,6 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         });
         const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().slice(-6).map(key => ({ label: monthlyExpenses[key].label, value: monthlyExpenses[key].value }));
         
-        // FIX: Explicitly typed the accumulator for 'repairsByVehicleType' to resolve 'unknown' type errors.
         const repairsByVehicleType = dateFilteredCompletedRepairs.reduce((acc: Record<string, { count: number; totalCost: number }>, r) => {
             const type = r.vehicleType || 'ไม่ระบุ';
             if (!acc[type]) {
@@ -454,7 +450,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         }, {} as Record<string, { count: number; totalCost: number }>);
 
         const vehicleTypeAnalysisData = Object.entries(repairsByVehicleType)
-            .map(([label, data]) => ({
+            .map(([label, data]: [string, { count: number; totalCost: number }]) => ({
                 label,
                 count: data.count,
                 avgCost: data.count > 0 ? data.totalCost / data.count : 0,

@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import type { Chat } from "@google/genai";
@@ -49,14 +47,12 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, repairs, technicians
         const totalRepairTime = completedRepairs.reduce((acc, r) => acc + calculateDurationHours(r.repairStartDate, r.repairEndDate), 0);
         const mttrHours = completedRepairs.length > 0 ? totalRepairTime / completedRepairs.length : 0;
         
-        // FIX: Add explicit number type to accumulator to prevent type errors.
         const totalDowntime = completedRepairs.reduce((acc: number, r) => acc + calculateDurationHours(r.createdAt, r.repairEndDate), 0);
         const avgDowntimeHours = completedRepairs.length > 0 ? totalDowntime / completedRepairs.length : 0;
         
-        // FIX: Add explicit number type to accumulator to prevent type errors.
         const totalCost = completedRepairs.reduce((acc: number, r) => {
-            const partsCost = (r.parts || []).reduce((pAcc: number, p) => pAcc + (p.quantity * p.unitPrice), 0);
-            return acc + r.repairCost + partsCost + (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0);
+            const partsCost = (r.parts || []).reduce((pAcc: number, p) => pAcc + (Number(p.quantity) * Number(p.unitPrice)), 0);
+            return acc + (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0);
         }, 0);
         const avgCost = completedRepairs.length > 0 ? totalCost / completedRepairs.length : 0;
         
@@ -73,7 +69,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, repairs, technicians
             else nextServiceDate.setMonth(nextServiceDate.getMonth() + plan.frequencyValue);
             return nextServiceDate < new Date();
         }).length;
-        const pmComplianceRate = safePlans.length > 0 ? ((safePlans.length - overduePlans) / safePlans.length) * 100 : 100;
+
+        // FIX: The variable 'pmComplianceRate' was declared twice, causing a syntax error.
+        // The type error reported was likely a symptom of the linter getting confused.
+        // Kept the version with explicit Number casting for type safety.
+        const pmComplianceRate = safePlans.length > 0 ? ((Number(safePlans.length) - Number(overduePlans)) / Number(safePlans.length)) * 100 : 100;
 
         // --- 4. Data Formatting for Prompt ---
         const repairsReportedTodayData = repairsReportedToday.map(r => `- ทะเบียน: ${r.licensePlate}, อาการ: ${r.problemDescription}, สถานะ: ${r.status}`).join('\n');

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import type { StockTransaction, StockTransactionType, StockItem, Repair, Technician } from '../types';
 import { STOCK_CATEGORIES } from '../data/categories';
@@ -23,7 +21,6 @@ type FlattenedPart = {
     dateUsed: string;
     repairOrderNo: string;
     licensePlate: string;
-    // FIX: Use a combined technician ID list instead of deprecated assignedTechnicians
     allTechnicianIds: string[];
 };
 
@@ -71,7 +68,6 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     dateUsed: r.repairEndDate!,
                     repairOrderNo: r.repairOrderNo,
                     licensePlate: r.licensePlate,
-                    // FIX: Use assignedTechnicianId and assistantTechnicianIds to create a combined list
                     allTechnicianIds: [r.assignedTechnicianId, ...(r.assistantTechnicianIds || [])].filter(Boolean) as string[],
                 }))
             );
@@ -86,15 +82,13 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
         if (activeTab === 'internal') {
             return (Array.isArray(transactions) ? transactions : [])
                 .filter(t => {
-                    // For 'เบิกใช้' transactions, verify the part source from the original repair.
-                    // This prevents parts bought from stores from appearing in internal stock history.
                     if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
                         const partSource = repairPartSourceMap.get(t.relatedRepairOrder)?.get(t.stockItemId);
                         if (partSource === 'ร้านค้า') {
                             return false; // Exclude this transaction.
                         }
                     }
-                    return true; // Include all other valid transactions.
+                    return true;
                 })
                 .map(t => {
                     let displayDate = t.transactionDate;
@@ -279,7 +273,6 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                     <td className="px-4 py-3 font-semibold">{p.partName}</td>
                                     <td className="px-4 py-3 text-sm">{p.category}</td>
                                     <td className="px-4 py-3 text-right font-bold text-base">{p.quantity} {p.unit}</td>
-                                    {/* FIX: Use allTechnicianIds which contains both main and assistant technicians */}
                                     <td className="px-4 py-3 text-sm">{getTechnicianNames(p.allTechnicianIds)}</td>
                                     <td className="px-4 py-3 text-right">{p.unitPrice.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-right font-semibold">{(p.unitPrice * p.quantity).toLocaleString()}</td>
