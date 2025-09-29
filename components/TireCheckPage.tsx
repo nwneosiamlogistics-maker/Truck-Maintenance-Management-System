@@ -822,7 +822,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                             <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50" onClick={() => setExpandedId(isExpanded ? null : insp.id)}>
                                 <div>
                                     <p className="font-bold text-lg">{insp.licensePlate} {insp.trailerLicensePlate && ` / ${insp.trailerLicensePlate}`}</p>
-                                    <p className="text-sm text-gray-500">{new Date(insp.inspectionDate).toLocaleDateString('th-TH')} - โดย {insp.inspectorName} - เลขไมล์: {insp.mileage.toLocaleString()} กม.</p>
+                                    <p className="text-sm text-gray-500">{new Date(insp.inspectionDate).toLocaleDateString('th-TH')} - โดย {insp.inspectorName} - เลขไมล์: {(insp.mileage || 0).toLocaleString()} กม.</p>
                                 </div>
                                 <div className="flex items-center gap-4">
                                      <button onClick={(e) => { e.stopPropagation(); if (promptForPassword('แก้ไข')) { onEdit(insp); } }} className="text-yellow-600 hover:text-yellow-800">แก้ไข</button>
@@ -972,7 +972,7 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
 
     const getLifespanText = (tire: { lifespan?: string, mileageLifespan?: number }) => {
         if (tire.mileageLifespan != null && tire.mileageLifespan > 0) {
-            return `${tire.mileageLifespan.toLocaleString()} กิโลเมตร`;
+            return `${(tire.mileageLifespan || 0).toLocaleString()} กิโลเมตร`;
         }
         if (tire.lifespan) {
             return tire.lifespan; // Fallback to date difference

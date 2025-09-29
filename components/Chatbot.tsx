@@ -70,9 +70,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, repairs, technicians
             return nextServiceDate < new Date();
         }).length;
 
-        // FIX: The variable 'pmComplianceRate' was declared twice, causing a syntax error.
-        // The type error reported was likely a symptom of the linter getting confused.
-        // Kept the version with explicit Number casting for type safety.
+        // FIX: The arithmetic operation was causing type errors. Enforcing Number type on operands resolves this issue, which may have been a symptom of a previous syntax error (like a duplicate variable declaration) that confused the linter.
         const pmComplianceRate = safePlans.length > 0 ? ((Number(safePlans.length) - Number(overduePlans)) / Number(safePlans.length)) * 100 : 100;
 
         // --- 4. Data Formatting for Prompt ---
@@ -153,7 +151,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, repairs, technicians
             setSystemInstruction(context);
 
             // Always create a new chat instance when the context might have changed to ensure it has the latest data.
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+            // FIX: Remove non-null assertion `!` from API key to align with coding guidelines.
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             chatRef.current = ai.chats.create({ 
                 model: 'gemini-2.5-flash', 
                 config: { systemInstruction: context } 
