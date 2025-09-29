@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction, Repair } from '../types';
+import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction, Repair, Technician } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPassword, calculateDateDifference } from '../utils';
 
@@ -514,9 +514,10 @@ interface TireCheckPageProps {
     setInspections: React.Dispatch<React.SetStateAction<TireInspection[]>>;
     vehicles: Vehicle[];
     repairs: Repair[];
+    technicians: Technician[];
 }
 
-const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspections, vehicles, repairs }) => {
+const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspections, vehicles, repairs, technicians }) => {
     const [view, setView] = useState<'form' | 'history' | 'changeHistory'>('form');
     const [editingInspection, setEditingInspection] = useState<TireInspection | null>(null);
 
@@ -567,6 +568,7 @@ const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspectio
                     onComplete={handleComplete}
                     onCancel={handleCancel}
                     repairs={repairs}
+                    technicians={technicians}
                 />
             ) : view === 'history' ? (
                 <TireCheckHistory inspections={inspections} onEdit={handleEdit} setInspections={setInspections} />
@@ -584,9 +586,10 @@ interface TireCheckFormProps {
     onComplete: () => void;
     onCancel: () => void;
     repairs: Repair[];
+    technicians: Technician[];
 }
 
-const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections, inspectionToEdit, onComplete, onCancel, repairs }) => {
+const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections, inspectionToEdit, onComplete, onCancel, repairs, technicians }) => {
     const { addToast } = useToast();
 
     const getInitialInspectionState = useCallback((inspection: TireInspection | null): Omit<TireInspection, 'id'> => {
@@ -669,8 +672,8 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
     };
 
     const handleSaveInspection = () => {
-        if (!formData.licensePlate.trim() || !formData.inspectorName.trim() || !formData.mileage) {
-            addToast('กรุณากรอกทะเบียนรถ, ชื่อผู้ตรวจ, และเลขไมล์', 'warning');
+        if (!formData.licensePlate.trim() || !formData.inspectorName.trim()) {
+            addToast('กรุณากรอกทะเบียนรถและชื่อผู้ตรวจ', 'warning');
             return;
         }
 
@@ -730,11 +733,16 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
                 </div>
                  <div>
                     <label className="block text-sm font-medium text-gray-700">ผู้ตรวจ *</label>
-                    <input type="text" name="inspectorName" value={formData.inspectorName} onChange={e => setFormData(p => ({...p, inspectorName: e.target.value}))} className="mt-1 w-full p-2 border rounded-lg" required />
+                    <select name="inspectorName" value={formData.inspectorName} onChange={e => setFormData(p => ({...p, inspectorName: e.target.value}))} className="mt-1 w-full p-2 border rounded-lg" required>
+                        <option value="" disabled>-- เลือกช่าง --</option>
+                        {technicians.map(tech => (
+                            <option key={tech.id} value={tech.name}>{tech.name}</option>
+                        ))}
+                    </select>
                 </div>
                  <div>
-                    <label className="block text-sm font-medium text-gray-700">เลขไมล์ (กม.) *</label>
-                    <input type="number" name="mileage" value={formData.mileage || ''} onChange={e => setFormData(p => ({...p, mileage: Number(e.target.value)}))} className="mt-1 w-full p-2 border rounded-lg" required />
+                    <label className="block text-sm font-medium text-gray-700">เลขไมล์ (กม.)</label>
+                    <input type="number" name="mileage" value={formData.mileage || ''} onChange={e => setFormData(p => ({...p, mileage: Number(e.target.value)}))} className="mt-1 w-full p-2 border rounded-lg" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">วันที่ตรวจ</label>

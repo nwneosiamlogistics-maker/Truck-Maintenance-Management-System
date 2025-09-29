@@ -533,7 +533,7 @@ const AppContent: React.FC = () => {
                     setActiveTab={setActiveTab}
                 />;
             case 'tire-check':
-                return <TireCheckPage inspections={tireInspections} setInspections={setTireInspections} vehicles={vehicles} repairs={repairs} />;
+                return <TireCheckPage inspections={tireInspections} setInspections={setTireInspections} vehicles={vehicles} repairs={repairs} technicians={technicians} />;
             case 'tool-management':
                 return <ToolManagement 
                     tools={tools} 
