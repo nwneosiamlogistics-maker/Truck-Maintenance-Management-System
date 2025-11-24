@@ -219,6 +219,14 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     }
                   }
                 </style>
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            window.close();
+                        }, 800);
+                    }
+                </script>
             </head>
             <body>
                 ${printContent}
@@ -226,10 +234,6 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             </html>
         `);
         printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-        }, 500); // Delay to ensure content is fully rendered and styled
     };
 
 

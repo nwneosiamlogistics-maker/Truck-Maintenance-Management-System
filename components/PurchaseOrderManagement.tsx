@@ -418,15 +418,19 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                 @page { size: A4; margin: 0.5cm; }
                             }
                         </style>
+                        <script>
+                            window.onload = function() {
+                                setTimeout(function() {
+                                    window.print();
+                                    window.close();
+                                }, 800);
+                            }
+                        </script>
                     </head>
                     <body>${printContent}</body>
                 </html>
             `);
             printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => {
-                printWindow.print();
-            }, 500);
         }
     };
 

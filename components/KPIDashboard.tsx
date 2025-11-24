@@ -1,14 +1,11 @@
 
 import React, { useMemo } from 'react';
-import type { Repair, MaintenancePlan, Vehicle, PMHistory, EstimationAttempt } from '../types';
+import type { Repair, Vehicle } from '../types';
 import StatCard from './StatCard';
-import { formatHoursToHHMM, calculateDurationHours, formatHoursDescriptive } from '../utils';
-
-type PlanStatus = 'ok' | 'due' | 'overdue';
+import { formatHoursToHHMM } from '../utils';
 
 interface KPIDashboardProps {
     repairs: Repair[];
-    plans: MaintenancePlan[];
     vehicles: Vehicle[];
 }
 
@@ -36,7 +33,7 @@ const BarChart: React.FC<{ title: string, data: { label: string, value: number, 
     );
 };
 
-const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles }) => {
+const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
     const kpiData = useMemo(() => {
         const completedRepairs = (Array.isArray(repairs) ? repairs : []).filter(
             r => r.status === 'ซ่อมเสร็จ' && r.repairStartDate && r.repairEndDate && r.createdAt
@@ -104,7 +101,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost,
             vehicleDowntime, mostRepairedVehicles, mostExpensiveVehicles,
         };
-    }, [repairs, plans, vehicles]);
+    }, [repairs, vehicles]);
 
     return (
         <div className="space-y-6">

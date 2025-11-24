@@ -12,110 +12,187 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
     const grandTotal = requisition.totalAmount;
     const vatRate = subtotal > 0 && vatAmount > 0 ? (vatAmount / subtotal) * 100 : 0;
 
-    return (
-        <div className="bg-white p-8 font-sarabun text-gray-800">
-            {/* Header */}
-            <header className="flex justify-between items-start pb-4 border-b-2 border-gray-800">
-                <div className="w-2/5">
-                    <h1 className="text-4xl font-bold">ใบขอซื้อ</h1>
-                    <h2 className="text-xl text-gray-500">Purchase Requisition</h2>
-                </div>
-                <div className="w-3/5 text-right">
-                    <p className="text-xl font-bold">NEOSIAM LOGISTICS & TRANSPORT</p>
-                    <p className="text-sm text-gray-600">A 159/9-10 Village No.7 | Bang Muang Sub-district  |  Muang Nakhon Sawan District | Nakhon Sawan 60000 | Thailand</p>
-                    <p className="text-sm text-gray-600">T (+66)5627 5841  Fax (+66)5627 5843 info_nw@neosiamlogistics.com</p>
-                </div>
-            </header>
+    const logoUrl = "https://img2.pic.in.th/pic/logo-neo.png";
 
-             {/* Info Section */}
-            <section className="grid grid-cols-2 gap-6 my-6 text-sm">
-                <div className="border border-gray-300 rounded-lg p-4 space-y-1">
-                    <p className="font-bold text-base">ผู้จำหน่าย (Supplier):</p>
-                    <p>{requisition.supplier || '-'}</p>
-                </div>
-                <div className="border border-gray-300 rounded-lg p-4 space-y-1">
-                    <p className="font-bold text-base">ข้อมูลการขอซื้อ:</p>
-                    <div className="grid grid-cols-2 gap-x-4">
-                        <p><span className="font-semibold">เลขที่:</span> {requisition.prNumber}</p>
-                        <p><span className="font-semibold">วันที่:</span> {new Date(requisition.createdAt).toLocaleDateString('th-TH')}</p>
-                        <p><span className="font-semibold">ผู้ขอซื้อ:</span> {requisition.requesterName}</p>
-                        <p><span className="font-semibold">แผนก/สาขา:</span> {requisition.department}</p>
-                        <p><span className="font-semibold">วันที่ต้องการใช้:</span> {new Date(requisition.dateNeeded).toLocaleDateString('th-TH')}</p>
+    // Target rows for pagination
+    const TARGET_ROWS = 12;
+    const emptyRowsCount = Math.max(0, TARGET_ROWS - (requisition.items?.length || 0));
+
+    return (
+        <div 
+            className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative" 
+            style={{ 
+                width: '210mm', 
+                height: '297mm', 
+                padding: '15mm',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column'
+            }}
+        >
+            {/* --- HEADER SECTION --- */}
+            <div className="flex justify-between items-start mb-4">
+                {/* Left: Company Info */}
+                <div className="w-3/4 pr-4">
+                    <h1 className="text-lg font-bold text-gray-900">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</h1>
+                    <h2 className="text-sm font-bold text-gray-600 mb-1">NEOSIAM LOGISTICS & TRANSPORT CO., LTD.</h2>
+                    <div className="text-xs text-gray-600 leading-relaxed">
+                        <p>159/9-10 หมู่ 7 ตำบลบางม่วง อำเภอเมืองนครสวรรค์ จังหวัดนครสวรรค์ 60000</p>
+                        <p>159/9-10 Village No.7, Bang Muang, Muang Nakhon Sawan, Nakhon Sawan 60000</p>
+                        <p><strong>Tax ID:</strong> 0105552087673</p>
+                        <p><strong>Tel:</strong> 056-275-841 <strong>Fax:</strong> 056-275-843</p>
                     </div>
                 </div>
-            </section>
+                {/* Right: Logo */}
+                <div className="w-1/4 flex justify-end">
+                    <img 
+                        src={logoUrl} 
+                        alt="Neosiam Logo" 
+                        className="h-20 w-auto object-contain" 
+                        referrerPolicy="no-referrer"
+                    />
+                </div>
+            </div>
 
-            {/* Items Table */}
-            <section>
-                <table className="w-full border-collapse">
-                    <thead className="bg-gray-100">
+            <div className="border-b-2 border-gray-800 mb-4"></div>
+
+            {/* --- DOCUMENT TITLE & DETAILS --- */}
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <div className="text-3xl font-bold text-gray-800 tracking-wide">ใบขอซื้อ</div>
+                    <div className="text-lg font-bold text-gray-500 tracking-widest">PURCHASE REQUISITION</div>
+                </div>
+                <div className="w-2/5">
+                    <div className="border border-gray-400 rounded p-2 bg-gray-50 text-xs">
+                        <div className="grid grid-cols-3 gap-y-1">
+                            <div className="font-bold text-right pr-2">เลขที่ (PR No.):</div>
+                            <div className="col-span-2 font-medium">{requisition.prNumber}</div>
+                            
+                            <div className="font-bold text-right pr-2">วันที่ (Date):</div>
+                            <div className="col-span-2 font-medium">{new Date(requisition.createdAt).toLocaleDateString('th-TH')}</div>
+                            
+                            <div className="font-bold text-right pr-2">แผนก (Dept):</div>
+                            <div className="col-span-2 font-medium">{requisition.department}</div>
+                            
+                            <div className="font-bold text-right pr-2">ผู้ขอซื้อ:</div>
+                            <div className="col-span-2 font-medium">{requisition.requesterName}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- INFO SECTION --- */}
+            <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
+                <div className="border border-gray-300 rounded p-2">
+                    <h3 className="font-bold text-gray-700 border-b border-gray-200 pb-1 mb-1">แนะนำผู้จำหน่าย (Suggested Supplier)</h3>
+                    <div className="text-sm font-semibold h-6">
+                        {requisition.supplier || '-'}
+                    </div>
+                </div>
+                <div className="border border-gray-300 rounded p-2">
+                    <h3 className="font-bold text-gray-700 border-b border-gray-200 pb-1 mb-1">ข้อมูลเพิ่มเติม</h3>
+                    <div className="grid grid-cols-2 gap-1">
+                        <p><strong>วันที่ต้องการ:</strong> {new Date(requisition.dateNeeded).toLocaleDateString('th-TH')}</p>
+                        <p><strong>ประเภท:</strong> {requisition.requestType}</p>
+                        <p className="col-span-2"><strong>งบประมาณ:</strong> {requisition.budgetStatus === 'Have Budget' ? 'มีงบประมาณ' : 'ไม่มีงบประมาณ'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- ITEMS TABLE --- */}
+            <div className="flex-grow border border-gray-300 rounded overflow-hidden flex flex-col">
+                <table className="w-full border-collapse text-xs">
+                    <thead className="bg-gray-100 text-gray-700">
                         <tr>
-                            <th className="p-2 border text-sm font-semibold text-center w-16">ลำดับ</th>
-                            <th className="p-2 border text-sm font-semibold text-left">รายการ</th>
-                            <th className="p-2 border text-sm font-semibold text-right w-24">จำนวน</th>
-                            <th className="p-2 border text-sm font-semibold text-center w-24">หน่วย</th>
-                            <th className="p-2 border text-sm font-semibold text-right w-32">ราคา/หน่วย</th>
-                            <th className="p-2 border text-sm font-semibold text-right w-32">จำนวนเงิน</th>
+                            <th className="border-b border-r border-gray-300 p-2 w-10 text-center">ลำดับ</th>
+                            <th className="border-b border-r border-gray-300 p-2 text-left">รายการ (Description)</th>
+                            <th className="border-b border-r border-gray-300 p-2 w-20 text-right">จำนวน</th>
+                            <th className="border-b border-r border-gray-300 p-2 w-16 text-center">หน่วย</th>
+                            <th className="border-b border-r border-gray-300 p-2 w-24 text-right">ราคา/หน่วย</th>
+                            <th className="border-b border-gray-300 p-2 w-28 text-right">จำนวนเงิน</th>
                         </tr>
                     </thead>
                     <tbody>
                         {(Array.isArray(requisition.items) ? requisition.items : []).map((item, index) => (
-                            <tr key={index} className="odd:bg-white even:bg-gray-50">
-                                <td className="p-2 border text-sm text-center">{index + 1}</td>
-                                <td className="p-2 border text-sm">{item.name}</td>
-                                <td className="p-2 border text-sm text-right">{item.quantity}</td>
-                                <td className="p-2 border text-sm text-center">{item.unit}</td>
-                                <td className="p-2 border text-sm text-right">{item.unitPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                                <td className="p-2 border text-sm text-right font-medium">{(item.quantity * item.unitPrice).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                            <tr key={index}>
+                                <td className="border-r border-gray-300 p-1 text-center align-top">{index + 1}</td>
+                                <td className="border-r border-gray-300 p-1 align-top">{item.name}</td>
+                                <td className="border-r border-gray-300 p-1 text-right align-top">{item.quantity}</td>
+                                <td className="border-r border-gray-300 p-1 text-center align-top">{item.unit}</td>
+                                <td className="border-r border-gray-300 p-1 text-right align-top">{item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td className="p-1 text-right font-medium align-top">{(item.quantity * item.unitPrice).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        ))}
+                        {/* Fill empty rows */}
+                        {Array.from({ length: emptyRowsCount }).map((_, i) => (
+                            <tr key={`empty-${i}`}>
+                                <td className="border-r border-gray-300 p-1">&nbsp;</td>
+                                <td className="border-r border-gray-300 p-1"></td>
+                                <td className="border-r border-gray-300 p-1"></td>
+                                <td className="border-r border-gray-300 p-1"></td>
+                                <td className="border-r border-gray-300 p-1"></td>
+                                <td className="p-1"></td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-            </section>
+            </div>
 
-            {/* Totals */}
-             <section className="flex justify-end mt-4">
-                <div className="w-2/5 space-y-2 text-sm">
-                    <div className="flex justify-between p-2">
-                        <span className="font-semibold">ราคารวมอะไหล่</span>
-                        <span>{subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                    </div>
-                    {vatAmount > 0 && (
-                        <div className="flex justify-between p-2">
-                            <span className="font-semibold">VAT ({vatRate.toFixed(0)}%)</span>
-                            <span>{vatAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+            {/* --- FOOTER TOTALS & REMARKS --- */}
+            <div className="mt-2 border-t border-gray-300 pt-2">
+                <div className="flex items-start text-xs">
+                    <div className="w-2/3 pr-4">
+                        <div className="border border-gray-300 rounded p-2 min-h-[50px]">
+                            <span className="font-bold text-gray-700">หมายเหตุ (Remarks):</span>
+                            <p className="text-gray-600 ml-2">{requisition.notes || '-'}</p>
                         </div>
-                    )}
-                    <div className="flex justify-between p-2 border-t-2 border-gray-800 font-bold text-base">
-                        <span>ยอดรวมสุทธิ</span>
-                        <span>{grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div className="w-1/3">
+                        <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
+                            <span className="font-semibold">รวมเป็นเงิน</span>
+                            <span>{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        </div>
+                        {vatAmount > 0 && (
+                            <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
+                                <span className="font-semibold">VAT ({vatRate.toFixed(0)}%)</span>
+                                <span>{vatAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between py-2 font-bold text-sm">
+                            <span>ยอดรวมสุทธิ</span>
+                            <span className="text-base underline">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            {/* Notes */}
-            <section className="mt-6 border-t pt-4 text-sm">
-                <p><strong>หมายเหตุ:</strong> {requisition.notes || '-'}</p>
-            </section>
-
-            {/* Signatures */}
-            <footer className="grid grid-cols-3 gap-4 mt-24 pt-8 text-sm">
-                <div className="text-center">
-                    <p className="pt-12 border-b border-dotted border-gray-400"></p>
-                    <p className="mt-2">({requisition.requesterName || ' '})</p>
-                    <p className="font-semibold">ผู้ขอซื้อ</p>
+            {/* --- SIGNATURES --- */}
+            <div className="mt-auto pt-8 mb-4">
+                <div className="grid grid-cols-3 gap-6 text-xs">
+                    <div className="text-center">
+                        <div className="border-b border-dotted border-gray-400 w-3/4 mx-auto h-8"></div>
+                        <p className="mt-1">({requisition.requesterName || '.......................................'})</p>
+                        <p className="font-bold text-gray-500">ผู้ขอซื้อ</p>
+                        <p className="text-[10px] text-gray-400">วันที่ ...../...../..........</p>
+                    </div>
+                    <div className="text-center">
+                        <div className="border-b border-dotted border-gray-400 w-3/4 mx-auto h-8"></div>
+                        <p className="mt-1">({requisition.approverName || '.......................................'})</p>
+                        <p className="font-bold text-gray-500">ผู้อนุมัติ</p>
+                        <p className="text-[10px] text-gray-400">วันที่ ...../...../..........</p>
+                    </div>
+                    <div className="text-center">
+                        <div className="border-b border-dotted border-gray-400 w-3/4 mx-auto h-8"></div>
+                        <p className="mt-1">(.......................................)</p>
+                        <p className="font-bold text-gray-500">ผู้จัดซื้อ/รับเรื่อง</p>
+                        <p className="text-[10px] text-gray-400">วันที่ ...../...../..........</p>
+                    </div>
                 </div>
-                <div className="text-center">
-                     <p className="pt-12 border-b border-dotted border-gray-400"></p>
-                     <p className="mt-2">({requisition.approverName || ' '})</p>
-                     <p className="font-semibold">ผู้อนุมัติ</p>
-                </div>
-                <div className="text-center">
-                     <p className="pt-12 border-b border-dotted border-gray-400"></p>
-                     <p className="mt-2">(.................................................)</p>
-                     <p className="font-semibold">ผู้รับสินค้า</p>
-                </div>
-            </footer>
+            </div>
+            
+            <div className="text-right text-[10px] text-gray-400">
+                FM-PC01-01
+            </div>
         </div>
     );
 };
