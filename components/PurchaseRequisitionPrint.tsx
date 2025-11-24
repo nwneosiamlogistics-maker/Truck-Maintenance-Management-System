@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { PurchaseRequisition } from '../types';
 
@@ -38,7 +39,7 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                         <p><span className="font-semibold">เลขที่:</span> {requisition.prNumber}</p>
                         <p><span className="font-semibold">วันที่:</span> {new Date(requisition.createdAt).toLocaleDateString('th-TH')}</p>
                         <p><span className="font-semibold">ผู้ขอซื้อ:</span> {requisition.requesterName}</p>
-                        <p><span className="font-semibold">แผนก:</span> {requisition.department}</p>
+                        <p><span className="font-semibold">แผนก/สาขา:</span> {requisition.department}</p>
                         <p><span className="font-semibold">วันที่ต้องการใช้:</span> {new Date(requisition.dateNeeded).toLocaleDateString('th-TH')}</p>
                     </div>
                 </div>

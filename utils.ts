@@ -1,3 +1,4 @@
+
 import type { StockStatus } from './types';
 
 export function promptForPassword(action: string): boolean {
@@ -201,8 +202,11 @@ export function numberToThaiWords(num: number): string {
 
     if (decimalStr) {
         let decimalNum = parseInt(decimalStr.slice(0, 2), 10);
+        // Ensure 2 digits
+        if (decimalStr.length === 1) decimalNum *= 10;
+        
         if (decimalNum > 0) {
-            result += convertInteger(String(decimalNum)) + 'สตางค์';
+            result += convertInteger(String(decimalNum)) + 'สตางค์' + 'ถ้วน';
         } else {
             result += 'ถ้วน';
         }

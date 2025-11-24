@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, UsedPart, AnnualPMPlan, PMHistory, RepairFormSeed, RepairKPI, Holiday, UsedPartDisposition, UsedPartBatchStatus } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, UsedPart, AnnualPMPlan, PMHistory, RepairFormSeed, RepairKPI, Holiday, UsedPartDisposition, UsedPartBatchStatus, PurchaseOrder } from './types';
 import { TABS } from './constants';
 import { getDefaultTechnicians, getDefaultRepairs, getDefaultStock, getDefaultReports, getDefaultMaintenancePlans, getDefaultStockTransactions, getDefaultPurchaseRequisitions, getDefaultVehicles, getDefaultSuppliers, getDefaultUsedPartBuyers, getDefaultAnnualPMPlans, getDefaultKpiData } from './data/defaultData';
 import { useFirebase } from './hooks/useFirebase';
@@ -36,6 +37,7 @@ import Settings from './components/Settings';
 import FleetKPIDashboard from './components/FleetKPIDashboard';
 import { useToast } from './context/ToastContext';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import PurchaseOrderManagement from './components/PurchaseOrderManagement';
 
 
 const AppContent: React.FC = () => {
@@ -51,6 +53,7 @@ const AppContent: React.FC = () => {
     const [reports, setReports] = useFirebase<Report[]>('reports', getDefaultReports);
     const [maintenancePlans, setMaintenancePlans] = useFirebase<MaintenancePlan[]>('maintenancePlans', getDefaultMaintenancePlans);
     const [purchaseRequisitions, setPurchaseRequisitions] = useFirebase<PurchaseRequisition[]>('purchaseRequisitions', getDefaultPurchaseRequisitions);
+    const [purchaseOrders, setPurchaseOrders] = useFirebase<PurchaseOrder[]>('purchaseOrders', []);
     const [vehicles, setVehicles] = useFirebase<Vehicle[]>('vehicles', getDefaultVehicles);
     const [suppliers, setSuppliers] = useFirebase<Supplier[]>('suppliers', getDefaultSuppliers);
     const [usedPartBuyers, setUsedPartBuyers] = useFirebase<UsedPartBuyer[]>('usedPartBuyers', getDefaultUsedPartBuyers);
@@ -479,6 +482,18 @@ const AppContent: React.FC = () => {
                     setStock={setStock}
                     setTransactions={setTransactions}
                     suppliers={suppliers}
+                    setActiveTab={setActiveTab}
+                />;
+            case 'purchase-orders':
+                return <PurchaseOrderManagement 
+                    purchaseOrders={purchaseOrders}
+                    setPurchaseOrders={setPurchaseOrders}
+                    purchaseRequisitions={purchaseRequisitions}
+                    setPurchaseRequisitions={setPurchaseRequisitions}
+                    setStock={setStock}
+                    setTransactions={setTransactions}
+                    suppliers={suppliers}
+                    setActiveTab={setActiveTab}
                 />;
             case 'suppliers':
                 return <SupplierManagement suppliers={suppliers} setSuppliers={setSuppliers} />;

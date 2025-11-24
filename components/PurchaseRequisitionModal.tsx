@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionStatus, StockItem, PurchaseRequestType, PurchaseBudgetType, Supplier } from '../types';
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
@@ -389,7 +390,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                             <input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"/>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium">แผนก *</label>
+                            <label className="block text-sm font-medium">แผนก/สาขา *</label>
                             <input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"/>
                         </div>
                         <div>

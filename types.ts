@@ -1,3 +1,4 @@
+
 // types.ts
 
 // FIX: Export ChatMessage type to be used by the Chatbot component.
@@ -19,6 +20,7 @@ export type Tab =
     | 'stock'
     | 'stock-history'
     | 'requisitions'
+    | 'purchase-orders'
     | 'suppliers'
     | 'used-part-buyers'
     | 'used-part-report'
@@ -211,7 +213,7 @@ export interface UsedPart {
     notes: string | null;
 }
 
-export type PurchaseRequisitionStatus = 'ฉบับร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'รอสินค้า' | 'รับของแล้ว' | 'ยกเลิก';
+export type PurchaseRequisitionStatus = 'ฉบับร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'ออก PO แล้ว' | 'รอสินค้า' | 'รับของแล้ว' | 'ยกเลิก';
 export type PurchaseRequestType = 'Product' | 'Service' | 'Equipment' | 'Asset' | 'Others';
 export type PurchaseBudgetType = 'Have Budget' | 'No Budget';
 
@@ -244,6 +246,49 @@ export interface PurchaseRequisition {
     requestType: PurchaseRequestType;
     otherRequestTypeDetail?: string;
     budgetStatus: PurchaseBudgetType;
+    relatedPoNumber?: string; // Link to PO
+}
+
+export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Received' | 'Cancelled';
+
+export interface PurchaseOrderItem {
+    stockId?: string; 
+    name: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    discount?: number;
+    totalPrice: number;
+    prId?: string; // To trace back to which PR this item came from
+}
+
+export interface PurchaseOrder {
+    id: string;
+    poNumber: string;
+    supplierName: string;
+    supplierAddress?: string;
+    supplierTaxId?: string;
+    orderDate: string;
+    deliveryDate: string;
+    status: PurchaseOrderStatus;
+    items: PurchaseOrderItem[];
+    subtotal: number;
+    vatAmount: number;
+    totalAmount: number;
+    notes: string;
+    paymentTerms?: string;
+    linkedPrIds: string[]; // List of PR IDs included in this PO
+    linkedPrNumbers?: string[]; // List of PR Numbers for display
+    contactPerson?: string;
+    requesterName?: string;
+    department?: string;
+    createdAt: string;
+    createdBy?: string;
+    // New fields
+    deliveryLocation?: string;
+    project?: string;
+    contactAccount?: string;
+    contactReceiver?: string;
 }
 
 export interface Vehicle {

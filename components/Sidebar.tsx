@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Tab } from '../types';
 
@@ -77,7 +78,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         { section: 'คลังสินค้าและจัดซื้อ', items: [
             { id: 'stock', icon: '📦', label: 'จัดการสต๊อกอะไหล่', badge: stats.lowStock, badgeColor: 'yellow' },
             { id: 'stock-history', icon: '📋', label: 'ประวัติเบิกจ่าย' },
-            { id: 'requisitions', icon: '🛒', label: 'ใบขอซื้อ' },
+            { id: 'requisitions', icon: '🛒', label: 'ใบขอซื้อ (PR)' },
+            { id: 'purchase-orders', icon: '📑', label: 'ใบสั่งซื้อ (PO)' },
             { id: 'suppliers', icon: '🏬', label: 'จัดการผู้จำหน่าย' },
             { id: 'used-part-buyers', icon: '🤝', label: 'จัดการผู้รับซื้อ' },
             { id: 'used-part-report', icon: '🔩', label: 'รายงานอะไหล่เก่า' },

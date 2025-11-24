@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import type { Chat } from "@google/genai";
@@ -57,10 +56,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, repairs, technicians
         const avgCost = completedRepairs.length > 0 ? totalCost / completedRepairs.length : 0;
         
         const repairTypeCounts = safeRepairs.reduce((acc, r) => { acc[r.repairCategory] = (acc[r.repairCategory] || 0) + 1; return acc; }, {} as Record<string, number>);
-        const mostFrequentRepairType = Object.entries(repairTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+        const mostFrequentRepairType = Object.entries(repairTypeCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] || 'N/A';
         
         const vehicleRepairCounts = safeRepairs.reduce((acc, r) => { acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1; return acc; }, {} as Record<string, number>);
-        const mostServicedVehicle = Object.entries(vehicleRepairCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+        const mostServicedVehicle = Object.entries(vehicleRepairCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] || 'N/A';
         
         const overduePlans = safePlans.filter(plan => {
             const nextServiceDate = new Date(plan.lastServiceDate);
@@ -151,7 +150,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, repairs, technicians
             setSystemInstruction(context);
 
             // Always create a new chat instance when the context might have changed to ensure it has the latest data.
-            // FIX: Remove non-null assertion `!` from API key to align with coding guidelines.
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             chatRef.current = ai.chats.create({ 
                 model: 'gemini-2.5-flash', 

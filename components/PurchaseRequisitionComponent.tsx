@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction, Supplier } from '../types';
+import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction, Supplier, Tab } from '../types';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
 import { promptForPassword, calculateStockStatus } from '../utils';
@@ -12,6 +12,7 @@ interface PurchaseRequisitionProps {
     setStock: React.Dispatch<React.SetStateAction<StockItem[]>>;
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     suppliers: Supplier[];
+    setActiveTab: (tab: Tab) => void;
 }
 
 const STATUS_FILTER_ORDER: { value: PurchaseRequisitionStatus | 'all', label: string }[] = [
@@ -26,7 +27,7 @@ const STATUS_FILTER_ORDER: { value: PurchaseRequisitionStatus | 'all', label: st
 ];
 
 
-const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers }) => {
+const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purchaseRequisitions, setPurchaseRequisitions, stock, setStock, setTransactions, suppliers, setActiveTab }) => {
     const [statusFilter, setStatusFilter] = useState<PurchaseRequisitionStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -307,6 +308,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ขอซื้อ</th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ยอดรวม</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">Ref PO</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                         </tr>
                     </thead>
@@ -324,13 +326,26 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                     <td className="px-4 py-3 text-base">{pr.requesterName}</td>
                                     <td className="px-4 py-3 text-right text-base font-bold">{pr.totalAmount.toLocaleString()} บาท</td>
                                     <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(pr.status)}`}>{pr.status}</span></td>
+                                    <td className="px-4 py-3">
+                                        {pr.relatedPoNumber ? (
+                                            <span 
+                                                onClick={() => setActiveTab('purchase-orders')}
+                                                className="text-sm text-blue-600 hover:underline cursor-pointer font-medium"
+                                                title="ไปที่หน้าใบสั่งซื้อ"
+                                            >
+                                                {pr.relatedPoNumber}
+                                            </span>
+                                        ) : (
+                                            <span className="text-sm text-gray-400">-</span>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
                                         {renderActions(pr)}
                                     </td>
                                 </tr>
                                  {expandedPrIds.has(pr.id) && (
                                     <tr>
-                                        <td colSpan={7} className="p-0 bg-gray-50">
+                                        <td colSpan={8} className="p-0 bg-gray-50">
                                             <div className="p-4 mx-4 my-2 border-l-4 border-blue-400 bg-blue-50 rounded-r-lg">
                                                 <h4 className="font-semibold mb-2 text-gray-700 text-base">รายการในใบขอซื้อ:</h4>
                                                 <table className="min-w-full bg-white rounded-lg shadow-inner">
@@ -367,7 +382,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                 )}
                             </React.Fragment>
                         ))}
-                        {paginatedRequisitions.length === 0 && ( <tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr> )}
+                        {paginatedRequisitions.length === 0 && ( <tr><td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr> )}
                     </tbody>
                 </table>
             </div>

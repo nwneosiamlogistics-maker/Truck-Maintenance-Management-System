@@ -1,3 +1,4 @@
+
 import type { Tab } from './types';
 
 export const TABS: Record<Tab, { title: string; subtitle: string }> = {
@@ -42,8 +43,12 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         subtitle: 'ตรวจสอบการเคลื่อนไหวของสต๊อกอะไหล่ทั้งหมด'
     },
     requisitions: {
-        title: 'ใบขอซื้อ',
+        title: 'ใบขอซื้อ (PR)',
         subtitle: 'จัดการการสั่งซื้อ, เติมสต็อก และลบใบขอซื้อ'
+    },
+    'purchase-orders': {
+        title: 'ใบสั่งซื้อ (PO)',
+        subtitle: 'สร้างและติดตามใบสั่งซื้อสินค้าจากผู้จำหน่าย'
     },
     suppliers: {
         title: 'จัดการผู้จำหน่าย',
