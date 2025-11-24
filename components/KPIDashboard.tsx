@@ -36,43 +36,6 @@ const BarChart: React.FC<{ title: string, data: { label: string, value: number, 
     );
 };
 
-const PMComplianceList: React.FC<{ data: { plate: string; onTimeRate: number; onTimeCount: number; totalPlans: number }[] }> = ({ data }) => {
-    const getProgressBarColor = (rate: number) => {
-        if (rate >= 90) return 'bg-green-500';
-        if (rate >= 70) return 'bg-blue-500';
-        if (rate >= 50) return 'bg-yellow-500';
-        return 'bg-red-500';
-    };
-
-    return (
-        <div className="bg-white p-6 rounded-2xl shadow-sm lg:col-span-2">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">10 อันดับรถที่เข้าบำรุงรักษาตามแผน (PM) ตรงเวลา</h3>
-            <div className="space-y-4">
-                {data.length > 0 ? data.map((item, index) => (
-                    <div key={item.plate} className="flex items-center gap-4">
-                        <div className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full font-bold text-gray-700">{index + 1}</div>
-                        <div className="w-32 font-semibold">{item.plate}</div>
-                        <div className="flex-1">
-                            <div className="w-full bg-gray-200 rounded-full h-6">
-                                <div
-                                    className={`h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${getProgressBarColor(item.onTimeRate)}`}
-                                    style={{ width: `${item.onTimeRate}%` }}
-                                >
-                                    {item.onTimeRate.toFixed(0)}%
-                                </div>
-                            </div>
-                        </div>
-                        <div className="w-48 text-sm text-gray-500 text-right">
-                            ตรงเวลา {item.onTimeCount} จาก {item.totalPlans} แผน
-                        </div>
-                    </div>
-                )) : <p className="text-center text-gray-500 py-4">ไม่มีข้อมูลแผน PM เพื่อจัดอันดับ</p>}
-            </div>
-        </div>
-    );
-};
-
-
 const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles }) => {
     const kpiData = useMemo(() => {
         const completedRepairs = (Array.isArray(repairs) ? repairs : []).filter(
@@ -137,68 +100,9 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
             .map(([plate, totalCost]: [string, number]) => ({ plate, totalCost }))
             .sort((a, b) => b.totalCost - a.totalCost).slice(0, 5);
 
-        // --- New PM Compliance Calculation (with 7-day grace period) ---
-        const planDetails = (Array.isArray(plans) ? plans : []).map(plan => {
-            // Date calculation
-            const lastDate = new Date(plan.lastServiceDate);
-            let nextServiceDate = new Date(lastDate);
-            if (plan.frequencyUnit === 'days') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
-            else if (plan.frequencyUnit === 'weeks') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
-            else nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
-            const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-            
-            // Mileage calculation
-            const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
-            const latestRepair = (Array.isArray(repairs) ? repairs : [])
-                .filter(r => r.licensePlate === plan.vehicleLicensePlate && r.currentMileage)
-                .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-            const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
-            const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
-
-            // Determine status based on BOTH date and mileage with new grace period rules
-            let status: PlanStatus = 'ok';
-            const isOverdueByDate = daysUntilNextService < 0;
-            const isOverdueByMileage = kmUntilNextService !== null && kmUntilNextService < 0; // Overdue immediately on mileage
-            const isDueByDate = daysUntilNextService <= 30;
-            const isDueByMileage = kmUntilNextService !== null && kmUntilNextService <= 1500;
-
-            if (isOverdueByDate || isOverdueByMileage) {
-                status = 'overdue';
-            } else if (isDueByDate || isDueByMileage) {
-                status = 'due';
-            }
-
-            return { ...plan, status };
-        });
-
-
-        const complianceByVehicle = planDetails.reduce((acc: Record<string, { onTimeCount: number; totalPlans: number }>, plan) => {
-            const plate = plan.vehicleLicensePlate;
-            if (!acc[plate]) acc[plate] = { onTimeCount: 0, totalPlans: 0 };
-            acc[plate].totalPlans++;
-            // A plan is compliant if it's not 'overdue'
-            if (plan.status !== 'overdue') {
-                acc[plate].onTimeCount++;
-            }
-            return acc;
-        }, {} as Record<string, { onTimeCount: number; totalPlans: number }>);
-
-        const pmComplianceRate = Object.entries(complianceByVehicle)
-            .map(([plate, data]: [string, { onTimeCount: number; totalPlans: number }]) => ({
-                plate,
-                onTimeRate: data.totalPlans > 0 ? (data.onTimeCount / data.totalPlans) * 100 : 0,
-                ...data
-            }))
-            .sort((a, b) => {
-                if (b.onTimeRate !== a.onTimeRate) return b.onTimeRate - a.onTimeRate;
-                return b.totalPlans - a.totalPlans; // Prioritize vehicles with more plans if rates are equal
-            })
-            .slice(0, 10);
-
         return {
             mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost,
             vehicleDowntime, mostRepairedVehicles, mostExpensiveVehicles,
-            pmComplianceRate,
         };
     }, [repairs, plans, vehicles]);
 
@@ -253,7 +157,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, plans, vehicles })
                         formattedValue: formatHoursToHHMM(vehicle.hours)
                     }))}
                 />
-                <PMComplianceList data={kpiData.pmComplianceRate} />
             </div>
         </div>
     );

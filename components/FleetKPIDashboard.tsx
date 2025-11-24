@@ -72,7 +72,9 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             return serviceDate >= startDate && serviceDate <= endDate;
         });
         
-        const duePlansInPeriodCount = safePlans.filter(plan => {
+        // Corrected Logic for PM Completion Rate (Compliance Rate)
+        // 1. Identify plans that were DUE in this period
+        const duePlansInPeriod = safePlans.filter(plan => {
             const lastDate = new Date(plan.lastServiceDate);
             let nextServiceDate = new Date(lastDate);
             if (plan.frequencyUnit === 'days') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
@@ -80,11 +82,20 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             else nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
 
             return nextServiceDate >= startDate && nextServiceDate <= endDate;
-        }).length;
+        });
 
+        const duePlansInPeriodCount = duePlansInPeriod.length;
+
+        // 2. Count how many of these specific DUE plans were actually completed (found in history)
+        // We check if any history record in the period matches the plan ID
+        const completedDuePlansCount = duePlansInPeriod.filter(plan => 
+            periodHistory.some(h => h.maintenancePlanId === plan.id)
+        ).length;
+
+        // 3. Calculate rate: (Completed Due Plans / Total Due Plans) * 100
         const pmCompletionRate = duePlansInPeriodCount > 0
-            ? (periodHistory.length / duePlansInPeriodCount) * 100
-            : 100;
+            ? (completedDuePlansCount / duePlansInPeriodCount) * 100
+            : 100; // If nothing was due, we are 100% compliant (nothing missed).
 
         // --- REWORK CALCULATION (replaces recurring breakdown) ---
         const repairsByVehicleForRework = periodRepairs.reduce((acc: Record<string, { description: string, date: string }[]>, r) => {
@@ -188,9 +199,12 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         }, {} as Record<string, number>);
         const downtimeChartData = Object.entries(downtimeByMonth).map(([label, value]) => ({ label, value }));
         
-        const onTimePMs = periodHistory.length;
-        const totalPMsInPeriod = duePlansInPeriodCount;
-        const pmComplianceChartData = [{ name: 'ตรงเวลา', value: onTimePMs }, { name: 'ค้าง', value: Math.max(0, totalPMsInPeriod - onTimePMs) }];
+        // Update Chart Data for PM Compliance
+        // Show "Completed Due Plans" vs "Missed/Pending Due Plans"
+        const pmComplianceChartData = [
+            { name: 'สำเร็จตามแผน', value: completedDuePlansCount }, 
+            { name: 'ค้าง/พลาดเป้า', value: Math.max(0, duePlansInPeriodCount - completedDuePlansCount) }
+        ];
 
         // --- Alerts Table ---
         const alerts: AlertItem[] = [];
@@ -324,22 +338,12 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                 </div>
             </div>
             
-            {/* Section 3: PM Program Health */}
-            <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4 px-2">ประสิทธิภาพโปรแกรม PM</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <KPICard title="อัตราการทำ PM สำเร็จ" value={`${memoizedData.kpis.pmCompletionRate.toFixed(1)}%`} target={90} lowerIsBetter={false} />
-                    <KPICard title="PM ไม่ตรงตามแผน" value={`${memoizedData.kpis.unplannedCompletionsCount} (${memoizedData.kpis.unplannedPmRate.toFixed(1)}%)`} target={10} lowerIsBetter={true} unit="ครั้ง" />
-                </div>
-            </div>
-
-            {/* Section 4: Graphs */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Section 3: Graphs */}
+            <div className="grid grid-cols-1 gap-6">
                 <BarChart title="Downtime ต่อเดือน (ชั่วโมง)" data={memoizedData.charts.downtimeChartData.map(d => ({ label: d.label, value: d.value, formattedValue: formatHoursToHHMM(d.value) }))} />
-                <PieChart title="สัดส่วนการทำ PM" data={memoizedData.charts.pmComplianceChartData} />
             </div>
             
-            {/* Section 5: Alerts */}
+            {/* Section 4: Alerts */}
             <div className="bg-white p-6 rounded-2xl shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-gray-800">รายการแจ้งเตือนและปัญหาหลัก</h3>
