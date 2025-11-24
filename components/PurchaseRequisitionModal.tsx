@@ -116,7 +116,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             department: 'แผนกซ่อมบำรุง',
             dateNeeded: new Date().toISOString().split('T')[0],
             supplier: '',
-            status: 'ฉบับร่าง' as PurchaseRequisitionStatus,
+            status: 'รออนุมัติ' as PurchaseRequisitionStatus,
             items: [],
             totalAmount: 0,
             vatAmount: 0,
@@ -319,6 +319,11 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
         const itemsToSave = safeItems.map(({ rowId, ...rest }) => rest);
         const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount };
+
+        // Ensure status is 'Pending Approval' if current status is 'Draft' or undefined
+        if (finalData.status === 'ฉบับร่าง' || !finalData.status) {
+            finalData.status = 'รออนุมัติ';
+        }
 
         if ('id' in finalData && finalData.id) {
              onSave(finalData as PurchaseRequisition);

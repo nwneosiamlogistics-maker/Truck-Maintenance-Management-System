@@ -241,7 +241,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                 return (
                     <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'อนุมัติแล้ว')} className="text-white bg-green-500 hover:bg-green-600 font-medium px-3 py-1 rounded-md text-sm">อนุมัติ</button>
-                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">แก้ไข/ดู</button>
                         <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );

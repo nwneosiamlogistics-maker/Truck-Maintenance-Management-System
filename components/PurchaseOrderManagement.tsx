@@ -40,7 +40,9 @@ const TrackingView: React.FC<{
                 : null;
 
             // Determine Cancellation
-            const isCancelled = pr.status === 'ยกเลิก' || (po?.status === 'Cancelled');
+            // Robust check for Thai and English, and trimmed
+            const status = pr.status ? pr.status.trim() : '';
+            const isCancelled = status === 'ยกเลิก' || status === 'Cancelled' || (po?.status === 'Cancelled');
 
             // Determine Steps Completion
             const isCreated = true;
@@ -61,7 +63,8 @@ const TrackingView: React.FC<{
             
             if (isCancelled) {
                 currentStage = 'ยกเลิก';
-                lastActionDate = new Date(pr.updatedAt);
+                // Use updatedAt if available, otherwise fallback to createdDate to avoid invalid date errors
+                lastActionDate = pr.updatedAt ? new Date(pr.updatedAt) : createdDate;
             } else if (isReceived) {
                 currentStage = 'เสร็จสิ้น';
                 lastActionDate = receivedDate || now;
@@ -153,7 +156,7 @@ const TrackingView: React.FC<{
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {trackingData.map((item) => (
-                            <tr key={item.pr.id} className="hover:bg-gray-50">
+                            <tr key={item.pr.id} className={`hover:bg-gray-50 ${item.status.isCancelled ? 'bg-red-50' : ''}`}>
                                 <td className="px-4 py-4 align-top">
                                     <div className={`font-bold ${item.status.isCancelled ? 'text-red-600 line-through' : 'text-blue-700'}`}>{item.pr.prNumber}</div>
                                     <div className="text-sm text-gray-600 font-medium">{item.pr.department}</div>
