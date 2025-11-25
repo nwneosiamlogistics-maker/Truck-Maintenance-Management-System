@@ -49,14 +49,14 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
 
     const handleAdd = () => {
         const partsToAdd: PartRequisitionItem[] = Object.entries(selectedParts)
-            .map(([partId, quantity]) => {
+            .map(([partId, quantity]): PartRequisitionItem | null => {
                 const stockItem = stock.find(s => s.id === partId);
                 if (!stockItem) return null;
                 return {
                     partId: stockItem.id,
                     name: stockItem.name,
                     code: stockItem.code,
-                    quantity: quantity,
+                    quantity: quantity as number,
                     unit: stockItem.unit,
                     unitPrice: stockItem.price,
                     source: 'สต็อกอู่',
@@ -135,21 +135,16 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                     </table>
                 </div>
 
-                <div className="p-6 border-t flex justify-between items-center bg-gray-50">
-                     <p className="text-base font-semibold">
-                        {selectionCount > 0 ? `เลือกแล้ว ${selectionCount} รายการ` : 'ยังไม่ได้เลือกรายการ'}
-                    </p>
-                    <div className="space-x-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                        <button 
-                            type="button" 
-                            onClick={handleAdd}
-                            disabled={selectionCount === 0}
-                            className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            เพิ่มอะไหล่
-                        </button>
-                    </div>
+                <div className="p-6 border-t flex justify-end space-x-4 bg-gray-50">
+                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                    <button 
+                        type="button" 
+                        onClick={handleAdd} 
+                        disabled={selectionCount === 0}
+                        className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                    >
+                        เพิ่มรายการ ({selectionCount})
+                    </button>
                 </div>
             </div>
         </div>

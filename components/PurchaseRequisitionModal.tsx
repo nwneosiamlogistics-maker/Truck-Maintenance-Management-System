@@ -126,7 +126,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             department: 'แผนกซ่อมบำรุง',
             dateNeeded: new Date().toISOString().split('T')[0],
             supplier: '',
-            status: 'รออนุมัติ' as PurchaseRequisitionStatus,
+            status: 'รออนุมัติ' as PurchaseRequisitionStatus, // Default status is now 'Pending Approval'
             items: [],
             totalAmount: 0,
             vatAmount: 0,
@@ -354,6 +354,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount };
 
         // Ensure status is 'Pending Approval' if current status is 'Draft' or undefined
+        // This auto-updates existing 'Draft' items to 'Pending Approval' upon save
         if (finalData.status === 'ฉบับร่าง' || !finalData.status) {
             finalData.status = 'รออนุมัติ';
         }
@@ -385,6 +386,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     // Determine if the form is editable based on its status
     const isEditable = useMemo(() => {
+        // Allow editing for 'Draft' and 'Pending Approval'
         return ['ฉบับร่าง', 'รออนุมัติ'].includes(prData.status);
     }, [prData.status]);
 

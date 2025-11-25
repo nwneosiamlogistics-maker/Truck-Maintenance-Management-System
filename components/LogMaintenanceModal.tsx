@@ -1,16 +1,19 @@
+
 import React, { useState } from 'react';
 import type { MaintenancePlan, Technician } from '../types';
 
 interface LogMaintenanceModalProps {
     plan: MaintenancePlan;
+    targets?: { date: Date; mileage: number }; // New optional prop
     technicians: Technician[];
-    onSave: (logData: { serviceDate: string; mileage: number; technicianId: string | null; notes: string; }) => void;
+    onSave: (logData: { serviceDate: string; mileage: number; technicianId: string | null; notes: string; targetDate?: string; targetMileage?: number }) => void;
     onClose: () => void;
 }
 
-const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, technicians, onSave, onClose }) => {
+const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, targets, technicians, onSave, onClose }) => {
     const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
-    const [mileage, setMileage] = useState(plan.lastServiceMileage + plan.mileageFrequency);
+    // Default mileage to the target mileage if available, otherwise increment
+    const [mileage, setMileage] = useState(targets ? targets.mileage : (plan.lastServiceMileage + plan.mileageFrequency));
     const [technicianId, setTechnicianId] = useState<string | null>(null);
     const [notes, setNotes] = useState('');
 
@@ -20,7 +23,14 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, technic
             alert('กรุณากรอกข้อมูลให้ถูกต้อง (เลขไมล์ต้องมากกว่าครั้งล่าสุด)');
             return;
         }
-        onSave({ serviceDate, mileage, technicianId, notes });
+        onSave({ 
+            serviceDate, 
+            mileage, 
+            technicianId, 
+            notes,
+            targetDate: targets?.date.toISOString(),
+            targetMileage: targets?.mileage
+        });
     };
     
     return (
@@ -30,6 +40,11 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, technic
                     <div>
                         <h3 className="text-2xl font-bold text-gray-800">บันทึกการบำรุงรักษา</h3>
                         <p className="text-base text-gray-500">{plan.planName} - {plan.vehicleLicensePlate}</p>
+                        {targets && (
+                            <p className="text-xs text-blue-600 mt-1">
+                                เป้าหมาย: {targets.date.toLocaleDateString('th-TH')} หรือ {targets.mileage.toLocaleString()} กม.
+                            </p>
+                        )}
                     </div>
                      <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>

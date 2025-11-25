@@ -1,9 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import type { MaintenancePlan, AnnualPMPlan, PMHistory, Repair, Vehicle, Technician, MonthStatus } from '../types';
 import AnnualPMPlanComponent from './AnnualPMPlan';
 import PMHistoryView from './PMHistoryView';
 import CalendarView from './CalendarView';
 import TimelineView from './TimelineView';
+import PMComplianceReport from './PMComplianceReport';
 import { useToast } from '../context/ToastContext';
 import { EditAnnualPMModal, EditModalData } from './EditAnnualPMModal';
 
@@ -33,7 +35,7 @@ interface PreventiveMaintenanceProps {
 }
 
 const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
-    const [activeTab, setActiveTab] = useState<'plan' | 'calendar' | 'timeline' | 'history'>('plan');
+    const [activeTab, setActiveTab] = useState<'plan' | 'calendar' | 'timeline' | 'history' | 'report'>('plan');
     const [statusFilter, setStatusFilter] = useState<PlanStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
@@ -174,11 +176,12 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm space-y-4">
                 <div className="flex flex-wrap justify-between items-center gap-4">
-                     <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-2 flex-wrap">
                         <TabButton tabId="plan" label="แผนประจำปี" />
                         <TabButton tabId="calendar" label="ปฏิทิน" />
                         <TabButton tabId="timeline" label="ไทม์ไลน์" />
                         <TabButton tabId="history" label="ประวัติ" />
+                        <TabButton tabId="report" label="รายงาน PM" />
                     </div>
                     {activeTab === 'plan' && (
                         <div className="flex items-center gap-4">
@@ -225,6 +228,13 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                     history={props.history}
                     technicians={props.technicians}
                     onDelete={handleDeleteHistory}
+                />
+            )}
+            {activeTab === 'report' && (
+                <PMComplianceReport
+                    plans={props.plans}
+                    history={props.history}
+                    vehicles={props.vehicles}
                 />
             )}
 

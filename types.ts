@@ -1,72 +1,45 @@
 
-// types.ts
-
-// FIX: Export ChatMessage type to be used by the Chatbot component.
-export interface ChatMessage {
-  id: string;
-  text: string;
-  sender: 'user' | 'bot';
-}
-
-export type Tab =
-    | 'dashboard'
-    | 'analytics'
-    | 'kpi-management'
-    | 'form'
-    | 'list'
-    | 'technician-view'
-    | 'history'
-    | 'vehicle-repair-history'
-    | 'stock'
-    | 'stock-history'
-    | 'requisitions'
-    | 'purchase-orders'
-    | 'suppliers'
-    | 'used-part-buyers'
-    | 'used-part-report'
-    | 'technicians'
-    | 'technicianPerformance'
-    | 'technicianWorkLog'
-    | 'estimation'
-    | 'maintenance'
-    | 'preventive-maintenance'
-    | 'pm-history'
-    | 'vehicles'
-    | 'daily-checklist'
-    | 'tire-check'
-    | 'tool-management'
-    | 'settings';
+export type Tab = 'dashboard' | 'analytics' | 'kpi-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'vehicles' | 'daily-checklist' | 'tire-check' | 'tool-management' | 'settings';
 
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
+export type StockStatus = 'ปกติ' | 'สต็อกต่ำ' | 'หมดสต็อก' | 'สต๊อกเกิน';
+export type TechnicianRole = 'ช่าง' | 'ผู้ช่วยช่าง';
+export type PurchaseRequisitionStatus = 'ฉบับร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'ออก PO แล้ว' | 'รอสินค้า' | 'รับของแล้ว' | 'ยกเลิก';
+export type PurchaseRequestType = 'Product' | 'Service' | 'Equipment' | 'Asset' | 'Others';
+export type PurchaseBudgetType = 'Have Budget' | 'No Budget';
+export type UsedPartBatchStatus = 'รอจัดการ' | 'จัดการบางส่วน' | 'จัดการครบแล้ว';
+export type MonthStatus = 'none' | 'planned' | 'completed' | 'completed_unplanned';
+export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'ปรับสต็อก' | 'คืนร้านค้า' | 'คืนของใช้ได้' | 'ย้ายสต็อก' | 'ขายของเก่า';
+
+export interface PartRequisitionItem {
+    partId: string;
+    name: string;
+    code?: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    source: 'สต็อกอู่' | 'ร้านค้า';
+    supplierName?: string;
+    purchaseDate?: string;
+}
 
 export interface FileAttachment {
-  name: string;
-  url: string;
-  type: string;
+    id: string;
+    name: string;
+    url: string;
+    type: string;
 }
 
 export interface EstimationAttempt {
-  sequence: number;
-  createdAt: string;
-  estimatedStartDate: string;
-  estimatedEndDate: string;
-  estimatedLaborHours: number;
-  status: 'Active' | 'Completed' | 'Failed';
-  failureReason: string | null;
-  aiReasoning: string | null;
-}
-
-export interface PartRequisitionItem {
-  partId: string;
-  name: string;
-  code: string;
-  quantity: number;
-  unit: string;
-  unitPrice: number;
-  source: 'สต็อกอู่' | 'ร้านค้า';
-  supplierName?: string;
-  purchaseDate?: string;
+    sequence: number;
+    createdAt: string;
+    estimatedStartDate: string | null;
+    estimatedEndDate: string | null;
+    estimatedLaborHours: number;
+    status: 'Active' | 'Completed' | 'Failed';
+    failureReason: string | null;
+    aiReasoning: string | null;
 }
 
 export interface Repair {
@@ -74,9 +47,9 @@ export interface Repair {
     repairOrderNo: string;
     licensePlate: string;
     vehicleType: string;
-    vehicleMake: string;
-    vehicleModel: string;
-    currentMileage: string;
+    vehicleMake?: string;
+    vehicleModel?: string;
+    currentMileage?: number | string;
     reportedBy: string;
     repairCategory: string;
     priority: Priority;
@@ -84,36 +57,31 @@ export interface Repair {
     assignedTechnicianId: string | null;
     assistantTechnicianIds: string[];
     externalTechnicianName?: string;
-    status: RepairStatus;
-    createdAt: string;
-    updatedAt: string;
-    approvalDate: string | null;
-    repairStartDate: string | null;
-    repairEndDate: string | null;
     notes?: string;
-    parts?: PartRequisitionItem[];
-    attachments?: FileAttachment[];
-    repairCost: number;
+    dispatchType: 'ภายใน' | 'ภายนอก';
+    repairLocation?: string;
+    coordinator?: string;
+    returnDate?: string;
+    repairResult?: string;
+    repairCost?: number;
     partsVat?: number;
     isLaborVatEnabled?: boolean;
     laborVatRate?: number;
-    laborVat?: number; // The calculated amount
+    laborVat?: number;
+    parts: PartRequisitionItem[];
+    attachments?: FileAttachment[];
+    estimations: EstimationAttempt[];
+    checklists?: any;
+    kpiTaskIds?: string[];
+    status: RepairStatus;
+    createdAt: string;
+    updatedAt: string;
+    approvalDate?: string | null;
+    repairStartDate?: string | null;
+    repairEndDate?: string | null;
     requisitionNumber?: string;
     invoiceNumber?: string;
-    dispatchType: 'ภายใน' | 'ภายนอก';
-    estimations: EstimationAttempt[];
-    repairResult: string;
-    repairLocation: string;
-    coordinator: string;
-    returnDate: string;
-    checklists: {
-        preRepair: any[];
-        postRepair: any[];
-    };
-    kpiTaskIds?: string[];
 }
-
-export type TechnicianRole = 'ช่าง' | 'ผู้ช่วยช่าง';
 
 export interface Technician {
     id: string;
@@ -127,8 +95,6 @@ export interface Technician {
     currentJobs: number;
 }
 
-export type StockStatus = 'ปกติ' | 'สต็อกต่ำ' | 'หมดสต็อก' | 'สต๊อกเกิน';
-
 export interface StockItem {
     id: string;
     code: string;
@@ -139,21 +105,20 @@ export interface StockItem {
     minStock: number;
     maxStock: number | null;
     price: number;
-    sellingPrice: number | null;
-    storageLocation: string;
-    supplier: string;
+    sellingPrice?: number | null;
+    storageLocation?: string;
+    supplier?: string;
     status: StockStatus;
-    isFungibleUsedItem?: boolean;
     isRevolvingPart?: boolean;
+    isFungibleUsedItem?: boolean;
+    quantityReserved?: number;
 }
-
-export type StockTransactionType = 'รับเข้า' | 'เบิกใช้' | 'คืนร้านค้า' | 'ปรับสต็อก' | 'ขายของเก่า' | 'ย้ายสต็อก' | 'คืนของใช้ได้';
 
 export interface StockTransaction {
     id: string;
     stockItemId: string;
     stockItemName: string;
-    type: StockTransactionType;
+    type: StockTransactionType | string;
     quantity: number;
     transactionDate: string;
     actor: string;
@@ -165,10 +130,10 @@ export interface StockTransaction {
 
 export interface Report {
     id: string;
-    name: string;
-    type: 'monthly_summary' | 'technician_performance' | 'part_usage';
-    generatedAt: string;
-    data: any;
+    title: string;
+    date: string;
+    type: string;
+    content?: any;
 }
 
 export interface MaintenancePlan {
@@ -182,44 +147,10 @@ export interface MaintenancePlan {
     mileageFrequency: number;
 }
 
-export type UsedPartDispositionType = 'ขาย' | 'ทิ้ง' | 'เก็บไว้ใช้ต่อ' | 'นำไปใช้แล้ว' | 'ย้ายไปคลังหมุนเวียน' | 'ย้ายไปสต็อกของเก่ารวม';
-export type UsedPartCondition = 'ดีมาก' | 'ดี' | 'พอใช้' | 'ต้องซ่อม' | 'ชำรุด';
-export type UsedPartBatchStatus = 'รอจัดการ' | 'จัดการบางส่วน' | 'จัดการครบแล้ว';
-
-export interface UsedPartDisposition {
-    id: string;
-    quantity: number;
-    dispositionType: UsedPartDispositionType;
-    condition: UsedPartCondition;
-    date: string;
-    soldTo: string | null;
-    salePricePerUnit: number | null;
-    storageLocation: string | null;
-    notes: string | null;
-}
-
-export interface UsedPart {
-    id: string;
-    originalPartId: string;
-    name: string;
-    fromRepairId: string;
-    fromRepairOrderNo: string;
-    fromLicensePlate: string;
-    dateRemoved: string;
-    initialQuantity: number;
-    unit: string;
-    status: UsedPartBatchStatus;
-    dispositions: UsedPartDisposition[];
-    notes: string | null;
-}
-
-export type PurchaseRequisitionStatus = 'ฉบับร่าง' | 'รออนุมัติ' | 'อนุมัติแล้ว' | 'ออก PO แล้ว' | 'รอสินค้า' | 'รับของแล้ว' | 'ยกเลิก';
-export type PurchaseRequestType = 'Product' | 'Service' | 'Equipment' | 'Asset' | 'Others';
-export type PurchaseBudgetType = 'Have Budget' | 'No Budget';
-
 export interface PurchaseRequisitionItem {
-    stockId: string;
-    stockCode: string;
+    partId?: string;
+    stockId?: string;
+    stockCode?: string;
     name: string;
     quantity: number;
     unit: string;
@@ -238,57 +169,54 @@ export interface PurchaseRequisition {
     supplier: string;
     status: PurchaseRequisitionStatus;
     items: PurchaseRequisitionItem[];
-    vatAmount?: number;
     totalAmount: number;
-    notes: string;
+    vatAmount?: number;
+    notes?: string;
     approverName?: string;
-    approvalDate: string | null;
+    approvalDate?: string | null;
     requestType: PurchaseRequestType;
     otherRequestTypeDetail?: string;
     budgetStatus: PurchaseBudgetType;
-    relatedPoNumber?: string; // Link to PO
+    relatedPoNumber?: string;
 }
 
-export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Received' | 'Cancelled';
-
 export interface PurchaseOrderItem {
-    stockId?: string; 
+    stockId?: string;
     name: string;
     quantity: number;
     unit: string;
     unitPrice: number;
-    discount?: number;
     totalPrice: number;
-    prId?: string; // To trace back to which PR this item came from
+    prId?: string;
+    discount?: number;
 }
 
 export interface PurchaseOrder {
     id: string;
     poNumber: string;
+    createdAt: string;
     supplierName: string;
     supplierAddress?: string;
     supplierTaxId?: string;
     orderDate: string;
-    deliveryDate: string;
-    status: PurchaseOrderStatus;
-    items: PurchaseOrderItem[];
-    subtotal: number;
-    vatAmount: number;
-    totalAmount: number;
-    notes: string;
+    deliveryDate?: string;
     paymentTerms?: string;
-    linkedPrIds: string[]; // List of PR IDs included in this PO
-    linkedPrNumbers?: string[]; // List of PR Numbers for display
+    notes?: string;
     contactPerson?: string;
     requesterName?: string;
     department?: string;
-    createdAt: string;
-    createdBy?: string;
-    // New fields
     deliveryLocation?: string;
     project?: string;
     contactAccount?: string;
     contactReceiver?: string;
+    status: 'Draft' | 'Ordered' | 'Received' | 'Cancelled';
+    items: PurchaseOrderItem[];
+    subtotal: number;
+    vatAmount: number;
+    totalAmount: number;
+    linkedPrIds: string[];
+    linkedPrNumbers?: string[];
+    createdBy?: string;
 }
 
 export interface Vehicle {
@@ -309,7 +237,7 @@ export interface Vehicle {
 export interface Notification {
     id: string;
     message: string;
-    type: 'info' | 'warning' | 'danger' | 'success';
+    type: 'success' | 'error' | 'info' | 'warning' | 'danger';
     isRead: boolean;
     createdAt: string;
     linkTo?: Tab;
@@ -337,7 +265,32 @@ export interface UsedPartBuyer {
     otherContacts: string | null;
 }
 
-export type MonthStatus = 'planned' | 'completed' | 'none' | 'completed_unplanned';
+export interface UsedPartDisposition {
+    id: string;
+    dispositionType: 'ขาย' | 'ทิ้ง' | 'เก็บไว้ใช้ต่อ' | 'ย้ายไปคลังหมุนเวียน' | 'ย้ายไปสต็อกของเก่ารวม' | 'นำไปใช้แล้ว';
+    quantity: number;
+    condition: string;
+    date: string;
+    soldTo?: string | null;
+    salePricePerUnit?: number | null;
+    storageLocation?: string | null;
+    notes?: string | null;
+}
+
+export interface UsedPart {
+    id: string;
+    originalPartId: string;
+    name: string;
+    fromRepairId: string;
+    fromRepairOrderNo: string;
+    fromLicensePlate: string;
+    dateRemoved: string;
+    initialQuantity: number;
+    unit: string;
+    status: UsedPartBatchStatus;
+    dispositions: UsedPartDisposition[];
+    notes?: string;
+}
 
 export interface AnnualPMPlan {
     id: string;
@@ -345,6 +298,12 @@ export interface AnnualPMPlan {
     maintenancePlanId: string;
     year: number;
     months: { [monthIndex: number]: MonthStatus };
+}
+
+export interface ChatMessage {
+    id: string;
+    text: string;
+    sender: 'user' | 'bot';
 }
 
 export interface PMHistory {
@@ -356,6 +315,8 @@ export interface PMHistory {
     mileage: number;
     technicianId: string | null;
     notes: string;
+    targetServiceDate?: string;
+    targetMileage?: number;
 }
 
 export type VehicleLayout = 
@@ -404,7 +365,6 @@ export type ToolTransactionType = 'ยืม' | 'คืน' | 'เพิ่ม' 
 
 export interface Tool {
     id: string;
-    // Main Info
     code: string; // รหัสเครื่องมือ
     name: string; // ชื่อเครื่องมือ
     assetNumber: string | null; // หมายเลขทรัพย์สิน
@@ -413,26 +373,22 @@ export interface Tool {
     brand: string | null; // ยี่ห้อ
     serialNumber: string | null; // หมายเลขเครื่อง
     
-    // Stock Info
     totalQuantity: number;
     quantityCheckedOut: number;
     storageLocation: string | null;
     status: ToolStatus;
     lowStockThreshold: number;
 
-    // Purchase & Manual Info
     importDate: string; // วันที่ซื้อ / นำเข้า
     distributorName: string | null; // ชื่อผู้ขาย
     distributorAddress: string | null; // ที่อยู่ผู้ขาย
     distributorContact: string | null; // ติดต่อผู้ขาย
     manualRefNumber: string | null; // เลขที่อ้างอิงคู่มือ
     
-    // Technical Info
     usageDetails: string | null; // รายละเอียดการใช้งาน
     mechanicalProperties: string | null; // ข้อมูลทางกล
     electricalData: string | null; // ข้อมูลทางไฟฟ้า
 
-    // Meta
     recordedBy: string | null; // ผู้บันทึก
     notes: string | null; // หมายเหตุ
 }

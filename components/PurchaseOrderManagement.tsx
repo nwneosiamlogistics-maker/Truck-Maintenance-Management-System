@@ -32,6 +32,13 @@ const TrackingView: React.FC<{
         return Array.from(depts).sort();
     }, [purchaseRequisitions]);
 
+    // Helper to calculate days between two dates
+    const calcDays = (start: Date | null, end: Date | null) => {
+        if (!start || !end) return null;
+        const diff = end.getTime() - start.getTime();
+        return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24))); // Ensure non-negative
+    };
+
     // Merge Data Logic
     const trackingData = useMemo(() => {
         return purchaseRequisitions.map(pr => {
@@ -40,7 +47,6 @@ const TrackingView: React.FC<{
                 : null;
 
             // Determine Cancellation
-            // Robust check for Thai and English, and trimmed
             const status = pr.status ? pr.status.trim() : '';
             const isCancelled = status === 'ยกเลิก' || status === 'Cancelled' || (po?.status === 'Cancelled');
 
@@ -56,14 +62,19 @@ const TrackingView: React.FC<{
             const orderedDate = po ? new Date(po.orderDate) : null;
             const receivedDate = (isReceived && pr.updatedAt) ? new Date(pr.updatedAt) : null;
 
-            // Calculate Duration (Aging)
+            // Calculate Durations (Lead Times)
+            const durationApprove = calcDays(createdDate, approvedDate);
+            const durationPO = calcDays(approvedDate, orderedDate);
+            const durationReceive = calcDays(orderedDate, receivedDate);
+            const totalDuration = isReceived ? calcDays(createdDate, receivedDate) : null;
+
+            // Calculate Current Wait Duration (Aging)
             const now = new Date();
             let lastActionDate = createdDate;
             let currentStage = 'รออนุมัติ';
             
             if (isCancelled) {
                 currentStage = 'ยกเลิก';
-                // Use updatedAt if available, otherwise fallback to createdDate to avoid invalid date errors
                 lastActionDate = pr.updatedAt ? new Date(pr.updatedAt) : createdDate;
             } else if (isReceived) {
                 currentStage = 'เสร็จสิ้น';
@@ -84,8 +95,9 @@ const TrackingView: React.FC<{
                 po,
                 status: { isCreated, isApproved, isOrdered, isReceived, isCancelled },
                 dates: { createdDate, approvedDate, orderedDate, receivedDate },
+                durations: { durationApprove, durationPO, durationReceive, totalDuration },
                 currentStage,
-                daysWaiting: (isReceived || isCancelled) ? 0 : daysWaiting // If finished or cancelled, 0 wait time
+                daysWaiting: (isReceived || isCancelled) ? 0 : daysWaiting
             };
         })
         .filter(item => departmentFilter === 'all' || item.pr.department === departmentFilter)
@@ -112,8 +124,16 @@ const TrackingView: React.FC<{
         </div>
     );
 
-    const Connector = ({ active }: { active: boolean }) => (
-        <div className={`flex-1 h-1 mx-[-10px] mb-6 transition-colors duration-300 ${active ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+    const Connector = ({ active, duration }: { active: boolean, duration: number | null }) => (
+        <div className="flex-1 flex flex-col items-center justify-center mx-[-10px] mb-6 relative">
+            {/* Duration Label above line */}
+            {duration !== null && (
+                <div className="text-[10px] text-gray-500 bg-gray-50 px-1 rounded mb-1 -mt-3 z-20 border border-gray-200 shadow-sm">
+                    {duration} วัน
+                </div>
+            )}
+            <div className={`w-full h-1 transition-colors duration-300 ${active ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+        </div>
     );
 
     return (
@@ -151,7 +171,7 @@ const TrackingView: React.FC<{
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">รายละเอียดคำขอ (PR)</th>
                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ไทม์ไลน์การดำเนินการ</th>
                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">สถานะปัจจุบัน</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">ระยะเวลารอ</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">ระยะเวลารวม</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -174,11 +194,17 @@ const TrackingView: React.FC<{
                                 <td className="px-4 py-4 align-middle">
                                     <div className="flex items-center justify-center px-4">
                                         <Step active={item.status.isCreated} label="แจ้งขอซื้อ" date={item.dates.createdDate} icon="📝" />
-                                        <Connector active={item.status.isApproved} />
+                                        
+                                        <Connector active={item.status.isApproved} duration={item.durations.durationApprove} />
+                                        
                                         <Step active={item.status.isApproved} label="อนุมัติ" date={item.dates.approvedDate} icon="✅" />
-                                        <Connector active={item.status.isOrdered} />
+                                        
+                                        <Connector active={item.status.isOrdered} duration={item.durations.durationPO} />
+                                        
                                         <Step active={item.status.isOrdered} label="สั่งซื้อ (PO)" date={item.dates.orderedDate} icon="🛒" />
-                                        <Connector active={item.status.isReceived} />
+                                        
+                                        <Connector active={item.status.isReceived} duration={item.durations.durationReceive} />
+                                        
                                         <Step active={item.status.isReceived} label="รับของ" date={item.dates.receivedDate} icon="📦" />
                                     </div>
                                     {item.po && (
@@ -200,13 +226,18 @@ const TrackingView: React.FC<{
                                 <td className="px-4 py-4 align-middle text-center">
                                     {item.status.isCancelled ? (
                                         <span className="text-red-600 font-bold text-sm">ยกเลิก</span>
-                                    ) : !item.status.isReceived ? (
-                                        <div className={`flex flex-col items-center ${item.daysWaiting > 7 ? 'text-red-600' : item.daysWaiting > 3 ? 'text-yellow-600' : 'text-green-600'}`}>
-                                            <span className="text-2xl font-bold">{item.daysWaiting}</span>
+                                    ) : item.status.isReceived ? (
+                                        <div className="flex flex-col items-center text-green-700">
+                                            <span className="text-sm font-semibold">รวมทั้งหมด</span>
+                                            <span className="text-xl font-bold">{item.durations.totalDuration}</span>
                                             <span className="text-xs">วัน</span>
                                         </div>
                                     ) : (
-                                        <span className="text-green-600 font-bold text-xl">✓</span>
+                                        <div className={`flex flex-col items-center ${item.daysWaiting > 7 ? 'text-red-600' : item.daysWaiting > 3 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                                            <span className="text-xs text-gray-500">รอมาแล้ว</span>
+                                            <span className="text-xl font-bold">{item.daysWaiting}</span>
+                                            <span className="text-xs">วัน</span>
+                                        </div>
                                     )}
                                 </td>
                             </tr>

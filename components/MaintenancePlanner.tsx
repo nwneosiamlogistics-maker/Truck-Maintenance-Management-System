@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { MaintenancePlan, Repair, Technician, PMHistory, RepairFormSeed, Tab, Vehicle } from '../types';
 import MaintenancePlanModal from './MaintenancePlanModal';
@@ -32,7 +33,8 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
     const [isModalOpen, setModalOpen] = useState(false);
     const [isLogModalOpen, setLogModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<MaintenancePlan | null>(null);
-    const [loggingPlan, setLoggingPlan] = useState<MaintenancePlan | null>(null);
+    // Use EnrichedPlan here to access calculated targets
+    const [loggingPlan, setLoggingPlan] = useState<EnrichedPlan | null>(null); 
     const [statusFilter, setStatusFilter] = useState<PlanStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
@@ -95,7 +97,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
         }
     };
     
-    const handleLogService = (logData: { serviceDate: string; mileage: number; technicianId: string | null; notes: string; }) => {
+    const handleLogService = (logData: { serviceDate: string; mileage: number; technicianId: string | null; notes: string; targetDate?: string; targetMileage?: number }) => {
         if (!loggingPlan) return;
         
         const newHistoryItem: PMHistory = {
@@ -107,6 +109,8 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
             mileage: logData.mileage,
             technicianId: logData.technicianId,
             notes: logData.notes,
+            targetServiceDate: logData.targetDate,
+            targetMileage: logData.targetMileage,
         };
         setHistory(prev => [newHistoryItem, ...(Array.isArray(prev) ? prev : [])]);
 
@@ -207,7 +211,15 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
             </div>
             
             {isModalOpen && <MaintenancePlanModal plan={editingPlan} onSave={handleSavePlan} onClose={() => setModalOpen(false)} allRepairs={repairs} />}
-            {isLogModalOpen && loggingPlan && <LogMaintenanceModal plan={loggingPlan} technicians={technicians} onSave={handleLogService} onClose={() => setLogModalOpen(false)} />}
+            {isLogModalOpen && loggingPlan && (
+                <LogMaintenanceModal 
+                    plan={loggingPlan} 
+                    targets={{ date: loggingPlan.nextServiceDate, mileage: loggingPlan.nextServiceMileage }}
+                    technicians={technicians} 
+                    onSave={handleLogService} 
+                    onClose={() => setLogModalOpen(false)} 
+                />
+            )}
         </div>
     );
 };
