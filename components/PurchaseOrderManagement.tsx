@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import ReactDOMServer from 'react-dom/server';
 import type { PurchaseOrder, PurchaseRequisition, StockItem, StockTransaction, Supplier, Tab } from '../types';
 import CreatePOModal from './CreatePOModal';
@@ -25,6 +25,8 @@ const TrackingView: React.FC<{
 }> = ({ purchaseRequisitions, purchaseOrders }) => {
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     // Extract unique departments
     const departments = useMemo(() => {
@@ -110,6 +112,18 @@ const TrackingView: React.FC<{
         .sort((a, b) => b.dates.createdDate.getTime() - a.dates.createdDate.getTime());
     }, [purchaseRequisitions, purchaseOrders, departmentFilter, searchTerm]);
 
+    // Pagination Logic for Tracking
+    const totalPages = Math.ceil(trackingData.length / itemsPerPage);
+    const paginatedTrackingData = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return trackingData.slice(startIndex, startIndex + itemsPerPage);
+    }, [trackingData, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [departmentFilter, searchTerm, itemsPerPage]);
+
+
     // Helper for Timeline Step
     const Step = ({ active, label, date, icon, isCancelled }: { active: boolean, label: string, date: Date | null, icon: string, isCancelled?: boolean }) => (
         <div className={`flex flex-col items-center relative z-10 w-24`}>
@@ -120,7 +134,11 @@ const TrackingView: React.FC<{
                 {isCancelled ? 'X' : (active ? icon : '•')}
             </div>
             <div className={`text-xs font-medium mt-1 text-center ${isCancelled ? 'text-red-600' : ''}`}>{label}</div>
-            {active && date && <div className="text-[10px] text-gray-500">{date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' })}</div>}
+            {date && (
+                <div className="text-[10px] text-gray-500 mt-0.5">
+                    {date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </div>
+            )}
         </div>
     );
 
@@ -164,18 +182,18 @@ const TrackingView: React.FC<{
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-white rounded-lg shadow overflow-auto max-h-[65vh] border relative">
                 <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                         <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">รายละเอียดคำขอ (PR)</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ไทม์ไลน์การดำเนินการ</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">สถานะปัจจุบัน</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">ระยะเวลารวม</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64 bg-gray-50">รายละเอียดคำขอ (PR)</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">ไทม์ไลน์การดำเนินการ</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32 bg-gray-50">สถานะปัจจุบัน</th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32 bg-gray-50">ระยะเวลารวม</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {trackingData.map((item) => (
+                        {paginatedTrackingData.map((item) => (
                             <tr key={item.pr.id} className={`hover:bg-gray-50 ${item.status.isCancelled ? 'bg-red-50' : ''}`}>
                                 <td className="px-4 py-4 align-top">
                                     <div className={`font-bold ${item.status.isCancelled ? 'text-red-600 line-through' : 'text-blue-700'}`}>{item.pr.prNumber}</div>
@@ -250,6 +268,29 @@ const TrackingView: React.FC<{
                     </tbody>
                 </table>
             </div>
+
+            <div className="bg-white p-4 rounded-b-lg shadow-sm flex justify-between items-center flex-wrap gap-4 border-t border-gray-200">
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">แสดง:</label>
+                    <select
+                        value={itemsPerPage}
+                        onChange={e => setItemsPerPage(Number(e.target.value))}
+                        className="p-1 border border-gray-300 rounded-lg text-sm"
+                    >
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                    <span className="text-sm text-gray-700">
+                        จาก {trackingData.length} รายการ
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <span className="text-sm font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -264,6 +305,12 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
     const [expandedPOIds, setExpandedPOIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
+    
+    // Pagination states
+    const [pendingPage, setPendingPage] = useState(1);
+    const [pendingItemsPerPage, setPendingItemsPerPage] = useState(20);
+    const [poPage, setPoPage] = useState(1);
+    const [poItemsPerPage, setPoItemsPerPage] = useState(20);
 
     // --- Data Filtering ---
     const pendingPRs = useMemo(() => {
@@ -272,13 +319,36 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [purchaseRequisitions]);
 
+    const paginatedPendingPRs = useMemo(() => {
+        const startIndex = (pendingPage - 1) * pendingItemsPerPage;
+        return pendingPRs.slice(startIndex, startIndex + pendingItemsPerPage);
+    }, [pendingPRs, pendingPage, pendingItemsPerPage]);
+    
+    const pendingTotalPages = Math.ceil(pendingPRs.length / pendingItemsPerPage) || 1;
+
     const sortedPOs = useMemo(() => {
         return (Array.isArray(purchaseOrders) ? purchaseOrders : [])
             .filter(po => po.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplierName.toLowerCase().includes(searchTerm.toLowerCase()))
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [purchaseOrders, searchTerm]);
 
+    const paginatedPOs = useMemo(() => {
+        const startIndex = (poPage - 1) * poItemsPerPage;
+        return sortedPOs.slice(startIndex, startIndex + poItemsPerPage);
+    }, [sortedPOs, poPage, poItemsPerPage]);
+
+    const poTotalPages = Math.ceil(sortedPOs.length / poItemsPerPage) || 1;
+
     // --- Handlers ---
+
+    useEffect(() => {
+        setPendingPage(1);
+    }, [purchaseRequisitions]);
+
+    useEffect(() => {
+        setPoPage(1);
+    }, [searchTerm, purchaseOrders]);
+
 
     const handleTogglePRSelection = (id: string) => {
         setSelectedPRIds(prev => {
@@ -529,22 +599,22 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                             สร้างใบสั่งซื้อ (PO)
                         </button>
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-[65vh] border rounded-lg mb-4">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                                 <tr>
-                                    <th className="px-4 py-3 w-12">
+                                    <th className="px-4 py-3 w-12 bg-gray-50">
                                         {/* Select All Logic could be added here */}
                                     </th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">เลขที่ PR</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">วันที่ขอซื้อ</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ผู้จำหน่าย</th>
-                                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">ยอดรวม</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ผู้ขอซื้อ</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">เลขที่ PR</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">วันที่ขอซื้อ</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">ผู้จำหน่าย</th>
+                                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 bg-gray-50">ยอดรวม</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">ผู้ขอซื้อ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {pendingPRs.map(pr => (
+                                {paginatedPendingPRs.map(pr => (
                                     <tr key={pr.id} className={selectedPRIds.has(pr.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}>
                                         <td className="px-4 py-3 text-center">
                                             <input 
@@ -561,11 +631,34 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                         <td className="px-4 py-3 text-sm">{pr.requesterName}</td>
                                     </tr>
                                 ))}
-                                {pendingPRs.length === 0 && (
+                                {paginatedPendingPRs.length === 0 && (
                                     <tr><td colSpan={6} className="text-center py-10 text-gray-500">ไม่มีใบขอซื้อที่รออนุมัติ</td></tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    <div className="flex justify-between items-center flex-wrap gap-4">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium">แสดง:</label>
+                            <select
+                                value={pendingItemsPerPage}
+                                onChange={e => setPendingItemsPerPage(Number(e.target.value))}
+                                className="p-1 border border-gray-300 rounded-lg text-sm"
+                            >
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                            <span className="text-sm text-gray-700">
+                                จาก {pendingPRs.length} รายการ
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setPendingPage(p => Math.max(1, p - 1))} disabled={pendingPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                            <span className="text-sm font-semibold">หน้า {pendingPage} / {pendingTotalPages}</span>
+                            <button onClick={() => setPendingPage(p => Math.min(pendingTotalPages, p + 1))} disabled={pendingPage === pendingTotalPages} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -579,24 +672,24 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                         onChange={e => setSearchTerm(e.target.value)}
                         className="p-2 border rounded-lg w-full md:w-80"
                     />
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-[65vh] border rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                                 <tr>
-                                    <th className="w-10"></th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">เลขที่ PO</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">วันที่สั่งซื้อ</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ผู้จำหน่าย</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ผู้ขอซื้อ</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">แผนก/สาขา</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">อ้างอิง PR</th>
-                                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">ยอดสุทธิ</th>
-                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">สถานะ</th>
-                                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">จัดการ</th>
+                                    <th className="w-10 bg-gray-50"></th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">เลขที่ PO</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">วันที่สั่งซื้อ</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">ผู้จำหน่าย</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">ผู้ขอซื้อ</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">แผนก/สาขา</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">อ้างอิง PR</th>
+                                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 bg-gray-50">ยอดสุทธิ</th>
+                                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-gray-50">สถานะ</th>
+                                    <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 bg-gray-50">จัดการ</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {sortedPOs.map(po => (
+                                {paginatedPOs.map(po => (
                                     <React.Fragment key={po.id}>
                                         <tr className="hover:bg-gray-50">
                                             <td className="px-2 text-center">
@@ -670,6 +763,29 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    <div className="flex justify-between items-center flex-wrap gap-4">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium">แสดง:</label>
+                            <select
+                                value={poItemsPerPage}
+                                onChange={e => setPoItemsPerPage(Number(e.target.value))}
+                                className="p-1 border border-gray-300 rounded-lg text-sm"
+                            >
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                            <span className="text-sm text-gray-700">
+                                จาก {sortedPOs.length} รายการ
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setPoPage(p => Math.max(1, p - 1))} disabled={poPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                            <span className="text-sm font-semibold">หน้า {poPage} / {poTotalPages}</span>
+                            <button onClick={() => setPoPage(p => Math.min(poTotalPages, p + 1))} disabled={poPage === poTotalPages} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                        </div>
                     </div>
                 </div>
             )}

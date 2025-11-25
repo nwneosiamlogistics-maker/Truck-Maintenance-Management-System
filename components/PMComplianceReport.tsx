@@ -42,18 +42,20 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
         const TOLERANCE_KM = 2000;
 
         // 1. Process Historical Records (Completed PMs)
-        // We look for any history record that falls within the selected range OR has a target date within the selected range.
         const relevantHistory = history.filter(h => {
             const serviceDate = new Date(h.serviceDate);
             const targetDate = h.targetServiceDate ? new Date(h.targetServiceDate) : null;
             
+            // Include if service date OR target date is in range
             const serviceInRange = serviceDate >= start && serviceDate <= end;
             const targetInRange = targetDate ? (targetDate >= start && targetDate <= end) : false;
             
             return serviceInRange || targetInRange;
         });
 
-        const processedPlanIds = new Set<string>();
+        // Keep track of plan occurrences to identify missed ones
+        // Key: planId-targetDateString
+        const processedPlanOccurrences = new Set<string>();
 
         relevantHistory.forEach(h => {
             let status: ComplianceStatus = 'Unknown';
@@ -71,19 +73,24 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                     mileageDiff = h.mileage - h.targetMileage;
                 }
 
-                // Determine Status
+                // Determine Status Logic
                 const isDateOk = Math.abs(dateDiff) <= TOLERANCE_DAYS;
-                const isMileageOk = Math.abs(mileageDiff) <= TOLERANCE_KM;
+                const isMileageOk = h.targetMileage ? Math.abs(mileageDiff) <= TOLERANCE_KM : true;
 
-                if (isDateOk || (h.targetMileage && isMileageOk)) {
+                if (isDateOk || (h.targetMileage && Math.abs(mileageDiff) <= TOLERANCE_KM)) {
+                    // Relaxed logic: if either date OR mileage is within tolerance, we consider it 'On Time'/Compliant
                     status = 'On Time';
-                } else if (dateDiff < -TOLERANCE_DAYS || (h.targetMileage && mileageDiff < -TOLERANCE_KM)) {
+                } else if (dateDiff < -TOLERANCE_DAYS) {
                     status = 'Early';
                 } else {
                     status = 'Late';
                 }
+                
+                // Mark this occurrence as processed
+                processedPlanOccurrences.add(`${h.maintenancePlanId}-${targetDate.toISOString().split('T')[0]}`);
+
             } else {
-                // No target, but done. Assume On Time for legacy data if within reasonable range of "now" when created, but here we just mark On Time.
+                // No target recorded (legacy data), assume On Time for reporting purposes
                 status = 'On Time'; 
             }
 
@@ -91,7 +98,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                 id: h.id,
                 vehicleLicensePlate: h.vehicleLicensePlate,
                 planName: h.planName,
-                targetDate: targetDate || actualDate, // Fallback for sorting
+                targetDate: targetDate || actualDate, // Use actual date for sorting if target missing
                 targetMileage: h.targetMileage,
                 actualDate: actualDate,
                 actualMileage: h.mileage,
@@ -99,31 +106,33 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                 dateDiff: targetDate ? dateDiff : undefined,
                 mileageDiff: h.targetMileage ? mileageDiff : undefined
             });
-
-            // Mark this plan instance as processed for this approximate timeframe to avoid duplicates with the "Missed" check below
-            if (targetDate && targetDate >= start && targetDate <= end) {
-                 processedPlanIds.add(`${h.maintenancePlanId}-${targetDate.toISOString().split('T')[0]}`);
-            }
         });
 
         // 2. Identify Missed PMs
-        // Check current plan nextDueDate. If it falls in the range and is in the past, and NOT found in history.
+        // Iterate through all active plans and calculate if they *should* have happened in this window
         const today = new Date();
         plans.forEach(plan => {
             const lastDate = new Date(plan.lastServiceDate);
             let nextServiceDate = new Date(lastDate);
+            
+            // Calculate next theoretical due date based on current plan settings
             if (plan.frequencyUnit === 'days') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
             else if (plan.frequencyUnit === 'weeks') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
             else nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
 
-            // If the calculated next due date is within the report range
+            // If the calculated next due date falls within the report range
             if (nextServiceDate >= start && nextServiceDate <= end) {
-                // Check if we already have a history record for this specific date (approximate match)
                 const dateKey = nextServiceDate.toISOString().split('T')[0];
-                const alreadyLogged = Array.from(processedPlanIds).some(key => key.startsWith(plan.id) && key.includes(dateKey));
+                
+                // Check if we already have a history record that matches this Plan ID and approx Target Date
+                // This is a heuristic since we don't have unique instance IDs for recurring plans yet
+                // We check if any history record for this plan has a target date matching this calculated date
+                const isHandled = Array.from(processedPlanOccurrences).some(key => key === `${plan.id}-${dateKey}`);
 
-                if (!alreadyLogged) {
-                    // If date is in the past, it's missed (or late but not done yet).
+                if (!isHandled) {
+                    // If date is in the past relative to "Today", it's Missed. 
+                    // If it's in the future (but within report range), it's just "Due Soon" (not shown as missed in strict reports usually, but let's show if asked)
+                    // Here we interpret "Missed" as overdue and not done.
                     if (nextServiceDate < today) {
                         results.push({
                             id: `missed-${plan.id}-${dateKey}`,
@@ -163,18 +172,21 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
 
     const getStatusBadge = (status: ComplianceStatus) => {
         switch (status) {
-            case 'On Time': return 'bg-green-100 text-green-800';
-            case 'Early': return 'bg-yellow-100 text-yellow-800';
-            case 'Late': return 'bg-red-100 text-red-800';
-            case 'Missed': return 'bg-gray-200 text-gray-800 font-bold';
+            case 'On Time': return 'bg-green-100 text-green-800 border border-green-200';
+            case 'Early': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+            case 'Late': return 'bg-red-100 text-red-800 border border-red-200';
+            case 'Missed': return 'bg-gray-200 text-gray-800 border border-gray-300 font-bold';
             default: return 'bg-gray-100 text-gray-600';
         }
     };
 
-    const StatBox = ({ label, value, color }: { label: string, value: number, color: string }) => (
-        <div className={`p-4 rounded-xl shadow-sm border-l-4 ${color} bg-white flex-1 min-w-[150px]`}>
-            <p className="text-gray-500 text-sm font-medium">{label}</p>
-            <p className="text-2xl font-bold text-gray-800">{value}</p>
+    const StatBox = ({ label, value, color, icon }: { label: string, value: number, color: string, icon: string }) => (
+        <div className={`p-4 rounded-xl shadow-sm border-l-4 ${color} bg-white flex-1 min-w-[150px] flex items-center justify-between`}>
+            <div>
+                <p className="text-gray-500 text-sm font-medium">{label}</p>
+                <p className="text-2xl font-bold text-gray-800">{value}</p>
+            </div>
+            <div className="text-2xl opacity-50">{icon}</div>
         </div>
     );
 
@@ -193,7 +205,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">จากวันที่</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">จากวันที่ (เป้าหมาย)</label>
                     <input
                         type="date"
                         value={startDate}
@@ -202,7 +214,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ถึงวันที่</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">ถึงวันที่ (เป้าหมาย)</label>
                     <input
                         type="date"
                         value={endDate}
@@ -212,24 +224,26 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                 </div>
             </div>
 
-            {/* Dashboard */}
+            {/* Dashboard Cards */}
             <div className="flex flex-wrap gap-4">
-                <StatBox label="ตรงเวลา (On Time)" value={stats['On Time']} color="border-green-500" />
-                <StatBox label="ก่อนกำหนด (Early)" value={stats['Early']} color="border-yellow-500" />
-                <StatBox label="ล่าช้า (Late)" value={stats['Late']} color="border-red-500" />
-                <StatBox label="ไม่ได้ทำ (Missed)" value={stats['Missed']} color="border-gray-500" />
+                <StatBox label="ตรงเวลา (On Time)" value={stats['On Time']} color="border-green-500" icon="🟢" />
+                <StatBox label="ก่อนกำหนด (Early)" value={stats['Early']} color="border-yellow-500" icon="🟡" />
+                <StatBox label="ล่าช้า (Late)" value={stats['Late']} color="border-red-500" icon="🔴" />
+                <StatBox label="ไม่ได้ทำ (Missed)" value={stats['Missed']} color="border-gray-500" icon="⚪" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm overflow-hidden">
-                    <div className="p-4 border-b bg-gray-50">
+                {/* Table Section */}
+                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                    <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
                         <h3 className="font-bold text-gray-800">รายละเอียดการปฏิบัติตามแผน (Compliance Detail)</h3>
+                        <span className="text-xs text-gray-500">จำนวน: {complianceData.length} รายการ</span>
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto flex-1">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ทะเบียน / แผน</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/4">ทะเบียน / แผน</th>
                                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">เป้าหมาย (Target)</th>
                                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">ทำจริง (Actual)</th>
                                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">ส่วนต่าง (Variance)</th>
@@ -241,7 +255,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                                     <tr key={item.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-3">
                                             <div className="font-bold text-gray-800">{item.vehicleLicensePlate}</div>
-                                            <div className="text-xs text-gray-500">{item.planName}</div>
+                                            <div className="text-xs text-gray-500 line-clamp-1" title={item.planName}>{item.planName}</div>
                                         </td>
                                         <td className="px-4 py-3 text-center text-sm">
                                             <div className="font-medium text-blue-600">{item.targetDate.toLocaleDateString('th-TH')}</div>
@@ -254,12 +268,12 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                                                     {item.actualMileage && <div className="text-xs text-gray-500">{item.actualMileage.toLocaleString()} กม.</div>}
                                                 </>
                                             ) : (
-                                                <span className="text-gray-400">-</span>
+                                                <span className="text-gray-400 italic">- ยังไม่ทำ -</span>
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-center text-sm">
                                             {item.dateDiff !== undefined ? (
-                                                <div className={`${item.dateDiff > 7 ? 'text-red-600' : item.dateDiff < -7 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                                <div className={`${item.dateDiff > 7 ? 'text-red-600 font-bold' : item.dateDiff < -7 ? 'text-yellow-600' : 'text-green-600'}`}>
                                                     {item.dateDiff > 0 ? `+${item.dateDiff}` : item.dateDiff} วัน
                                                 </div>
                                             ) : '-'}
@@ -270,7 +284,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`}>
+                                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`}>
                                                 {item.status}
                                             </span>
                                         </td>
@@ -286,9 +300,10 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                     </div>
                 </div>
 
-                <div className="lg:col-span-1">
+                {/* Chart Section */}
+                <div className="lg:col-span-1 space-y-6">
                     <PieChart 
-                        title="สรุปสถานะ (Compliance Overview)" 
+                        title="สัดส่วนสถานะ (Compliance Overview)" 
                         data={[
                             { name: 'On Time', value: stats['On Time'] },
                             { name: 'Early', value: stats['Early'] },
@@ -296,13 +311,26 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                             { name: 'Missed', value: stats['Missed'] },
                         ].filter(d => d.value > 0)}
                     />
-                    <div className="mt-4 bg-blue-50 p-4 rounded-xl text-sm text-blue-800">
-                        <h4 className="font-bold mb-2">เกณฑ์การวัดผล (Criteria)</h4>
-                        <ul className="list-disc list-inside space-y-1">
-                            <li><strong>On Time:</strong> +/- 7 วัน หรือ +/- 2,000 กม.</li>
-                            <li><strong>Early:</strong> เร็วกว่ากำหนดเกิน 7 วัน/2,000 กม.</li>
-                            <li><strong>Late:</strong> ช้ากว่ากำหนดเกิน 7 วัน/2,000 กม.</li>
-                            <li><strong>Missed:</strong> เลยกำหนดแล้วและยังไม่มีการบันทึก</li>
+                    
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <h4 className="font-bold text-blue-900 mb-2 border-b border-blue-200 pb-1">เกณฑ์การวัดผล (Evaluation Criteria)</h4>
+                        <ul className="text-sm text-blue-800 space-y-2">
+                            <li className="flex items-start gap-2">
+                                <span className="text-green-500 mt-0.5">●</span>
+                                <div><strong>On Time (ตรงเวลา):</strong> ทำภายใน +/- 7 วัน หรือ +/- 2,000 กม. จากเป้าหมาย</div>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-yellow-500 mt-0.5">●</span>
+                                <div><strong>Early (ก่อนกำหนด):</strong> ทำก่อนกำหนดเกิน 7 วัน หรือ 2,000 กม.</div>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5">●</span>
+                                <div><strong>Late (ล่าช้า):</strong> ทำหลังกำหนดเกิน 7 วัน หรือ 2,000 กม.</div>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-gray-500 mt-0.5">●</span>
+                                <div><strong>Missed (ไม่ได้ทำ):</strong> เลยกำหนดแล้ว และยังไม่มีการบันทึกประวัติ</div>
+                            </li>
                         </ul>
                     </div>
                 </div>
