@@ -18,6 +18,21 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
     const TARGET_ROWS = 12;
     const emptyRowsCount = Math.max(0, TARGET_ROWS - (requisition.items?.length || 0));
 
+    const requestTypeLabel = (() => {
+        const map: Record<string, string> = {
+            'Product': 'สินค้า',
+            'Service': 'บริการ',
+            'Equipment': 'อุปกรณ์',
+            'Asset': 'ทรัพย์สิน',
+            'Others': 'อื่นๆ'
+        };
+        const label = map[requisition.requestType] || requisition.requestType;
+        if (requisition.requestType === 'Others' && requisition.otherRequestTypeDetail) {
+            return `${label} (${requisition.otherRequestTypeDetail})`;
+        }
+        return label;
+    })();
+
     return (
         <div 
             className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative" 
@@ -40,7 +55,7 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                         <p>159/9-10 หมู่ 7 ตำบลบางม่วง อำเภอเมืองนครสวรรค์ จังหวัดนครสวรรค์ 60000</p>
                         <p>159/9-10 Village No.7, Bang Muang, Muang Nakhon Sawan, Nakhon Sawan 60000</p>
                         <p><strong>Tax ID:</strong> 0105552087673</p>
-                        <p><strong>Tel:</strong> 056-275-841 <strong>Fax:</strong> 056-275-843</p>
+                        <p><strong>Tel:</strong> 056-275-841 <strong>Email:</strong> info_nw@neosiamlogistics.com</p>
                     </div>
                 </div>
                 {/* Right: Logo */}
@@ -62,20 +77,25 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                     <div className="text-3xl font-bold text-gray-800 tracking-wide">ใบขอซื้อ</div>
                     <div className="text-lg font-bold text-gray-500 tracking-widest">PURCHASE REQUISITION</div>
                 </div>
-                <div className="w-2/5">
-                    <div className="border border-gray-400 rounded p-2 bg-gray-50 text-xs">
-                        <div className="grid grid-cols-3 gap-y-1">
-                            <div className="font-bold text-right pr-2">เลขที่ (PR No.):</div>
-                            <div className="col-span-2 font-medium">{requisition.prNumber}</div>
-                            
-                            <div className="font-bold text-right pr-2">วันที่ (Date):</div>
-                            <div className="col-span-2 font-medium">{new Date(requisition.createdAt).toLocaleDateString('th-TH')}</div>
-                            
-                            <div className="font-bold text-right pr-2">แผนก (Dept):</div>
-                            <div className="col-span-2 font-medium">{requisition.department}</div>
-                            
-                            <div className="font-bold text-right pr-2">ผู้ขอซื้อ:</div>
-                            <div className="col-span-2 font-medium">{requisition.requesterName}</div>
+                <div className="w-auto">
+                    <div className="border border-gray-400 rounded p-3 bg-gray-50 text-xs min-w-[250px]">
+                        <div className="space-y-1">
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">เลขที่ (PR No.):</span>
+                                <span className="font-medium">{requisition.prNumber}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">วันที่ (Date):</span>
+                                <span className="font-medium">{new Date(requisition.createdAt).toLocaleDateString('th-TH')}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">แผนก (Dept):</span>
+                                <span className="font-medium">{requisition.department}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">ผู้ขอซื้อ:</span>
+                                <span className="font-medium">{requisition.requesterName}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -93,45 +113,45 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                     <h3 className="font-bold text-gray-700 border-b border-gray-200 pb-1 mb-1">ข้อมูลเพิ่มเติม</h3>
                     <div className="grid grid-cols-2 gap-1">
                         <p><strong>วันที่ต้องการ:</strong> {new Date(requisition.dateNeeded).toLocaleDateString('th-TH')}</p>
-                        <p><strong>ประเภท:</strong> {requisition.requestType}</p>
+                        <p><strong>ประเภท:</strong> {requestTypeLabel}</p>
                         <p className="col-span-2"><strong>งบประมาณ:</strong> {requisition.budgetStatus === 'Have Budget' ? 'มีงบประมาณ' : 'ไม่มีงบประมาณ'}</p>
                     </div>
                 </div>
             </div>
 
             {/* --- ITEMS TABLE --- */}
-            <div className="flex-grow border border-gray-300 rounded overflow-hidden flex flex-col">
-                <table className="w-full border-collapse text-xs">
-                    <thead className="bg-gray-100 text-gray-700">
+            <div className="flex-grow overflow-hidden flex flex-col">
+                <table className="w-full border-collapse text-xs border border-gray-400">
+                    <thead className="bg-[#E5E5E5] text-black font-bold">
                         <tr>
-                            <th className="border-b border-r border-gray-300 p-2 w-10 text-center">ลำดับ</th>
-                            <th className="border-b border-r border-gray-300 p-2 text-left">รายการ (Description)</th>
-                            <th className="border-b border-r border-gray-300 p-2 w-20 text-right">จำนวน</th>
-                            <th className="border-b border-r border-gray-300 p-2 w-16 text-center">หน่วย</th>
-                            <th className="border-b border-r border-gray-300 p-2 w-24 text-right">ราคา/หน่วย</th>
-                            <th className="border-b border-gray-300 p-2 w-28 text-right">จำนวนเงิน</th>
+                            <th className="border border-gray-400 p-2 w-10 text-center">ลำดับ</th>
+                            <th className="border border-gray-400 p-2 text-left">รายการ (Description)</th>
+                            <th className="border border-gray-400 p-2 w-20 text-right">จำนวน</th>
+                            <th className="border border-gray-400 p-2 w-16 text-center">หน่วย</th>
+                            <th className="border border-gray-400 p-2 w-24 text-right">ราคา/หน่วย</th>
+                            <th className="border border-gray-400 p-2 w-28 text-right">จำนวนเงิน</th>
                         </tr>
                     </thead>
                     <tbody>
                         {(Array.isArray(requisition.items) ? requisition.items : []).map((item, index) => (
                             <tr key={index}>
-                                <td className="border-r border-gray-300 p-1 text-center align-top">{index + 1}</td>
-                                <td className="border-r border-gray-300 p-1 align-top">{item.name}</td>
-                                <td className="border-r border-gray-300 p-1 text-right align-top">{item.quantity}</td>
-                                <td className="border-r border-gray-300 p-1 text-center align-top">{item.unit}</td>
-                                <td className="border-r border-gray-300 p-1 text-right align-top">{item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                <td className="p-1 text-right font-medium align-top">{(item.quantity * item.unitPrice).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td className="border-x border-gray-400 p-1 text-center align-top">{index + 1}</td>
+                                <td className="border-x border-gray-400 p-1 align-top">{item.name}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.quantity}</td>
+                                <td className="border-x border-gray-400 p-1 text-center align-top">{item.unit}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td className="border-x border-gray-400 p-1 text-right font-medium align-top">{(item.quantity * item.unitPrice).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                             </tr>
                         ))}
                         {/* Fill empty rows */}
                         {Array.from({ length: emptyRowsCount }).map((_, i) => (
                             <tr key={`empty-${i}`}>
-                                <td className="border-r border-gray-300 p-1">&nbsp;</td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="p-1"></td>
+                                <td className="border-x border-gray-400 p-1">&nbsp;</td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
                             </tr>
                         ))}
                     </tbody>

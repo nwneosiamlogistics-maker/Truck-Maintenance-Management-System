@@ -191,6 +191,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
 
     const handleQuickStatusUpdate = (pr: PurchaseRequisition, newStatus: PurchaseRequisitionStatus) => {
         const prompts = {
+            'รออนุมัติ': `ยืนยันส่งใบขอซื้อ ${pr.prNumber} เพื่อรออนุมัติ?`,
             'อนุมัติแล้ว': `คุณต้องการอนุมัติใบขอซื้อ ${pr.prNumber} ใช่หรือไม่?`,
             'รอสินค้า': `ยืนยันการสั่งซื้อสำหรับ ${pr.prNumber} ใช่หรือไม่?`,
             'รับของแล้ว': `ยืนยันการรับของสำหรับ ${pr.prNumber} ใช่หรือไม่?`
@@ -232,16 +233,17 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
             case 'ฉบับร่าง':
                 return (
                     <>
-                        <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">ดู/แก้ไข</button>
-                        <button onClick={() => handleDeleteRequisition(pr.id, pr.prNumber)} className="text-gray-500 hover:text-gray-700 font-medium">ลบ</button>
-                        <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium">ยกเลิก</button>
+                        <button onClick={() => handleQuickStatusUpdate(pr, 'รออนุมัติ')} className="text-white bg-blue-500 hover:bg-blue-600 font-medium px-3 py-1 rounded-md text-sm">ส่งขออนุมัติ</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium ml-2">แก้ไข</button>
+                        <button onClick={() => handleDeleteRequisition(pr.id, pr.prNumber)} className="text-gray-500 hover:text-gray-700 font-medium ml-2">ลบ</button>
+                        <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );
             case 'รออนุมัติ':
                 return (
                     <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'อนุมัติแล้ว')} className="text-white bg-green-500 hover:bg-green-600 font-medium px-3 py-1 rounded-md text-sm">อนุมัติ</button>
-                        <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">แก้ไข/ดู</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium ml-2">แก้ไข/ดู</button>
                         <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );
@@ -249,7 +251,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                  return (
                      <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'รอสินค้า')} className="text-white bg-blue-500 hover:bg-blue-600 font-medium px-3 py-1 rounded-md text-sm">ยืนยันสั่งซื้อ</button>
-                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium ml-2">ดู</button>
                         <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );
@@ -257,14 +259,14 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                 return (
                     <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
-                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium ml-2">ดู</button>
                     </>
                 );
             case 'รอสินค้า':
                  return (
                      <>
                         <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
-                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium ml-2">ดู</button>
                         <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );

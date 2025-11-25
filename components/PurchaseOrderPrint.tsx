@@ -64,20 +64,25 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
                     <div className="text-3xl font-bold text-gray-800 tracking-wide">ใบสั่งซื้อ</div>
                     <div className="text-lg font-bold text-gray-500 tracking-widest">PURCHASE ORDER</div>
                 </div>
-                <div className="w-2/5">
-                    <div className="border border-gray-400 rounded p-2 bg-gray-50 text-xs">
-                        <div className="grid grid-cols-3 gap-y-1">
-                            <div className="font-bold text-right pr-2">เลขที่ (PO No.):</div>
-                            <div className="col-span-2 font-medium">{po.poNumber}</div>
-                            
-                            <div className="font-bold text-right pr-2">วันที่ (Date):</div>
-                            <div className="col-span-2 font-medium">{new Date(po.orderDate).toLocaleDateString('th-TH')}</div>
-                            
-                            <div className="font-bold text-right pr-2">เครดิต (Term):</div>
-                            <div className="col-span-2 font-medium">{po.paymentTerms || '-'}</div>
-                            
-                            <div className="font-bold text-right pr-2">อ้างอิง (Ref):</div>
-                            <div className="col-span-2 font-medium truncate">{linkedPrText}</div>
+                <div className="w-auto">
+                    <div className="border border-gray-400 rounded p-3 bg-gray-50 text-xs min-w-[250px]">
+                        <div className="space-y-1">
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">เลขที่ (PO No.):</span>
+                                <span className="font-medium">{po.poNumber}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">วันที่ (Date):</span>
+                                <span className="font-medium">{new Date(po.orderDate).toLocaleDateString('th-TH')}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">เครดิต (Term):</span>
+                                <span className="font-medium">{po.paymentTerms || '-'}</span>
+                            </div>
+                            <div className="flex items-baseline">
+                                <span className="font-bold w-24 flex-shrink-0 text-left">อ้างอิง (Ref):</span>
+                                <span className="font-medium truncate">{linkedPrText}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -104,41 +109,41 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
             </div>
 
             {/* --- ITEMS TABLE --- */}
-            <div className="flex-grow border border-gray-300 rounded overflow-hidden flex flex-col">
-                <table className="w-full border-collapse text-xs">
-                    <thead className="bg-gray-100 text-gray-700">
+            <div className="flex-grow overflow-hidden flex flex-col">
+                <table className="w-full border-collapse text-xs border border-gray-400">
+                    <thead className="bg-[#E5E5E5] text-black font-bold">
                         <tr>
-                            <th className="border-b border-r border-gray-300 p-2 w-10 text-center">ลำดับ</th>
-                            <th className="border-b border-r border-gray-300 p-2 text-left">รายการสินค้า / รายละเอียด</th>
-                            <th className="border-b border-r border-gray-300 p-2 w-16 text-right">จำนวน</th>
-                            <th className="border-b border-r border-gray-300 p-2 w-14 text-center">หน่วย</th>
-                            <th className="border-b border-r border-gray-300 p-2 w-20 text-right">ราคา/หน่วย</th>
-                            <th className="border-b border-r border-gray-300 p-2 w-16 text-right">ส่วนลด</th>
-                            <th className="border-b border-gray-300 p-2 w-24 text-right">จำนวนเงิน</th>
+                            <th className="border border-gray-400 p-2 w-10 text-center">ลำดับ</th>
+                            <th className="border border-gray-400 p-2 text-left">รายการสินค้า / รายละเอียด</th>
+                            <th className="border border-gray-400 p-2 w-16 text-right">จำนวน</th>
+                            <th className="border border-gray-400 p-2 w-14 text-center">หน่วย</th>
+                            <th className="border border-gray-400 p-2 w-20 text-right">ราคา/หน่วย</th>
+                            <th className="border border-gray-400 p-2 w-16 text-right">ส่วนลด</th>
+                            <th className="border border-gray-400 p-2 w-24 text-right">จำนวนเงิน</th>
                         </tr>
                     </thead>
                     <tbody>
                         {po.items.map((item, index) => (
                             <tr key={index}>
-                                <td className="border-r border-gray-300 p-1 text-center align-top">{index + 1}</td>
-                                <td className="border-r border-gray-300 p-1 align-top">{item.name}</td>
-                                <td className="border-r border-gray-300 p-1 text-right align-top">{item.quantity}</td>
-                                <td className="border-r border-gray-300 p-1 text-center align-top">{item.unit}</td>
-                                <td className="border-r border-gray-300 p-1 text-right align-top">{item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                <td className="border-r border-gray-300 p-1 text-right align-top">{item.discount ? item.discount.toLocaleString() : '-'}</td>
-                                <td className="p-1 text-right align-top font-medium">{item.totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td className="border-x border-gray-400 p-1 text-center align-top">{index + 1}</td>
+                                <td className="border-x border-gray-400 p-1 align-top">{item.name}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.quantity}</td>
+                                <td className="border-x border-gray-400 p-1 text-center align-top">{item.unit}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.discount ? item.discount.toLocaleString() : '-'}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top font-medium">{item.totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                             </tr>
                         ))}
                         {/* Fill empty rows */}
                         {Array.from({ length: emptyRowsCount }).map((_, i) => (
                             <tr key={`empty-${i}`}>
-                                <td className="border-r border-gray-300 p-1">&nbsp;</td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="border-r border-gray-300 p-1"></td>
-                                <td className="p-1"></td>
+                                <td className="border-x border-gray-400 p-1">&nbsp;</td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
+                                <td className="border-x border-gray-400 p-1"></td>
                             </tr>
                         ))}
                     </tbody>

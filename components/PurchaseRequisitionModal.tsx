@@ -14,6 +14,16 @@ type PRDataWithRowIdItems = Omit<PurchaseRequisition, 'items'> & {
     items: PRItemWithRowId[];
 };
 
+const PREDEFINED_DEPARTMENTS = [
+    'แผนกซ่อมบำรุง',
+    'สาขานครสวรรค์',
+    'สาขาพิษณุโลก',
+    'สาขากำแพงเพชร',
+    'สาขาแม่สอด',
+    'สาขาเชียงใหม่',
+    'สาขาสาย3'
+];
+
 // --- START: Memoized ItemRow Component for Performance ---
 interface ItemRowProps {
     item: PRItemWithRowId;
@@ -147,6 +157,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     const [selectedStockId, setSelectedStockId] = useState('');
     const [isVatEnabled, setIsVatEnabled] = useState(false);
     const [vatRate, setVatRate] = useState(7);
+    const [departmentSelection, setDepartmentSelection] = useState('แผนกซ่อมบำรุง');
     const { addToast } = useToast();
 
 
@@ -154,6 +165,14 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         if (isOpen) {
             const initialState = getInitialState();
             setPrData(initialState);
+
+            // Initialize department selection
+            if (PREDEFINED_DEPARTMENTS.includes(initialState.department)) {
+                setDepartmentSelection(initialState.department);
+            } else {
+                setDepartmentSelection('others');
+            }
+
             if (initialRequisition) {
                 const sub = (initialRequisition.items || []).reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
                 if (initialRequisition.vatAmount && initialRequisition.vatAmount > 0 && sub > 0) {
@@ -249,6 +268,16 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     return { ...prev, [name]: value };
             }
         });
+    };
+
+    const handleDepartmentSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        setDepartmentSelection(val);
+        if (val !== 'others') {
+            setPrData(prev => ({ ...prev, department: val }));
+        } else {
+            setPrData(prev => ({ ...prev, department: '' }));
+        }
     };
 
     const handleItemChange = useCallback((rowId: string, field: keyof PurchaseRequisitionItem, value: any) => {
@@ -400,7 +429,28 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         </div>
                         <div>
                             <label className="block text-sm font-medium">แผนก/สาขา *</label>
-                            <input type="text" name="department" value={prData.department} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"/>
+                            <select 
+                                value={departmentSelection} 
+                                onChange={handleDepartmentSelectChange} 
+                                disabled={!isEditable}
+                                className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100 mb-2"
+                            >
+                                {PREDEFINED_DEPARTMENTS.map(dept => (
+                                    <option key={dept} value={dept}>{dept}</option>
+                                ))}
+                                <option value="others">อื่นๆ..</option>
+                            </select>
+                            {departmentSelection === 'others' && (
+                                <input 
+                                    type="text" 
+                                    name="department" 
+                                    value={prData.department} 
+                                    onChange={handleInputChange} 
+                                    disabled={!isEditable} 
+                                    placeholder="ระบุแผนก/สาขา"
+                                    className="w-full p-2 border rounded-lg disabled:bg-gray-100"
+                                />
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium">วันที่ต้องการใช้ *</label>
@@ -423,13 +473,24 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         </div>
                         <div>
                             <label className="block text-sm font-medium">ประเภทการขอซื้อ</label>
-                            <select name="requestType" value={prData.requestType} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100">
+                            <select name="requestType" value={prData.requestType} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100 mb-2">
                                 <option value="Product">สินค้า</option>
                                 <option value="Service">บริการ</option>
                                 <option value="Equipment">อุปกรณ์</option>
                                 <option value="Asset">ทรัพย์สิน</option>
                                 <option value="Others">อื่นๆ</option>
                             </select>
+                            {prData.requestType === 'Others' && (
+                                <input 
+                                    type="text" 
+                                    name="otherRequestTypeDetail" 
+                                    value={prData.otherRequestTypeDetail || ''} 
+                                    onChange={handleInputChange} 
+                                    disabled={!isEditable} 
+                                    placeholder="ระบุประเภทอื่นๆ"
+                                    className="w-full p-2 border rounded-lg disabled:bg-gray-100"
+                                />
+                            )}
                         </div>
                         <div>
                              <label className="block text-sm font-medium">สถานะงบประมาณ</label>
@@ -512,6 +573,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         <div className="pt-4 border-t">
                             <h4 className="font-semibold text-lg mb-3">อัปเดตสถานะ</h4>
                              <div className="flex flex-wrap items-center gap-2">
+                                {prData.status === 'ฉบับร่าง' && <button type="button" onClick={() => handleStatusChange('รออนุมัติ')} className="px-4 py-2 bg-blue-500 text-white rounded-lg">ส่งขออนุมัติ</button>}
                                 {prData.status === 'รออนุมัติ' && <button type="button" onClick={() => handleStatusChange('อนุมัติแล้ว')} className="px-4 py-2 bg-green-500 text-white rounded-lg">อนุมัติ</button>}
                                 {prData.status === 'อนุมัติแล้ว' && <button type="button" onClick={() => handleStatusChange('รอสินค้า')} className="px-4 py-2 bg-blue-500 text-white rounded-lg">ยืนยันสั่งซื้อ</button>}
                                 {prData.status === 'รอสินค้า' && <button type="button" onClick={() => handleStatusChange('รับของแล้ว')} className="px-4 py-2 bg-purple-500 text-white rounded-lg">รับของแล้ว</button>}
