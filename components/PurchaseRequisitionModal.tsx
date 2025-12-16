@@ -36,6 +36,7 @@ interface ItemRowProps {
 const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditable, onItemChange, onRemoveItem }) => {
     // An item is considered a non-editable product if it has a stockId from being selected from stock.
     const isProductFromStock = !!item.stockId;
+    const [isEditingPrice, setIsEditingPrice] = useState(false);
 
     return (
         <tr>
@@ -70,13 +71,24 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
             </td>
             <td className="px-2 py-1">
                 {areFinancialsEditable ? (
-                    <input
-                        type="number"
-                        value={item.unitPrice}
-                        onChange={e => onItemChange(item.rowId, 'unitPrice', Number(e.target.value))}
-                        className="w-24 p-1 border rounded text-right"
-                        min="0"
-                    />
+                    isEditingPrice ? (
+                        <input
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={e => onItemChange(item.rowId, 'unitPrice', Number(e.target.value))}
+                            onBlur={() => setIsEditingPrice(false)}
+                            className="w-24 p-1 border rounded text-right"
+                            min="0"
+                            autoFocus
+                        />
+                    ) : (
+                        <div
+                            onClick={() => setIsEditingPrice(true)}
+                            className="w-24 p-1 border border-gray-300 rounded text-right cursor-text bg-white"
+                        >
+                            {formatCurrency(item.unitPrice)}
+                        </div>
+                    )
                 ) : (
                     <input
                         type="text"
