@@ -69,14 +69,22 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
                 />
             </td>
             <td className="px-2 py-1">
-                <input
-                    type="number"
-                    value={item.unitPrice}
-                    onChange={e => onItemChange(item.rowId, 'unitPrice', Number(e.target.value))}
-                    disabled={!areFinancialsEditable}
-                    className="w-24 p-1 border rounded text-right disabled:bg-gray-100 disabled:border-transparent"
-                    min="0"
-                />
+                {areFinancialsEditable ? (
+                    <input
+                        type="number"
+                        value={item.unitPrice}
+                        onChange={e => onItemChange(item.rowId, 'unitPrice', Number(e.target.value))}
+                        className="w-24 p-1 border rounded text-right"
+                        min="0"
+                    />
+                ) : (
+                    <input
+                        type="text"
+                        value={formatCurrency(item.unitPrice)}
+                        disabled
+                        className="w-24 p-1 border rounded text-right bg-gray-100 border-transparent"
+                    />
+                )}
             </td>
             <td className="px-2 py-1">
                 <input

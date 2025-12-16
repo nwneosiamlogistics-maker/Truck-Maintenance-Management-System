@@ -67,6 +67,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
     const [whtRate, setWhtRate] = useState(3);
     const [whtType, setWhtType] = useState('custom');
     const [customWhtLabel, setCustomWhtLabel] = useState('');
+    const [editingCell, setEditingCell] = useState<{ index: number, field: string } | null>(null);
 
     // Auto-fill supplier info from the first PR if available
     useEffect(() => {
@@ -256,13 +257,31 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                 </td>
                                                 <td className="px-3 py-2 text-sm text-center">{item.unit}</td>
                                                 <td className="px-3 py-2">
-                                                    <input type="number" value={item.unitPrice} onChange={(e) => handleItemChange(index, 'unitPrice', Number(e.target.value))} className="w-full text-right border rounded p-1" min="0" />
+                                                    {editingCell?.index === index && editingCell?.field === 'unitPrice' ? (
+                                                        <input
+                                                            type="number"
+                                                            value={item.unitPrice}
+                                                            onChange={(e) => handleItemChange(index, 'unitPrice', Number(e.target.value))}
+                                                            onBlur={() => setEditingCell(null)}
+                                                            className="w-full text-right border rounded p-1"
+                                                            min="0"
+                                                            step="0.01"
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => setEditingCell({ index, field: 'unitPrice' })}
+                                                            className="w-full text-right border border-gray-300 rounded p-1 cursor-text bg-white min-h-[32px] flex items-center justify-end"
+                                                        >
+                                                            {item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-3 py-2">
                                                     <input type="number" value={item.discount || 0} onChange={(e) => handleItemChange(index, 'discount', Number(e.target.value))} className="w-full text-right border rounded p-1" min="0" />
                                                 </td>
                                                 <td className="px-3 py-2 text-right text-sm font-semibold">
-                                                    {item.totalPrice.toLocaleString()}
+                                                    {item.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
                                                 <td className="px-3 py-2 text-center">
                                                     <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-700 font-bold">×</button>
