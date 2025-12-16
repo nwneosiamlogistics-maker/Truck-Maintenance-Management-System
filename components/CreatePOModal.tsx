@@ -10,9 +10,17 @@ interface CreatePOModalProps {
     suppliers: Supplier[];
 }
 
+const TAX_TYPES = [
+    { label: 'ค่าบริการ (3%)', value: 3 },
+    { label: 'ค่าขนส่ง (1%)', value: 1 },
+    { label: 'ค่าโฆษณา (2%)', value: 2 },
+    { label: 'ค่าจ้างทำของ (3%)', value: 3 },
+    { label: 'ค่าเช่า (5%)', value: 5 },
+];
+
 const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onSave, suppliers }) => {
     const { addToast } = useToast();
-    
+
     // Aggregate items from all selected PRs
     const initialItems = useMemo(() => {
         const items: PurchaseOrderItem[] = [];
@@ -54,6 +62,12 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
     const [isVatEnabled, setIsVatEnabled] = useState(true);
     const [vatRate, setVatRate] = useState(7);
 
+    // WHT State
+    const [isWhtEnabled, setIsWhtEnabled] = useState(false);
+    const [whtRate, setWhtRate] = useState(3);
+    const [whtType, setWhtType] = useState('custom');
+    const [customWhtLabel, setCustomWhtLabel] = useState('');
+
     // Auto-fill supplier info from the first PR if available
     useEffect(() => {
         if (selectedPRs.length > 0) {
@@ -64,7 +78,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                 requesterName: firstPR.requesterName || '',
                 department: firstPR.department || '',
             }));
-            
+
             const matchedSupplier = suppliers.find(s => s.name === firstPR.supplier);
             if (matchedSupplier) {
                 setFormData(prev => ({
@@ -83,7 +97,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
     const handleItemChange = (index: number, field: keyof PurchaseOrderItem, value: number) => {
         const newItems = [...items];
         const item = { ...newItems[index], [field]: value };
-        
+
         // Recalculate total price for the item
         if (field === 'quantity' || field === 'unitPrice' || field === 'discount') {
             const qty = field === 'quantity' ? value : item.quantity;
@@ -91,7 +105,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
             const discount = field === 'discount' ? value : (item.discount || 0);
             item.totalPrice = (qty * price) - discount;
         }
-        
+
         newItems[index] = item;
         setItems(newItems);
     };
@@ -104,12 +118,13 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
         setItems(prev => prev.filter((_, i) => i !== index));
     };
 
-    const { subtotal, vatAmount, totalAmount } = useMemo(() => {
+    const { subtotal, vatAmount, whtAmount, totalAmount } = useMemo(() => {
         const sub = items.reduce((sum, item) => sum + item.totalPrice, 0);
         const vat = isVatEnabled ? sub * (vatRate / 100) : 0;
-        const total = sub + vat;
-        return { subtotal: sub, vatAmount: vat, totalAmount: total };
-    }, [items, isVatEnabled, vatRate]);
+        const wht = isWhtEnabled ? sub * (whtRate / 100) : 0;
+        const total = sub + vat - wht; // Grand Total = Subtotal + VAT - WHT
+        return { subtotal: sub, vatAmount: vat, whtAmount: wht, totalAmount: total };
+    }, [items, isVatEnabled, vatRate, isWhtEnabled, whtRate]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -117,13 +132,16 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
             addToast('กรุณากรอกชื่อผู้จำหน่าย', 'warning');
             return;
         }
-        
+
         onSave({
             ...formData,
             status: 'Ordered',
             items,
             subtotal,
             vatAmount,
+            whtAmount,
+            whtRate: isWhtEnabled ? whtRate : undefined,
+            whtType: isWhtEnabled ? (whtType === 'custom' && customWhtLabel ? customWhtLabel : whtType) : undefined,
             totalAmount,
             linkedPrIds: selectedPRs.map(pr => pr.id),
             linkedPrNumbers: selectedPRs.map(pr => pr.prNumber),
@@ -261,18 +279,92 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                             <div className="w-64 space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span>รวมเป็นเงิน</span>
-                                    <span>{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    <span>{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
+                                {/* Standard VAT */}
                                 <div className="flex justify-between items-center text-sm">
                                     <label className="flex items-center">
                                         <input type="checkbox" checked={isVatEnabled} onChange={(e) => setIsVatEnabled(e.target.checked)} className="mr-2" />
-                                        VAT {isVatEnabled && <input type="number" value={vatRate} onChange={(e) => setVatRate(Number(e.target.value))} className="w-12 mx-1 border rounded text-center" />} %
+                                        <span>ภาษีมูลค่าเพิ่ม (VAT)</span>
+                                        {isVatEnabled && (
+                                            <>
+                                                <input
+                                                    type="number"
+                                                    value={vatRate}
+                                                    onChange={(e) => setVatRate(Number(e.target.value))}
+                                                    className="w-12 mx-2 border rounded text-center px-1"
+                                                />
+                                                <span>%</span>
+                                            </>
+                                        )}
                                     </label>
-                                    <span>{vatAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    <span>{isVatEnabled ? vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}</span>
+                                </div>
+
+                                {/* Withholding Tax (WHT) */}
+                                <div className="mt-2 pt-2 border-t border-dashed">
+                                    <div className="flex justify-between items-start text-sm">
+                                        <div className="flex flex-col w-full">
+                                            <label className="flex items-center mb-1">
+                                                <input type="checkbox" checked={isWhtEnabled} onChange={(e) => setIsWhtEnabled(e.target.checked)} className="mr-2" />
+                                                <span className="font-medium">หัก ณ ที่จ่าย (WHT)</span>
+                                            </label>
+
+                                            {isWhtEnabled && (
+                                                <div className="pl-6 space-y-2 mt-1">
+                                                    <select
+                                                        value={whtType}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setWhtType(val);
+                                                            if (val !== 'custom') {
+                                                                setWhtRate(Number(val));
+                                                            }
+                                                        }}
+                                                        className="text-sm border rounded p-1 w-full"
+                                                    >
+                                                        <option value="custom">กำหนดเอง</option>
+                                                        {TAX_TYPES.map(t => (
+                                                            <option key={t.label} value={t.value}>{t.label}</option>
+                                                        ))}
+                                                    </select>
+
+                                                    <div className="flex items-center">
+                                                        <span className="mr-2 text-sm">อัตรา:</span>
+                                                        <input
+                                                            type="number"
+                                                            value={whtRate}
+                                                            onChange={(e) => {
+                                                                setWhtRate(Number(e.target.value));
+                                                                setWhtType('custom');
+                                                            }}
+                                                            className="w-16 border rounded text-right px-1"
+                                                            step="0.01"
+                                                        />
+                                                        <span className="ml-1 text-sm">%</span>
+                                                    </div>
+
+                                                    {/* Custom WHT Label Input */}
+                                                    {whtType === 'custom' && (
+                                                        <input
+                                                            type="text"
+                                                            placeholder="ระบุชื่อรายการหัก ณ ที่จ่าย"
+                                                            value={customWhtLabel}
+                                                            onChange={e => setCustomWhtLabel(e.target.value)}
+                                                            className="text-sm border rounded p-1 w-full mt-1"
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {isWhtEnabled && (
+                                            <span className="text-red-600 font-medium whitespace-nowrap ml-2">-{whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex justify-between font-bold text-lg border-t pt-2">
                                     <span>ยอดรวมทั้งสิ้น</span>
-                                    <span className="text-blue-600">{totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    <span className="text-blue-600">{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                         </div>
@@ -283,8 +375,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                         <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">ยืนยันสร้างใบสั่งซื้อ</button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

@@ -12,7 +12,7 @@ import SellFungibleItemModal, { GradedSaleData } from './SellFungibleItemModal';
 import CashBillPrintModal from './CashBillPrintModal';
 import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
-import { promptForPassword, calculateStockStatus } from '../utils';
+import { promptForPassword, calculateStockStatus, formatCurrency } from '../utils';
 import ProcessUsedPartModal from './ProcessUsedPartModal';
 
 
@@ -51,12 +51,12 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const [stockModalDefaults, setStockModalDefaults] = useState<Partial<StockItem>>({});
 
     const [isReceiveFromPOModalOpen, setReceiveFromPOModalOpen] = useState(false);
-    
+
     const [isWithdrawModalOpen, setWithdrawModalOpen] = useState(false);
     const [isReturnModalOpen, setReturnModalOpen] = useState(false);
     const [isPrintModalOpen, setPrintModalOpen] = useState(false);
     const [itemToPrint, setItemToPrint] = useState<StockItem | null>(null);
-    
+
     const [isProcessUsedPartModalOpen, setProcessUsedPartModalOpen] = useState(false);
     const [partToProcess, setPartToProcess] = useState<UsedPart | null>(null);
 
@@ -66,7 +66,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
 
     const [isUpdateUsedPartStatusModalOpen, setUpdateUsedPartStatusModalOpen] = useState(false);
     const [partToUpdateStatus, setPartToUpdateStatus] = useState<UsedPart | null>(null);
-    
+
     const [itemToRequest, setItemToRequest] = useState<StockItem | null>(null);
     const [itemToSell, setItemToSell] = useState<StockItem | null>(null);
     const [saleToPrint, setSaleToPrint] = useState<{ item: StockItem, saleData: GradedSaleData, billNumber: string } | null>(null);
@@ -76,7 +76,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState<StockStatus | 'all'>('all');
-    
+
     // Pagination for Used Itemized Parts
     const [usedPartsCurrentPage, setUsedPartsCurrentPage] = useState(1);
     const [usedPartsItemsPerPage, setUsedPartsItemsPerPage] = useState(20);
@@ -84,7 +84,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     // Memoized Data
     const safeStock = useMemo(() => Array.isArray(stock) ? stock : [], [stock]);
     const safeUsedParts = useMemo(() => Array.isArray(usedParts) ? usedParts : [], [usedParts]);
-    
+
     const activePRStockIds = useMemo(() => {
         const ids = new Set<string>();
         const activeStatuses: PurchaseRequisitionStatus[] = ['ฉบับร่าง', 'รออนุมัติ', 'อนุมัติแล้ว', 'รอสินค้า'];
@@ -118,7 +118,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const newStockItems = useMemo(() => filteredStock.filter(item => !item.isFungibleUsedItem && !item.isRevolvingPart), [filteredStock]);
     const revolvingStockItems = useMemo(() => filteredStock.filter(item => item.isRevolvingPart), [filteredStock]);
     const fungibleUsedItems = useMemo(() => filteredStock.filter(item => item.isFungibleUsedItem), [filteredStock]);
-    
+
     const filteredUsedParts = useMemo(() => {
         return safeUsedParts
             .filter(part => part.status !== 'จัดการครบแล้ว')
@@ -136,11 +136,11 @@ const StockManagement: React.FC<StockManagementProps> = ({
         const paginated = filteredUsedParts.slice(startIndex, startIndex + usedPartsItemsPerPage);
         return { paginatedUsedParts: paginated, usedPartsTotalPages: totalPages };
     }, [filteredUsedParts, usedPartsCurrentPage, usedPartsItemsPerPage]);
-    
+
     useEffect(() => {
         setUsedPartsCurrentPage(1);
     }, [searchTerm, usedPartsItemsPerPage]);
-    
+
     // Handlers
     const handleOpenStockModal = (item: StockItem | null = null, defaults: Partial<StockItem> = {}) => {
         setEditingItem(item);
@@ -168,13 +168,13 @@ const StockManagement: React.FC<StockManagementProps> = ({
                 setTransactions(prev => [newTransaction, ...(Array.isArray(prev) ? prev : [])]);
                 addToast(`ปรับสต็อก ${itemData.name} จำนวน ${difference > 0 ? '+' : ''}${difference} ${itemData.unit}`, 'info');
             }
-    
+
             setStock(prev => prev.map(s => s.id === itemData.id ? itemData : s));
             addToast(`อัปเดต ${itemData.name} สำเร็จ`, 'success');
         } else { // Adding
             const newItem = { ...itemData, id: `STK-${Date.now()}` };
             setStock(prev => [newItem, ...prev]);
-            
+
             // Create initial transaction if quantity > 0
             if (newItem.quantity > 0) {
                 const newTransaction: StockTransaction = {
@@ -194,14 +194,14 @@ const StockManagement: React.FC<StockManagementProps> = ({
         }
         setStockModalOpen(false);
     };
-    
+
     const handleDeleteItem = (itemId: string, itemName: string) => {
         if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ "${itemName}" ออกจากสต็อก?`)) {
             setStock(prev => prev.filter(s => s.id !== itemId));
             addToast(`ลบ ${itemName} สำเร็จ`, 'info');
         }
     };
-    
+
     const handleWithdrawStock = (data: { stockItemId: string, quantity: number, reason: string, withdrawnBy: string, notes: string }) => {
         setStock(prevStock => prevStock.map(s => {
             if (s.id === data.stockItemId) {
@@ -211,18 +211,18 @@ const StockManagement: React.FC<StockManagementProps> = ({
             }
             return s;
         }));
-        
+
         const stockItem = safeStock.find(s => s.id === data.stockItemId);
         if (stockItem) {
-             const year = new Date().getFullYear();
-             const wdTransactionsThisYear = (Array.isArray(transactions) ? transactions : [])
+            const year = new Date().getFullYear();
+            const wdTransactionsThisYear = (Array.isArray(transactions) ? transactions : [])
                 .filter(t => t.documentNumber && t.documentNumber.startsWith(`WD-${year}`));
-             const lastNumber = wdTransactionsThisYear
+            const lastNumber = wdTransactionsThisYear
                 .map(t => parseInt(t.documentNumber!.split('-')[2], 10))
                 .reduce((max, num) => Math.max(max, num), 0);
-             const newDocumentNumber = `WD-${year}-${String(lastNumber + 1).padStart(5, '0')}`;
+            const newDocumentNumber = `WD-${year}-${String(lastNumber + 1).padStart(5, '0')}`;
 
-             const newTransaction: StockTransaction = {
+            const newTransaction: StockTransaction = {
                 id: `TXN-${Date.now()}`,
                 stockItemId: stockItem.id,
                 stockItemName: stockItem.name,
@@ -268,7 +268,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
         }
         setReturnModalOpen(false);
     };
-    
+
     const handleSavePurchaseRequest = (data: { supplier: string; quantity: number; notes: string; }) => {
         if (!itemToRequest) return;
 
@@ -297,7 +297,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
             .reduce((max, num) => Math.max(max, num), 0);
         const newSequence = lastPrNumber + 1;
         const newPrNumber = `PR-${year}-${String(newSequence).padStart(5, '0')}`;
-        
+
         const newRequisition: PurchaseRequisition = {
             id: `PR-${Date.now()}`,
             prNumber: newPrNumber,
@@ -323,11 +323,11 @@ const StockManagement: React.FC<StockManagementProps> = ({
 
     const handleGradedSale = (data: GradedSaleData) => {
         if (!itemToSell) return;
-    
+
         const totalQuantity = data.grades.reduce((sum, g) => sum + g.quantity, 0);
         const totalValue = data.grades.reduce((sum, g) => sum + (g.quantity * g.price), 0);
         const averagePrice = totalQuantity > 0 ? totalValue / totalQuantity : 0;
-    
+
         // 1. Update stock quantity
         setStock(prevStock => prevStock.map(s => {
             if (s.id === itemToSell!.id) {
@@ -337,11 +337,11 @@ const StockManagement: React.FC<StockManagementProps> = ({
             }
             return s;
         }));
-    
+
         // 2. Create a detailed transaction note
-        const gradeDetails = data.grades.map(g => `${g.condition}: ${g.quantity} ${itemToSell.unit} x ${g.price.toLocaleString()}฿`).join('; ');
+        const gradeDetails = data.grades.map(g => `${g.condition}: ${g.quantity} ${itemToSell.unit} x ${formatCurrency(g.price)}฿`).join('; ');
         const detailedNotes = `ขายให้ ${data.buyer}. รายละเอียด: ${gradeDetails}. ${data.notes || ''}`.trim();
-        
+
         // Generate new bill number
         const now = new Date();
         const year = now.getFullYear();
@@ -369,15 +369,15 @@ const StockManagement: React.FC<StockManagementProps> = ({
             documentNumber: newDocumentNumber,
         };
         setTransactions(prev => [newTransaction, ...prev]);
-    
+
         addToast(`บันทึกการขาย ${itemToSell.name} จำนวน ${totalQuantity} ${itemToSell.unit} สำเร็จ`, 'success');
-        
+
         // Set data for printing modal
         setSaleToPrint({ item: itemToSell, saleData: data, billNumber: newDocumentNumber });
 
         setItemToSell(null); // Close the sale modal
     };
-    
+
     const handleDeleteUsedPart = (partId: string) => {
         if (promptForPassword('ลบ') && window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?')) {
             deleteUsedPart(partId);
@@ -397,7 +397,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
             default: return 'bg-green-100 text-green-800';
         }
     };
-    
+
     const getUsedPartStatusBadge = (status: UsedPartBatchStatus) => {
         switch (status) {
             case 'รอจัดการ': return 'bg-gray-200 text-gray-800';
@@ -409,18 +409,17 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const TabButton: React.FC<{ tabId: typeof activeTab, label: string, count: number }> = ({ tabId, label, count }) => (
         <button
             onClick={() => setActiveTab(tabId)}
-            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${
-                activeTab === tabId
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === tabId
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
         >
             {label} <span className="text-sm font-normal bg-gray-200 rounded-full px-2 py-0.5">{count}</span>
         </button>
     );
 
     const renderStockTable = (items: StockItem[]) => (
-         <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh] relative">
+        <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh] relative">
             <table className="min-w-full responsive-table">
                 <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>
@@ -439,49 +438,49 @@ const StockManagement: React.FC<StockManagementProps> = ({
                         const isRequested = activePRStockIds.has(item.id);
                         const displayStatus = calculateStockStatus(item.quantity, item.minStock, item.maxStock);
                         return (
-                        <tr key={item.id}>
-                            <td data-label="รหัส / ชื่อ" className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500 font-mono">{item.code}</div></td>
-                            <td data-label="หมวดหมู่" className="px-4 py-3 text-sm">{item.category}</td>
-                            <td data-label="สต็อก" className="px-4 py-3 text-right">
-                                <span className={`font-bold text-lg ${item.quantity <= item.minStock ? 'text-red-600' : ''}`}>{item.quantity} {item.unit}</span>
-                            </td>
-                            <td data-label="ขั้นต่ำ" className="px-4 py-3 text-right text-sm">{item.minStock}</td>
-                            <td data-label="ราคาทุน" className="px-4 py-3 text-right text-sm">{item.price.toLocaleString()}</td>
-                            <td data-label="สถานะ" className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(displayStatus)}`}>{displayStatus}</span></td>
-                            <td data-label="จัดการ" className="px-4 py-3 text-center lg:text-right whitespace-nowrap space-x-1">
-                                 {item.isFungibleUsedItem && (
-                                    <button onClick={() => setItemToSell(item)} className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold">คัดแยก/ขาย</button>
-                                )}
-                                <button onClick={() => {
-                                    if (promptForPassword('แก้ไข')) {
-                                        handleOpenStockModal(item);
-                                    }
-                                }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
-                                {isRequested ? (
-                                    <span className="text-blue-500 p-1 text-xs font-semibold italic">ขอซื้อแล้ว</span>
-                                ) : (
-                                    <button 
-                                        onClick={() => setItemToRequest(item)} 
-                                        className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold disabled:text-gray-400 disabled:cursor-not-allowed"
-                                        disabled={!needsPurchase || item.isFungibleUsedItem}
-                                        title={needsPurchase ? "สร้างใบขอซื้อสำหรับรายการนี้" : "สต็อกยังไม่ถึงจุดสั่งซื้อ"}
-                                    >
-                                        ขอซื้อ
-                                    </button>
-                                )}
-                                <button onClick={() => { setItemToPrint(item); setPrintModalOpen(true); }} className="text-blue-600 hover:text-blue-800 p-1 text-xs font-semibold">พิมพ์</button>
-                                <button onClick={() => handleDeleteItem(item.id, item.name)} className="text-red-500 hover:text-red-700 p-1 text-xs font-semibold">ลบ</button>
-                            </td>
-                        </tr>
+                            <tr key={item.id}>
+                                <td data-label="รหัส / ชื่อ" className="px-4 py-3"><div className="font-semibold">{item.name}</div><div className="text-sm text-gray-500 font-mono">{item.code}</div></td>
+                                <td data-label="หมวดหมู่" className="px-4 py-3 text-sm">{item.category}</td>
+                                <td data-label="สต็อก" className="px-4 py-3 text-right">
+                                    <span className={`font-bold text-lg ${item.quantity <= item.minStock ? 'text-red-600' : ''}`}>{item.quantity} {item.unit}</span>
+                                </td>
+                                <td data-label="ขั้นต่ำ" className="px-4 py-3 text-right text-sm">{item.minStock}</td>
+                                <td data-label="ราคาทุน" className="px-4 py-3 text-right text-sm">{formatCurrency(item.price)}</td>
+                                <td data-label="สถานะ" className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(displayStatus)}`}>{displayStatus}</span></td>
+                                <td data-label="จัดการ" className="px-4 py-3 text-center lg:text-right whitespace-nowrap space-x-1">
+                                    {item.isFungibleUsedItem && (
+                                        <button onClick={() => setItemToSell(item)} className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold">คัดแยก/ขาย</button>
+                                    )}
+                                    <button onClick={() => {
+                                        if (promptForPassword('แก้ไข')) {
+                                            handleOpenStockModal(item);
+                                        }
+                                    }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
+                                    {isRequested ? (
+                                        <span className="text-blue-500 p-1 text-xs font-semibold italic">ขอซื้อแล้ว</span>
+                                    ) : (
+                                        <button
+                                            onClick={() => setItemToRequest(item)}
+                                            className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold disabled:text-gray-400 disabled:cursor-not-allowed"
+                                            disabled={!needsPurchase || item.isFungibleUsedItem}
+                                            title={needsPurchase ? "สร้างใบขอซื้อสำหรับรายการนี้" : "สต็อกยังไม่ถึงจุดสั่งซื้อ"}
+                                        >
+                                            ขอซื้อ
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setItemToPrint(item); setPrintModalOpen(true); }} className="text-blue-600 hover:text-blue-800 p-1 text-xs font-semibold">พิมพ์</button>
+                                    <button onClick={() => handleDeleteItem(item.id, item.name)} className="text-red-500 hover:text-red-700 p-1 text-xs font-semibold">ลบ</button>
+                                </td>
+                            </tr>
                         )
                     })}
                 </tbody>
             </table>
         </div>
     );
-    
+
     const renderContent = () => {
-        switch(activeTab) {
+        switch (activeTab) {
             case 'new':
                 return (
                     <>
@@ -497,33 +496,33 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     </>
                 );
             case 'revolving':
-                 return (
-                     <>
+                return (
+                    <>
                         <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
-                             <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 <button onClick={() => handleOpenStockModal(null, { isRevolvingPart: true })} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"> + เพิ่มอะไหล่หมุนเวียน</button>
                             </div>
                         </div>
                         {renderStockTable(revolvingStockItems)}
                     </>
-                 );
+                );
             case 'usedFungible':
-                 return (
+                return (
                     <>
                         <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
-                             <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 <button onClick={() => handleOpenStockModal(null, { isFungibleUsedItem: true })} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"> + เพิ่มรายการของเก่ารวม</button>
                             </div>
                         </div>
                         {renderStockTable(fungibleUsedItems)}
                     </>
-                 );
+                );
             case 'usedItemized':
                 return (
                     <>
                         <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh]">
                             <table className="min-w-full responsive-table">
-                                 <thead className="sticky top-0 z-10 bg-gray-50">
+                                <thead className="sticky top-0 z-10 bg-gray-50">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่ / วันที่ถอด</th>
                                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ที่มา (ใบซ่อม / ทะเบียน)</th>
@@ -594,8 +593,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     <TabButton tabId="usedItemized" label="คลังอะไหล่เก่า (รายชิ้น)" count={filteredUsedParts.length} />
                 </div>
             </div>
-            
-             <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
+
+            <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input type="text" placeholder="ค้นหา..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg lg:col-span-2" />
                     {activeTab !== 'usedItemized' && (
@@ -636,7 +635,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
             {isProcessUsedPartModalOpen && partToProcess && <ProcessUsedPartModal part={partToProcess} stock={stock} onProcess={processUsedPartBatch} onClose={() => setProcessUsedPartModalOpen(false)} />}
             {isEditUsedPartModalOpen && partToEdit && <EditUsedPartBatchModal part={partToEdit} onSave={updateUsedPart} onClose={() => setEditUsedPartModalOpen(false)} />}
             {isUpdateUsedPartStatusModalOpen && partToUpdateStatus && <UpdateUsedPartStatusModal usedPart={partToUpdateStatus} onSave={updateUsedPart} onClose={() => setUpdateUsedPartStatusModalOpen(false)} />}
-            
+
             {itemToRequest && (
                 <CreatePRFromStockModal
                     item={itemToRequest}
@@ -645,7 +644,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     onClose={() => setItemToRequest(null)}
                 />
             )}
-             {itemToSell && (
+            {itemToSell && (
                 <SellFungibleItemModal
                     item={itemToSell}
                     buyers={usedPartBuyers}
@@ -653,8 +652,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     onClose={() => setItemToSell(null)}
                 />
             )}
-             {saleToPrint && (
-                <CashBillPrintModal 
+            {saleToPrint && (
+                <CashBillPrintModal
                     item={saleToPrint.item}
                     saleData={saleToPrint.saleData}
                     billNumber={saleToPrint.billNumber}

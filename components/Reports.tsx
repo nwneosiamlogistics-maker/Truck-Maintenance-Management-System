@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Repair, StockItem, Technician } from '../types';
 import StatCard from './StatCard';
+import { formatCurrency } from '../utils';
 
 // --- Reusable Chart Components ---
 
@@ -64,13 +65,13 @@ const BarChart = ({ data }: { data: { label: string, value: number }[] }) => {
                     <g key={label.value} transform={`translate(0, ${label.y})`}>
                         <line x2={chartWidth} stroke="rgba(0,0,0,0.05)" />
                         <text x="-10" dy=".32em" textAnchor="end" className="text-xs fill-current text-gray-600">
-                            {label.value > 1000 ? `${(label.value/1000).toFixed(0)}k` : label.value.toLocaleString()}
+                            {label.value > 1000 ? `${(label.value / 1000).toFixed(0)}k` : formatCurrency(label.value)}
                         </text>
                     </g>
                 ))}
                 {data.map((d, i) => {
-                     const barHeight = d.value * yScale;
-                     return (
+                    const barHeight = d.value * yScale;
+                    return (
                         <g key={i} transform={`translate(${i * xScale}, 0)`}>
                             <rect
                                 x={xScale * 0.1}
@@ -81,16 +82,16 @@ const BarChart = ({ data }: { data: { label: string, value: number }[] }) => {
                                 rx="4"
                                 className="transition-all duration-300"
                             >
-                                <title>{d.label}: {d.value.toLocaleString()}</title>
+                                <title>{d.label}: {formatCurrency(d.value)}</title>
                             </rect>
-                             <text x={xScale / 2} y={chartHeight - barHeight - 8} textAnchor="middle" className="text-xs font-semibold fill-current text-gray-700">
-                                {d.value > 1000 ? `${(d.value/1000).toFixed(1)}k` : d.value.toLocaleString()}
+                            <text x={xScale / 2} y={chartHeight - barHeight - 8} textAnchor="middle" className="text-xs font-semibold fill-current text-gray-700">
+                                {d.value > 1000 ? `${(d.value / 1000).toFixed(1)}k` : formatCurrency(d.value)}
                             </text>
                             <text x={xScale / 2} y={chartHeight + 20} textAnchor="middle" className="text-xs fill-current text-gray-500">
                                 {d.label}
                             </text>
                         </g>
-                     )
+                    )
                 })}
             </g>
         </svg>
@@ -111,7 +112,7 @@ const DonutChart = ({ data, unit = 'รายการ' }: { data: { label: stri
         <div className="flex flex-col md:flex-row items-center justify-center gap-6">
             <div className="relative w-48 h-48 flex-shrink-0">
                 <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
-                     <defs>
+                    <defs>
                         <filter id="donutShadow" x="-50%" y="-50%" width="200%" height="200%">
                             <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="rgba(0,0,0,0.1)" />
                         </filter>
@@ -134,12 +135,12 @@ const DonutChart = ({ data, unit = 'รายการ' }: { data: { label: stri
                                 strokeDashoffset={strokeDashoffset}
                                 filter="url(#donutShadow)"
                             >
-                                 <title>{d.label}: {d.value.toLocaleString()} ({ (percentage * 100).toFixed(1) }%)</title>
+                                <title>{d.label}: {d.value.toLocaleString()} ({(percentage * 100).toFixed(1)}%)</title>
                             </circle>
                         );
                     })}
                 </svg>
-                 <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-4xl font-bold text-gray-800">{total.toLocaleString()}</span>
                     <span className="text-lg text-gray-500">{unit}</span>
                 </div>
@@ -191,7 +192,7 @@ const LineChart = ({ data }: { data: { date: string, count: number }[] }) => {
 
     return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
-             <defs>
+            <defs>
                 <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
                     <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
@@ -217,7 +218,7 @@ const LineChart = ({ data }: { data: { date: string, count: number }[] }) => {
                         <title>{formatShortDate(d.date)}: {d.count} งาน</title>
                     </circle>
                 ))}
-                 <g className="labels x-labels">
+                <g className="labels x-labels">
                     {labelsToShow.map(d => (
                         <text key={d.index} x={getX(d.index)} y={chartHeight + 20} className="text-xs fill-current text-gray-500" textAnchor="middle">
                             {formatShortDate(d.date)}
@@ -278,7 +279,7 @@ const MixedBarLineChart = ({ data }: { data: { label: string; count: number; avg
                             </g>
                         );
                     })}
-                     <text transform={`translate(-35, ${chartHeight / 2}) rotate(-90)`} textAnchor="middle" className="text-sm fill-purple-600 font-bold">จำนวน (ครั้ง)</text>
+                    <text transform={`translate(-35, ${chartHeight / 2}) rotate(-90)`} textAnchor="middle" className="text-sm fill-purple-600 font-bold">จำนวน (ครั้ง)</text>
                 </g>
 
                 {/* Cost Y-Axis (Right) */}
@@ -287,7 +288,7 @@ const MixedBarLineChart = ({ data }: { data: { label: string; count: number; avg
                         const value = (maxCost / 5) * i;
                         return (
                             <g key={`cost-${i}`} transform={`translate(0, ${chartHeight - value * yCostScale})`}>
-                                <text x="8" dy=".32em" textAnchor="start" className="text-xs fill-teal-600 font-semibold">{value > 1000 ? `${(value/1000).toFixed(0)}k` : Math.round(value)}</text>
+                                <text x="8" dy=".32em" textAnchor="start" className="text-xs fill-teal-600 font-semibold">{value > 1000 ? `${(value / 1000).toFixed(0)}k` : Math.round(value)}</text>
                             </g>
                         );
                     })}
@@ -306,7 +307,7 @@ const MixedBarLineChart = ({ data }: { data: { label: string; count: number; avg
                             filter="url(#barShadow)"
                             rx="3"
                         >
-                             <title>{d.label} - จำนวน: {d.count} ครั้ง</title>
+                            <title>{d.label} - จำนวน: {d.count} ครั้ง</title>
                         </rect>
                         <text
                             x={i * xScale + xScale / 2}
@@ -320,7 +321,7 @@ const MixedBarLineChart = ({ data }: { data: { label: string; count: number; avg
                     </g>
                 ))}
 
-                 {/* Line (Avg Cost) */}
+                {/* Line (Avg Cost) */}
                 <path d={linePath} fill="none" stroke="#14b8a6" strokeWidth="2.5" />
                 {data.map((d, i) => (
                     <g key={`dot-${i}`}>
@@ -332,7 +333,7 @@ const MixedBarLineChart = ({ data }: { data: { label: string; count: number; avg
                             stroke="#14b8a6"
                             strokeWidth="2"
                         >
-                             <title>{d.label} - ค่าซ่อมเฉลี่ย: {d.avgCost.toLocaleString(undefined, {maximumFractionDigits: 0})} บาท</title>
+                            <title>{d.label} - ค่าซ่อมเฉลี่ย: {formatCurrency(d.avgCost)} บาท</title>
                         </circle>
                     </g>
                 ))}
@@ -386,20 +387,20 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         const totalCompleted = dateFilteredCompletedRepairs.length;
         const totalCost = dateFilteredCompletedRepairs.reduce((sum, r) => sum + calculateTotalCost(r), 0);
         const avgCost = totalCompleted > 0 ? totalCost / totalCompleted : 0;
-        
+
         // --- Charts ---
         const commonCategories = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.repairCategory] = (acc[r.repairCategory] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const topRepairCategories = Object.entries(commonCategories).map(([label, value]) => ({ label, value: value as number })).sort((a,b) => b.value - a.value).slice(0, 5);
+        const topRepairCategories = Object.entries(commonCategories).map(([label, value]) => ({ label, value: value as number })).sort((a, b) => b.value - a.value).slice(0, 5);
 
         const repairedVehicles = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const topRepairedVehicles = Object.entries(repairedVehicles).map(([label, value]) => ({ label, value: value as number })).sort((a,b) => b.value - a.value).slice(0, 5);
-        
+        const topRepairedVehicles = Object.entries(repairedVehicles).map(([label, value]) => ({ label, value: value as number })).sort((a, b) => b.value - a.value).slice(0, 5);
+
         const dispatchStats = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.dispatchType] = (acc[r.dispatchType] || 0) + 1;
             return acc;
@@ -411,7 +412,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             acc[date] = (acc[date] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const repairTrendData = Object.entries(repairsByDay).map(([date, count]) => ({ date, count: count as number })).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const repairTrendData = Object.entries(repairsByDay).map(([date, count]) => ({ date, count: count as number })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         const partUsage = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             (r.parts || []).forEach(p => {
@@ -420,10 +421,10 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             });
             return acc;
         }, {} as Record<string, number>);
-        const partUsageData = Object.entries(partUsage).map(([label, value]) => ({ label, value: value as number })).sort((a,b) => b.value - a.value).slice(0, 5);
+        const partUsageData = Object.entries(partUsage).map(([label, value]) => ({ label, value: value as number })).sort((a, b) => b.value - a.value).slice(0, 5);
 
         // Corrected logic for sorting monthly expenses using a sortable key (YYYY-MM).
-        const monthlyExpenses: Record<string, {value: number, label: string}> = {};
+        const monthlyExpenses: Record<string, { value: number, label: string }> = {};
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
         sixMonthsAgo.setDate(1);
@@ -438,7 +439,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             monthlyExpenses[key].value = (monthlyExpenses[key].value || 0) + calculateTotalCost(r);
         });
         const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().slice(-6).map(key => ({ label: monthlyExpenses[key].label, value: monthlyExpenses[key].value }));
-        
+
         const repairsByVehicleType = dateFilteredCompletedRepairs.reduce((acc: Record<string, { count: number; totalCost: number }>, r) => {
             const type = r.vehicleType || 'ไม่ระบุ';
             if (!acc[type]) {
@@ -456,7 +457,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 avgCost: data.count > 0 ? data.totalCost / data.count : 0,
             }))
             .sort((a, b) => b.count - a.count).slice(0, 7);
-        
+
         return {
             stats: { totalRepairs, totalCompleted, totalCost, avgCost },
             charts: {
@@ -481,29 +482,29 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-1.5 border border-gray-300 rounded-md text-sm" />
                 </div>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                 <StatCard theme="gray" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} />
-                 <StatCard theme="blue" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} />
-                 <StatCard theme="green" title="ค่าใช้จ่ายรวม" value={`${Math.round(data.stats.totalCost).toLocaleString()} ฿`} />
-                 <StatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${Math.round(data.stats.avgCost).toLocaleString()} ฿`} />
+                <StatCard theme="gray" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} />
+                <StatCard theme="blue" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} />
+                <StatCard theme="green" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)} ฿`} />
+                <StatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)} ฿`} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <Card title="ประเภทการซ่อมที่พบบ่อย">{<HorizontalBarChart data={data.charts.topRepairCategories} />}</Card>
-                 <Card title="5 อันดับรถที่ซ่อมบ่อยที่สุด">{<HorizontalBarChart data={data.charts.topRepairedVehicles} />}</Card>
-                 <Card title="สถิติการส่งซ่อม">{<DonutChart data={data.charts.dispatchData} unit="งาน"/>}</Card>
-                 <Card title="สัดส่วนการใช้อะไหล่ (5 อันดับแรก)">{<DonutChart data={data.charts.partUsageData} unit="ชิ้น" />}</Card>
+                <Card title="ประเภทการซ่อมที่พบบ่อย">{<HorizontalBarChart data={data.charts.topRepairCategories} />}</Card>
+                <Card title="5 อันดับรถที่ซ่อมบ่อยที่สุด">{<HorizontalBarChart data={data.charts.topRepairedVehicles} />}</Card>
+                <Card title="สถิติการส่งซ่อม">{<DonutChart data={data.charts.dispatchData} unit="งาน" />}</Card>
+                <Card title="สัดส่วนการใช้อะไหล่ (5 อันดับแรก)">{<DonutChart data={data.charts.partUsageData} unit="ชิ้น" />}</Card>
             </div>
-            
-             <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)">
+
+            <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)">
                 <LineChart data={data.charts.repairTrendData} />
             </Card>
 
-             <Card title="สรุปค่าใช้จ่ายรายเดือน (6 เดือนล่าสุด)">
+            <Card title="สรุปค่าใช้จ่ายรายเดือน (6 เดือนล่าสุด)">
                 <BarChart data={data.charts.lastSixMonthsExpenses} />
             </Card>
-            
+
             <Card title="วิเคราะห์การซ่อมตามประเภทรถ (จำนวนครั้ง vs ค่าใช้จ่ายเฉลี่ย)">
                 <MixedBarLineChart data={data.charts.vehicleTypeAnalysisData} />
             </Card>

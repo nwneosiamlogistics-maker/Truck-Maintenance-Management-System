@@ -5,7 +5,7 @@ import type { PurchaseOrder, PurchaseRequisition, StockItem, StockTransaction, S
 import CreatePOModal from './CreatePOModal';
 import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword, calculateStockStatus } from '../utils';
+import { promptForPassword, calculateStockStatus, formatCurrency } from '../utils';
 
 interface PurchaseOrderManagementProps {
     purchaseOrders: PurchaseOrder[];
@@ -44,8 +44,8 @@ const TrackingView: React.FC<{
     // Merge Data Logic
     const trackingData = useMemo(() => {
         return purchaseRequisitions.map(pr => {
-            const po = pr.relatedPoNumber 
-                ? purchaseOrders.find(p => p.poNumber === pr.relatedPoNumber) 
+            const po = pr.relatedPoNumber
+                ? purchaseOrders.find(p => p.poNumber === pr.relatedPoNumber)
                 : null;
 
             // Determine Cancellation
@@ -74,7 +74,7 @@ const TrackingView: React.FC<{
             const now = new Date();
             let lastActionDate = createdDate;
             let currentStage = 'รออนุมัติ';
-            
+
             if (isCancelled) {
                 currentStage = 'ยกเลิก';
                 lastActionDate = pr.updatedAt ? new Date(pr.updatedAt) : createdDate;
@@ -90,7 +90,7 @@ const TrackingView: React.FC<{
             }
 
             const diffTime = Math.abs(now.getTime() - lastActionDate.getTime());
-            const daysWaiting = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            const daysWaiting = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             return {
                 pr,
@@ -102,14 +102,14 @@ const TrackingView: React.FC<{
                 daysWaiting: (isReceived || isCancelled) ? 0 : daysWaiting
             };
         })
-        .filter(item => departmentFilter === 'all' || item.pr.department === departmentFilter)
-        .filter(item => 
-            searchTerm === '' ||
-            item.pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (item.po?.poNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.pr.items.some(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
-        .sort((a, b) => b.dates.createdDate.getTime() - a.dates.createdDate.getTime());
+            .filter(item => departmentFilter === 'all' || item.pr.department === departmentFilter)
+            .filter(item =>
+                searchTerm === '' ||
+                item.pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (item.po?.poNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.pr.items.some(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
+            )
+            .sort((a, b) => b.dates.createdDate.getTime() - a.dates.createdDate.getTime());
     }, [purchaseRequisitions, purchaseOrders, departmentFilter, searchTerm]);
 
     // Pagination Logic for Tracking
@@ -127,10 +127,9 @@ const TrackingView: React.FC<{
     // Helper for Timeline Step
     const Step = ({ active, label, date, icon, isCancelled }: { active: boolean, label: string, date: Date | null, icon: string, isCancelled?: boolean }) => (
         <div className={`flex flex-col items-center relative z-10 w-24`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 transition-colors duration-300 ${
-                isCancelled ? 'bg-red-100 border-red-500 text-red-600' :
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 transition-colors duration-300 ${isCancelled ? 'bg-red-100 border-red-500 text-red-600' :
                 active ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 text-gray-400'
-            }`}>
+                }`}>
                 {isCancelled ? 'X' : (active ? icon : '•')}
             </div>
             <div className={`text-xs font-medium mt-1 text-center ${isCancelled ? 'text-red-600' : ''}`}>{label}</div>
@@ -160,17 +159,17 @@ const TrackingView: React.FC<{
             <div className="flex flex-wrap gap-4 p-4 bg-white rounded-lg border">
                 <div className="flex-1 min-w-[200px]">
                     <label className="block text-sm font-medium text-gray-700 mb-1">ค้นหา (PR, PO, สินค้า)</label>
-                    <input 
-                        type="text" 
-                        className="w-full p-2 border rounded-lg" 
-                        placeholder="พิมพ์เพื่อค้นหา..." 
+                    <input
+                        type="text"
+                        className="w-full p-2 border rounded-lg"
+                        placeholder="พิมพ์เพื่อค้นหา..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <div className="w-64">
                     <label className="block text-sm font-medium text-gray-700 mb-1">แผนก/สาขา</label>
-                    <select 
+                    <select
                         className="w-full p-2 border rounded-lg"
                         value={departmentFilter}
                         onChange={e => setDepartmentFilter(e.target.value)}
@@ -212,17 +211,17 @@ const TrackingView: React.FC<{
                                 <td className="px-4 py-4 align-middle">
                                     <div className="flex items-center justify-center px-4">
                                         <Step active={item.status.isCreated} label="แจ้งขอซื้อ" date={item.dates.createdDate} icon="📝" />
-                                        
+
                                         <Connector active={item.status.isApproved} duration={item.durations.durationApprove} />
-                                        
+
                                         <Step active={item.status.isApproved} label="อนุมัติ" date={item.dates.approvedDate} icon="✅" />
-                                        
+
                                         <Connector active={item.status.isOrdered} duration={item.durations.durationPO} />
-                                        
+
                                         <Step active={item.status.isOrdered} label="สั่งซื้อ (PO)" date={item.dates.orderedDate} icon="🛒" />
-                                        
+
                                         <Connector active={item.status.isReceived} duration={item.durations.durationReceive} />
-                                        
+
                                         <Step active={item.status.isReceived} label="รับของ" date={item.dates.receivedDate} icon="📦" />
                                     </div>
                                     {item.po && (
@@ -234,10 +233,10 @@ const TrackingView: React.FC<{
                                 <td className="px-4 py-4 align-middle text-center">
                                     <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
                                         ${item.status.isCancelled ? 'bg-red-100 text-red-800' :
-                                          item.status.isReceived ? 'bg-green-100 text-green-800' : 
-                                          item.status.isOrdered ? 'bg-purple-100 text-purple-800' :
-                                          item.status.isApproved ? 'bg-yellow-100 text-yellow-800' : 
-                                          'bg-gray-100 text-gray-800'}`}>
+                                            item.status.isReceived ? 'bg-green-100 text-green-800' :
+                                                item.status.isOrdered ? 'bg-purple-100 text-purple-800' :
+                                                    item.status.isApproved ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-gray-100 text-gray-800'}`}>
                                         {item.currentStage}
                                     </span>
                                 </td>
@@ -305,7 +304,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
     const [expandedPOIds, setExpandedPOIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
-    
+
     // Pagination states
     const [pendingPage, setPendingPage] = useState(1);
     const [pendingItemsPerPage, setPendingItemsPerPage] = useState(20);
@@ -323,7 +322,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         const startIndex = (pendingPage - 1) * pendingItemsPerPage;
         return pendingPRs.slice(startIndex, startIndex + pendingItemsPerPage);
     }, [pendingPRs, pendingPage, pendingItemsPerPage]);
-    
+
     const pendingTotalPages = Math.ceil(pendingPRs.length / pendingItemsPerPage) || 1;
 
     const sortedPOs = useMemo(() => {
@@ -378,11 +377,11 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
     const handleSavePO = (poData: Omit<PurchaseOrder, 'id' | 'poNumber' | 'createdAt'>) => {
         const now = new Date();
         const year = now.getFullYear();
-        
+
         // Generate PO Number
         const currentYearPOs = (Array.isArray(purchaseOrders) ? purchaseOrders : [])
             .filter(po => new Date(po.createdAt).getFullYear() === year);
-        
+
         // Extract numeric part from PO number
         const lastNumber = currentYearPOs
             .map(po => {
@@ -390,7 +389,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                 return parts.length === 3 ? parseInt(parts[2], 10) : 0;
             })
             .reduce((max, num) => Math.max(max, num), 0);
-            
+
         const newSequence = lastNumber + 1;
         const newPoNumber = `PO-${year}-${String(newSequence).padStart(5, '0')}`;
 
@@ -407,11 +406,11 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         // 2. Update linked PRs status AND relatedPoNumber
         setPurchaseRequisitions(prev => prev.map(pr => {
             if (poData.linkedPrIds.includes(pr.id)) {
-                return { 
-                    ...pr, 
-                    status: 'ออก PO แล้ว', 
+                return {
+                    ...pr,
+                    status: 'ออก PO แล้ว',
                     relatedPoNumber: newPoNumber, // Link PR to PO
-                    updatedAt: now.toISOString() 
+                    updatedAt: now.toISOString()
                 };
             }
             return pr;
@@ -435,7 +434,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         po.items.forEach(item => {
             if (item.stockId) {
                 stockUpdates.set(item.stockId, (stockUpdates.get(item.stockId) || 0) + item.quantity);
-                
+
                 newTransactions.push({
                     id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
                     stockItemId: item.stockId,
@@ -483,7 +482,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         if (promptForPassword('ยกเลิกใบสั่งซื้อ')) {
             // Update PO status
             setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, status: 'Cancelled' } : p));
-            
+
             // Revert linked PRs back to 'อนุมัติแล้ว' so they can be ordered again or cancelled separately
             const po = purchaseOrders.find(p => p.id === poId);
             if (po) {
@@ -496,7 +495,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                     return pr;
                 }));
             }
-            
+
             addToast('ยกเลิกใบสั่งซื้อสำเร็จ สถานะ PR ที่เกี่ยวข้องถูกคืนค่าเป็น "อนุมัติแล้ว"', 'info');
         }
     };
@@ -561,25 +560,22 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                 <div className="flex">
                     <button
                         onClick={() => setActiveLocalTab('pending-pr')}
-                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${
-                            activeTab === 'pending-pr' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                        }`}
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'pending-pr' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
                     >
                         PR ที่รอสั่งซื้อ ({pendingPRs.length})
                     </button>
                     <button
                         onClick={() => setActiveLocalTab('po-list')}
-                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${
-                            activeTab === 'po-list' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                        }`}
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'po-list' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
                     >
                         รายการใบสั่งซื้อ (PO)
                     </button>
                     <button
                         onClick={() => setActiveLocalTab('tracking')}
-                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${
-                            activeTab === 'tracking' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                        }`}
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'tracking' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
                     >
                         📍 ติดตามสถานะ (Tracking)
                     </button>
@@ -591,7 +587,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                 <div className="bg-white rounded-b-2xl shadow-sm p-4">
                     <div className="flex justify-between items-center mb-4">
                         <p className="text-gray-600">เลือกใบขอซื้อที่ต้องการเพื่อสร้างใบสั่งซื้อ (ควรเลือกผู้จำหน่ายรายเดียวกัน)</p>
-                        <button 
+                        <button
                             onClick={handleCreatePOClick}
                             disabled={selectedPRIds.size === 0}
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
@@ -617,9 +613,9 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                 {paginatedPendingPRs.map(pr => (
                                     <tr key={pr.id} className={selectedPRIds.has(pr.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}>
                                         <td className="px-4 py-3 text-center">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selectedPRIds.has(pr.id)} 
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedPRIds.has(pr.id)}
                                                 onChange={() => handleTogglePRSelection(pr.id)}
                                                 className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
                                             />
@@ -627,7 +623,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                         <td className="px-4 py-3 font-semibold">{pr.prNumber}</td>
                                         <td className="px-4 py-3 text-sm">{new Date(pr.createdAt).toLocaleDateString('th-TH')}</td>
                                         <td className="px-4 py-3">{pr.supplier}</td>
-                                        <td className="px-4 py-3 text-right font-bold">{pr.totalAmount.toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right font-bold">{formatCurrency(pr.totalAmount)}</td>
                                         <td className="px-4 py-3 text-sm">{pr.requesterName}</td>
                                     </tr>
                                 ))}
@@ -665,9 +661,9 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
 
             {activeTab === 'po-list' && (
                 <div className="bg-white rounded-b-2xl shadow-sm p-4 space-y-4">
-                    <input 
-                        type="text" 
-                        placeholder="ค้นหา PO, ผู้จำหน่าย..." 
+                    <input
+                        type="text"
+                        placeholder="ค้นหา PO, ผู้จำหน่าย..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="p-2 border rounded-lg w-full md:w-80"
@@ -703,11 +699,11 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                             <td className="px-4 py-3 text-sm">{po.requesterName || '-'}</td>
                                             <td className="px-4 py-3 text-sm">{po.department || '-'}</td>
                                             <td className="px-4 py-3 text-sm text-blue-600 cursor-pointer hover:underline" onClick={() => setActiveTab('requisitions')} title="ไปที่หน้า PR">
-                                                {(po.linkedPrNumbers && po.linkedPrNumbers.length > 0) 
-                                                    ? po.linkedPrNumbers.join(', ') 
+                                                {(po.linkedPrNumbers && po.linkedPrNumbers.length > 0)
+                                                    ? po.linkedPrNumbers.join(', ')
                                                     : '-'}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold">{po.totalAmount.toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right font-bold">{formatCurrency(po.totalAmount)}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusBadge(po.status)}`}>
                                                     {po.status}
@@ -742,8 +738,8 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                                                     <tr key={idx} className="border-t text-sm">
                                                                         <td className="p-2">{item.name}</td>
                                                                         <td className="p-2 text-right">{item.quantity} {item.unit}</td>
-                                                                        <td className="p-2 text-right">{item.unitPrice.toLocaleString()}</td>
-                                                                        <td className="p-2 text-right">{item.totalPrice.toLocaleString()}</td>
+                                                                        <td className="p-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                                                                        <td className="p-2 text-right">{formatCurrency(item.totalPrice)}</td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
@@ -796,7 +792,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
 
             {/* Create PO Modal */}
             {isCreateModalOpen && (
-                <CreatePOModal 
+                <CreatePOModal
                     selectedPRs={pendingPRs.filter(pr => selectedPRIds.has(pr.id))}
                     onClose={() => setIsCreateModalOpen(false)}
                     onSave={handleSavePO}

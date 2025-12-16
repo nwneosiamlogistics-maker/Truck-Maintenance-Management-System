@@ -1,6 +1,7 @@
 
 import React from 'react';
 import type { PurchaseRequisition } from '../types';
+import { formatCurrency } from '../utils';
 
 interface PurchaseRequisitionPrintProps {
     requisition: PurchaseRequisition;
@@ -34,11 +35,11 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
     })();
 
     return (
-        <div 
-            className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative" 
-            style={{ 
-                width: '210mm', 
-                height: '297mm', 
+        <div
+            className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative"
+            style={{
+                width: '210mm',
+                height: '297mm',
                 padding: '15mm',
                 boxSizing: 'border-box',
                 display: 'flex',
@@ -60,10 +61,10 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                 </div>
                 {/* Right: Logo */}
                 <div className="w-1/4 flex justify-end">
-                    <img 
-                        src={logoUrl} 
-                        alt="Neosiam Logo" 
-                        className="h-20 w-auto object-contain" 
+                    <img
+                        src={logoUrl}
+                        alt="Neosiam Logo"
+                        className="h-20 w-auto object-contain"
                         referrerPolicy="no-referrer"
                     />
                 </div>
@@ -139,8 +140,8 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                                 <td className="border-x border-gray-400 p-1 align-top">{item.name}</td>
                                 <td className="border-x border-gray-400 p-1 text-right align-top">{item.quantity}</td>
                                 <td className="border-x border-gray-400 p-1 text-center align-top">{item.unit}</td>
-                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                <td className="border-x border-gray-400 p-1 text-right font-medium align-top">{(item.quantity * item.unitPrice).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{formatCurrency(item.unitPrice)}</td>
+                                <td className="border-x border-gray-400 p-1 text-right font-medium align-top">{formatCurrency(item.quantity * item.unitPrice)}</td>
                             </tr>
                         ))}
                         {/* Fill empty rows */}
@@ -170,17 +171,17 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                     <div className="w-1/3">
                         <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
                             <span className="font-semibold">รวมเป็นเงิน</span>
-                            <span>{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span>{formatCurrency(subtotal)}</span>
                         </div>
                         {vatAmount > 0 && (
                             <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
                                 <span className="font-semibold">VAT ({vatRate.toFixed(0)}%)</span>
-                                <span>{vatAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                <span>{formatCurrency(vatAmount)}</span>
                             </div>
                         )}
                         <div className="flex justify-between py-2 font-bold text-sm">
                             <span>ยอดรวมสุทธิ</span>
-                            <span className="text-base underline">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span className="text-base underline">{formatCurrency(grandTotal)}</span>
                         </div>
                     </div>
                 </div>
@@ -209,7 +210,7 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                     </div>
                 </div>
             </div>
-            
+
             <div className="text-right text-[10px] text-gray-400">
                 FM-PC01-01
             </div>

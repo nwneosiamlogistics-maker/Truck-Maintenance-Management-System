@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { StockTransaction, StockTransactionType, StockItem, Repair, Technician } from '../types';
 import { STOCK_CATEGORIES } from '../data/categories';
+import { formatCurrency } from '../utils';
 
 interface StockHistoryProps {
     transactions: StockTransaction[];
@@ -35,7 +36,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
 
     const stockMap = useMemo(() => new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item])), [stock]);
     const repairMap = useMemo(() => new Map((Array.isArray(repairs) ? repairs : []).map(item => [item.repairOrderNo, item])), [repairs]);
-    
+
     // Create a map for efficient part source lookup to fix data inconsistencies.
     const repairPartSourceMap = useMemo(() => {
         const map = new Map<string, Map<string, 'สต็อกอู่' | 'ร้านค้า'>>();
@@ -55,7 +56,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
     const flattenedParts = useMemo(() => {
         return (Array.isArray(repairs) ? repairs : [])
             .filter(r => r.status === 'ซ่อมเสร็จ' && r.repairEndDate)
-            .flatMap(r => 
+            .flatMap(r =>
                 (Array.isArray(r.parts) ? r.parts : []).map(p => ({
                     id: `${r.id}-${p.partId}`,
                     partName: p.name,
@@ -76,8 +77,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
     const filteredData = useMemo(() => {
         const start = startDate ? new Date(startDate) : null;
         const end = endDate ? new Date(endDate) : null;
-        if(start) start.setHours(0,0,0,0);
-        if(end) end.setHours(23,59,59,999);
+        if (start) start.setHours(0, 0, 0, 0);
+        if (end) end.setHours(23, 59, 59, 999);
 
         if (activeTab === 'internal') {
             return (Array.isArray(transactions) ? transactions : [])
@@ -113,7 +114,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                         (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase())) ||
                         t.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (t.documentNumber && t.documentNumber.toLowerCase().includes(searchTerm.toLowerCase()));
-                    
+
                     return isDateInRange && isCategoryMatch && isSearchMatch;
                 })
                 .sort((a, b) => new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime());
@@ -152,17 +153,16 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
 
     const getTechnicianNames = (ids: string[]) => {
         if (!ids || ids.length === 0) return '-';
-        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0,5)).join(', ');
+        return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
     };
-    
+
     const TabButton: React.FC<{ tabId: 'internal' | 'external', label: string }> = ({ tabId, label }) => (
         <button
             onClick={() => { setActiveTab(tabId); setCurrentPage(1); }}
-            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${
-                activeTab === tabId
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === tabId
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
         >
             {label}
         </button>
@@ -176,8 +176,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     <TabButton tabId="external" label="เบิกจากร้านค้า" />
                 </div>
             </div>
-             <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input
                         type="text"
                         placeholder="ค้นหา (ชื่ออะไหล่, ใบซ่อม, ทะเบียน)..."
@@ -192,9 +192,9 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                         ))}
                     </select>
                     <div className="flex items-center gap-2">
-                         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
-                         <span>-</span>
-                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" />
+                        <span>-</span>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
                 </div>
                 <button onClick={handleResetFilters} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
@@ -239,7 +239,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                         <td className="px-4 py-3 text-sm">{t.actor}</td>
                                         <td className="px-4 py-3 text-sm">{t.relatedRepairOrder || '-'}</td>
                                         <td className="px-4 py-3 text-sm max-w-xs truncate" title={t.notes}>{t.notes || '-'}</td>
-                                        <td className="px-4 py-3 text-right font-semibold">{Math.abs(totalValue).toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(Math.abs(totalValue))}</td>
                                     </tr>
                                 )
                             })}
@@ -274,8 +274,8 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                                     <td className="px-4 py-3 text-sm">{p.category}</td>
                                     <td className="px-4 py-3 text-right font-bold text-base">{p.quantity} {p.unit}</td>
                                     <td className="px-4 py-3 text-sm">{getTechnicianNames(p.allTechnicianIds)}</td>
-                                    <td className="px-4 py-3 text-right">{p.unitPrice.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-right font-semibold">{(p.unitPrice * p.quantity).toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right">{formatCurrency(p.unitPrice)}</td>
+                                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency(p.unitPrice * p.quantity)}</td>
                                 </tr>
                             ))}
                             {paginatedData.length === 0 && (
@@ -285,16 +285,16 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     </table>
                 )}
             </div>
-            
+
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
                 <span className="text-base text-gray-700">
                     แสดง {paginatedData.length} จาก {filteredData.length} รายการ
                 </span>
                 <div className="flex items-center gap-2">
-                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
-                     <span className="text-base font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
-                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
-                 </div>
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <span className="text-base font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                </div>
             </div>
         </div>
     );

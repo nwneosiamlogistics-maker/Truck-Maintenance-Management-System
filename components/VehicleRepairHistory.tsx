@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Repair, Vehicle, PartRequisitionItem } from '../types';
 import StatCard from './StatCard';
+import { formatCurrency } from '../utils';
 
 // Helper function to calculate total cost for a single repair
 const calculateTotalCost = (repair: Repair): number => {
@@ -33,8 +34,8 @@ const PartsListModal: React.FC<{ parts: PartRequisitionItem[], onClose: () => vo
                             <tr key={index}>
                                 <td className="px-2 py-2">{part.name}</td>
                                 <td className="px-2 py-2 text-right">{part.quantity} {part.unit}</td>
-                                <td className="px-2 py-2 text-right">{part.unitPrice.toLocaleString()}</td>
-                                <td className="px-2 py-2 text-right font-semibold">{(part.quantity * part.unitPrice).toLocaleString()}</td>
+                                <td className="px-2 py-2 text-right">{formatCurrency(part.unitPrice)}</td>
+                                <td className="px-2 py-2 text-right font-semibold">{formatCurrency(part.quantity * part.unitPrice)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -87,13 +88,13 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
 
     const { selectedVehicleRepairs, selectedVehicleInfo, selectedVehicleStats } = useMemo(() => {
         if (!selectedVehiclePlate) return { selectedVehicleRepairs: [], selectedVehicleInfo: null, selectedVehicleStats: null };
-        
+
         const vehicleRepairs = (Array.isArray(repairs) ? repairs : [])
             .filter(r => r.licensePlate === selectedVehiclePlate)
             .sort((a, b) => new Date(b.repairEndDate || b.createdAt).getTime() - new Date(a.repairEndDate || a.createdAt).getTime());
 
         const vehicleInfo = (Array.isArray(vehicles) ? vehicles : []).find(v => v.licensePlate === selectedVehiclePlate);
-        
+
         const vehicleStats = {
             totalRepairs: vehicleRepairs.length,
             totalCost: vehicleRepairs.reduce((sum, r) => sum + calculateTotalCost(r), 0),
@@ -119,13 +120,13 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
 
                 {selectedVehicleStats && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        
+
                         <StatCard title="จำนวนการซ่อมทั้งหมด" value={selectedVehicleStats.totalRepairs} theme="blue" />
-                        <StatCard title="ค่าใช้จ่ายซ่อมรวม" value={`${selectedVehicleStats.totalCost.toLocaleString()} ฿`} theme="red" />
-                        <StatCard title="ค่าใช้จ่ายเฉลี่ย" value={`${selectedVehicleStats.avgCost.toLocaleString('en-US', {maximumFractionDigits: 0})} ฿`} theme="yellow" />
+                        <StatCard title="ค่าใช้จ่ายซ่อมรวม" value={`${formatCurrency(selectedVehicleStats.totalCost)} ฿`} theme="red" />
+                        <StatCard title="ค่าใช้จ่ายเฉลี่ย" value={`${formatCurrency(selectedVehicleStats.avgCost)} ฿`} theme="yellow" />
                     </div>
                 )}
-                
+
                 <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -150,10 +151,10 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
                                             <span className="text-gray-400 text-sm">-</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-right font-semibold">{calculateTotalCost(repair).toLocaleString()} ฿</td>
+                                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency(calculateTotalCost(repair))} ฿</td>
                                 </tr>
                             ))}
-                             {selectedVehicleRepairs.length === 0 && (
+                            {selectedVehicleRepairs.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบประวัติการซ่อมสำหรับรถคันนี้</td>
                                 </tr>
@@ -165,7 +166,7 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
             </div>
         );
     }
-    
+
     // Render List View
     return (
         <div className="space-y-6">
@@ -194,14 +195,14 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
                                     <p className="text-sm text-slate-500">ครั้ง</p>
                                 </div>
                                 <div>
-                                    <p className="text-3xl font-bold text-slate-700">{vehicle.totalCost.toLocaleString()}</p>
+                                    <p className="text-3xl font-bold text-slate-700">{formatCurrency(vehicle.totalCost)}</p>
                                     <p className="text-sm text-slate-500">บาท</p>
                                 </div>
                             </div>
                         </div>
                         <div className="mt-6">
-                            <button 
-                                onClick={() => setSelectedVehiclePlate(vehicle.licensePlate)} 
+                            <button
+                                onClick={() => setSelectedVehiclePlate(vehicle.licensePlate)}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                                 ดูประวัติ

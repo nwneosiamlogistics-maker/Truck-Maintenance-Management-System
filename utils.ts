@@ -2,14 +2,14 @@
 import type { StockStatus } from './types';
 
 export function promptForPassword(action: string): boolean {
-  const password = window.prompt(`โปรดยืนยันรหัสผ่านเพื่อดำเนินการ '${action}':`);
-  if (password === '1234') {
-    return true;
-  }
-  if (password !== null) { // User didn't click cancel
-    alert('รหัสผ่านไม่ถูกต้อง!');
-  }
-  return false;
+    const password = window.prompt(`โปรดยืนยันรหัสผ่านเพื่อดำเนินการ '${action}':`);
+    if (password === '1234') {
+        return true;
+    }
+    if (password !== null) { // User didn't click cancel
+        alert('รหัสผ่านไม่ถูกต้อง!');
+    }
+    return false;
 }
 
 export function calculateStockStatus(quantity: number, minStock: number, maxStock: number | null): StockStatus {
@@ -57,9 +57,9 @@ export function formatHoursDescriptive(totalHours: number): string {
 
     const sign = totalHours < 0 ? '-' : '';
     const absHours = Math.abs(totalHours);
-    
+
     // Assuming an 8-hour workday for 'day' calculation
-    const days = Math.floor(absHours / 8); 
+    const days = Math.floor(absHours / 8);
     const remainingHoursAfterDays = absHours % 8;
     const hours = Math.floor(remainingHoursAfterDays);
     const minutes = Math.round((remainingHoursAfterDays - hours) * 60);
@@ -124,7 +124,7 @@ export function calculateFinishTime(startDate: Date, durationHours: number, holi
             finishDate.setHours(workDayStart, 0, 0, 0);
             continue;
         }
-        
+
         finishDate.setHours(currentHour, currentMinute);
 
         const hoursInFloat = currentHour + currentMinute / 60;
@@ -136,12 +136,12 @@ export function calculateFinishTime(startDate: Date, durationHours: number, holi
         if (remainingHours <= hoursAvailableToday) {
             let hoursToAdd = remainingHours;
             let finalHourFloat = hoursInFloat;
-            
+
             // Add to morning if possible
             const addInMorning = Math.min(hoursToAdd, morningHoursLeft);
             finalHourFloat += addInMorning;
             hoursToAdd -= addInMorning;
-            
+
             // If still hours left, skip lunch break and add to afternoon
             if (hoursToAdd > 0) {
                 if (finalHourFloat < lunchEnd) {
@@ -168,7 +168,7 @@ export function numberToThaiWords(num: number): string {
     const units = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
     const tens = ['', 'สิบ', 'ยี่สิบ', 'สามสิบ', 'สี่สิบ', 'ห้าสิบ', 'หกสิบ', 'เจ็ดสิบ', 'แปดสิบ', 'เก้าสิบ'];
     const places = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน'];
-    
+
     let numStr = String(Math.floor(num));
     let decimalStr = String(num).split('.')[1];
     let result = '';
@@ -182,13 +182,13 @@ export function numberToThaiWords(num: number): string {
             if (digit > 0) {
                 if (placeIndex % 6 === 1) { // Tens place
                     output += tens[digit];
-                } else if (placeIndex % 6 === 0 && digit === 1 && integerPart.length > 1 && parseInt(integerPart[i-1]) !== 0) {
+                } else if (placeIndex % 6 === 0 && digit === 1 && integerPart.length > 1 && parseInt(integerPart[i - 1]) !== 0) {
                     output += 'เอ็ด';
                 } else {
                     output += units[digit] + places[placeIndex % 6];
                 }
             }
-             if (placeIndex % 6 === 0 && placeIndex > 0) {
+            if (placeIndex % 6 === 0 && placeIndex > 0) {
                 const isMillionPlace = Math.floor(placeIndex / 6) > 0;
                 if (isMillionPlace) {
                     output += places[6]; // ล้าน
@@ -197,14 +197,14 @@ export function numberToThaiWords(num: number): string {
         }
         return output.replace(/ล้าน+/g, 'ล้าน');
     }
-    
+
     result = convertInteger(numStr) + 'บาท';
 
     if (decimalStr) {
         let decimalNum = parseInt(decimalStr.slice(0, 2), 10);
         // Ensure 2 digits
         if (decimalStr.length === 1) decimalNum *= 10;
-        
+
         if (decimalNum > 0) {
             result += convertInteger(String(decimalNum)) + 'สตางค์' + 'ถ้วน';
         } else {
@@ -223,8 +223,8 @@ export function isToday(dateString: string | null | undefined): boolean {
         const date = new Date(dateString);
         const today = new Date();
         return date.getDate() === today.getDate() &&
-               date.getMonth() === today.getMonth() &&
-               date.getFullYear() === today.getFullYear();
+            date.getMonth() === today.getMonth() &&
+            date.getFullYear() === today.getFullYear();
     } catch {
         return false;
     }
@@ -236,10 +236,10 @@ export const isYesterday = (dateString: string | null | undefined): boolean => {
         const date = new Date(dateString);
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        
+
         return date.getDate() === yesterday.getDate() &&
-               date.getMonth() === yesterday.getMonth() &&
-               date.getFullYear() === yesterday.getFullYear();
+            date.getMonth() === yesterday.getMonth() &&
+            date.getFullYear() === yesterday.getFullYear();
     } catch {
         return false;
     }
@@ -271,4 +271,14 @@ export const calculateDateDifference = (startDateStr: string | null | undefined,
     if (months > 0) parts.push(`${months} เดือน`);
     if (days > 0) parts.push(`${days} วัน`);
     return parts.length > 0 ? parts.join(' ') : '0 วัน';
+};
+
+export const formatCurrency = (amount: number | null | undefined): string => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+        return '0.00';
+    }
+    return amount.toLocaleString('th-TH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
 };

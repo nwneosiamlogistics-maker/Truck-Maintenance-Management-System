@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { UsedPart, UsedPartDisposition, UsedPartBatchStatus } from '../types';
 import StatCard from './StatCard';
-import { promptForPassword } from '../utils';
+import { promptForPassword, formatCurrency } from '../utils';
 
 interface UsedPartReportProps {
     usedParts: UsedPart[];
@@ -56,7 +56,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                 flattened.push({ ...disp, parentPart: part });
             });
         });
-        
+
         const start = startDate ? new Date(startDate) : null;
         const end = endDate ? new Date(endDate) : null;
         if (start) start.setHours(0, 0, 0, 0);
@@ -74,7 +74,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                     part.fromRepairOrderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     part.fromLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     (disp.soldTo && disp.soldTo.toLowerCase().includes(searchTerm.toLowerCase()));
-                
+
                 return isStatusMatch && isDateMatch && isSearchMatch;
             })
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -86,7 +86,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredDispositions.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredDispositions, currentPage, itemsPerPage]);
-    
+
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
@@ -97,7 +97,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
             deleteUsedPartDisposition(disposition.parentPart.id, disposition.id);
         }
     };
-    
+
     // Helper function for badge styling
     const getDispositionBadge = (type: UsedPartDisposition['dispositionType']) => {
         switch (type) {
@@ -110,7 +110,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
             default: return 'bg-gray-100 text-gray-800';
         }
     };
-    
+
     const getDispositionDetails = (disp: FlattenedDisposition) => {
         switch (disp.dispositionType) {
             case 'ขาย': return disp.soldTo || '-';
@@ -131,7 +131,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                 <StatCard title="จำนวนรอจัดการ" value={stats.totalItemsAwaiting} theme="blue" />
                 <StatCard title="จัดการบางส่วน (ชุด)" value={stats.partial} theme="yellow" />
                 <StatCard title="จัดการครบแล้ว (ชุด)" value={stats.completed} theme="green" />
-                <StatCard title="มูลค่าที่ขายได้ทั้งหมด" value={`${stats.totalSoldValue.toLocaleString()} ฿`} theme="green" />
+                <StatCard title="มูลค่าที่ขายได้ทั้งหมด" value={`${formatCurrency(stats.totalSoldValue)} ฿`} theme="green" />
             </div>
 
             {/* Filters */}
@@ -162,12 +162,12 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                 <div className="flex items-center gap-2">
                     <div className="flex-1">
                         <label className="block text-sm font-medium text-gray-700">จากวันที่</label>
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
                     <span>-</span>
                     <div className="flex-1">
                         <label className="block text-sm font-medium text-gray-700">ถึงวันที่</label>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
                 </div>
             </div>
@@ -200,7 +200,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                                 <td className="px-4 py-3 text-right">{disp.quantity} {disp.parentPart.unit}</td>
                                 <td className="px-4 py-3 text-sm max-w-xs truncate" title={getDispositionDetails(disp)}>{getDispositionDetails(disp)}</td>
                                 <td className="px-4 py-3 text-right font-semibold">
-                                    {disp.dispositionType === 'ขาย' ? ((disp.salePricePerUnit || 0) * disp.quantity).toLocaleString() : '-'}
+                                    {disp.dispositionType === 'ขาย' ? formatCurrency((disp.salePricePerUnit || 0) * disp.quantity) : '-'}
                                 </td>
                                 <td className="px-4 py-3 text-sm">{disp.parentPart.fromRepairOrderNo}</td>
                                 <td className="px-4 py-3 text-center">
@@ -221,7 +221,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                     </tbody>
                 </table>
             </div>
-            
+
             {/* Pagination */}
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
                 <div className="flex items-center gap-2">

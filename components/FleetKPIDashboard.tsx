@@ -71,7 +71,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             const serviceDate = new Date(h.serviceDate);
             return serviceDate >= startDate && serviceDate <= endDate;
         });
-        
+
         // Corrected Logic for PM Completion Rate (Compliance Rate)
         // 1. Identify plans that were DUE in this period
         const duePlansInPeriod = safePlans.filter(plan => {
@@ -88,7 +88,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
 
         // 2. Count how many of these specific DUE plans were actually completed (found in history)
         // We check if any history record in the period matches the plan ID
-        const completedDuePlansCount = duePlansInPeriod.filter(plan => 
+        const completedDuePlansCount = duePlansInPeriod.filter(plan =>
             periodHistory.some(h => h.maintenancePlanId === plan.id)
         ).length;
 
@@ -149,9 +149,9 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         });
 
         const reworkRate = uniqueVehicleRepairCount > 0 ? (reworkVehicleCount / uniqueVehicleRepairCount) * 100 : 0;
-        
+
         const avgDowntime = completedPeriodRepairs.length > 0 ? totalDowntimeHours / completedPeriodRepairs.length : 0;
-        
+
         const totalCost = completedPeriodRepairs.reduce((sum: number, r) => {
             const partsCost = (r.parts || []).reduce((pSum: number, p) => {
                 const quantity = Number(p.quantity) || 0;
@@ -175,7 +175,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             const year = serviceDate.getFullYear();
             const month = serviceDate.getMonth(); // 0-11
             const key = `${historyItem.vehicleLicensePlate}-${historyItem.maintenancePlanId}-${year}`;
-            
+
             const annualPlan = annualPlansMap.get(key);
             if (annualPlan && annualPlan.months[month] === 'completed_unplanned') {
                 unplannedCompletionsCount++;
@@ -198,11 +198,11 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             return acc;
         }, {} as Record<string, number>);
         const downtimeChartData = Object.entries(downtimeByMonth).map(([label, value]) => ({ label, value }));
-        
+
         // Update Chart Data for PM Compliance
         // Show "Completed Due Plans" vs "Missed/Pending Due Plans"
         const pmComplianceChartData = [
-            { name: 'สำเร็จตามแผน', value: completedDuePlansCount }, 
+            { name: 'สำเร็จตามแผน', value: completedDuePlansCount },
             { name: 'ค้าง/พลาดเป้า', value: Math.max(0, duePlansInPeriodCount - completedDuePlansCount) }
         ];
 
@@ -227,20 +227,20 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         });
         // Overdue PMs
         safePlans.forEach(plan => {
-             let nextServiceDate = new Date(plan.lastServiceDate);
-             if (plan.frequencyUnit === 'days') {
+            let nextServiceDate = new Date(plan.lastServiceDate);
+            if (plan.frequencyUnit === 'days') {
                 nextServiceDate.setDate(nextServiceDate.getDate() + plan.frequencyValue);
-             } else if (plan.frequencyUnit === 'weeks') {
+            } else if (plan.frequencyUnit === 'weeks') {
                 nextServiceDate.setDate(nextServiceDate.getDate() + plan.frequencyValue * 7);
-             } else {
+            } else {
                 nextServiceDate.setMonth(nextServiceDate.getMonth() + plan.frequencyValue);
-             }
-             const daysOverdue = Math.floor((new Date().getTime() - nextServiceDate.getTime()) / (1000 * 3600 * 24));
-             if (daysOverdue > 0) {
-                 alerts.push({ type: 'PM', vehicle: plan.vehicleLicensePlate, details: `${plan.planName} (เกินกำหนด ${daysOverdue} วัน)`, value: daysOverdue, priority: 'high' });
-             }
+            }
+            const daysOverdue = Math.floor((new Date().getTime() - nextServiceDate.getTime()) / (1000 * 3600 * 24));
+            if (daysOverdue > 0) {
+                alerts.push({ type: 'PM', vehicle: plan.vehicleLicensePlate, details: `${plan.planName} (เกินกำหนด ${daysOverdue} วัน)`, value: daysOverdue, priority: 'high' });
+            }
         });
-        
+
         // Add Rework alerts
         reworkedVehicles.forEach(rework => {
             alerts.push({
@@ -278,7 +278,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                 downtimeChartData,
                 pmComplianceChartData,
             },
-            alerts: alerts.sort((a,b) => {
+            alerts: alerts.sort((a, b) => {
                 const priorityOrder = { high: 0, medium: 1, low: 2 };
                 if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
                     return priorityOrder[a.priority] - priorityOrder[b.priority];
@@ -288,10 +288,10 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         };
 
     }, [dateRange, safeRepairs, safePlans, safeVehicles, safeHistory, safeAnnualPlans]);
-    
+
     const handleExport = () => {
         const headers = ["Type", "Vehicle", "Details", "Value", "Priority"];
-        const rows = memoizedData.alerts.map(a => 
+        const rows = memoizedData.alerts.map(a =>
             [a.type, a.vehicle, `"${a.details.replace(/"/g, '""')}"`, a.value, a.priority].join(',')
         );
         const csvString = [headers.join(','), ...rows].join('\r\n');
@@ -334,15 +334,15 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                 <h3 className="text-xl font-bold text-gray-800 mb-4 px-2">คุณภาพการซ่อมบำรุง</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <KPICard title="อัตราการซ่อมซ้ำอาการเดิม" value={`${memoizedData.kpis.reworkRate.toFixed(1)}%`} target={5} lowerIsBetter={true} />
-                    <KPICard title="ค่าใช้จ่ายซ่อมบำรุงรวม" value={Math.round(memoizedData.kpis.totalCost).toLocaleString()} target={500000} lowerIsBetter={true} unit="บาท" />
+                    <KPICard title="ค่าใช้จ่ายซ่อมบำรุงรวม" value={memoizedData.kpis.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} target={500000} lowerIsBetter={true} unit="บาท" />
                 </div>
             </div>
-            
+
             {/* Section 3: Graphs */}
             <div className="grid grid-cols-1 gap-6">
                 <BarChart title="Downtime ต่อเดือน (ชั่วโมง)" data={memoizedData.charts.downtimeChartData.map(d => ({ label: d.label, value: d.value, formattedValue: formatHoursToHHMM(d.value) }))} />
             </div>
-            
+
             {/* Section 4: Alerts */}
             <div className="bg-white p-6 rounded-2xl shadow-sm">
                 <div className="flex justify-between items-center mb-4">

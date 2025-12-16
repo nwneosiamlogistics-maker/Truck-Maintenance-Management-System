@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { PurchaseOrder } from '../types';
-import { numberToThaiWords } from '../utils';
+import { numberToThaiWords, formatCurrency } from '../utils';
 
 interface PurchaseOrderPrintProps {
     po: PurchaseOrder;
@@ -10,8 +10,8 @@ interface PurchaseOrderPrintProps {
 const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
     const totalInWords = numberToThaiWords(po.totalAmount);
 
-    const linkedPrText = (po.linkedPrNumbers && po.linkedPrNumbers.length > 0) 
-        ? po.linkedPrNumbers.join(', ') 
+    const linkedPrText = (po.linkedPrNumbers && po.linkedPrNumbers.length > 0)
+        ? po.linkedPrNumbers.join(', ')
         : '-';
 
     const logoUrl = "https://img2.pic.in.th/pic/logo-neo.png";
@@ -20,12 +20,38 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
     const TARGET_ROWS = 12;
     const emptyRowsCount = Math.max(0, TARGET_ROWS - po.items.length);
 
+    // Calculate effective VAT rate
+    const vatRate = po.subtotal > 0 && po.vatAmount > 0 ? (po.vatAmount / po.subtotal) * 100 : 0;
+    // Format to 2 decimal places if needed, but remove trailing zeros for integer rates
+    const formattedVatRate = vatRate % 1 === 0 ? vatRate.toFixed(0) : vatRate.toFixed(2);
+
+    // Determine WHT Label
+    let whtLabel = 'หัก ณ ที่จ่าย (WHT)';
+    if (po.whtType) {
+        // Try to match standard types to get label
+        const typeMap: Record<string, string> = {
+            '3': 'ค่าบริการ/จ้างทำของ',
+            '1': 'ค่าขนส่ง',
+            '2': 'ค่าโฆษณา',
+            '5': 'ค่าเช่า'
+        };
+        // If whtType is a number string, use specific label, otherwise use generic or custom
+        const specificLabel = typeMap[po.whtType] || '';
+        if (specificLabel && po.whtRate) {
+            whtLabel = `${specificLabel} (${po.whtRate}%)`;
+        } else if (po.whtRate) {
+            // Use whtType as the label directly if it's not a mapped code
+            const label = po.whtType !== 'custom' ? po.whtType : 'หัก ณ ที่จ่าย';
+            whtLabel = `${label} (${po.whtRate}%)`;
+        }
+    }
+
     return (
-        <div 
-            className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative" 
-            style={{ 
-                width: '210mm', 
-                height: '297mm', 
+        <div
+            className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative"
+            style={{
+                width: '210mm',
+                height: '297mm',
                 padding: '15mm',
                 boxSizing: 'border-box',
                 display: 'flex',
@@ -47,10 +73,10 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
                 </div>
                 {/* Right: Logo */}
                 <div className="w-1/4 flex justify-end">
-                    <img 
-                        src={logoUrl} 
-                        alt="Neosiam Logo" 
-                        className="h-20 w-auto object-contain" 
+                    <img
+                        src={logoUrl}
+                        alt="Neosiam Logo"
+                        className="h-20 w-auto object-contain"
                         referrerPolicy="no-referrer"
                     />
                 </div>
@@ -129,9 +155,9 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
                                 <td className="border-x border-gray-400 p-1 align-top">{item.name}</td>
                                 <td className="border-x border-gray-400 p-1 text-right align-top">{item.quantity}</td>
                                 <td className="border-x border-gray-400 p-1 text-center align-top">{item.unit}</td>
-                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.unitPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.discount ? item.discount.toLocaleString() : '-'}</td>
-                                <td className="border-x border-gray-400 p-1 text-right align-top font-medium">{item.totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{formatCurrency(item.unitPrice)}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top">{item.discount ? formatCurrency(item.discount) : '-'}</td>
+                                <td className="border-x border-gray-400 p-1 text-right align-top font-medium">{formatCurrency(item.totalPrice)}</td>
                             </tr>
                         ))}
                         {/* Fill empty rows */}
@@ -167,15 +193,21 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
                     <div className="w-1/3">
                         <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
                             <span className="font-semibold">รวมเป็นเงิน</span>
-                            <span>{po.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span>{formatCurrency(po.subtotal)}</span>
                         </div>
                         <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
-                            <span className="font-semibold">ภาษีมูลค่าเพิ่ม (VAT 7%)</span>
-                            <span>{po.vatAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span className="font-semibold">{Number(formattedVatRate) > 0 ? `ภาษีมูลค่าเพิ่ม (VAT ${formattedVatRate}%)` : 'ภาษีมูลค่าเพิ่ม (VAT)'}</span>
+                            <span>{formatCurrency(po.vatAmount)}</span>
                         </div>
+                        {po.whtAmount && po.whtAmount > 0 && (
+                            <div className="flex justify-between py-1 border-b border-gray-300 border-dotted text-red-600">
+                                <span className="font-semibold">{whtLabel}</span>
+                                <span>-{formatCurrency(po.whtAmount)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between py-2 font-bold text-sm">
                             <span>ยอดเงินสุทธิ</span>
-                            <span className="text-base underline">{po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span className="text-base underline">{formatCurrency(po.totalAmount)}</span>
                         </div>
                     </div>
                 </div>
@@ -196,7 +228,7 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
                     </div>
                 </div>
             </div>
-            
+
             <div className="text-right text-[10px] text-gray-400">
                 FM-PC01-02
             </div>

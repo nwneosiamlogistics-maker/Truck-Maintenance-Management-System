@@ -213,6 +213,9 @@ export interface PurchaseOrder {
     items: PurchaseOrderItem[];
     subtotal: number;
     vatAmount: number;
+    whtAmount?: number;
+    whtRate?: number;
+    whtType?: string;
     totalAmount: number;
     linkedPrIds: string[];
     linkedPrNumbers?: string[];
@@ -319,7 +322,7 @@ export interface PMHistory {
     targetMileage?: number;
 }
 
-export type VehicleLayout = 
+export type VehicleLayout =
     | 'รถพ่วง 22 ล้อ'
     | 'รถ 12 ล้อ'
     | 'รถ 10 ล้อ'
@@ -372,7 +375,7 @@ export interface Tool {
     category: string; // หมวดหมู่
     brand: string | null; // ยี่ห้อ
     serialNumber: string | null; // หมายเลขเครื่อง
-    
+
     totalQuantity: number;
     quantityCheckedOut: number;
     storageLocation: string | null;
@@ -384,7 +387,7 @@ export interface Tool {
     distributorAddress: string | null; // ที่อยู่ผู้ขาย
     distributorContact: string | null; // ติดต่อผู้ขาย
     manualRefNumber: string | null; // เลขที่อ้างอิงคู่มือ
-    
+
     usageDetails: string | null; // รายละเอียดการใช้งาน
     mechanicalProperties: string | null; // ข้อมูลทางกล
     electricalData: string | null; // ข้อมูลทางไฟฟ้า
@@ -406,8 +409,8 @@ export interface ToolTransaction {
 }
 
 export interface ChecklistItemResult {
-  status: string;
-  notes: string;
+    status: string;
+    notes: string;
 }
 
 export interface DailyChecklist {

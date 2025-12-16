@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, EstimationAttempt } from '../types';
 import StatCard from './StatCard';
-import { formatHoursToHHMM } from '../utils';
+import { formatHoursToHHMM, formatCurrency } from '../utils';
 
 interface TechnicianPerformanceProps {
     repairs: Repair[];
@@ -71,9 +71,9 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                 if (r.repairStartDate && r.repairEndDate) {
                     totalRepairMillis += new Date(r.repairEndDate).getTime() - new Date(r.repairStartDate).getTime();
                 }
-                
+
                 let finalEstimation: EstimationAttempt | undefined = (r.estimations || []).find(e => e.status === 'Completed');
-                
+
                 if (!finalEstimation && r.estimations && r.estimations.length > 0) {
                     finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
                 }
@@ -85,7 +85,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                     }
                 }
             });
-            
+
             const totalValue = techRepairs.reduce((sum: number, r) => {
                 const partsCost = (r.parts || []).reduce((pSum: number, p) => {
                     const quantity = Number(p.quantity) || 0;
@@ -113,7 +113,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             if (a[sortBy] > b[sortBy]) return sortOrder === 'asc' ? 1 : -1;
             return 0;
         });
-        
+
         const totalJobs = techStats.reduce((sum, t) => sum + t.jobs, 0);
 
         const totalValue = filteredRepairs.reduce((sum: number, r) => {
@@ -126,28 +126,28 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             const laborVat = Number(r.laborVat) || 0;
             return sum + partsCost + laborCost + repairVat + laborVat;
         }, 0);
-        
+
         const overallAvgTime = totalJobs > 0 ? techStats.reduce((sum: number, t) => sum + (t.avgTime * t.jobs), 0) / totalJobs : 0;
-        
+
         const totalWeightedOnTime = techStats.reduce((sum: number, t) => {
             const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
             const estimatedJobsCount = techRepairs.filter(r => {
                 let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
                 if (!finalEstimation && r.estimations && r.estimations.length > 0) {
-                     finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
+                    finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
                 }
                 return !!finalEstimation;
             }).length;
-            
+
             return sum + (t.onTimeRate * estimatedJobsCount / 100);
         }, 0);
 
         const totalEstimatedJobs = techStats.reduce((sum: number, t) => {
-             const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
-             return sum + techRepairs.filter(r => {
+            const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
+            return sum + techRepairs.filter(r => {
                 let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
                 if (!finalEstimation && r.estimations && r.estimations.length > 0) {
-                     finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
+                    finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
                 }
                 return !!finalEstimation;
             }).length;
@@ -205,15 +205,15 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                 </div>
             </div>
 
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <StatCard title="งานเสร็จสิ้นทั้งหมด" value={performanceData.kpis.totalJobs} theme="blue" />
                 <StatCard title="เวลาซ่อมเฉลี่ย" value={formatHoursToHHMM(performanceData.kpis.avgTime)} theme="yellow" />
                 <StatCard title="อัตราตรงต่อเวลา" value={`${performanceData.kpis.onTimeRate.toFixed(1)}%`} theme="green" />
-                <StatCard title="มูลค่าซ่อมรวม" value={`${performanceData.kpis.totalValue.toLocaleString()} ฿`} theme="purple" />
+                <StatCard title="มูลค่าซ่อมรวม" value={`${formatCurrency(performanceData.kpis.totalValue)} ฿`} theme="purple" />
             </div>
 
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <BarChart
                     title="จำนวนงานที่เสร็จสิ้น (รายบุคคล)"
                     data={performanceData.stats.slice(0, 5).map(t => ({ label: t.name, value: t.jobs, formattedValue: `${t.jobs} งาน` }))}
@@ -225,7 +225,7 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
-                 <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
                             <SortableHeader headerKey="name" title="ชื่อช่าง" />
@@ -242,10 +242,10 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                                 <td className="px-6 py-4 text-base">{tech.jobs}</td>
                                 <td className="px-6 py-4 text-base">{formatHoursToHHMM(tech.avgTime)}</td>
                                 <td className="px-6 py-4 text-base">{tech.onTimeRate.toFixed(1)}%</td>
-                                <td className="px-6 py-4 text-base font-bold">{tech.value.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-base font-bold">{formatCurrency(tech.value)}</td>
                             </tr>
                         ))}
-                         {performanceData.stats.length === 0 && (
+                        {performanceData.stats.length === 0 && (
                             <tr>
                                 <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูลในช่วงเวลาที่เลือก</td>
                             </tr>

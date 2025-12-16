@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { StockItem, PartRequisitionItem } from '../types';
+import { formatCurrency } from '../utils';
 
 interface StockSelectionModalProps {
     stock: StockItem[];
@@ -63,7 +64,7 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                 };
             })
             .filter((p): p is PartRequisitionItem => p !== null);
-            
+
         onAddParts(partsToAdd);
     };
 
@@ -75,7 +76,7 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                 <div className="p-6 border-b">
                     <div className="flex justify-between items-center">
                         <h3 className="text-2xl font-bold text-gray-800">เลือกอะไหล่จากสต็อก</h3>
-                         <input
+                        <input
                             type="text"
                             placeholder="ค้นหาชื่อ หรือ รหัสอะไหล่..."
                             value={searchTerm}
@@ -115,7 +116,7 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
                                             <div className="text-base font-semibold">{item.name}</div>
                                             <div className="text-sm text-gray-500">{item.code}{isAlreadyAdded && <span className="text-red-500 font-semibold ml-2">(มีในรายการแล้ว)</span>}</div>
                                         </td>
-                                        <td className="px-4 py-2 text-right text-base">{item.price.toLocaleString()}</td>
+                                        <td className="px-4 py-2 text-right text-base">{formatCurrency(item.price)}</td>
                                         <td className="px-4 py-2 text-right text-base font-bold">{item.quantity} {item.unit}</td>
                                         <td className="px-4 py-2">
                                             <input
@@ -137,9 +138,9 @@ const StockSelectionModal: React.FC<StockSelectionModalProps> = ({ stock, onClos
 
                 <div className="p-6 border-t flex justify-end space-x-4 bg-gray-50">
                     <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button 
-                        type="button" 
-                        onClick={handleAdd} 
+                    <button
+                        type="button"
+                        onClick={handleAdd}
                         disabled={selectionCount === 0}
                         className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
                     >

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import type { Repair, Technician } from '../types';
+import { formatCurrency } from '../utils';
 import RepairOrderPrintLayout from './RepairOrderPrintLayout';
 
 interface VehicleDetailModalProps {
@@ -11,7 +12,7 @@ interface VehicleDetailModalProps {
 }
 
 const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepairs, technicians, onClose }) => {
-    
+
     const repairHistory = (Array.isArray(allRepairs) ? allRepairs : [])
         .filter(r => r.licensePlate === repair.licensePlate && r.status === 'ซ่อมเสร็จ' && r.id !== repair.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -20,7 +21,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
         if (repairItem.dispatchType === 'ภายนอก' && repairItem.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repairItem.externalTechnicianName}`;
         }
-        
+
         const mainTechnician = technicians.find(t => t.id === repairItem.assignedTechnicianId);
         const assistants = technicians.filter(t => (repairItem.assistantTechnicianIds || []).includes(t.id));
 
@@ -34,7 +35,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
 
         return display.length > 0 ? display.join(' | ') : 'ไม่ระบุ';
     };
-    
+
     const calculateTotalCost = (repairItem: Repair) => {
         const repairParts = Array.isArray(repairItem.parts) ? repairItem.parts : [];
         const partsCost = repairParts.reduce((acc, part) => acc + (part.quantity * part.unitPrice), 0);
@@ -50,7 +51,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
             const printContent = ReactDOMServer.renderToString(
                 <RepairOrderPrintLayout repair={repair} technicians={technicians} />
             );
-            
+
             printWindow.document.write(`
                 <html>
                     <head>
@@ -95,11 +96,11 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
 
 
     return (
-        <div 
+        <div
             className="fixed inset-0 bg-black bg-opacity-60 z-[100] flex justify-center items-center p-4 no-print"
             onClick={onClose}
         >
-            <div 
+            <div
                 className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
                 onClick={e => e.stopPropagation()}
             >
@@ -108,13 +109,13 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                     <div className="flex justify-between items-center">
                         <div>
                             <h3 className="text-3xl font-bold text-gray-800">
-                                <span>รายละเอียดรถ: </span> 
+                                <span>รายละเอียดรถ: </span>
                                 <span className="text-blue-600">{repair.licensePlate}</span>
                             </h3>
                             <p className="text-base text-gray-500">{repair.vehicleMake} {repair.vehicleModel} ({repair.vehicleType})</p>
                         </div>
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="text-gray-400 hover:text-gray-600 p-2 rounded-full"
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -127,7 +128,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                     {/* Current Repair Info */}
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <h4 className="text-xl font-semibold text-gray-700 mb-3">ข้อมูลการซ่อมปัจจุบัน</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-base">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-base">
                             <p><strong>เลขที่ใบแจ้งซ่อม:</strong> {repair.repairOrderNo}</p>
                             <p><strong>สถานะ:</strong> {repair.status}</p>
                             <p><strong>เลขที่ใบเบิก:</strong> {repair.requisitionNumber || '-'}</p>
@@ -138,7 +139,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                             <p className="md:col-span-2"><strong>รายละเอียดปัญหา:</strong> {repair.problemDescription}</p>
                         </div>
                     </div>
-                    
+
                     {/* Parts List */}
                     <div>
                         <div className="flex justify-between items-center mb-3">
@@ -163,7 +164,7 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                                                 <td className="px-4 py-2 text-sm">{part.source}</td>
                                                 <td className="px-4 py-2 text-sm">{part.purchaseDate ? new Date(part.purchaseDate).toLocaleDateString('th-TH') : '-'}</td>
                                                 <td className="px-4 py-2 text-sm text-right">{part.quantity} {part.unit}</td>
-                                                <td className="px-4 py-2 text-sm text-right font-semibold">{(part.quantity * part.unitPrice).toLocaleString()}</td>
+                                                <td className="px-4 py-2 text-sm text-right font-semibold">{formatCurrency(part.quantity * part.unitPrice)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -197,13 +198,13 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                                                 <td className="px-4 py-3 text-sm text-gray-800 max-w-xs truncate" title={hist.problemDescription}>{hist.problemDescription}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-base text-gray-800 font-medium">{hist.repairCategory}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{getTechnicianDisplay(hist)}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-base text-gray-800 text-right font-semibold">{calculateTotalCost(hist).toLocaleString()}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-base text-gray-800 text-right font-semibold">{formatCurrency(calculateTotalCost(hist))}</td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
                                             <td colSpan={5} className="text-center py-8 text-gray-500">
-                                                 <div className="flex flex-col items-center">
+                                                <div className="flex flex-col items-center">
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                     </svg>
@@ -218,8 +219,8 @@ const VehicleDetailModal: React.FC<VehicleDetailModalProps> = ({ repair, allRepa
                         </div>
                     </div>
                 </div>
-                 <div className="p-4 border-t bg-gray-50 flex justify-between">
-                     <button onClick={handlePrint} className="px-6 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center gap-2">
+                <div className="p-4 border-t bg-gray-50 flex justify-between">
+                    <button onClick={handlePrint} className="px-6 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
                         พิมพ์เอกสาร
                     </button>

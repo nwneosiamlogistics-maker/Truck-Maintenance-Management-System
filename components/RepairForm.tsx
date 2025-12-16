@@ -4,47 +4,47 @@ import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
-import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime } from '../utils';
+import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 
 
 interface StepperProps {
-  steps: string[];
-  currentStep: number;
-  onStepClick: (stepIndex: number) => void;
+    steps: string[];
+    currentStep: number;
+    onStepClick: (stepIndex: number) => void;
 }
 
 const Stepper: React.FC<StepperProps> = ({ steps, currentStep, onStepClick }) => {
-  return (
-    <div className="flex items-center justify-between w-full">
-      {steps.map((step, index) => {
-        const isCompleted = currentStep > index;
-        const isCurrent = currentStep === index;
-        
-        return (
-          <React.Fragment key={index}>
-            <div className="flex items-center flex-col cursor-pointer" onClick={() => onStepClick(index)}>
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300
+    return (
+        <div className="flex items-center justify-between w-full">
+            {steps.map((step, index) => {
+                const isCompleted = currentStep > index;
+                const isCurrent = currentStep === index;
+
+                return (
+                    <React.Fragment key={index}>
+                        <div className="flex items-center flex-col cursor-pointer" onClick={() => onStepClick(index)}>
+                            <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300
                   ${isCompleted ? 'bg-blue-600 text-white' : ''}
                   ${isCurrent ? 'border-2 border-blue-600 text-blue-600 bg-white' : ''}
                   ${!isCompleted && !isCurrent ? 'bg-gray-200 text-gray-500' : ''}
                 `}
-              >
-                {isCompleted ? '✓' : index + 1}
-              </div>
-              <p className={`mt-2 text-sm text-center font-semibold transition-colors duration-300 ${isCurrent ? 'text-blue-600' : 'text-gray-600'}`}>
-                {step}
-              </p>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={`flex-1 h-1 mx-2 rounded transition-colors duration-300 ${isCompleted ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
+                            >
+                                {isCompleted ? '✓' : index + 1}
+                            </div>
+                            <p className={`mt-2 text-sm text-center font-semibold transition-colors duration-300 ${isCurrent ? 'text-blue-600' : 'text-gray-600'}`}>
+                                {step}
+                            </p>
+                        </div>
+                        {index < steps.length - 1 && (
+                            <div className={`flex-1 h-1 mx-2 rounded transition-colors duration-300 ${isCompleted ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+                        )}
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    );
 };
 
 interface RepairFormProps {
@@ -62,7 +62,7 @@ interface RepairFormProps {
 }
 
 const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays }) => {
-    
+
     const getInitialState = () => {
         const getRoundedStartDate = () => {
             const now = new Date();
@@ -126,21 +126,21 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [isExternalPartModalOpen, setExternalPartModalOpen] = useState(false);
     const [isKPIModalOpen, setKPIModalOpen] = useState(false);
 
-    
+
     const [currentStep, setCurrentStep] = useState(0);
     const steps = ['ข้อมูลรถและปัญหา', 'การประเมินและมอบหมาย', 'อะไหล่และค่าใช้จ่าย', 'สรุปและยืนยัน'];
 
     const [suggestions, setSuggestions] = useState<Vehicle[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const suggestionsRef = useRef<HTMLDivElement>(null);
-    
+
     const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>('internal');
     const [isConfirmed, setIsConfirmed] = useState(false);
     const [isFormGloballyValid, setIsFormGloballyValid] = useState(false);
 
 
     const { addToast } = useToast();
-    
+
     const { mainTechnicians, assistantTechnicians } = useMemo(() => {
         const safeTechnicians = Array.isArray(technicians) ? technicians : [];
         return {
@@ -158,9 +158,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         defaultTypes.forEach(t => types.add(t));
         return Array.from(types).sort();
     }, [vehicles]);
-    
+
     const activeEstimation = formData.estimations[formData.estimations.length - 1];
-    
+
     const kpiMap = useMemo(() => new Map(kpiData.map(k => [k.id, k])), [kpiData]);
 
     const holidayDates = useMemo(() => (Array.isArray(holidays) ? holidays : []).map(h => h.date), [holidays]);
@@ -168,7 +168,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const selectedKpis = useMemo(() => {
         return (formData.kpiTaskIds || []).map(id => kpiMap.get(id)).filter((k): k is RepairKPI => k !== undefined);
     }, [formData.kpiTaskIds, kpiMap]);
-    
+
     const totalKpiHours = useMemo(() => {
         return selectedKpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
     }, [selectedKpis]);
@@ -183,8 +183,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 problemDescription: initialData.problemDescription,
             }));
             const vehicle = vehicles.find(v => v.licensePlate === initialData.licensePlate);
-            if(vehicle) {
-                 setFormData(prev => ({ ...prev, vehicleMake: vehicle.make, vehicleModel: vehicle.model }));
+            if (vehicle) {
+                setFormData(prev => ({ ...prev, vehicleMake: vehicle.make, vehicleModel: vehicle.model }));
             }
             clearInitialData();
         }
@@ -206,18 +206,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             if (!isInternalAssigned && !isExternalAssigned) {
                 return false;
             }
-            
+
             const activeEst = formData.estimations[formData.estimations.length - 1];
             if (!activeEst || !activeEst.estimatedEndDate) {
                 return false;
             }
-            
+
             return true;
         };
-        
+
         setIsFormGloballyValid(validateAll());
     }, [formData, otherVehicleType, assignmentType]);
-    
+
     // Auto-calculate finish time
     useEffect(() => {
         if (totalKpiHours > 0 && activeEstimation?.estimatedStartDate) {
@@ -225,9 +225,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 const startDate = new Date(activeEstimation.estimatedStartDate);
                 if (!isNaN(startDate.getTime())) {
                     const finishDate = calculateFinishTime(startDate, totalKpiHours, holidayDates);
-                    const newEstimations = formData.estimations.map(e => 
-                        e.sequence === activeEstimation.sequence 
-                            ? { ...e, estimatedEndDate: finishDate.toISOString() } 
+                    const newEstimations = formData.estimations.map(e =>
+                        e.sequence === activeEstimation.sequence
+                            ? { ...e, estimatedEndDate: finishDate.toISOString() }
                             : e
                     );
                     setFormData(prev => ({ ...prev, estimations: newEstimations }));
@@ -280,13 +280,13 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             default: return 'bg-white border-gray-300';
         }
     };
-    
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         const finalValue = (['repairCost', 'partsVat', 'laborVat', 'laborVatRate'].includes(name))
             ? parseFloat(value) || 0
             : value;
-    
+
         setFormData(prev => ({ ...prev, [name]: finalValue }));
 
         if (name === 'licensePlate') {
@@ -302,10 +302,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             }
         }
     };
-    
+
     const handleDateChange = (field: keyof EstimationAttempt, value: string) => {
-        const newEstimations = formData.estimations.map(e => 
-            e.sequence === activeEstimation.sequence 
+        const newEstimations = formData.estimations.map(e =>
+            e.sequence === activeEstimation.sequence
                 ? { ...e, [field]: value ? new Date(value).toISOString() : null }
                 : e
         );
@@ -316,7 +316,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const selectedType = vehicle.vehicleType || '';
         let newVehicleTypeState = '';
         let newOtherVehicleTypeState = '';
-    
+
         if (uniqueVehicleTypes.includes(selectedType)) {
             newVehicleTypeState = selectedType;
         } else if (selectedType) {
@@ -325,7 +325,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         } else {
             newVehicleTypeState = '';
         }
-    
+
         setFormData(prev => ({
             ...prev,
             licensePlate: vehicle.licensePlate,
@@ -333,12 +333,12 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             vehicleModel: vehicle.model || '',
             vehicleType: newVehicleTypeState,
         }));
-    
+
         setOtherVehicleType(newOtherVehicleTypeState);
         setSuggestions([]);
         setIsSuggestionsOpen(false);
     };
-    
+
     const resetForm = () => {
         setFormData(getInitialState());
         setOtherVehicleType('');
@@ -379,9 +379,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const newIds = newKpis.map(k => k.id);
         const currentIds = new Set(formData.kpiTaskIds || []);
         newIds.forEach(id => currentIds.add(id));
-        
+
         updateEstimationFromKPIs(Array.from(currentIds));
-        
+
         addToast(`เพิ่ม ${newKpis.length} รายการ KPI สำเร็จ`, 'success');
         setKPIModalOpen(false);
     };
@@ -390,7 +390,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const newIds = (formData.kpiTaskIds || []).filter(id => id !== kpiId);
         updateEstimationFromKPIs(newIds);
     };
-    
+
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
         setFormData(prev => ({ ...prev, parts: [...prev.parts, ...newParts] }));
         setStockModalOpen(false);
@@ -400,7 +400,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const handleAddExternalParts = (data: { parts: PartRequisitionItem[], vat: number }) => {
         const existingPartNames = new Set(formData.parts.map(p => p.name.trim().toLowerCase()));
         const newParts = data.parts.filter(p => !existingPartNames.has(p.name.trim().toLowerCase()));
-        
+
         if (newParts.length < data.parts.length) {
             addToast('มีบางรายการซ้ำซ้อนและถูกข้ามไป', 'info');
         }
@@ -410,9 +410,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     };
 
     const updatePart = (partId: string, field: keyof PartRequisitionItem, value: any) => {
-        setFormData(prev => ({ ...prev, parts: prev.parts.map(p => p.partId === partId ? { ...p, [field]: value } : p)}));
+        setFormData(prev => ({ ...prev, parts: prev.parts.map(p => p.partId === partId ? { ...p, [field]: value } : p) }));
     };
-    
+
     const removePart = (partId: string) => {
         setFormData(prev => ({ ...prev, parts: prev.parts.filter(p => p.partId !== partId) }));
     };
@@ -431,7 +431,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const normalizedProblem = formData.problemDescription.trim().toLowerCase();
-        const potentialDuplicate = (Array.isArray(repairs) ? repairs : []).find(r => 
+        const potentialDuplicate = (Array.isArray(repairs) ? repairs : []).find(r =>
             new Date(r.createdAt) > twentyFourHoursAgo &&
             r.licensePlate.trim().toLowerCase() === formData.licensePlate.trim().toLowerCase() &&
             r.problemDescription.trim().toLowerCase() === normalizedProblem
@@ -439,16 +439,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         if (potentialDuplicate) {
             const proceed = window.confirm(
-`ตรวจพบใบแจ้งซ่อมที่คล้ายกันสำหรับรถคันนี้ (${potentialDuplicate.repairOrderNo}) ที่สร้างขึ้นเมื่อไม่นานมานี้ 
+                `ตรวจพบใบแจ้งซ่อมที่คล้ายกันสำหรับรถคันนี้ (${potentialDuplicate.repairOrderNo}) ที่สร้างขึ้นเมื่อไม่นานมานี้ 
 คุณแน่ใจหรือไม่ว่าต้องการสร้างใบแจ้งซ่อมใบใหม่?`
             );
             if (!proceed) return;
         }
 
         const { repairOrderNo, ...repairData } = formData;
-        
+
         if (repairData.vehicleType === 'อื่นๆ') {
-             if (!otherVehicleType.trim()) {
+            if (!otherVehicleType.trim()) {
                 addToast('กรุณาระบุประเภทรถ', 'warning');
                 return;
             }
@@ -459,7 +459,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         addToast('สร้างใบแจ้งซ่อมสำเร็จ', 'success');
         resetForm();
     };
-    
+
     const validateStep = (step: number) => {
         switch (step) {
             case 0:
@@ -479,7 +479,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                     addToast('กรุณามอบหมายช่างหลัก หรือระบุชื่อช่างภายนอก', 'warning');
                     return false;
                 }
-                 if (!activeEstimation.estimatedEndDate) {
+                if (!activeEstimation.estimatedEndDate) {
                     addToast('กรุณาระบุเวลาที่คาดว่าจะซ่อมเสร็จ', 'warning');
                     return false;
                 }
@@ -503,7 +503,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setIsConfirmed(false);
         setCurrentStep(prev => Math.max(prev - 1, 0));
     };
-    
+
     const handleAssignmentTypeChange = (type: 'internal' | 'external') => {
         setAssignmentType(type);
         if (type === 'internal') {
@@ -543,7 +543,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             }
         }
     };
-    
+
     const renderStepContent = () => {
         switch (currentStep) {
             case 0: // ข้อมูลรถและปัญหา
@@ -567,7 +567,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
                                 <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
                                     <option value="" disabled>-- เลือกประเภท --</option>
@@ -578,7 +578,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     <input type="text" name="otherVehicleType" value={otherVehicleType} onChange={(e) => setOtherVehicleType(e.target.value)} placeholder="ระบุประเภท" className="mt-2 w-full p-2 border border-gray-300 rounded-lg" required />
                                 )}
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
                                 <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
@@ -622,7 +622,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                         <span>📊 + เพิ่มงาน KPI</span>
                                     </button>
                                 </div>
-                                
+
                                 {selectedKpis.length > 0 && (
                                     <div className="border-t pt-3 mt-3">
                                         <div className="flex justify-between items-center mb-2">
@@ -643,43 +643,43 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                     <div>
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
                                         <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleDateChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ</label>
-                                        <input 
-                                            type="datetime-local" 
-                                            value={toLocalISOString(activeEstimation.estimatedEndDate) || ''} 
-                                            onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)} 
+                                        <input
+                                            type="datetime-local"
+                                            value={toLocalISOString(activeEstimation.estimatedEndDate) || ''}
+                                            onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)}
                                             className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100"
                                             readOnly
                                             required
                                         />
                                     </div>
                                 </div>
-                                
-                                {totalKpiHours > 0 && 
+
+                                {totalKpiHours > 0 &&
                                     <p className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 italic">
-                                       "{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}"
+                                        "{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}"
                                     </p>
                                 }
                             </div>
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทการส่งซ่อม *</label>
-                             <div className="flex items-center gap-6 mb-3">
+                            <div className="flex items-center gap-6 mb-3">
                                 <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="assignmentType" value="internal" checked={assignmentType === 'internal'} onChange={() => handleAssignmentTypeChange('internal')} className="mr-2 h-4 w-4"/>
+                                    <input type="radio" name="assignmentType" value="internal" checked={assignmentType === 'internal'} onChange={() => handleAssignmentTypeChange('internal')} className="mr-2 h-4 w-4" />
                                     <span className="font-semibold text-gray-700">ซ่อมภายใน</span>
                                 </label>
                                 <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="assignmentType" value="external" checked={assignmentType === 'external'} onChange={() => handleAssignmentTypeChange('external')} className="mr-2 h-4 w-4"/>
+                                    <input type="radio" name="assignmentType" value="external" checked={assignmentType === 'external'} onChange={() => handleAssignmentTypeChange('external')} className="mr-2 h-4 w-4" />
                                     <span className="font-semibold text-gray-700">ซ่อมภายนอก</span>
                                 </label>
                             </div>
-                            
+
                             {assignmentType === 'internal' ? (
                                 <div className="space-y-4">
                                     <div>
@@ -702,18 +702,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                         <TechnicianMultiSelect
                                             allTechnicians={assistantTechnicians}
                                             selectedTechnicianIds={formData.assistantTechnicianIds}
-                                            onChange={(ids) => setFormData(prev => ({...prev, assistantTechnicianIds: ids}))}
+                                            onChange={(ids) => setFormData(prev => ({ ...prev, assistantTechnicianIds: ids }))}
                                         />
                                     </div>
                                 </div>
                             ) : (
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     name="externalTechnicianName"
-                                    value={formData.externalTechnicianName || ''} 
-                                    onChange={handleInputChange} 
+                                    value={formData.externalTechnicianName || ''}
+                                    onChange={handleInputChange}
                                     placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก"
-                                    className="w-full p-2 border border-gray-300 rounded-lg" 
+                                    className="w-full p-2 border border-gray-300 rounded-lg"
                                 />
                             )}
                         </div>
@@ -721,7 +721,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 );
             case 2: // อะไหล่และค่าใช้จ่าย
                 return (
-                     <div className="space-y-4">
+                    <div className="space-y-4">
                         <div className="space-y-3">
                             {(formData.parts.length > 0) && (
                                 <div className="grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
@@ -738,7 +738,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     <div className="col-span-4"><p className="font-medium">{part.name}</p></div>
                                     <div className="col-span-2"><input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" /></div>
                                     <div className="col-span-2"><input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} /></div>
-                                    <div className="col-span-2 font-semibold text-right">{(part.quantity * part.unitPrice).toLocaleString()}</div>
+                                    <div className="col-span-2 font-semibold text-right">{formatCurrency(part.quantity * part.unitPrice)}</div>
                                     <div className="col-span-1 text-center"><button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold">×</button></div>
                                 </div>
                             ))}
@@ -748,7 +748,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <button type="button" onClick={() => setRevolvingStockModalOpen(true)} className="w-full text-indigo-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-indigo-500 hover:bg-indigo-50 flex items-center justify-center gap-2">🔄 + อะไหล่หมุนเวียน</button>
                             <button type="button" onClick={() => setExternalPartModalOpen(true)} className="w-full text-green-600 font-semibold py-2 px-4 rounded-lg border-2 border-dashed border-green-500 hover:bg-green-50 flex items-center justify-center gap-2">🏪 + เพิ่มรายการจากร้านค้า</button>
                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ค่าแรง)</label>
                                 <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
@@ -777,33 +777,33 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     <span className="text-sm font-medium text-gray-700">%</span>
                                 </div>
                             </div>
-                         </div>
+                        </div>
                         <div className="text-right space-y-2 pt-4 border-t">
                             <div className="text-lg">
                                 <span>ราคารวมอะไหล่ (+VAT ร้านค้า): </span>
-                                <span className="font-semibold">{((totalPartsCost || 0) + (formData.partsVat || 0)).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท</span>
+                                <span className="font-semibold">{formatCurrency((totalPartsCost || 0) + (formData.partsVat || 0))} บาท</span>
                             </div>
-                             <div className="text-lg">
+                            <div className="text-lg">
                                 <span>ราคารวมค่าแรง {formData.isLaborVatEnabled ? `(+VAT ${formData.laborVatRate}%)` : ''}: </span>
-                                <span className="font-semibold">{((formData.repairCost || 0) + (formData.laborVat || 0)).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท</span>
+                                <span className="font-semibold">{formatCurrency((formData.repairCost || 0) + (formData.laborVat || 0))} บาท</span>
                             </div>
                             <div className="text-xl font-bold">
                                 <span>ยอดรวมสุทธิ: </span>
-                                <span className="text-blue-600">{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท</span>
+                                <span className="text-blue-600">{formatCurrency(grandTotal)} บาท</span>
                             </div>
                         </div>
                     </div>
                 );
             case 3: // สรุปและยืนยัน
-                 const handleEditClick = (step: number) => {
-                     setIsConfirmed(false); // Reset confirmation when going back to edit
-                     setCurrentStep(step);
-                 };
-                 const mainTechName = technicians.find(t => t.id === formData.assignedTechnicianId)?.name || 'N/A';
-                 const assistantTechNames = technicians.filter(t => formData.assistantTechnicianIds.includes(t.id)).map(t => t.name).join(', ');
+                const handleEditClick = (step: number) => {
+                    setIsConfirmed(false); // Reset confirmation when going back to edit
+                    setCurrentStep(step);
+                };
+                const mainTechName = technicians.find(t => t.id === formData.assignedTechnicianId)?.name || 'N/A';
+                const assistantTechNames = technicians.filter(t => formData.assistantTechnicianIds.includes(t.id)).map(t => t.name).join(', ');
 
-                 return (
-                     <div className="space-y-4">
+                return (
+                    <div className="space-y-4">
                         <div className="p-4 border rounded-lg bg-gray-50">
                             <div className="flex justify-between items-center mb-2">
                                 <h3 className="font-bold text-lg text-gray-700">✅ 1. ข้อมูลรถและปัญหา</h3>
@@ -814,7 +814,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <p><strong>อาการเสีย:</strong> <pre className="font-sans whitespace-pre-wrap">{formData.problemDescription}</pre></p>
                         </div>
                         <div className="p-4 border rounded-lg bg-gray-50">
-                             <div className="flex justify-between items-center mb-2">
+                            <div className="flex justify-between items-center mb-2">
                                 <h3 className="font-bold text-lg text-gray-700">✅ 2. การประเมินและมอบหมาย</h3>
                                 <button onClick={() => handleEditClick(1)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
                             </div>
@@ -823,8 +823,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <p><strong>ช่าง:</strong> {formData.dispatchType === 'ภายนอก' ? `ซ่อมภายนอก: ${formData.externalTechnicianName}` : `ช่างหลัก: ${mainTechName}`}</p>
                             {assignmentType === 'internal' && assistantTechNames && <p><strong>ผู้ช่วยช่าง:</strong> {assistantTechNames}</p>}
                         </div>
-                         <div className="p-4 border rounded-lg bg-gray-50">
-                             <div className="flex justify-between items-center mb-2">
+                        <div className="p-4 border rounded-lg bg-gray-50">
+                            <div className="flex justify-between items-center mb-2">
                                 <h3 className="font-bold text-lg text-gray-700">✅ 3. อะไหล่และค่าใช้จ่าย</h3>
                                 <button onClick={() => handleEditClick(2)} type="button" className="text-sm text-blue-600 hover:underline">แก้ไข</button>
                             </div>
@@ -835,7 +835,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         </div>
                         <div className="mt-6 p-4 border-t border-dashed">
                             <label className="flex items-center space-x-3 cursor-pointer">
-                                <input 
+                                <input
                                     type="checkbox"
                                     checked={isConfirmed}
                                     onChange={handleConfirmationChange}
@@ -844,7 +844,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <span className="text-base font-medium text-gray-800">ข้าพเจ้าได้ตรวจสอบข้อมูลทั้งหมดแล้ว และยืนยันความถูกต้อง</span>
                             </label>
                         </div>
-                     </div>
+                    </div>
                 );
             default:
                 return null;
@@ -853,38 +853,38 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
     return (
         <>
-        <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl mx-auto">
-            <Stepper steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                {renderStepContent()}
-            </div>
-            
-            <div className="flex justify-between items-center pt-4">
-                 <div>
-                     {currentStep > 0 && (
-                        <button type="button" onClick={handleBack} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ย้อนกลับ</button>
-                    )}
+            <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl mx-auto">
+                <Stepper steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
+                <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+                    {renderStepContent()}
                 </div>
-                <div>
-                    {currentStep < steps.length - 1 ? (
-                        <button type="button" onClick={handleNext} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">ถัดไป</button>
-                    ) : (
-                        <button 
-                            type="submit" 
-                            disabled={!isConfirmed || !isFormGloballyValid}
-                            className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            ยืนยันสร้างใบแจ้งซ่อม
-                        </button>
-                    )}
-                </div>
-            </div>
-        </form>
 
-        {isStockModalOpen && <StockSelectionModal stock={mainStock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
-        {isRevolvingStockModalOpen && <StockSelectionModal stock={revolvingStock} onClose={() => setRevolvingStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
-        {isExternalPartModalOpen && <ExternalPartModal onClose={() => setExternalPartModalOpen(false)} onAddExternalParts={handleAddExternalParts} suppliers={suppliers} />}
-        {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} />}
+                <div className="flex justify-between items-center pt-4">
+                    <div>
+                        {currentStep > 0 && (
+                            <button type="button" onClick={handleBack} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ย้อนกลับ</button>
+                        )}
+                    </div>
+                    <div>
+                        {currentStep < steps.length - 1 ? (
+                            <button type="button" onClick={handleNext} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">ถัดไป</button>
+                        ) : (
+                            <button
+                                type="submit"
+                                disabled={!isConfirmed || !isFormGloballyValid}
+                                className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                                ยืนยันสร้างใบแจ้งซ่อม
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </form>
+
+            {isStockModalOpen && <StockSelectionModal stock={mainStock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
+            {isRevolvingStockModalOpen && <StockSelectionModal stock={revolvingStock} onClose={() => setRevolvingStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
+            {isExternalPartModalOpen && <ExternalPartModal onClose={() => setExternalPartModalOpen(false)} onAddExternalParts={handleAddExternalParts} suppliers={suppliers} />}
+            {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} />}
         </>
     );
 };

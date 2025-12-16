@@ -4,7 +4,7 @@ import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPassword, formatCurrency } from '../utils';
 
 interface RepairHistoryProps {
     repairs: Repair[];
@@ -31,7 +31,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const [expandedRepairIds, setExpandedRepairIds] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
-    
+
     const toggleExpand = (repairId: string) => {
         setExpandedRepairIds(prev => {
             const newSet = new Set(prev);
@@ -64,7 +64,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
             )
             .sort((a, b) => new Date(b.repairEndDate || b.createdAt).getTime() - new Date(a.repairEndDate || a.createdAt).getTime());
     }, [repairs, searchTerm, startDate, endDate]);
-    
+
     const totalPages = useMemo(() => Math.ceil(filteredRepairs.length / itemsPerPage), [filteredRepairs.length, itemsPerPage]);
     const paginatedRepairs = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -81,7 +81,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
 
         if (updatedRepair.status === 'ซ่อมเสร็จ' && updatedRepair.parts && updatedRepair.parts.length > 0) {
-            
+
             const existingUsedPartOriginalIds = new Set(
                 (Array.isArray(usedParts) ? usedParts : [])
                     .filter(up => up.fromRepairId === updatedRepair.id)
@@ -117,7 +117,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
         }
-        
+
         const mainTechnician = technicians.find(t => t.id === repair.assignedTechnicianId);
         const assistants = technicians.filter(t => (repair.assistantTechnicianIds || []).includes(t.id));
 
@@ -145,7 +145,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
-                 <input
+                <input
                     type="text"
                     placeholder="ค้นหา (ทะเบียน, เลขที่, อาการ)..."
                     value={searchTerm}
@@ -154,14 +154,14 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                 />
                 <div className="flex items-center gap-2">
                     <label className="text-sm font-medium">วันที่ซ่อมเสร็จ:</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg"/>
+                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg" />
                     <span>-</span>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg"/>
+                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg" />
                 </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                 <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 w-12 text-center"></th>
@@ -177,7 +177,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                         {paginatedRepairs.map(repair => (
                             <React.Fragment key={repair.id}>
                                 <tr className="hover:bg-gray-50">
-                                     <td className="px-4 py-3 text-center">
+                                    <td className="px-4 py-3 text-center">
                                         <button onClick={() => toggleExpand(repair.id)} className="text-blue-500 hover:text-blue-700 font-bold text-lg w-6 h-6 rounded-full flex items-center justify-center">
                                             {expandedRepairIds.has(repair.id) ? '−' : '+'}
                                         </button>
@@ -197,7 +197,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                         <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                     </td>
                                 </tr>
-                                 {expandedRepairIds.has(repair.id) && (
+                                {expandedRepairIds.has(repair.id) && (
                                     <tr>
                                         <td colSpan={7} className="p-0 bg-gray-50">
                                             <div className="p-4 mx-4 my-2 border-l-4 border-blue-400 bg-blue-50 rounded-r-lg">
@@ -222,7 +222,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                                                     {part.source}
                                                                 </td>
                                                                 <td className="px-3 py-2 text-sm">{part.source === 'ร้านค้า' ? part.supplierName || 'ไม่ระบุ' : '-'}</td>
-                                                                <td className="px-3 py-2 text-sm text-right font-semibold">{(part.quantity * part.unitPrice).toLocaleString()}</td>
+                                                                <td className="px-3 py-2 text-sm text-right font-semibold">{formatCurrency(part.quantity * part.unitPrice)}</td>
                                                             </tr>
                                                         )) : (
                                                             <tr>
@@ -231,11 +231,11 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                                         )}
                                                     </tbody>
                                                 </table>
-                                                 <div className="text-right mt-2 space-y-1 text-sm">
-                                                    <p>ค่าอะไหล่: <span className="font-semibold">{(calculateTotalCost(repair) - (repair.repairCost || 0) - (repair.partsVat || 0)).toLocaleString()}</span> บาท</p>
-                                                    <p>ค่าแรง: <span className="font-semibold">{(repair.repairCost || 0).toLocaleString()}</span> บาท</p>
-                                                    <p>VAT: <span className="font-semibold">{(repair.partsVat || 0).toLocaleString()}</span> บาท</p>
-                                                    <p className="text-base font-bold">ยอดรวม: <span className="text-blue-600">{calculateTotalCost(repair).toLocaleString()}</span> บาท</p>
+                                                <div className="text-right mt-2 space-y-1 text-sm">
+                                                    <p>ค่าอะไหล่: <span className="font-semibold">{formatCurrency(calculateTotalCost(repair) - (repair.repairCost || 0) - (repair.partsVat || 0))}</span> บาท</p>
+                                                    <p>ค่าแรง: <span className="font-semibold">{formatCurrency(repair.repairCost || 0)}</span> บาท</p>
+                                                    <p>VAT: <span className="font-semibold">{formatCurrency(repair.partsVat || 0)}</span> บาท</p>
+                                                    <p className="text-base font-bold">ยอดรวม: <span className="text-blue-600">{formatCurrency(calculateTotalCost(repair))}</span> บาท</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -243,15 +243,15 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                 )}
                             </React.Fragment>
                         ))}
-                         {filteredRepairs.length === 0 && (
+                        {filteredRepairs.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
                             </tr>
                         )}
                     </tbody>
-                 </table>
+                </table>
             </div>
-            
+
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                     <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
@@ -275,9 +275,9 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
                 </div>
             </div>
-            
+
             {editingRepair && (
-                <RepairEditModal 
+                <RepairEditModal
                     repair={editingRepair}
                     onSave={handleSaveRepair}
                     onClose={() => setEditingRepair(null)}
