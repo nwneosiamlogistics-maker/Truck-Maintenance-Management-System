@@ -1,347 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
 import type { Repair, StockItem, Technician } from '../types';
-
 import { formatCurrency } from '../utils';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    AreaChart, Area, PieChart, Pie, Cell, Line, ComposedChart
+} from 'recharts';
 
-// --- Reusable Chart Components ---
-
-const HorizontalBarChart = ({ data }: { data: { label: string, value: number }[] }) => {
-    if (!data || data.length === 0) return <div className="text-center text-gray-500 py-10">ไม่มีข้อมูล</div>;
-    const maxValue = Math.max(...data.map(d => d.value), 0);
-
-    return (
-        <div className="space-y-3">
-            {data.map((item, index) => (
-                <div key={index} className="flex items-center gap-3 text-sm">
-                    <div className="w-2/5 text-gray-600 font-medium truncate text-right" title={item.label}>
-                        {item.label}
-                    </div>
-                    <div className="w-3/5">
-                        <div className="bg-gray-200 rounded-full h-6 relative">
-                            <div
-                                className="bg-gradient-to-r from-cyan-400 to-blue-500 h-6 rounded-full flex items-center justify-end px-2"
-                                style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
-                            >
-                                <span className="text-white text-xs font-bold">{item.value.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-};
-
-
-const BarChart = ({ data }: { data: { label: string, value: number }[] }) => {
-    if (!data || data.length === 0) return <div className="text-center text-gray-500 py-10">ไม่มีข้อมูล</div>;
-
-    const width = 500;
-    const height = 250;
-    const margin = { top: 30, right: 0, bottom: 40, left: 60 };
-    const chartWidth = width - margin.left - margin.right;
-    const chartHeight = height - margin.top - margin.bottom;
-
-    const maxValue = Math.max(...data.map(d => d.value), 0);
-    const yScale = chartHeight / (maxValue > 0 ? maxValue : 1);
-    const xScale = chartWidth / data.length;
-
-    const yAxisLabels = Array.from({ length: 6 }, (_, i) => {
-        const value = (maxValue / 5) * i;
-        return { value, y: chartHeight - (value * yScale) };
-    });
-
-    return (
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" aria-label="Bar chart">
-            <defs>
-                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#60a5fa" />
-                    <stop offset="100%" stopColor="#2563eb" />
-                </linearGradient>
-            </defs>
-            <g transform={`translate(${margin.left}, ${margin.top})`}>
-                {yAxisLabels.map(label => (
-                    <g key={label.value} transform={`translate(0, ${label.y})`}>
-                        <line x2={chartWidth} stroke="rgba(0,0,0,0.05)" />
-                        <text x="-10" dy=".32em" textAnchor="end" className="text-xs fill-current text-gray-600">
-                            {label.value > 1000 ? `${(label.value / 1000).toFixed(0)}k` : formatCurrency(label.value)}
-                        </text>
-                    </g>
-                ))}
-                {data.map((d, i) => {
-                    const barHeight = d.value * yScale;
-                    return (
-                        <g key={i} transform={`translate(${i * xScale}, 0)`}>
-                            <rect
-                                x={xScale * 0.1}
-                                y={chartHeight - barHeight}
-                                width={xScale * 0.8}
-                                height={barHeight}
-                                fill="url(#barGradient)"
-                                rx="4"
-                                className="transition-all duration-300"
-                            >
-                                <title>{d.label}: {formatCurrency(d.value)}</title>
-                            </rect>
-                            <text x={xScale / 2} y={chartHeight - barHeight - 8} textAnchor="middle" className="text-xs font-semibold fill-current text-gray-700">
-                                {d.value > 1000 ? `${(d.value / 1000).toFixed(1)}k` : formatCurrency(d.value)}
-                            </text>
-                            <text x={xScale / 2} y={chartHeight + 20} textAnchor="middle" className="text-xs fill-current text-gray-500">
-                                {d.label}
-                            </text>
-                        </g>
-                    )
-                })}
-            </g>
-        </svg>
-    );
-};
-
-const DonutChart = ({ data, unit = 'รายการ' }: { data: { label: string, value: number }[], unit?: string }) => {
-    const colors = ['#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#84cc16', '#14b8a6'];
-    if (!data || data.length === 0) return <div className="text-center text-gray-500 py-10">ไม่มีข้อมูล</div>;
-
-    const total = data.reduce((sum, d) => sum + d.value, 0);
-    const radius = 80;
-    const innerRadius = 55;
-    const circumference = 2 * Math.PI * radius;
-    let accumulatedAngle = 0;
-
-    return (
-        <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-            <div className="relative w-48 h-48 flex-shrink-0">
-                <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
-                    <defs>
-                        <filter id="donutShadow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="rgba(0,0,0,0.1)" />
-                        </filter>
-                    </defs>
-                    {data.map((d, i) => {
-                        const percentage = total > 0 ? d.value / total : 0;
-                        const strokeDasharray = `${percentage * circumference} ${circumference}`;
-                        const strokeDashoffset = -accumulatedAngle * circumference;
-                        accumulatedAngle += percentage;
-                        return (
-                            <circle
-                                key={i}
-                                cx="100"
-                                cy="100"
-                                r={radius}
-                                fill="transparent"
-                                stroke={colors[i % colors.length]}
-                                strokeWidth={radius - innerRadius}
-                                strokeDasharray={strokeDasharray}
-                                strokeDashoffset={strokeDashoffset}
-                                filter="url(#donutShadow)"
-                            >
-                                <title>{d.label}: {d.value.toLocaleString()} ({(percentage * 100).toFixed(1)}%)</title>
-                            </circle>
-                        );
-                    })}
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-bold text-gray-800">{total.toLocaleString()}</span>
-                    <span className="text-lg text-gray-500">{unit}</span>
-                </div>
-            </div>
-            <div className="w-full md:w-auto md:max-w-[200px] flex-1">
-                <ul className="space-y-2 text-sm">
-                    {data.map((d, i) => (
-                        <li key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i % colors.length] }}></span>
-                                <span className="truncate" title={d.label}>{d.label}</span>
-                            </div>
-                            <span className="font-semibold">{d.value.toLocaleString()}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        </div>
-    );
-};
-
-const LineChart = ({ data }: { data: { date: string, count: number }[] }) => {
-    if (!data || data.length < 2) return <div className="text-center text-gray-500 py-10">ไม่มีข้อมูลเพียงพอสำหรับสร้างกราฟเส้น</div>;
-
-    const width = 500;
-    const height = 200;
-    const margin = { top: 20, right: 20, bottom: 40, left: 30 };
-    const chartWidth = width - margin.left - margin.right;
-    const chartHeight = height - margin.top - margin.bottom;
-
-    const maxValue = Math.max(...data.map(d => d.count), 0);
-    const yScale = chartHeight / (maxValue > 0 ? maxValue : 1);
-    const getX = (index: number) => (chartWidth / (data.length - 1)) * index;
-
-    const linePath = data.map((d, i) => `${i === 0 ? 'M' : 'L'}${getX(i)},${chartHeight - (d.count * yScale)}`).join(' ');
-    const areaPath = `${linePath} L${getX(data.length - 1)},${chartHeight} L${getX(0)},${chartHeight} Z`;
-
-    const formatShortDate = (dateStr: string) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-    };
-
-    const labelsToShow = useMemo(() => {
-        const maxLabels = Math.floor(chartWidth / 50);
-        if (data.length <= maxLabels) return data.map((d, i) => ({ ...d, index: i }));
-        const step = Math.ceil(data.length / maxLabels);
-        return data.filter((_, i) => i % step === 0).map((d, i_step) => ({ ...d, index: i_step * step }));
-    }, [data, chartWidth]);
-
-    return (
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
-            <defs>
-                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                </linearGradient>
-            </defs>
-            <g transform={`translate(${margin.left}, ${margin.top})`}>
-                <g className="axis y-axis">
-                    {Array.from({ length: 5 }).map((_, i) => {
-                        const value = Math.round(maxValue / 4 * i);
-                        const y = chartHeight - (value * yScale);
-                        return (
-                            <g key={i} transform={`translate(0, ${y})`}>
-                                <line x2={chartWidth} stroke="rgba(0,0,0,0.05)" />
-                                <text x="-10" dy=".32em" textAnchor="end" className="text-xs fill-current text-gray-500">{value}</text>
-                            </g>
-                        );
-                    })}
-                </g>
-                <path d={areaPath} fill="url(#areaGradient)" />
-                <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2.5" />
-                {data.map((d, i) => (
-                    <circle key={i} cx={getX(i)} cy={chartHeight - (d.count * yScale)} r="4" fill="#3b82f6" className="cursor-pointer">
-                        <title>{formatShortDate(d.date)}: {d.count} งาน</title>
-                    </circle>
-                ))}
-                <g className="labels x-labels">
-                    {labelsToShow.map(d => (
-                        <text key={d.index} x={getX(d.index)} y={chartHeight + 20} className="text-xs fill-current text-gray-500" textAnchor="middle">
-                            {formatShortDate(d.date)}
-                        </text>
-                    ))}
-                </g>
-            </g>
-        </svg>
-    );
-};
-
-const MixedBarLineChart = ({ data }: { data: { label: string; count: number; avgCost: number }[] }) => {
-    if (!data || data.length === 0) return <div className="text-center text-gray-500 py-10">ไม่มีข้อมูล</div>;
-
-    const width = 500;
-    const height = 300;
-    const margin = { top: 30, right: 50, bottom: 90, left: 50 };
-    const chartWidth = width - margin.left - margin.right;
-    const chartHeight = height - margin.top - margin.bottom;
-
-    const maxCount = Math.max(...data.map(d => d.count), 0);
-    const maxCost = Math.max(...data.map(d => d.avgCost), 0);
-
-    const yCountScale = chartHeight / (maxCount > 0 ? maxCount : 1);
-    const yCostScale = chartHeight / (maxCost > 0 ? maxCost : 1);
-    const xScale = chartWidth / data.length;
-
-    const linePath = data.map((d, i) => `${i === 0 ? 'M' : 'L'}${i * xScale + xScale / 2},${chartHeight - d.avgCost * yCostScale}`).join(' ');
-
-    return (
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
-            <defs>
-                <linearGradient id="mixedBarGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a78bfa" />
-                    <stop offset="100%" stopColor="#7c3aed" />
-                </linearGradient>
-                <filter id="barShadow" x="-20%" y="-10%" width="140%" height="130%">
-                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
-                    <feOffset dx="2" dy="2" result="offsetblur" />
-                    <feComponentTransfer>
-                        <feFuncA type="linear" slope="0.5" />
-                    </feComponentTransfer>
-                    <feMerge>
-                        <feMergeNode />
-                        <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                </filter>
-            </defs>
-            <g transform={`translate(${margin.left}, ${margin.top})`}>
-                {/* Count Y-Axis (Left) */}
-                <g>
-                    {Array.from({ length: 6 }, (_, i) => {
-                        const value = (maxCount / 5) * i;
-                        return (
-                            <g key={`count-${i}`} transform={`translate(0, ${chartHeight - value * yCountScale})`}>
-                                <line x2={chartWidth} stroke="#e5e7eb" strokeDasharray="2,2" />
-                                <text x="-8" dy=".32em" textAnchor="end" className="text-xs fill-purple-600 font-semibold">{Math.round(value)}</text>
-                            </g>
-                        );
-                    })}
-                    <text transform={`translate(-35, ${chartHeight / 2}) rotate(-90)`} textAnchor="middle" className="text-sm fill-purple-600 font-bold">จำนวน (ครั้ง)</text>
-                </g>
-
-                {/* Cost Y-Axis (Right) */}
-                <g transform={`translate(${chartWidth}, 0)`}>
-                    {Array.from({ length: 6 }, (_, i) => {
-                        const value = (maxCost / 5) * i;
-                        return (
-                            <g key={`cost-${i}`} transform={`translate(0, ${chartHeight - value * yCostScale})`}>
-                                <text x="8" dy=".32em" textAnchor="start" className="text-xs fill-teal-600 font-semibold">{value > 1000 ? `${(value / 1000).toFixed(0)}k` : Math.round(value)}</text>
-                            </g>
-                        );
-                    })}
-                    <text transform={`translate(40, ${chartHeight / 2}) rotate(-90)`} textAnchor="middle" className="text-sm fill-teal-600 font-bold">ค่าซ่อมเฉลี่ย (บาท)</text>
-                </g>
-
-                {/* Bars (Count) */}
-                {data.map((d, i) => (
-                    <g key={`bar-${i}`}>
-                        <rect
-                            x={i * xScale + xScale * 0.15}
-                            y={chartHeight - d.count * yCountScale}
-                            width={xScale * 0.7}
-                            height={d.count * yCountScale}
-                            fill="url(#mixedBarGradient)"
-                            filter="url(#barShadow)"
-                            rx="3"
-                        >
-                            <title>{d.label} - จำนวน: {d.count} ครั้ง</title>
-                        </rect>
-                        <text
-                            x={i * xScale + xScale / 2}
-                            y={chartHeight + 15}
-                            transform={`rotate(-45, ${i * xScale + xScale / 2}, ${chartHeight + 15})`}
-                            textAnchor="end"
-                            className="text-xs fill-gray-600"
-                        >
-                            {d.label}
-                        </text>
-                    </g>
-                ))}
-
-                {/* Line (Avg Cost) */}
-                <path d={linePath} fill="none" stroke="#14b8a6" strokeWidth="2.5" />
-                {data.map((d, i) => (
-                    <g key={`dot-${i}`}>
-                        <circle
-                            cx={i * xScale + xScale / 2}
-                            cy={chartHeight - d.avgCost * yCostScale}
-                            r="4"
-                            fill="white"
-                            stroke="#14b8a6"
-                            strokeWidth="2"
-                        >
-                            <title>{d.label} - ค่าซ่อมเฉลี่ย: {formatCurrency(d.avgCost)} บาท</title>
-                        </circle>
-                    </g>
-                ))}
-            </g>
-        </svg>
-    );
-};
-
+// --- Styled Components ---
 
 const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
     let gradient = '';
@@ -380,17 +46,37 @@ const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
     );
 };
 
-const Card: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode }> = ({ title, children, className = '', icon }) => (
     <div className={`bg-white rounded-3xl shadow-sm p-6 border border-slate-100 ${className}`}>
-        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-1 h-6 bg-blue-500 rounded-full inline-block"></span>
+        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <span className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full inline-block shadow-sm"></span>
+            {icon && <span className="text-blue-500">{icon}</span>}
             {title}
         </h3>
         {children}
     </div>
 );
 
-// Helper function
+// --- Custom Recharts Components ---
+
+const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
+                <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
+                {payload.map((entry: any, index: number) => (
+                    <p key={index} style={{ color: entry.color }} className="text-xs font-semibold mt-1">
+                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+                    </p>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
+
+// --- Helper Functions ---
+
 const calculateTotalCost = (repair: Repair): number => {
     const partsCost = (repair.parts || []).reduce((sum: number, part) => {
         return sum + (Number(part.quantity) || 0) * (Number(part.unitPrice) || 0);
@@ -398,7 +84,6 @@ const calculateTotalCost = (repair: Repair): number => {
     return (Number(repair.repairCost) || 0) + partsCost + (Number(repair.partsVat) || 0) + (Number(repair.laborVat) || 0);
 };
 
-// Helper to get week number
 const getWeekNumber = (d: Date): number => {
     d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -436,42 +121,28 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
 
         // Filter Purchase Orders
         const dateFilteredPOs = safePOs.filter(po => {
-            // Only count active POs? Or all? Usually 'Ordered' or 'Received'. Let's include everything except Cancelled for now, or just 'Ordered'/'Received'.
-            // Assuming 'Ordered' and 'Received' are valid purchases.
             if (po.status === 'Cancelled' || po.status === 'Draft') return false;
-
             const poDate = new Date(po.orderDate);
             return (!start || poDate >= start) && (!end || poDate <= end);
         });
 
 
         // --- Supplier Stats Logic ---
-        // Group by Time Period
         const supplierPurchaseOverTime: Record<string, number> = {};
-
         dateFilteredPOs.forEach(po => {
             const date = new Date(po.orderDate);
             let key = '';
-
-            if (supplierViewMode === 'daily') {
-                key = date.toISOString().split('T')[0]; // YYYY-MM-DD
-            } else if (supplierViewMode === 'weekly') {
-                key = `${date.getFullYear()}-W${getWeekNumber(date)}`;
-            } else if (supplierViewMode === 'monthly') {
-                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            } else if (supplierViewMode === 'yearly') {
-                key = `${date.getFullYear()}`;
-            }
-
+            if (supplierViewMode === 'daily') key = date.toISOString().split('T')[0];
+            else if (supplierViewMode === 'weekly') key = `${date.getFullYear()}-W${getWeekNumber(date)}`;
+            else if (supplierViewMode === 'monthly') key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            else if (supplierViewMode === 'yearly') key = `${date.getFullYear()}`;
             supplierPurchaseOverTime[key] = (supplierPurchaseOverTime[key] || 0) + po.totalAmount;
         });
 
-        // Convert to Chart Data
         const supplierTrendData = Object.entries(supplierPurchaseOverTime)
             .map(([key, value]) => ({ label: key, value }))
-            .sort((a, b) => a.label.localeCompare(b.label)); // Chronological Sort
+            .sort((a, b) => a.label.localeCompare(b.label));
 
-        // Format Labels for Display
         const formattedSupplierTrendData = supplierTrendData.map(d => {
             let label = d.label;
             if (supplierViewMode === 'monthly') {
@@ -482,17 +153,15 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 const date = new Date(d.label);
                 label = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
             }
-            // Weekly and Yearly left as is (YYYY-Www, YYYY) or formatted if needed
-            return { label, value: d.value };
+            return { name: label, value: d.value };
         });
 
-        // Top Suppliers
         const supplierStats = dateFilteredPOs.reduce((acc: Record<string, number>, po) => {
             acc[po.supplierName] = (acc[po.supplierName] || 0) + po.totalAmount;
             return acc;
         }, {} as Record<string, number>);
         const topSuppliers = Object.entries(supplierStats)
-            .map(([label, value]) => ({ label, value: value as number }))
+            .map(([name, value]) => ({ name, value: value as number }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 5);
 
@@ -508,26 +177,36 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             acc[r.repairCategory] = (acc[r.repairCategory] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const topRepairCategories = Object.entries(commonCategories).map(([label, value]) => ({ label, value: value as number })).sort((a, b) => b.value - a.value).slice(0, 5);
+        const topRepairCategories = Object.entries(commonCategories)
+            .map(([name, value]) => ({ name, value: value as number }))
+            .sort((a, b) => b.value - a.value).slice(0, 5);
 
         const repairedVehicles = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const topRepairedVehicles = Object.entries(repairedVehicles).map(([label, value]) => ({ label, value: value as number })).sort((a, b) => b.value - a.value).slice(0, 5);
+        const topRepairedVehicles = Object.entries(repairedVehicles)
+            .map(([name, value]) => ({ name, value: value as number }))
+            .sort((a, b) => b.value - a.value).slice(0, 5);
 
         const dispatchStats = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.dispatchType] = (acc[r.dispatchType] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const dispatchData = Object.entries(dispatchStats).map(([label, value]) => ({ label, value: value as number }));
+        const dispatchData = Object.entries(dispatchStats).map(([name, value]) => ({ name, value: value as number }));
 
         const repairsByDay = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             const date = new Date(r.repairEndDate!).toISOString().split('T')[0];
             acc[date] = (acc[date] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const repairTrendData = Object.entries(repairsByDay).map(([date, count]) => ({ date, count: count as number })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const repairTrendData = Object.entries(repairsByDay)
+            .map(([date, count]) => ({
+                date: new Date(date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+                count: count as number,
+                timestamp: new Date(date).getTime()
+            }))
+            .sort((a, b) => a.timestamp - b.timestamp);
 
         const partUsage = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             (r.parts || []).forEach(p => {
@@ -536,9 +215,10 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             });
             return acc;
         }, {} as Record<string, number>);
-        const partUsageData = Object.entries(partUsage).map(([label, value]) => ({ label, value: value as number })).sort((a, b) => b.value - a.value).slice(0, 5);
+        const partUsageData = Object.entries(partUsage)
+            .map(([name, value]) => ({ name, value: value as number }))
+            .sort((a, b) => b.value - a.value).slice(0, 5);
 
-        // Corrected logic for monthly expenses
         const monthlyExpenses: Record<string, { value: number, label: string }> = {};
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
@@ -547,27 +227,22 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             const date = new Date(r.createdAt);
             const key = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`;
             const label = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
-
-            if (!monthlyExpenses[key]) {
-                monthlyExpenses[key] = { value: 0, label: label };
-            }
+            if (!monthlyExpenses[key]) monthlyExpenses[key] = { value: 0, label: label };
             monthlyExpenses[key].value = (monthlyExpenses[key].value || 0) + calculateTotalCost(r);
         });
-        const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().slice(-6).map(key => ({ label: monthlyExpenses[key].label, value: monthlyExpenses[key].value }));
+        const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().map(key => ({ name: monthlyExpenses[key].label, value: monthlyExpenses[key].value }));
 
         const repairsByVehicleType = dateFilteredCompletedRepairs.reduce((acc: Record<string, { count: number; totalCost: number }>, r) => {
             const type = r.vehicleType || 'ไม่ระบุ';
-            if (!acc[type]) {
-                acc[type] = { count: 0, totalCost: 0 };
-            }
+            if (!acc[type]) acc[type] = { count: 0, totalCost: 0 };
             acc[type].count += 1;
             acc[type].totalCost += calculateTotalCost(r);
             return acc;
         }, {} as Record<string, { count: number; totalCost: number }>);
 
         const vehicleTypeAnalysisData = Object.entries(repairsByVehicleType)
-            .map(([label, data]: [string, { count: number; totalCost: number }]) => ({
-                label,
+            .map(([label, data]) => ({
+                name: label,
                 count: data.count,
                 avgCost: data.count > 0 ? data.totalCost / data.count : 0,
             }))
@@ -584,10 +259,12 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 lastSixMonthsExpenses,
                 vehicleTypeAnalysisData,
                 formattedSupplierTrendData,
-                topSuppliers, // New: Top Suppliers
+                topSuppliers,
             }
         };
     }, [repairs, stock, startDate, endDate, purchaseOrders, supplierViewMode]);
+
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
 
     return (
         <div className="space-y-8 animate-fade-in-up">
@@ -596,13 +273,13 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
                         รายงานและสถิติ (Reports & Statistics)
                     </h2>
-                    <p className="text-gray-500 mt-1">ภาพรวมสถิติการซ่อมบำรุงและค่าใช้จ่าย</p>
+                    <p className="text-gray-500 mt-1">ภาพรวมสถิติการซ่อมบำรุงและค่าใช้จ่ายแบบเจาะลึก</p>
                 </div>
-                <div className="flex items-center gap-2 mt-4 md:mt-0 bg-gray-50 p-2 rounded-lg border border-gray-200">
-                    <span className="text-sm font-semibold text-gray-600">จาก:</span>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                    <span className="text-sm font-semibold text-gray-600">ถึง:</span>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                <div className="flex items-center gap-3 mt-4 md:mt-0 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Date Range:</span>
+                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
+                    <span className="text-gray-400">-</span>
+                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
                 </div>
             </div>
 
@@ -614,43 +291,177 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             </div>
 
             {/* Supplier Purchase Analysis Section */}
-            <Card title="วิเคราะห์ยอดการสั่งซื้อ (ผู้จำหน่าย)">
-                <div className="mb-4 flex flex-wrap gap-2 justify-end">
+            <Card title="วิเคราะห์ยอดการสั่งซื้อ (ผู้จำหน่าย)" className="border-t-4 border-t-blue-500 h-[500px]">
+                <div className="flex justify-end mb-4 gap-2">
                     {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(mode => (
                         <button
                             key={mode}
                             onClick={() => setSupplierViewMode(mode)}
-                            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${supplierViewMode === mode
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${supplierViewMode === mode
+                                ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                 }`}
                         >
                             {mode === 'daily' ? 'รายวัน' : mode === 'weekly' ? 'รายสัปดาห์' : mode === 'monthly' ? 'รายเดือน' : 'รายปี'}
                         </button>
                     ))}
                 </div>
-                <BarChart data={data.charts.formattedSupplierTrendData} />
+                <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={data.charts.formattedSupplierTrendData}>
+                        <defs>
+                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                        <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} tickFormatter={(value: number) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()} />
+                        <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
+                        <Bar dataKey="value" name="ยอดซื้อ" fill="url(#colorValue)" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                    </BarChart>
+                </ResponsiveContainer>
             </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card title="5 อันดับผู้จำหน่ายที่มียอดซื้อสูงสุด (บาท)">{<HorizontalBarChart data={data.charts.topSuppliers} />}</Card>
-                <Card title="ประเภทการซ่อมที่พบบ่อย">{<HorizontalBarChart data={data.charts.topRepairCategories} />}</Card>
-                <Card title="5 อันดับรถที่ซ่อมบ่อยที่สุด">{<HorizontalBarChart data={data.charts.topRepairedVehicles} />}</Card>
-                <Card title="สถิติการส่งซ่อม">{<DonutChart data={data.charts.dispatchData} unit="งาน" />}</Card>
-                <Card title="สัดส่วนการใช้อะไหล่ (5 อันดับแรก)">{<DonutChart data={data.charts.partUsageData} unit="ชิ้น" />}</Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card title="5 อันดับผู้จำหน่ายที่มียอดซื้อสูงสุด (บาท)" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={data.charts.topSuppliers} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
+                            <Bar dataKey="value" name="ยอดซื้อ" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20}>
+                                {data.charts.topSuppliers.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'][index % 5]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </Card>
+
+                <Card title="ประเภทการซ่อมที่พบบ่อย" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={data.charts.topRepairCategories} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomTooltip unit="งาน" />} cursor={{ fill: '#f8fafc' }} />
+                            <Bar dataKey="value" name="จำนวนงาน" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </Card>
+
+                <Card title="5 อันดับรถที่ซ่อมบ่อยที่สุด" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={data.charts.topRepairedVehicles} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomTooltip unit="ครั้ง" />} cursor={{ fill: '#f8fafc' }} />
+                            <Bar dataKey="value" name="จำนวนครั้ง" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </Card>
+
+                <Card title="สถิติการส่งซ่อม (ภายใน/ภายนอก)" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.charts.dispatchData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={110}
+                                fill="#8884d8"
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {data.charts.dispatchData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip unit="งาน" />} />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                <tspan x="50%" dy="-10" fontSize="24" fontWeight="bold" fill="#334155">{data.stats.totalCompleted}</tspan>
+                                <tspan x="50%" dy="25" fontSize="14" fill="#94a3b8">งานเสร็จสิ้น</tspan>
+                            </text>
+                        </PieChart>
+                    </ResponsiveContainer>
+                </Card>
+
+                <Card title="สัดส่วนการใช้อะไหล่ (5 อันดับแรก)" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.charts.partUsageData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={100}
+                                fill="#8884d8"
+                                paddingAngle={2}
+                                dataKey="value"
+                                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                                labelLine={false}
+                            >
+                                {data.charts.partUsageData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip unit="ชิ้น" />} />
+                            <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </Card>
+
+                <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={data.charts.repairTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="date" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <Tooltip content={<CustomTooltip unit="งาน" />} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                            <Area type="monotone" dataKey="count" name="งานเสร็จสิ้น" stroke="#10b981" fillOpacity={1} fill="url(#colorTrend)" strokeWidth={3} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </Card>
             </div>
 
-            <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)">
-                <LineChart data={data.charts.repairTrendData} />
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card title="สรุปค่าใช้จ่ายรายเดือน (6 เดือนล่าสุด)" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.charts.lastSixMonthsExpenses}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} tickFormatter={(value: number) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()} />
+                            <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
+                            <Bar dataKey="value" name="ค่าใช้จ่าย" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </Card>
 
-            <Card title="สรุปค่าใช้จ่ายรายเดือน (6 เดือนล่าสุด)">
-                <BarChart data={data.charts.lastSixMonthsExpenses} />
-            </Card>
-
-            <Card title="วิเคราะห์การซ่อมตามประเภทรถ (จำนวนครั้ง vs ค่าใช้จ่ายเฉลี่ย)">
-                <MixedBarLineChart data={data.charts.vehicleTypeAnalysisData} />
-            </Card>
+                <Card title="วิเคราะห์การซ่อมตามประเภทรถ" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={data.charts.vehicleTypeAnalysisData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" fontSize={11} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis yAxisId="left" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} label={{ value: 'ครั้ง', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} />
+                            <YAxis yAxisId="right" orientation="right" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} label={{ value: 'บาท', angle: 90, position: 'insideRight', style: { fill: '#94a3b8' } }} tickFormatter={(value: number) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Bar yAxisId="left" dataKey="count" name="จำนวนครั้ง" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={30} />
+                            <Line yAxisId="right" type="monotone" dataKey="avgCost" name="ค่าซ่อมเฉลี่ย" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4 }} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </Card>
+            </div>
         </div>
     );
 };
