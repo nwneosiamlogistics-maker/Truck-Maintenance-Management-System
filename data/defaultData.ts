@@ -1,5 +1,6 @@
 
-import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Supplier, UsedPartBuyer, AnnualPMPlan, RepairKPI } from '../types';
+
+import type { Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Supplier, UsedPartBuyer, AnnualPMPlan, RepairKPI, MaintenanceBudget, FuelRecord, Driver } from '../types';
 
 export const getDefaultTechnicians = (): Technician[] => [
     {
@@ -157,7 +158,7 @@ export const getDefaultPurchaseRequisitions = (): PurchaseRequisition[] => {
             supplier: 'บริษัท มั่งคั่งเซอร์วิส จำกัด',
             status: 'อนุมัติแล้ว',
             items: [
-                 { stockId: '', stockCode: '', name: 'บริการซ่อมแอร์รถบัส', quantity: 1, unit: 'ครั้ง', unitPrice: 2500, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
+                { stockId: '', stockCode: '', name: 'บริการซ่อมแอร์รถบัส', quantity: 1, unit: 'ครั้ง', unitPrice: 2500, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
             ],
             vatAmount: 0,
             totalAmount: 2500,
@@ -178,7 +179,7 @@ export const getDefaultPurchaseRequisitions = (): PurchaseRequisition[] => {
             supplier: 'ร้านรุ่งเรืองการยาง',
             status: 'รอสินค้า',
             items: [
-                 { stockId: 'STK-003', stockCode: 'TR-001', name: 'ยางรถบรรทุก 10 ล้อ', quantity: 2, unit: 'เส้น', unitPrice: 7500, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
+                { stockId: 'STK-003', stockCode: 'TR-001', name: 'ยางรถบรรทุก 10 ล้อ', quantity: 2, unit: 'เส้น', unitPrice: 7500, deliveryOrServiceDate: new Date().toISOString().split('T')[0] },
             ],
             vatAmount: 1050,
             totalAmount: 16050,
@@ -282,7 +283,7 @@ export const getDefaultUsedPartBuyers = (): UsedPartBuyer[] => {
             const name = parts[1];
             const products = parts[2] || '';
             const phone = parts[4] || null; // Phone is at a different index due to empty columns
-            
+
             return {
                 id: `UPB-init-${index}`,
                 code: `B-${String(index + 1).padStart(3, '0')}`,
@@ -313,7 +314,7 @@ const parseThaiShortDate = (dateStr: string): string | null => {
     let year = parseInt(parts[2], 10);
 
     if (isNaN(day) || month === undefined || isNaN(year)) return null;
-    
+
     // Assuming '25' means year 2025, '26' means 2026
     if (year < 100) {
         year += 2000;
@@ -443,7 +444,7 @@ export const getDefaultVehicles = (): Vehicle[] => {
             if (!parts[0] || parts[0] === '-') {
                 return null;
             }
-            
+
             return {
                 id: `VEH-init-${index}`,
                 licensePlate: parts[0],
@@ -638,3 +639,219 @@ export const getDefaultKpiData = (): RepairKPI[] => [
     { id: 'kpi-173', category: 'หมวดไฟฟ้าคอนโทรลและระบบปรับอากาศ', item: 'เชื่อมเหล็กรัดแบตเตอรี่', standardHours: 0.5 },
     { id: 'kpi-174', category: 'หมวดไฟฟ้าคอนโทรลและระบบปรับอากาศ', item: 'พ่วงแบตฯ', standardHours: 0.3 },
 ];
+
+// ==================== NEW MODULE DEFAULT DATA ====================
+
+export const getDefaultBudgets = (): MaintenanceBudget[] => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
+    return [
+        {
+            id: 'BDG-001',
+            year: currentYear,
+            month: currentMonth,
+            department: 'ฝ่ายซ่อมบำรุง',
+            category: 'ซ่อมบำรุงรถ',
+            allocatedAmount: 500000,
+            spentAmount: 325000,
+            committedAmount: 75000,
+            availableAmount: 100000,
+            status: 'ใกล้เกิน',
+            notes: 'งบประมาณประจำเดือน',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 'BDG-002',
+            year: currentYear,
+            month: currentMonth,
+            department: 'ฝ่ายจัดซื้อ',
+            category: 'อะไหล่',
+            allocatedAmount: 800000,
+            spentAmount: 450000,
+            committedAmount: 150000,
+            availableAmount: 200000,
+            status: 'ปกติ',
+            notes: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 'BDG-003',
+            year: currentYear,
+            month: currentMonth,
+            department: 'ฝ่ายปฏิบัติการ',
+            category: 'น้ำมันเชื้อเฟลิง',
+            allocatedAmount: 1200000,
+            spentAmount: 950000,
+            committedAmount: 200000,
+            availableAmount: 50000,
+            status: 'ใกล้เกิน',
+            notes: 'ราคาน้ำมันปรับขึ้น',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }
+    ];
+};
+
+export const getDefaultFuelRecords = (): FuelRecord[] => {
+    const now = new Date();
+    const records: FuelRecord[] = [];
+
+    for (let i = 0; i < 10; i++) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i * 3);
+
+        records.push({
+            id: `FUEL-${String(i + 1).padStart(4, '0')}`,
+            vehicleId: i < 3 ? 'VEH-init-0' : i < 6 ? 'VEH-init-1' : 'VEH-init-2',
+            licensePlate: i < 3 ? '70-6937' : i < 6 ? '71-0141' : '70-9500',
+            driverName: i % 3 === 0 ? 'นายสมชาย ใจดี' : i % 3 === 1 ? 'นายประเสริฐ วิ่งไว' : 'นายวิชัย ขับเก่ง',
+            date: date.toISOString().split('T')[0],
+            station: i % 2 === 0 ? 'PTT' : 'Shell',
+            stationLocation: 'กม.' + (100 + i * 10) + ' ทางหลวง 1',
+            fuelType: 'ดีเซล',
+            liters: 200 + i * 10,
+            pricePerLiter: 33.50 + (i * 0.1),
+            totalCost: (200 + i * 10) * (33.50 + (i * 0.1)),
+            odometerBefore: 150000 + (i * 500),
+            odometerAfter: 150400 + (i * 500),
+            distanceTraveled: 400,
+            fuelEfficiency: 400 / (200 + i * 10),
+            paymentMethod: i % 2 === 0 ? 'บัตรน้ำมัน' : 'เงินสด',
+            notes: '',
+            createdAt: date.toISOString(),
+            createdBy: 'System'
+        });
+    }
+
+    return records;
+};
+
+export const getDefaultDrivers = (): Driver[] => {
+    return [
+        {
+            id: 'DRV-001',
+            employeeId: 'EMP-D001',
+            name: 'นายสมชาย ใจดี',
+            nickname: 'ชาย',
+            phone: '08-1234-5678',
+            email: 'somchai@example.com',
+            address: '123 ถ.พหลโยธิน กรุงเทพฯ 10400',
+            emergencyContact: {
+                name: 'นางสาวสมหญิง ใจดี',
+                phone: '08-9876-5432',
+                relationship: 'ภรรยา'
+            },
+            licenseNumber: 'DL-12345678',
+            licenseClass: 'ใบขับขี่บรรทุก',
+            licenseIssueDate: '2020-01-15',
+            licenseExpiry: '2027-01-14',
+            hireDate: '2020-03-01',
+            experience: 15,
+            previousEmployer: 'บริษัท ขนส่งภูมิภาค จำกัด',
+            assignedVehicles: ['VEH-init-0'],
+            primaryVehicle: 'VEH-init-0',
+            totalDistanceDriven: 450000,
+            totalTrips: 1250,
+            accidentCount: 1,
+            violationCount: 2,
+            onTimeDeliveryRate: 98,
+            lastSafetyTraining: '2024-06-15',
+            certifications: ['อบรมการขับขี่ปลอดภัย', 'ใบรับรองการขนส่งสินค้าอันตราย'],
+            safetyScore: 95,
+            monthlySalary: 25000,
+            leaveQuota: { sick: 30, personal: 6, vacation: 6 },
+            usedLeave: { sick: 2, personal: 1, vacation: 0 },
+            leaves: [
+                {
+                    id: 'L-001',
+                    driverId: 'DRV-001',
+                    type: 'sick',
+                    startDate: '2024-01-10',
+                    endDate: '2024-01-11',
+                    totalDays: 2,
+                    reason: 'ไข้หวัดใหญ่',
+                    status: 'approved'
+                }
+            ],
+            status: 'active',
+            notes: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 'DRV-002',
+            employeeId: 'EMP-D002',
+            name: 'นายประเสริฐ วิ่งไว',
+            nickname: 'เสริฐ',
+            phone: '09-2345-6789',
+            email: '',
+            address: '456 ถ.วิภาวดี กรุงเทพฯ 10900',
+            licenseNumber: 'DL-23456789',
+            licenseClass: 'ใบขับขี่บรรทุก',
+            licenseIssueDate: '2018-05-20',
+            licenseExpiry: '2026-05-19',
+            hireDate: '2019-07-01',
+            experience: 12,
+            assignedVehicles: ['VEH-init-1'],
+            primaryVehicle: 'VEH-init-1',
+            totalDistanceDriven: 380000,
+            totalTrips: 980,
+            accidentCount: 0,
+            violationCount: 1,
+            onTimeDeliveryRate: 99,
+            lastSafetyTraining: '2024-06-15',
+            certifications: ['อบรมการขับขี่ปลอดภัย'],
+            safetyScore: 98,
+            monthlySalary: 24000,
+            leaveQuota: { sick: 30, personal: 6, vacation: 6 },
+            usedLeave: { sick: 0, personal: 0, vacation: 0 },
+            leaves: [],
+            status: 'active',
+            notes: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        {
+            id: 'DRV-003',
+            employeeId: 'EMP-D003',
+            name: 'นายวิชัย ขับเก่ง',
+            nickname: 'วิชัย',
+            phone: '08-3456-7890',
+            email: 'wichai@example.com',
+            address: '789 ถ.รามอินทรา กรุงเทพฯ 10230',
+            emergencyContact: {
+                name: 'นายสมศักดิ์ ขับเก่ง',
+                phone: '08-7654-3210',
+                relationship: 'บิดา'
+            },
+            licenseNumber: 'DL-34567890',
+            licenseClass: 'ใบขับขี่บรรทุก',
+            licenseIssueDate: '2022-03-10',
+            licenseExpiry: '2029-03-09',
+            hireDate: '2022-04-15',
+            experience: 8,
+            assignedVehicles: ['VEH-init-2'],
+            primaryVehicle: 'VEH-init-2',
+            totalDistanceDriven: 180000,
+            totalTrips: 520,
+            accidentCount: 0,
+            violationCount: 0,
+            onTimeDeliveryRate: 97,
+            lastSafetyTraining: '2024-06-15',
+            certifications: ['อบรมการขับขี่ปลอดภัย', 'การปฐมพยาบาลเบื้องต้น'],
+            safetyScore: 100,
+            monthlySalary: 23000,
+            leaveQuota: { sick: 30, personal: 6, vacation: 6 },
+            usedLeave: { sick: 0, personal: 0, vacation: 0 },
+            leaves: [],
+            status: 'active',
+            notes: 'พนักงานดีเด่นประจำเดือน',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }
+    ];
+};
+

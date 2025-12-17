@@ -1,5 +1,7 @@
 
-export type Tab = 'dashboard' | 'analytics' | 'kpi-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'vehicles' | 'daily-checklist' | 'tire-check' | 'tool-management' | 'settings';
+
+export type Tab = 'dashboard' | 'analytics' | 'kpi-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'vehicles' | 'daily-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance';
+
 
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';
@@ -51,6 +53,8 @@ export interface Repair {
     vehicleModel?: string;
     currentMileage?: number | string;
     reportedBy: string;
+    driverId?: string;       // ID ของคนขับที่แจ้งหรือรับผิดชอบ
+    driverName?: string;     // ชื่อคนขับ
     repairCategory: string;
     priority: Priority;
     problemDescription: string;
@@ -442,4 +446,445 @@ export interface Holiday {
     id: string;
     date: string; // YYYY-MM-DD format
     name: string;
+}
+
+// ==================== COST MANAGEMENT & BUDGET TRACKING ====================
+
+export type BudgetCategory = 'ซ่อมบำรุงรถ' | 'อะไหล่' | 'น้ำมันเชื้อเฟลิง' | 'ค่าแรงช่าง' | 'ค่าภาษีและประกันภัย' | 'อื่นๆ';
+export type BudgetStatus = 'ปกติ' | 'ใกล้เกิน' | 'เกินงบ';
+export type CostTrend = 'increasing' | 'stable' | 'decreasing';
+
+export interface MaintenanceBudget {
+    id: string;
+    year: number;
+    month: number;
+    department: string;
+    category: BudgetCategory;
+    allocatedAmount: number;    // งบที่ได้รับจัดสรร
+    spentAmount: number;         // ใช้จ่ายไปแล้ว
+    committedAmount: number;     // จองไว้ (PO ที่ยังไม่จ่าย)
+    availableAmount: number;     // เหลือใช้
+    status: BudgetStatus;
+    notes?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CostAnalysis {
+    id: string;
+    vehicleId: string;
+    licensePlate: string;
+    period: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    startDate: string;
+    endDate: string;
+
+    totalCost: number;
+    totalDistance: number;
+    costPerKm: number;
+
+    costBreakdown: {
+        labor: number;
+        parts: number;
+        fuel: number;
+        external: number;
+        insurance: number;
+        tax: number;
+        other: number;
+    };
+
+    trend: CostTrend;
+    trendPercentage: number;
+
+    comparisonToAvg: number;  // +20% = แพงกว่าค่าเฉลี่ย 20%
+    ranking?: number;          // อันดับที่แพงที่สุด
+}
+
+export interface CostForecast {
+    id: string;
+    vehicleId: string;
+    forecastPeriod: string;
+    predictedCost: number;
+    confidence: number;        // 0-100%
+    basedOn: 'historical' | 'ai' | 'manual';
+    assumptions?: string;
+    createdAt: string;
+}
+
+// ==================== FUEL MANAGEMENT SYSTEM ====================
+
+export type FuelType = 'ดีเซล' | 'เบนซิน 91' | 'เบนซิน 95' | 'แก๊สโซฮอล์ E20' | 'แก๊สโซฮอล์ E85' | 'NGV';
+export type FuelAlertType = 'low_efficiency' | 'suspicious_refill' | 'fuel_theft' | 'excessive_consumption';
+
+export interface FuelRecord {
+    id: string;
+    vehicleId: string;
+    licensePlate: string;
+    driverName: string;
+    date: string;
+
+    // ข้อมูลสถานี
+    station: string;
+    stationLocation?: string;
+    fuelType: FuelType;
+
+    // ข้อมูลการเติม
+    liters: number;
+    pricePerLiter: number;
+    totalCost: number;
+
+    // ข้อมูลรถ ณ เวลาเติม
+    odometerBefore: number;
+    odometerAfter: number;
+
+    // การคำนวณ
+    distanceTraveled: number;
+    fuelEfficiency: number;     // km/liter
+
+    // หลักฐาน
+    receiptImage?: string;
+    fuelCardNumber?: string;
+    paymentMethod: 'เงินสด' | 'บัตรเครดิต' | 'บัตรน้ำมัน' | 'โอน';
+
+    // Notes
+    notes?: string;
+
+    createdAt: string;
+    createdBy: string;
+}
+
+export interface FuelAnalytics {
+    vehicleId: string;
+    licensePlate: string;
+    period: string;
+
+    // Statistics
+    totalLiters: number;
+    totalCost: number;
+    totalDistance: number;
+    avgEfficiency: number;      // km/liter เฉลี่ย
+
+    // Trends
+    efficiencyTrend: number;    // +5% means improving
+    costTrend: number;
+
+    // Comparisons
+    vsFleetAvg: number;         // เทียบกับค่าเฉลี่ยของฝูงรถ
+    vsLastPeriod: number;       // เทียบกับช่วงก่อนหน้า
+
+    // Alerts
+    alerts: FuelAlert[];
+}
+
+export interface FuelAlert {
+    id: string;
+    type: FuelAlertType;
+    severity: 'low' | 'medium' | 'high';
+    vehicleId: string;
+    date: string;
+    message: string;
+    details?: string;
+    relatedRecordId?: string;
+    isResolved: boolean;
+}
+
+// ==================== DRIVER MANAGEMENT ====================
+
+export type DriverStatus = 'active' | 'on_leave' | 'suspended' | 'terminated';
+export type LicenseClass = 'ใบขับขี่ส่วนบุคคล' | 'ใบขับขี่สาธารณะ' | 'ใบขับขี่บรรทุก';
+
+export interface Driver {
+    id: string;
+    employeeId: string;
+    name: string;
+    nickname?: string;
+
+    // ข้อมูลติดต่อ
+    phone: string;
+    email?: string;
+    address?: string;
+    emergencyContact?: {
+        name: string;
+        phone: string;
+        relationship: string;
+    };
+
+    // ใบขับขี่
+    licenseNumber: string;
+    licenseClass: LicenseClass;
+    licenseIssueDate: string;
+    licenseExpiry: string;
+
+    // ประวัติการทำงาน
+    hireDate: string;
+    experience: number;         // ปี
+    previousEmployer?: string;
+
+    // การมอบหมายรถ
+    assignedVehicles: string[];
+    primaryVehicle?: string;
+
+    // Performance Metrics
+    totalDistanceDriven: number;
+    totalTrips: number;
+    accidentCount: number;
+    violationCount: number;
+    onTimeDeliveryRate: number; // 0-100%
+
+    // Safety & Training
+    lastSafetyTraining?: string;
+    certifications: string[];
+    safetyScore: number;        // 0-100
+
+    // Financial
+    monthlySalary?: number;
+    bonus?: number;
+
+    // Leave Management
+    leaveQuota: {
+        sick: number;      // ลาป่วย
+        personal: number;  // ลากิจ
+        vacation: number;  // ลาพักร้อน
+    };
+    usedLeave: {
+        sick: number;
+        personal: number;
+        vacation: number;
+    };
+    leaves: LeaveRecord[];
+
+    status: DriverStatus;
+
+    notes?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export type LeaveType = 'sick' | 'personal' | 'vacation' | 'other';
+export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+
+export interface LeaveRecord {
+    id: string;
+    driverId: string;
+    type: LeaveType;
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    reason: string;
+    status: LeaveStatus;
+    documentUrl?: string;
+    note?: string;
+}
+
+export interface DriverPerformance {
+    id: string;
+    driverId: string;
+    driverName: string;
+    period: string;
+    startDate: string;
+    endDate: string;
+
+    // การขับขี่
+    totalKm: number;
+    totalTrips: number;
+    avgTripDistance: number;
+    workingDays: number;
+
+    // Fuel Efficiency
+    avgFuelEfficiency: number;
+    fuelCost: number;
+
+    // Safety Metrics
+    harshBrakingCount: number;
+    harshAccelerationCount: number;
+    speedingIncidents: number;
+    accidentCount: number;
+
+    // ผลกระทบต่อรถ
+    maintenanceCost: number;
+    repairFrequency: number;
+    vehicleDowntime: number;    // ชั่วโมง
+
+    // Rankings (1 = ดีที่สุด)
+    safetyRank?: number;
+    efficiencyRank?: number;
+    overallRank?: number;
+
+    // Score (0-100)
+    overallScore: number;
+}
+
+export interface DrivingIncident {
+    id: string;
+    driverId: string;
+    vehicleId: string;
+    date: string;
+    time: string;
+    location: string;
+
+    type: 'อุบัติเหตุ' | 'ฝ่าฝืนกฎจราจร' | 'การขับขี่เสี่ยง' | 'อื่นๆ';
+    severity: 'low' | 'medium' | 'high' | 'critical';
+
+    description: string;
+
+    // Consequences
+    damageToVehicle?: number;
+    damageToProperty?: number;
+    injuries?: string;
+    fineAmount?: number;
+
+    // Insurance
+    insuranceClaim?: boolean;
+    claimAmount?: number;
+
+    // Actions Taken
+    actionsTaken?: string;
+    disciplinaryAction?: string;
+
+    // Evidence
+    photos?: FileAttachment[];
+    policeReport?: FileAttachment;
+
+
+    createdAt: string;
+    createdBy: string;
+}
+
+// ==================== WARRANTY & INSURANCE MANAGEMENT ====================
+
+export type WarrantyType = 'manufacturer' | 'supplier' | 'extended';
+export type WarrantyClaimStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+export type IncidentType = 'collision' | 'theft' | 'fire' | 'flood' | 'other';
+export type InsuranceClaimStatus = 'filed' | 'under_review' | 'approved' | 'paid' | 'denied';
+
+export interface PartWarranty {
+    id: string;
+    partId: string;
+    partName: string;
+    partCode?: string;
+
+    purchaseDate: string;
+    installDate: string;
+    vehicleId?: string;
+    vehicleLicensePlate?: string;
+    repairOrderNo?: string;
+
+    warrantyType: WarrantyType;
+    warrantyDuration: number;  // เดือน
+    warrantyExpiry: string;
+
+    supplier: string;
+    supplierContact?: string;
+    warrantyTerms: string;
+
+    purchaseCost: number;
+
+    claims: WarrantyClaim[];
+
+    isActive: boolean;
+    notes?: string;
+
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface WarrantyClaim {
+    id: string;
+    warrantyId: string;
+
+    claimDate: string;
+    repairOrderNo?: string;
+    issue: string;
+    issueDetails?: string;
+
+    claimStatus: WarrantyClaimStatus;
+    approvalDate?: string;
+    completionDate?: string;
+
+    replacementCost: number;
+    supplierCredit: number;
+    laborCost: number;
+
+    rejectionReason?: string;
+
+    attachments?: FileAttachment[];
+    notes?: string;
+
+    createdAt: string;
+    updatedAt: string;
+    createdBy: string;
+}
+
+export interface InsuranceClaim {
+    id: string;
+    claimNumber: string;
+
+    vehicleId: string;
+    vehicleLicensePlate: string;
+    policyNumber: string;
+    insuranceCompany: string;
+
+    incidentDate: string;
+    claimDate: string;
+    reportedBy: string;
+
+    incidentType: IncidentType;
+    incidentLocation?: string;
+    description: string;
+    policeReportNumber?: string;
+
+    damageAssessment: number;
+    claimAmount: number;
+    deductible: number;
+    approvedAmount?: number;
+    paidAmount?: number;
+
+    status: InsuranceClaimStatus;
+    statusHistory: {
+        status: InsuranceClaimStatus;
+        date: string;
+        notes?: string;
+    }[];
+
+    relatedRepairs: string[];
+    estimatedRepairCost: number;
+    actualRepairCost?: number;
+
+    adjusterName?: string;
+    adjusterContact?: string;
+    inspectionDate?: string;
+
+    paymentDate?: string;
+    denialReason?: string;
+
+    documents: FileAttachment[];
+    photos?: FileAttachment[];
+
+    notes?: string;
+
+    createdAt: string;
+    updatedAt: string;
+    createdBy: string;
+}
+
+export interface WarrantyAlert {
+    id: string;
+    type: 'warranty_expiring' | 'warranty_expired' | 'claim_pending';
+    warrantyId?: string;
+    partName: string;
+    expiryDate?: string;
+    daysRemaining?: number;
+    severity: 'low' | 'medium' | 'high';
+    message: string;
+}
+
+export interface InsuranceAlert {
+    id: string;
+    type: 'policy_expiring' | 'policy_expired' | 'claim_pending';
+    vehicleId: string;
+    vehicleLicensePlate: string;
+    insuranceType: 'vehicle' | 'cargo' | 'act';
+    expiryDate?: string;
+    daysRemaining?: number;
+    severity: 'low' | 'medium' | 'high';
+    message: string;
 }

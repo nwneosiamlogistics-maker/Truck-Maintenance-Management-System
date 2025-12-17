@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, UsedPart, AnnualPMPlan, PMHistory, RepairFormSeed, RepairKPI, Holiday, UsedPartDisposition, UsedPartBatchStatus, PurchaseOrder } from './types';
+import type { Tab, Repair, Technician, StockItem, Report, MaintenancePlan, StockTransaction, PurchaseRequisition, Vehicle, Notification, Supplier, UsedPartBuyer, UsedPart, AnnualPMPlan, PMHistory, RepairFormSeed, RepairKPI, Holiday, UsedPartDisposition, UsedPartBatchStatus, PurchaseOrder, MaintenanceBudget, FuelRecord, Driver, DrivingIncident, PartWarranty, InsuranceClaim } from './types';
 import { TABS } from './constants';
-import { getDefaultTechnicians, getDefaultRepairs, getDefaultStock, getDefaultReports, getDefaultMaintenancePlans, getDefaultStockTransactions, getDefaultPurchaseRequisitions, getDefaultVehicles, getDefaultSuppliers, getDefaultUsedPartBuyers, getDefaultAnnualPMPlans, getDefaultKpiData } from './data/defaultData';
+import { getDefaultTechnicians, getDefaultRepairs, getDefaultStock, getDefaultReports, getDefaultMaintenancePlans, getDefaultStockTransactions, getDefaultPurchaseRequisitions, getDefaultVehicles, getDefaultSuppliers, getDefaultUsedPartBuyers, getDefaultAnnualPMPlans, getDefaultKpiData, getDefaultBudgets, getDefaultFuelRecords, getDefaultDrivers } from './data/defaultData';
 import { useFirebase } from './hooks/useFirebase';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -38,6 +38,10 @@ import FleetKPIDashboard from './components/FleetKPIDashboard';
 import { useToast } from './context/ToastContext';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import PurchaseOrderManagement from './components/PurchaseOrderManagement';
+import BudgetManagement from './components/BudgetManagement';
+import FuelManagement from './components/FuelManagement';
+import DriverManagement from './components/DriverManagement';
+import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
 
 
 const AppContent: React.FC = () => {
@@ -68,6 +72,14 @@ const AppContent: React.FC = () => {
     const [toolTransactions, setToolTransactions] = useFirebase('toolTransactions', []);
     const [kpiData, setKpiData] = useFirebase<RepairKPI[]>('kpiData', getDefaultKpiData);
     const [holidays, setHolidays] = useFirebase<Holiday[]>('companyHolidays', []);
+
+    // New Feature Modules
+    const [budgets, setBudgets] = useFirebase<MaintenanceBudget[]>('budgets', []);
+    const [fuelRecords, setFuelRecords] = useFirebase<FuelRecord[]>('fuelRecords', []);
+    const [drivers, setDrivers] = useFirebase<Driver[]>('drivers', []);
+    const [drivingIncidents, setDrivingIncidents] = useFirebase<DrivingIncident[]>('drivingIncidents', []);
+    const [partWarranties, setPartWarranties] = useFirebase<PartWarranty[]>('partWarranties', []);
+    const [insuranceClaims, setInsuranceClaims] = useFirebase<InsuranceClaim[]>('insuranceClaims', []);
 
     const { addToast } = useToast();
 
@@ -559,6 +571,14 @@ const AppContent: React.FC = () => {
                     setTransactions={setToolTransactions}
                     technicians={technicians}
                 />;
+            case 'budget-management':
+                return <BudgetManagement budgets={budgets} setBudgets={setBudgets} repairs={repairs} purchaseOrders={purchaseOrders} fuelRecords={fuelRecords} vehicles={vehicles} />;
+            case 'fuel-management':
+                return <FuelManagement fuelRecords={fuelRecords} setFuelRecords={setFuelRecords} vehicles={vehicles} />;
+            case 'driver-management':
+                return <DriverManagement drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} fuelRecords={fuelRecords} incidents={drivingIncidents} repairs={repairs} />;
+            case 'warranty-insurance':
+                return <WarrantyInsuranceManagement partWarranties={partWarranties} setPartWarranties={setPartWarranties} insuranceClaims={insuranceClaims} setInsuranceClaims={setInsuranceClaims} vehicles={vehicles} />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:

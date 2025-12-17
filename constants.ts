@@ -10,7 +10,7 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'รายงานและวิเคราะห์',
         subtitle: 'ภาพรวม KPI, ประสิทธิภาพกลุ่มรถ, และสถิติต่างๆ'
     },
-     'kpi-management': {
+    'kpi-management': {
         title: 'จัดการ KPI',
         subtitle: 'เพิ่ม แก้ไข และลบรายการซ่อมมาตรฐาน (KPI)'
     },
@@ -22,7 +22,7 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'รายการใบแจ้งซ่อม',
         subtitle: 'จัดการและติดตามสถานะการซ่อมบำรุง'
     },
-     'technician-view': {
+    'technician-view': {
         title: 'สำหรับช่าง',
         subtitle: 'มุมมองรายการงานสำหรับทีมช่าง'
     },
@@ -105,6 +105,22 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
     'tool-management': {
         title: 'จัดการเครื่องมือ',
         subtitle: 'คลังเครื่องมือและประวัติการยืม-คืนสำหรับช่าง'
+    },
+    'budget-management': {
+        title: 'จัดการงบประมาณ',
+        subtitle: 'ติดตามและควบคุมงบประมาณค่าใช้จ่ายซ่อมบำรุง'
+    },
+    'fuel-management': {
+        title: 'บริหารจัดการน้ำมัน',
+        subtitle: 'บันทึกการเติมน้ำมันและวิเคราะห์ประสิทธิภาพการใช้เชื้อเพลิง'
+    },
+    'driver-management': {
+        title: 'จัดการพนักงานขับรถ',
+        subtitle: 'ข้อมูลคนขับและประเมินผลการทำงาน'
+    },
+    'warranty-insurance': {
+        title: 'การรับประกันและประกันภัย',
+        subtitle: 'จัดการการรับประกันอะไหล่และเคลมประกันรถ'
     },
     settings: {
         title: 'ตั้งค่าระบบ',
