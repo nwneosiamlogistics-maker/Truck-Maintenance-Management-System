@@ -63,7 +63,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
         const allRepairs = Array.isArray(repairs) ? repairs : [];
         const downtimeByVehicle: Record<string, number> = {};
         allRepairs.forEach(r => {
-             if (r.repairEndDate && r.createdAt) {
+            if (r.repairEndDate && r.createdAt) {
                 const downtime = Number(new Date(r.repairEndDate).getTime()) - Number(new Date(r.createdAt).getTime());
                 downtimeByVehicle[r.licensePlate] = (downtimeByVehicle[r.licensePlate] || 0) + downtime;
             }
@@ -79,7 +79,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
         const mostRepairedVehicles = Object.entries(repairsByVehicle)
             .map(([plate, count]: [string, number]) => ({ plate, count }))
             .sort((a, b) => b.count - a.count).slice(0, 5);
-            
+
         const costByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
                 const quantity = Number(p.quantity) || 0;
@@ -106,31 +106,34 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <StatCard 
-                    title="MTTR (เวลาซ่อมเฉลี่ย)" 
-                    value={formatHoursToHHMM(kpiData.mttr)} 
+
+                <StatCard
+                    title="MTTR (เวลาซ่อมเฉลี่ย)"
+                    value={formatHoursToHHMM(kpiData.mttr)}
                     theme="blue"
-                    trend="เป้าหมาย: < 24:00" 
+                    trend="เป้าหมาย: < 24:00"
+                    align="center"
                 />
-                
-                <StatCard 
-                    title="Downtime เฉลี่ย" 
-                    value={formatHoursToHHMM(kpiData.avgDowntime)} 
+
+                <StatCard
+                    title="Downtime เฉลี่ย"
+                    value={formatHoursToHHMM(kpiData.avgDowntime)}
                     theme="yellow"
-                    trend="เวลาที่รถจอดรอซ่อม" 
+                    trend="เวลาที่รถจอดรอซ่อม"
+                    align="center"
                 />
-                
-                <StatCard 
-                    title="ค่าซ่อมเฉลี่ย" 
-                    value={`${kpiData.avgCost.toLocaleString('th-TH', { maximumFractionDigits: 0 })} ฿`} 
+
+                <StatCard
+                    title="ค่าซ่อมเฉลี่ย"
+                    value={`${kpiData.avgCost.toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท`}
                     theme="green"
                     trend="ต่อใบแจ้งซ่อม"
+                    align="center"
                 />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <BarChart
+                <BarChart
                     title="5 อันดับรถที่เข้าซ่อมบ่อยที่สุด"
                     data={kpiData.mostRepairedVehicles.map(v => ({
                         label: v.plate,
@@ -138,12 +141,12 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                         formattedValue: `${v.count} ครั้ง`
                     }))}
                 />
-                 <BarChart
+                <BarChart
                     title="5 อันดับรถที่มีค่าใช้จ่ายซ่อมสูงสุด"
                     data={kpiData.mostExpensiveVehicles.map(v => ({
                         label: v.plate,
                         value: v.totalCost,
-                        formattedValue: `${v.totalCost.toLocaleString('th-TH', { maximumFractionDigits: 0 })} ฿`
+                        formattedValue: `${v.totalCost.toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท`
                     }))}
                 />
                 <BarChart

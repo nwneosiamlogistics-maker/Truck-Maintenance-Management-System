@@ -131,7 +131,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                 <StatCard title="จำนวนรอจัดการ" value={stats.totalItemsAwaiting} theme="blue" />
                 <StatCard title="จัดการบางส่วน (ชุด)" value={stats.partial} theme="yellow" />
                 <StatCard title="จัดการครบแล้ว (ชุด)" value={stats.completed} theme="green" />
-                <StatCard title="มูลค่าที่ขายได้ทั้งหมด" value={`${formatCurrency(stats.totalSoldValue)} ฿`} theme="green" />
+                <StatCard title="มูลค่าที่ขายได้ทั้งหมด" value={`${formatCurrency(stats.totalSoldValue)} บาท`} theme="green" />
             </div>
 
             {/* Filters */}

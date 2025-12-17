@@ -7,9 +7,10 @@ interface StatCardProps {
     icon?: string;
     theme: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray';
     trend?: string;
+    align?: 'left' | 'center' | 'right';
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, theme, trend }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, theme, trend, align = 'left' }) => {
     const themes = {
         blue: {
             gradient: 'from-blue-400 to-blue-600',
@@ -36,13 +37,13 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, theme, trend })
             shadow: 'hover:shadow-[0_8px_20px_-5px_rgba(107,114,128,0.5)]',
         }
     };
-    
+
     const currentTheme = themes[theme] || themes.gray;
 
     return (
         <div className={`bg-gradient-to-br ${currentTheme.gradient} text-white p-6 rounded-2xl shadow-lg transition-all duration-300 hover:-translate-y-1 ${currentTheme.shadow}`}>
-            <div className="flex justify-between items-start">
-                <div className="flex flex-col">
+            <div className={`flex ${align === 'center' ? 'justify-center' : 'justify-between'} items-start`}>
+                <div className={`flex flex-col ${align === 'center' ? 'items-center text-center w-full' : ''}`}>
                     <p className="text-base font-medium opacity-80">{title}</p>
                     <p className="text-4xl font-bold mt-1">{value}</p>
                     {trend && <p className="text-sm opacity-90 mt-2">{trend}</p>}

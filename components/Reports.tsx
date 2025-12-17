@@ -561,10 +561,10 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <StatCard theme="gray" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} />
-                <StatCard theme="blue" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} />
-                <StatCard theme="green" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)} ฿`} />
-                <StatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)} ฿`} />
+                <StatCard theme="gray" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} align="center" />
+                <StatCard theme="blue" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} align="center" />
+                <StatCard theme="green" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)} บาท`} align="center" />
+                <StatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)} บาท`} align="center" />
             </div>
 
             {/* Supplier Purchase Analysis Section */}

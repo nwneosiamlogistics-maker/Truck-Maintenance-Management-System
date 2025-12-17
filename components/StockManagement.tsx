@@ -339,7 +339,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
         }));
 
         // 2. Create a detailed transaction note
-        const gradeDetails = data.grades.map(g => `${g.condition}: ${g.quantity} ${itemToSell.unit} x ${formatCurrency(g.price)}฿`).join('; ');
+        const gradeDetails = data.grades.map(g => `${g.condition}: ${g.quantity} ${itemToSell.unit} x ${formatCurrency(g.price)} บาท`).join('; ');
         const detailedNotes = `ขายให้ ${data.buyer}. รายละเอียด: ${gradeDetails}. ${data.notes || ''}`.trim();
 
         // Generate new bill number

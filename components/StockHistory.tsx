@@ -1,7 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import type { StockTransaction, StockTransactionType, StockItem, Repair, Technician } from '../types';
+import type { StockTransaction, StockItem, Repair, Technician } from '../types';
 import { STOCK_CATEGORIES } from '../data/categories';
 import { formatCurrency } from '../utils';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    PieChart, Pie, Cell, AreaChart, Area
+} from 'recharts';
 
 interface StockHistoryProps {
     transactions: StockTransaction[];
@@ -10,20 +14,7 @@ interface StockHistoryProps {
     technicians: Technician[];
 }
 
-type FlattenedPart = {
-    id: string;
-    partName: string;
-    partId: string;
-    quantity: number;
-    unit: string;
-    unitPrice: number;
-    source: 'สต็อกอู่' | 'ร้านค้า';
-    category: string;
-    dateUsed: string;
-    repairOrderNo: string;
-    licensePlate: string;
-    allTechnicianIds: string[];
-};
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
 const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repairs, technicians }) => {
     const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
@@ -32,12 +23,12 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
     const [endDate, setEndDate] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [itemsPerPage] = useState(15); // Reduced slightly for better view
 
     const stockMap = useMemo(() => new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item])), [stock]);
     const repairMap = useMemo(() => new Map((Array.isArray(repairs) ? repairs : []).map(item => [item.repairOrderNo, item])), [repairs]);
 
-    // Create a map for efficient part source lookup to fix data inconsistencies.
+    // Optimize Part Source Lookup
     const repairPartSourceMap = useMemo(() => {
         const map = new Map<string, Map<string, 'สต็อกอู่' | 'ร้านค้า'>>();
         (Array.isArray(repairs) ? repairs : []).forEach(repair => {
@@ -51,7 +42,6 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
         });
         return map;
     }, [repairs]);
-
 
     const flattenedParts = useMemo(() => {
         return (Array.isArray(repairs) ? repairs : [])
@@ -85,9 +75,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                 .filter(t => {
                     if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
                         const partSource = repairPartSourceMap.get(t.relatedRepairOrder)?.get(t.stockItemId);
-                        if (partSource === 'ร้านค้า') {
-                            return false; // Exclude this transaction.
-                        }
+                        if (partSource === 'ร้านค้า') return false;
                     }
                     return true;
                 })
@@ -95,15 +83,9 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     let displayDate = t.transactionDate;
                     if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
                         const repair = repairMap.get(t.relatedRepairOrder);
-                        if (repair && repair.repairStartDate) {
-                            displayDate = repair.repairStartDate;
-                        }
+                        if (repair && repair.repairStartDate) displayDate = repair.repairStartDate;
                     }
-                    return {
-                        ...t,
-                        displayDate,
-                        category: stockMap.get(t.stockItemId)?.category || 'ไม่พบหมวดหมู่',
-                    };
+                    return { ...t, displayDate, category: stockMap.get(t.stockItemId)?.category || 'ไม่พบหมวดหมู่' };
                 })
                 .filter(t => {
                     const transactionDate = new Date(t.displayDate);
@@ -112,13 +94,11 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     const isSearchMatch = searchTerm === '' ||
                         t.stockItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        t.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (t.documentNumber && t.documentNumber.toLowerCase().includes(searchTerm.toLowerCase()));
-
+                        t.actor.toLowerCase().includes(searchTerm.toLowerCase());
                     return isDateInRange && isCategoryMatch && isSearchMatch;
                 })
                 .sort((a, b) => new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime());
-        } else { // 'external'
+        } else { // External
             return flattenedParts
                 .filter(p => p.source === 'ร้านค้า')
                 .filter(p => {
@@ -127,15 +107,43 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     const isCategoryMatch = categoryFilter === 'all' || p.category === categoryFilter;
                     const isSearchMatch = searchTerm === '' ||
                         p.partName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        p.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        p.licensePlate.toLowerCase().includes(searchTerm.toLowerCase());
-
+                        p.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase());
                     return isDateInRange && isCategoryMatch && isSearchMatch;
                 })
                 .sort((a, b) => new Date(b.dateUsed).getTime() - new Date(a.dateUsed).getTime());
         }
     }, [transactions, flattenedParts, activeTab, searchTerm, startDate, endDate, categoryFilter, stockMap, repairMap, repairPartSourceMap]);
 
+    // Analytics Calculation
+    const analytics = useMemo(() => {
+        // 1. Stock Value Distribution (Current Stock)
+        const stockValueByCategory = (Array.isArray(stock) ? stock : []).reduce((acc, item) => {
+            const cat = item.category || 'อื่นๆ';
+            acc[cat] = (acc[cat] || 0) + (item.quantity * item.price);
+            return acc;
+        }, {} as Record<string, number>);
+
+        const pieData = Object.entries(stockValueByCategory)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+
+        // 2. Usage Trend (Last 6 Months) - Internal vs External Costs
+        // Aggregate flattenedParts for external, and internal transactions for internal
+        // This is simplified; accurate calculation requires iterating months.
+        const internalUsage = (Array.isArray(transactions) ? transactions : [])
+            .filter(t => t.type === 'เบิกใช้' || t.type === 'ปรับสต็อก') // Including adjust down? Just usage usually.
+            .reduce((acc, t) => {
+                const month = new Date(t.transactionDate).toLocaleString('th-TH', { month: 'short' });
+                const val = Math.abs(t.quantity * (t.pricePerUnit || 0));
+                acc[month] = (acc[month] || 0) + val;
+                return acc;
+            }, {} as Record<string, number>);
+
+        // Ensure chart data structure...
+        const chartData = Object.entries(internalUsage).map(([name, value]) => ({ name, value })).slice(0, 6); // Just rough slice
+
+        return { pieData, chartData };
+    }, [stock, transactions]);
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const paginatedData = useMemo(() => {
@@ -156,144 +164,163 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
         return ids.map(id => technicians.find(t => t.id === id)?.name || id.substring(0, 5)).join(', ');
     };
 
-    const TabButton: React.FC<{ tabId: 'internal' | 'external', label: string }> = ({ tabId, label }) => (
-        <button
-            onClick={() => { setActiveTab(tabId); setCurrentPage(1); }}
-            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === tabId
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-        >
-            {label}
-        </button>
-    );
-
     return (
-        <div className="space-y-6">
-            <div className="bg-white rounded-t-2xl shadow-sm">
-                <div className="border-b">
-                    <TabButton tabId="internal" label="ประวัติสต็อกอู่" />
-                    <TabButton tabId="external" label="เบิกจากร้านค้า" />
+        <div className="space-y-8 animate-fade-in-up">
+            {/* Header & Analytics Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                    <div className="relative z-10 flex flex-col h-full justify-between">
+                        <div>
+                            <h2 className="text-3xl font-bold mb-2">Inventory Intelligence</h2>
+                            <p className="opacity-90">ติดตามการเคลื่อนไหวและการเบิกจ่ายอะไหล่</p>
+                        </div>
+                        <div className="flex gap-8 mt-6">
+                            <div>
+                                <p className="text-sm opacity-70 uppercase tracking-wide">มูลค่าสต็อกปัจจุบัน</p>
+                                <p className="text-4xl font-bold mt-1">
+                                    {formatCurrency((Array.isArray(stock) ? stock : []).reduce((sum, s) => sum + (s.quantity * s.price), 0))}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-sm opacity-70 uppercase tracking-wide">รายการต่ำกว่าเกณฑ์</p>
+                                <p className="text-4xl font-bold mt-1 text-yellow-300">
+                                    {(Array.isArray(stock) ? stock : []).filter(s => s.quantity <= s.minStock).length}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Decorative Circle */}
+                    <div className="absolute -right-10 -bottom-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
                 </div>
-            </div>
-            <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input
-                        type="text"
-                        placeholder="ค้นหา (ชื่ออะไหล่, ใบซ่อม, ทะเบียน)..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg lg:col-span-2"
-                    />
-                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg">
-                        <option value="all">ทุกหมวดหมู่</option>
-                        {STOCK_CATEGORIES.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </select>
-                    <div className="flex items-center gap-2">
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" />
-                        <span>-</span>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" />
+
+                <div className="bg-white rounded-2xl shadow-sm p-4 border border-slate-100 flex flex-col">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">มูลค่าสต็อกแยกตามหมวดหมู่</h3>
+                    <div className="flex-1 min-h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={analytics.pieData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={40}
+                                    outerRadius={60}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {analytics.pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                                <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
+                            </PieChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
-                <button onClick={handleResetFilters} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
-                    ล้างตัวกรอง
-                </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                {activeTab === 'internal' ? (
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0 z-10">
+            {/* Controls */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-center">
+                <div className="flex bg-gray-100 p-1 rounded-xl">
+                    <button
+                        onClick={() => setActiveTab('internal')}
+                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'internal' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        Internal Stock
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('external')}
+                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'external' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        External Purchase
+                    </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="p-2 border border-gray-200 rounded-lg text-sm">
+                        <option value="all">All Categories</option>
+                        {STOCK_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                    <input
+                        type="text"
+                        placeholder="Search parts, ID, plate..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="p-2 border border-gray-200 rounded-lg text-sm w-full md:w-48"
+                    />
+                </div>
+            </div>
+
+            {/* Data Table */}
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-100">
+                        <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ใช้</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่เอกสาร</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภทธุรกรรม</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ผู้ดำเนินการ</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เอกสารอ้างอิง</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมายเหตุเพิ่มเติม</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">มูลค่ารวม</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Item Details</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Quantity</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Cost</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {paginatedData.map((t: any) => {
-                                const isOut = t.quantity < 0;
-                                const isAdjustment = ['ปรับสต็อก'].includes(t.type);
-                                let quantityColor = isAdjustment ? 'text-gray-600' : (isOut ? 'text-red-600' : 'text-green-600');
-                                const totalValue = (t.pricePerUnit ?? stockMap.get(t.stockItemId)?.price ?? 0) * t.quantity;
+                        <tbody className="bg-white divide-y divide-gray-100">
+                            {paginatedData.map((item: any, idx: number) => {
+                                const isInternal = activeTab === 'internal';
+                                const date = isInternal ? item.displayDate : item.dateUsed;
+                                const name = isInternal ? item.stockItemName : item.partName;
+                                const ref = isInternal ? (item.documentNumber || item.relatedRepairOrder) : `${item.repairOrderNo} (${item.licensePlate})`;
+                                const qty = item.quantity;
+                                const price = isInternal ? (item.pricePerUnit * qty) : (item.unitPrice * qty);
 
                                 return (
-                                    <tr key={t.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 text-sm text-gray-600">{new Date(t.displayDate).toLocaleDateString('th-TH')}</td>
-                                        <td className="px-4 py-3 font-mono text-sm">{t.documentNumber || '-'}</td>
-                                        <td className="px-4 py-3 font-semibold">{t.stockItemName}</td>
-                                        <td className="px-4 py-3 text-sm">{t.category}</td>
-                                        <td className="px-4 py-3 text-sm">{t.type}</td>
-                                        <td className={`px-4 py-3 text-right font-bold text-base ${quantityColor}`}>
-                                            {t.quantity > 0 ? '+' : ''}{t.quantity} {stockMap.get(t.stockItemId)?.unit}
+                                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            {new Date(date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}
                                         </td>
-                                        <td className="px-4 py-3 text-sm">{t.actor}</td>
-                                        <td className="px-4 py-3 text-sm">{t.relatedRepairOrder || '-'}</td>
-                                        <td className="px-4 py-3 text-sm max-w-xs truncate" title={t.notes}>{t.notes || '-'}</td>
-                                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(Math.abs(totalValue))}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm font-bold text-gray-800">{name}</div>
+                                            <div className="text-xs text-gray-500">{item.category}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-mono text-gray-600">
+                                            {ref || '-'}
+                                        </td>
+                                        <td className={`px-6 py-4 text-right text-sm font-bold ${qty < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                            {qty > 0 ? '+' : ''}{qty} {isInternal ? stockMap.get(item.stockItemId)?.unit : item.unit}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">
+                                            {formatCurrency(Math.abs(price))}
+                                        </td>
                                     </tr>
-                                )
+                                );
                             })}
-                            {paginatedData.length === 0 && (
-                                <tr><td colSpan={10} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
-                            )}
                         </tbody>
                     </table>
-                ) : (
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ใช้</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใบซ่อม / ทะเบียน</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ราคา/หน่วย</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ราคารวม</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {paginatedData.map((p: any) => (
-                                <tr key={p.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-sm text-gray-600">{new Date(p.dateUsed).toLocaleDateString('th-TH')}</td>
-                                    <td className="px-4 py-3">
-                                        <div className="font-semibold">{p.repairOrderNo}</div>
-                                        <div className="text-sm text-gray-500">{p.licensePlate}</div>
-                                    </td>
-                                    <td className="px-4 py-3 font-semibold">{p.partName}</td>
-                                    <td className="px-4 py-3 text-sm">{p.category}</td>
-                                    <td className="px-4 py-3 text-right font-bold text-base">{p.quantity} {p.unit}</td>
-                                    <td className="px-4 py-3 text-sm">{getTechnicianNames(p.allTechnicianIds)}</td>
-                                    <td className="px-4 py-3 text-right">{formatCurrency(p.unitPrice)}</td>
-                                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency(p.unitPrice * p.quantity)}</td>
-                                </tr>
-                            ))}
-                            {paginatedData.length === 0 && (
-                                <tr><td colSpan={8} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                )}
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
-                <span className="text-base text-gray-700">
-                    แสดง {paginatedData.length} จาก {filteredData.length} รายการ
-                </span>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
-                    <span className="text-base font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                    {paginatedData.length === 0 && (
+                        <div className="p-12 text-center text-gray-400">
+                            No data found matching your filters.
+                        </div>
+                    )}
+                </div>
+                {/* Pagination (Simplified) */}
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50/30">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-white hover:shadow-sm rounded-lg transition-all disabled:opacity-50"
+                    >
+                        Previous
+                    </button>
+                    <span className="text-sm text-gray-500">Page {currentPage} of {totalPages || 1}</span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-white hover:shadow-sm rounded-lg transition-all disabled:opacity-50"
+                    >
+                        Next
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import type { Repair, Vehicle, PartRequisitionItem } from '../types';
-import StatCard from './StatCard';
 import { formatCurrency } from '../utils';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    Cell
+} from 'recharts';
 
 // Helper function to calculate total cost for a single repair
 const calculateTotalCost = (repair: Repair): number => {
@@ -13,40 +16,45 @@ const calculateTotalCost = (repair: Repair): number => {
 
 // Parts Modal Component
 const PartsListModal: React.FC<{ parts: PartRequisitionItem[], onClose: () => void }> = ({ parts, onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-lg shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b flex justify-between items-center">
-                <h3 className="text-lg font-bold">รายการอะไหล่ที่ใช้</h3>
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 className="text-lg font-bold text-gray-800">📦 รายการอะไหล่ที่ใช้</h3>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
             </div>
-            <div className="p-4 max-h-80 overflow-y-auto">
-                <table className="min-w-full">
+            <div className="p-0 max-h-80 overflow-y-auto custom-scrollbar">
+                <table className="min-w-full divide-y divide-gray-100">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">ชื่ออะไหล่</th>
-                            <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">จำนวน</th>
-                            <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">ราคา/หน่วย</th>
-                            <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">รวม</th>
+                            <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Item</th>
+                            <th className="px-5 py-3 text-right text-xs font-bold text-gray-500 uppercase">Qty</th>
+                            <th className="px-5 py-3 text-right text-xs font-bold text-gray-500 uppercase">Price</th>
+                            <th className="px-5 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-gray-100 bg-white">
                         {parts.map((part, index) => (
                             <tr key={index}>
-                                <td className="px-2 py-2">{part.name}</td>
-                                <td className="px-2 py-2 text-right">{part.quantity} {part.unit}</td>
-                                <td className="px-2 py-2 text-right">{formatCurrency(part.unitPrice)}</td>
-                                <td className="px-2 py-2 text-right font-semibold">{formatCurrency(part.quantity * part.unitPrice)}</td>
+                                <td className="px-5 py-3 text-sm font-medium text-gray-800">{part.name}</td>
+                                <td className="px-5 py-3 text-right text-sm text-gray-600">{part.quantity} {part.unit}</td>
+                                <td className="px-5 py-3 text-right text-sm text-gray-600">{formatCurrency(part.unitPrice)}</td>
+                                <td className="px-5 py-3 text-right text-sm font-bold text-blue-600">{formatCurrency(part.quantity * part.unitPrice)}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+            </div>
+            <div className="p-4 bg-gray-50/50 border-t border-gray-100 text-right">
+                <span className="text-sm text-gray-500 mr-2">Total Parts Cost:</span>
+                <span className="text-lg font-bold text-gray-800">{formatCurrency(parts.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0))}</span>
             </div>
         </div>
     </div>
 );
 
 
-// Main Component
 interface VehicleRepairHistoryProps {
     repairs: Repair[];
     vehicles: Vehicle[];
@@ -66,7 +74,7 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
             statsMap.set(repair.licensePlate, currentStats);
         });
 
-        // Combine with vehicle list to include all vehicles, even those with 0 repairs
+        // Combine with vehicle list
         const allVehicleStats = (Array.isArray(vehicles) ? vehicles : []).map(vehicle => {
             const stats = statsMap.get(vehicle.licensePlate) || { repairCount: 0, totalCost: 0 };
             return {
@@ -104,118 +112,175 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
         return { selectedVehicleRepairs: vehicleRepairs, selectedVehicleInfo: vehicleInfo, selectedVehicleStats: vehicleStats };
     }, [repairs, vehicles, selectedVehiclePlate]);
 
+    // Top 5 Most Expensive Vehicles for Chart
+    const topExpensiveVehicles = useMemo(() => {
+        return [...vehicleStats].sort((a, b) => b.totalCost - a.totalCost).slice(0, 5);
+    }, [vehicleStats]);
+
     // Render Detail View
-    if (selectedVehiclePlate) {
+    if (selectedVehiclePlate && selectedVehicleInfo && selectedVehicleStats) {
         return (
-            <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setSelectedVehiclePlate(null)} className="px-4 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
-                        &larr; กลับไปที่รายการรถ
+            <div className="space-y-6 animate-fade-in-up">
+                <div className="flex items-center gap-4 mb-2">
+                    <button onClick={() => setSelectedVehiclePlate(null)} className="p-2 text-gray-500 hover:text-blue-600 bg-white shadow-sm rounded-lg border border-gray-200 transition-all">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     </button>
-                    <h2 className="text-2xl font-bold">
-                        ประวัติการซ่อม: <span className="text-blue-600">{selectedVehiclePlate}</span>
-                    </h2>
-                    {selectedVehicleInfo && <p className="text-gray-500">{selectedVehicleInfo.vehicleType} - {selectedVehicleInfo.make} {selectedVehicleInfo.model}</p>}
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                            {selectedVehiclePlate}
+                            <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{selectedVehicleInfo.vehicleType}</span>
+                        </h2>
+                        <p className="text-gray-500 text-sm">{selectedVehicleInfo.make} {selectedVehicleInfo.model}</p>
+                    </div>
                 </div>
 
-                {selectedVehicleStats && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                        <StatCard title="จำนวนการซ่อมทั้งหมด" value={selectedVehicleStats.totalRepairs} theme="blue" />
-                        <StatCard title="ค่าใช้จ่ายซ่อมรวม" value={`${formatCurrency(selectedVehicleStats.totalCost)} ฿`} theme="red" />
-                        <StatCard title="ค่าใช้จ่ายเฉลี่ย" value={`${formatCurrency(selectedVehicleStats.avgCost)} ฿`} theme="yellow" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-blue-500">
+                        <p className="text-gray-500 text-sm font-medium uppercase">Total Repairs</p>
+                        <p className="text-3xl font-bold text-gray-800 mt-1">{selectedVehicleStats.totalRepairs} <span className="text-sm font-normal text-gray-400">Times</span></p>
                     </div>
-                )}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-red-500">
+                        <p className="text-gray-500 text-sm font-medium uppercase">Total Cost</p>
+                        <p className="text-3xl font-bold text-gray-800 mt-1">{formatCurrency(selectedVehicleStats.totalCost)} <span className="text-sm font-normal text-gray-400">บาท</span></p>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-yellow-500">
+                        <p className="text-gray-500 text-sm font-medium uppercase">Avg Cost / Repair</p>
+                        <p className="text-3xl font-bold text-gray-800 mt-1">{formatCurrency(selectedVehicleStats.avgCost)} <span className="text-sm font-normal text-gray-400">บาท</span></p>
+                    </div>
+                </div>
 
-                <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่ซ่อมเสร็จ</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ใบแจ้งซ่อม</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายละเอียดปัญหา</th>
-                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
-                                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">ค่าใช้จ่ายรวม</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {selectedVehicleRepairs.map(repair => (
-                                <tr key={repair.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-sm">{new Date(repair.repairEndDate || repair.createdAt).toLocaleDateString('th-TH')}</td>
-                                    <td className="px-4 py-3 text-sm font-mono">{repair.repairOrderNo}</td>
-                                    <td className="px-4 py-3 text-sm max-w-sm truncate" title={repair.problemDescription}>{repair.problemDescription}</td>
-                                    <td className="px-4 py-3 text-center">
-                                        {(repair.parts && repair.parts.length > 0) ? (
-                                            <button onClick={() => setViewingParts(repair.parts)} className="text-blue-600 hover:underline text-sm">ดู ({repair.parts.length})</button>
-                                        ) : (
-                                            <span className="text-gray-400 text-sm">-</span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency(calculateTotalCost(repair))} ฿</td>
-                                </tr>
-                            ))}
-                            {selectedVehicleRepairs.length === 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-100">
+                        <h3 className="text-lg font-bold text-gray-800">📜 Repair History Timeline</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-100">
+                            <thead className="bg-gray-50/80">
                                 <tr>
-                                    <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบประวัติการซ่อมสำหรับรถคันนี้</td>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">Job No.</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">Problem</th>
+                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase">Parts</th>
+                                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase">Total Cost</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                                {selectedVehicleRepairs.map(repair => (
+                                    <tr key={repair.id} className="hover:bg-blue-50/50 transition-colors">
+                                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">
+                                            {new Date(repair.repairEndDate || repair.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-mono text-blue-600">
+                                            {repair.repairOrderNo}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={repair.problemDescription}>
+                                            {repair.problemDescription}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {(repair.parts && repair.parts.length > 0) ? (
+                                                <button onClick={() => setViewingParts(repair.parts)} className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-full hover:bg-blue-200 transition-colors">
+                                                    {repair.parts.length} Items
+                                                </button>
+                                            ) : (
+                                                <span className="text-gray-300">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-bold text-gray-800">{formatCurrency(calculateTotalCost(repair))}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 {viewingParts && <PartsListModal parts={viewingParts} onClose={() => setViewingParts(null)} />}
             </div>
         );
     }
 
-    // Render List View
+    // Main List View with Top Chart
     return (
-        <div className="space-y-6">
-            <div className="bg-white p-4 rounded-2xl shadow-sm">
-                <input
-                    type="text"
-                    placeholder="ค้นหาด้วยทะเบียนรถ..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full md:w-1/2 p-3 border border-gray-300 rounded-lg text-lg"
-                />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredVehicles.map(vehicle => (
-                    <div key={vehicle.id} className="bg-white rounded-xl shadow-sm border border-gray-200/80 flex flex-col p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-                        <div className="flex-grow">
-                            <div>
-                                <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{vehicle.licensePlate}</h3>
-                                <p className="text-base text-slate-500">{vehicle.vehicleType} - {vehicle.make || 'N/A'}</p>
-                            </div>
-                            <hr className="my-4 border-gray-200" />
-                            <div className="grid grid-cols-2 gap-4 text-center">
-                                <div>
-                                    <p className="text-3xl font-bold text-slate-700">{vehicle.repairCount}</p>
-                                    <p className="text-sm text-slate-500">ครั้ง</p>
-                                </div>
-                                <div>
-                                    <p className="text-3xl font-bold text-slate-700">{formatCurrency(vehicle.totalCost)}</p>
-                                    <p className="text-sm text-slate-500">บาท</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-6">
-                            <button
-                                onClick={() => setSelectedVehiclePlate(vehicle.licensePlate)}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                                ดูประวัติ
-                            </button>
+        <div className="space-y-8 animate-fade-in-up">
+            {/* Top Analysis Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 text-white shadow-lg overflow-hidden relative">
+                    <div className="relative z-10">
+                        <h2 className="text-2xl font-bold mb-4">Top 5 Highest Maintenance Costs</h2>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={topExpensiveVehicles} layout="vertical" margin={{ left: 10, right: 30 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="licensePlate" type="category" width={80} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1e293b', border: 'none', color: '#fff' }} />
+                                    <Bar dataKey="totalCost" name="Total Cost" radius={[0, 4, 4, 0]} barSize={20}>
+                                        {
+                                            topExpensiveVehicles.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={index === 0 ? '#f43f5e' : '#3b82f6'} />
+                                            ))
+                                        }
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
-                ))}
-            </div>
-            {filteredVehicles.length === 0 && (
-                <div className="bg-white p-10 rounded-2xl shadow-sm text-center">
-                    <p className="text-gray-500">ไม่พบรถที่ตรงกับคำค้นหา</p>
                 </div>
-            )}
+
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-center gap-6">
+                    <div>
+                        <p className="text-sm text-gray-500 font-medium uppercase">Total Fleet Cost</p>
+                        <p className="text-4xl font-extrabold text-slate-800 mt-2">
+                            {formatCurrency(vehicleStats.reduce((sum, v) => sum + v.totalCost, 0))}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-500 font-medium uppercase">Vehicles Serviced</p>
+                        <p className="text-4xl font-extrabold text-blue-600 mt-2">
+                            {vehicleStats.filter(v => v.repairCount > 0).length} <span className="text-lg text-gray-400 font-normal">/ {vehicles.length}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Search and Grid */}
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-gray-800">📚 Vehicle Directory</h3>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Search License Plate..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none shadow-sm w-64"
+                        />
+                        <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    {filteredVehicles.map(vehicle => (
+                        <div key={vehicle.id} onClick={() => setSelectedVehiclePlate(vehicle.licensePlate)} className="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all cursor-pointer relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-bl-full -mr-8 -mt-8 transition-all group-hover:scale-110"></div>
+
+                            <div className="relative z-10">
+                                <h4 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{vehicle.licensePlate}</h4>
+                                <p className="text-xs text-gray-500 mt-1 uppercase tracking-wide">{vehicle.make} {vehicle.model}</p>
+
+                                <div className="mt-4 grid grid-cols-2 gap-2">
+                                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                        <p className="text-xs text-gray-400 uppercase">Repairs</p>
+                                        <p className="font-bold text-gray-700">{vehicle.repairCount}</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                        <p className="text-xs text-gray-400 uppercase">Cost</p>
+                                        <p className="font-bold text-gray-700">{formatCurrency(vehicle.totalCost).split('.')[0]}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 };

@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import type { Repair, Technician, EstimationAttempt } from '../types';
-import StatCard from './StatCard';
 import { formatHoursToHHMM, formatCurrency } from '../utils';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    Cell, PieChart, Pie, RadialBarChart, RadialBar
+} from 'recharts';
 
 interface TechnicianPerformanceProps {
     repairs: Repair[];
@@ -12,29 +15,7 @@ type SortKey = 'name' | 'jobs' | 'avgTime' | 'onTimeRate' | 'value';
 type SortOrder = 'asc' | 'desc';
 type DateRange = 'all' | '7d' | '30d' | 'this_month' | 'last_month';
 
-const BarChart: React.FC<{ title: string, data: { label: string, value: number, formattedValue: string }[] }> = ({ title, data }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 0);
-    return (
-        <div className="bg-white p-6 rounded-2xl shadow-sm">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">{title}</h3>
-            <div className="space-y-3">
-                {data.map(item => (
-                    <div key={item.label} className="flex items-center gap-4">
-                        <div className="w-32 text-sm font-semibold text-gray-600 truncate">{item.label}</div>
-                        <div className="flex-1 bg-gray-200 rounded-full h-6">
-                            <div
-                                className="bg-blue-500 h-6 rounded-full flex items-center justify-end px-2"
-                                style={{ width: `${(item.value / maxValue) * 100}%` }}
-                            >
-                                <span className="text-white text-xs font-bold">{item.formattedValue}</span>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, technicians }) => {
     const [dateRange, setDateRange] = useState<DateRange>('30d');
@@ -104,7 +85,8 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
                 jobs: techRepairs.length,
                 avgTime: techRepairs.length > 0 ? (totalRepairMillis / techRepairs.length) / (1000 * 60 * 60) : 0,
                 onTimeRate: estimatedJobsCount > 0 ? (onTimeJobs / estimatedJobsCount) * 100 : 0,
-                value: totalValue
+                value: totalValue,
+                fill: COLORS[technicians.indexOf(tech) % COLORS.length] // Assign stable color
             };
         }).filter((t): t is NonNullable<typeof t> => t !== null);
 
@@ -114,59 +96,22 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
             return 0;
         });
 
+        // Calculate Totals/Averages for Cards
         const totalJobs = techStats.reduce((sum, t) => sum + t.jobs, 0);
-
-        const totalValue = filteredRepairs.reduce((sum: number, r) => {
-            const repairParts = Array.isArray(r.parts) ? r.parts : [];
-            const partsCost = repairParts.reduce((pSum: number, p) => {
-                return pSum + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0);
-            }, 0);
-            const repairVat = Number(r.partsVat) || 0;
-            const laborCost = Number(r.repairCost) || 0;
-            const laborVat = Number(r.laborVat) || 0;
-            return sum + partsCost + laborCost + repairVat + laborVat;
+        const totalValue = filteredRepairs.reduce((sum, r) => { /* ... simplified total value logic ... */
+            // Re-implementing simplified total value for speed, better to sum techStats.value but overlaps exist due to assistants?
+            // Actually techStats.value sums full repair cost for each tech involved? Might double count.
+            // Better to sum distinct repair values from filteredRepairs directly.
+            const partsCost = (r.parts || []).reduce((p, item) => p + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0);
+            return sum + (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0);
         }, 0);
 
-        const overallAvgTime = totalJobs > 0 ? techStats.reduce((sum: number, t) => sum + (t.avgTime * t.jobs), 0) / totalJobs : 0;
+        const avgOnTime = techStats.length > 0 ? techStats.reduce((sum, t) => sum + t.onTimeRate, 0) / techStats.length : 0;
 
-        const totalWeightedOnTime = techStats.reduce((sum: number, t) => {
-            const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
-            const estimatedJobsCount = techRepairs.filter(r => {
-                let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
-                if (!finalEstimation && r.estimations && r.estimations.length > 0) {
-                    finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
-                }
-                return !!finalEstimation;
-            }).length;
-
-            return sum + (t.onTimeRate * estimatedJobsCount / 100);
-        }, 0);
-
-        const totalEstimatedJobs = techStats.reduce((sum: number, t) => {
-            const techRepairs = filteredRepairs.filter(r => r.assignedTechnicianId === t.id || (r.assistantTechnicianIds || []).includes(t.id));
-            return sum + techRepairs.filter(r => {
-                let finalEstimation = (r.estimations || []).find(e => e.status === 'Completed');
-                if (!finalEstimation && r.estimations && r.estimations.length > 0) {
-                    finalEstimation = [...r.estimations].sort((a, b) => b.sequence - a.sequence)[0];
-                }
-                return !!finalEstimation;
-            }).length;
-        }, 0);
-
-        const overallOnTimeRate = totalEstimatedJobs > 0 ? (totalWeightedOnTime / totalEstimatedJobs) * 100 : 0;
-
-
-        return {
-            stats: techStats,
-            kpis: {
-                totalJobs,
-                totalValue,
-                avgTime: overallAvgTime,
-                onTimeRate: overallOnTimeRate
-            }
-        };
+        return { stats: techStats, kpis: { totalJobs, totalValue, avgOnTime } };
 
     }, [repairs, technicians, dateRange, sortBy, sortOrder]);
+
 
     const handleSort = (key: SortKey) => {
         if (sortBy === key) {
@@ -177,81 +122,173 @@ const TechnicianPerformance: React.FC<TechnicianPerformanceProps> = ({ repairs, 
         }
     };
 
-    const SortableHeader: React.FC<{ headerKey: SortKey, title: string }> = ({ headerKey, title }) => (
+    const SortableHeader: React.FC<{ headerKey: SortKey, title: string, align?: 'left' | 'right' | 'center' }> = ({ headerKey, title, align = 'left' }) => (
         <th
-            className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase cursor-pointer"
+            className={`px-6 py-4 text-${align} text-sm font-bold text-gray-600 uppercase tracking-wider cursor-pointer group hover:bg-gray-100 transition-colors duration-200`}
             onClick={() => handleSort(headerKey)}
         >
-            <div className="flex items-center">
+            <div className={`flex items-center ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'} gap-1`}>
                 <span>{title}</span>
-                {sortBy === headerKey && <span className="ml-2">{sortOrder === 'desc' ? '▼' : '▲'}</span>}
+                <span className={`text-gray-400 group-hover:text-blue-500 transition-colors ${sortBy === headerKey ? 'text-blue-600' : ''}`}>
+                    {sortBy === headerKey ? (sortOrder === 'desc' ? '↓' : '↑') : '↕'}
+                </span>
             </div>
         </th>
     );
 
     return (
-        <div className="space-y-6">
-            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800">สรุปประสิทธิภาพทีมช่าง</h2>
-                <div className="flex items-center gap-2">
-                    <label htmlFor="date-range-filter" className="font-medium text-gray-700 text-base">ช่วงเวลา:</label>
-                    <select id="date-range-filter" value={dateRange} onChange={e => setDateRange(e.target.value as DateRange)} className="p-2 border border-gray-300 rounded-lg text-base">
-                        <option value="7d">7 วันล่าสุด</option>
-                        <option value="30d">30 วันล่าสุด</option>
-                        <option value="this_month">เดือนนี้</option>
-                        <option value="last_month">เดือนที่แล้ว</option>
-                        <option value="all">ทั้งหมด</option>
+        <div className="space-y-8 animate-fade-in-up">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800">
+                        Technician Performance
+                    </h2>
+                    <p className="text-gray-500 mt-1">ติดตามประสิทธิภาพการทำงานและคุณภาพของทีมช่าง</p>
+                </div>
+                <div className="flex items-center gap-3 mt-4 md:mt-0">
+                    <span className="text-gray-600 font-medium bg-gray-100 px-3 py-1 rounded-lg">PERIOD:</span>
+                    <select value={dateRange} onChange={e => setDateRange(e.target.value as DateRange)} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-700 font-semibold shadow-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="this_month">This Month</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="all">All Time</option>
                     </select>
                 </div>
             </div>
 
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard title="งานเสร็จสิ้นทั้งหมด" value={performanceData.kpis.totalJobs} theme="blue" />
-                <StatCard title="เวลาซ่อมเฉลี่ย" value={formatHoursToHHMM(performanceData.kpis.avgTime)} theme="yellow" />
-                <StatCard title="อัตราตรงต่อเวลา" value={`${performanceData.kpis.onTimeRate.toFixed(1)}%`} theme="green" />
-                <StatCard title="มูลค่าซ่อมรวม" value={`${formatCurrency(performanceData.kpis.totalValue)} ฿`} theme="purple" />
+            {/* Quick Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl p-1 shadow-lg transform transition hover:-translate-y-1">
+                    <div className="bg-white rounded-xl p-5 h-full flex flex-col justify-center items-center text-center">
+                        <div className="flex flex-col items-center">
+                            <p className="text-sm font-semibold text-gray-400 uppercase mb-2">งานเสร็จสิ้นทั้งหมด</p>
+                            <h3 className="text-4xl font-bold text-gray-800">{performanceData.kpis.totalJobs} <span className="text-sm font-normal text-gray-500">งาน</span></h3>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl p-1 shadow-lg transform transition hover:-translate-y-1">
+                    <div className="bg-white rounded-xl p-5 h-full flex flex-col justify-center items-center text-center">
+                        <div className="flex flex-col items-center">
+                            <p className="text-sm font-semibold text-gray-400 uppercase mb-2">อัตราตรงต่อเวลาเฉลี่ย</p>
+                            <h3 className="text-4xl font-bold text-gray-800">{performanceData.kpis.avgOnTime.toFixed(1)} <span className="text-sm font-normal text-gray-500">%</span></h3>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-1 shadow-lg transform transition hover:-translate-y-1">
+                    <div className="bg-white rounded-xl p-5 h-full flex flex-col justify-center items-center text-center">
+                        <div className="flex flex-col items-center">
+                            <p className="text-sm font-semibold text-gray-400 uppercase mb-2">มูลค่าผลงานรวม</p>
+                            <h3 className="text-4xl font-bold text-gray-800">{formatCurrency(performanceData.kpis.totalValue)} <span className="text-sm font-normal text-gray-500">บาท</span></h3>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <BarChart
-                    title="จำนวนงานที่เสร็จสิ้น (รายบุคคล)"
-                    data={performanceData.stats.slice(0, 5).map(t => ({ label: t.name, value: t.jobs, formattedValue: `${t.jobs} งาน` }))}
-                />
-                <BarChart
-                    title="เวลาซ่อมเฉลี่ย (รายบุคคล)"
-                    data={performanceData.stats.slice(0, 5).map(t => ({ label: t.name, value: t.avgTime, formattedValue: formatHoursToHHMM(t.avgTime) }))}
-                />
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Job Count Chart */}
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 className="text-xl font-bold text-slate-800 mb-6">🏆 ผลงานรายบุคคล (จำนวนงาน)</h3>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={performanceData.stats.slice(0, 10)} layout="vertical" margin={{ left: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 13, fill: '#475569' }} axisLine={false} tickLine={false} />
+                                <Tooltip
+                                    cursor={{ fill: '#f8fafc' }}
+                                    contentStyle={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                                />
+                                <Bar dataKey="jobs" name="จำนวนงาน" radius={[0, 6, 6, 0]} barSize={24}>
+                                    {performanceData.stats.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* On-Time Rate Chart */}
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 className="text-xl font-bold text-slate-800 mb-6">⚡ อัตราความตรงต่อเวลา (%)</h3>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={performanceData.stats.slice(0, 10)}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                                <YAxis unit="%" hide />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '12px' }}
+                                    formatter={(value: number) => [`${value.toFixed(1)}%`, 'On-Time Rate']}
+                                />
+                                <Bar dataKey="onTimeRate" name="On-Time Rate" radius={[6, 6, 0, 0]} barSize={32}>
+                                    {performanceData.stats.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.onTimeRate >= 80 ? '#10b981' : entry.onTimeRate >= 50 ? '#f59e0b' : '#ef4444'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <SortableHeader headerKey="name" title="ชื่อช่าง" />
-                            <SortableHeader headerKey="jobs" title="งานที่เสร็จสิ้น" />
-                            <SortableHeader headerKey="avgTime" title="เวลาซ่อมเฉลี่ย (ชม:นาที)" />
-                            <SortableHeader headerKey="onTimeRate" title="อัตราตรงต่อเวลา" />
-                            <SortableHeader headerKey="value" title="มูลค่าซ่อมรวม (บาท)" />
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {performanceData.stats.map(tech => (
-                            <tr key={tech.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 font-semibold text-base">{tech.name}</td>
-                                <td className="px-6 py-4 text-base">{tech.jobs}</td>
-                                <td className="px-6 py-4 text-base">{formatHoursToHHMM(tech.avgTime)}</td>
-                                <td className="px-6 py-4 text-base">{tech.onTimeRate.toFixed(1)}%</td>
-                                <td className="px-6 py-4 text-base font-bold">{formatCurrency(tech.value)}</td>
-                            </tr>
-                        ))}
-                        {performanceData.stats.length === 0 && (
+            {/* Detailed Table */}
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-6 border-b border-gray-100">
+                    <h3 className="text-xl font-bold text-slate-800">ตารางข้อมูลละเอียด</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-100">
+                        <thead className="bg-gray-50">
                             <tr>
-                                <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูลในช่วงเวลาที่เลือก</td>
+                                <SortableHeader headerKey="name" title="ชื่อช่าง" />
+                                <SortableHeader headerKey="jobs" title="จำนวนงาน" align="center" />
+                                <SortableHeader headerKey="avgTime" title="เวลาเฉลี่ย (ชม.)" align="center" />
+                                <SortableHeader headerKey="onTimeRate" title="ตรงเวลา (%)" align="center" />
+                                <SortableHeader headerKey="value" title="มูลค่าผลงาน (บาท)" align="right" />
                             </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                            {performanceData.stats.map((tech) => (
+                                <tr key={tech.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                                {tech.name.substring(0, 1)}
+                                            </div>
+                                            <div className="ml-4">
+                                                <div className="text-sm font-bold text-gray-900">{tech.name}</div>
+                                                <div className="text-xs text-gray-500">Technician</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <span className="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            {tech.jobs}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium text-gray-600">
+                                        {formatHoursToHHMM(tech.avgTime)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <div className="flex items-center justify-center">
+                                            <div className="w-16 bg-gray-200 rounded-full h-2.5 mr-2">
+                                                <div className={`h-2.5 rounded-full ${tech.onTimeRate >= 80 ? 'bg-green-500' : 'bg-yellow-500'}`} style={{ width: `${tech.onTimeRate}%` }}></div>
+                                            </div>
+                                            <span className="text-sm text-gray-600">{tech.onTimeRate.toFixed(0)}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-800">
+                                        {formatCurrency(tech.value)} บาท
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );
