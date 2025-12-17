@@ -23,6 +23,74 @@ interface FleetKPIDashboardProps {
     annualPlans: AnnualPMPlan[];
 }
 
+// --- Styled Components (Infographic Style) ---
+
+const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
+    let gradient = '';
+    let iconPath = '';
+    switch (theme) {
+        case 'blue':
+            gradient = 'from-blue-500 to-indigo-600';
+            iconPath = 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z'; // Dashboard/Availability
+            break;
+        case 'green':
+            gradient = 'from-emerald-500 to-teal-600';
+            iconPath = 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'; // Check/Compliance
+            break;
+        case 'orange':
+            gradient = 'from-orange-500 to-red-500';
+            iconPath = 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'; // Alert/Rework
+            break;
+        case 'purple':
+            gradient = 'from-purple-500 to-pink-500';
+            iconPath = 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'; // Money
+            break;
+        default:
+            gradient = 'from-slate-700 to-slate-800';
+            iconPath = 'M4 6h16M4 10h16M4 14h16M4 18h16';
+    }
+
+    return (
+        <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center`}>
+            <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor"><path d={iconPath} /></svg>
+            </div>
+            <p className="text-white/90 font-medium mb-1 relative z-10">{title}</p>
+            <h3 className="text-4xl font-extrabold relative z-10">{value}</h3>
+            {subtext && <p className="text-sm mt-2 opacity-80 relative z-10">{subtext}</p>}
+        </div>
+    );
+};
+
+const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; headerAction?: React.ReactNode }> = ({ title, children, className = '', headerAction }) => (
+    <div className={`bg-white rounded-3xl shadow-sm p-6 border border-slate-100 ${className}`}>
+        <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full inline-block shadow-sm"></span>
+                {title}
+            </h3>
+            {headerAction}
+        </div>
+        {children}
+    </div>
+);
+
+const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
+                <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
+                {payload.map((entry: any, index: number) => (
+                    <p key={index} style={{ color: entry.color }} className="text-xs font-semibold mt-1">
+                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+                    </p>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
+
 const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintenancePlans, vehicles, pmHistory, annualPlans }) => {
     const [dateRange, setDateRange] = useState<DateRange>('30d');
 
@@ -162,7 +230,6 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         const completedPmsInPeriod = periodHistory;
         let unplannedCompletionsCount = 0;
 
-        // FIXED #1: Type Assertion for Map Tuple
         const annualPlansMap = new Map<string, AnnualPMPlan>(
             safeAnnualPlans.map(p => [`${p.vehicleLicensePlate}-${p.maintenancePlanId}-${p.year}`, p] as [string, AnnualPMPlan])
         );
@@ -178,7 +245,6 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             if (annualPlan && annualPlan.months[month] === 'completed_unplanned') {
                 unplannedCompletionsCount++;
 
-                // FIXED #2: Safely find plan name from ID instead of assuming it's in history
                 const planInfo = safePlans.find(p => p.id === historyItem.maintenancePlanId);
                 const planName = planInfo ? planInfo.planName : 'Unknown Plan';
 
@@ -311,89 +377,80 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
 
             {/* Top KPI Cards (Infographic Style) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center">
-                    <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-                        <svg width="200" height="200" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" /></svg>
-                    </div>
-                    <p className="text-blue-100 font-medium mb-1">ความพร้อมใช้งานของรถ (Availability)</p>
-                    <h3 className="text-4xl font-extrabold">{memoizedData.kpis.fleetAvailability.toFixed(1)}%</h3>
-                    <div className="mt-4 h-2 bg-blue-900/30 rounded-full overflow-hidden">
-                        <div className="h-full bg-white/80 rounded-full" style={{ width: `${memoizedData.kpis.fleetAvailability}%` }}></div>
-                    </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center">
-                    <p className="text-emerald-100 font-medium mb-1">การปฏิบัติตามแผน PM (Compliance)</p>
-                    <h3 className="text-4xl font-extrabold">{memoizedData.kpis.pmCompletionRate.toFixed(1)}%</h3>
-                    <p className="text-sm mt-2 opacity-90">แผนบำรุงรักษาที่ทำสำเร็จ</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center">
-                    <p className="text-orange-100 font-medium mb-1">อัตราการซ่อมซ้ำ (Rework Rate)</p>
-                    <h3 className="text-4xl font-extrabold">{memoizedData.kpis.reworkRate.toFixed(1)}%</h3>
-                    <p className="text-sm mt-2 opacity-90">อัตราการซ่อมซ้ำ (เป้าหมาย &lt; 5%)</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center">
-                    <p className="text-purple-100 font-medium mb-1">ค่าใช้จ่ายซ่อมบำรุงรวม</p>
-                    <h3 className="text-3xl font-extrabold tracking-tight">{formatCurrency(memoizedData.kpis.totalCost)}</h3>
-                    <p className="text-sm mt-2 opacity-90">บาท (ในช่วงเวลานี้)</p>
-                </div>
+                <ModernStatCard
+                    title="ความพร้อมใช้งาน"
+                    value={`${memoizedData.kpis.fleetAvailability.toFixed(1)}%`}
+                    theme="blue"
+                    subtext="Availability"
+                />
+                <ModernStatCard
+                    title="PM Compliance"
+                    value={`${memoizedData.kpis.pmCompletionRate.toFixed(1)}%`}
+                    theme="green"
+                    subtext="แผนบำรุงรักษาสำเร็จ"
+                />
+                <ModernStatCard
+                    title="Rework Rate"
+                    value={`${memoizedData.kpis.reworkRate.toFixed(1)}%`}
+                    theme="orange"
+                    subtext="อัตราการซ่อมซ้ำ"
+                />
+                <ModernStatCard
+                    title="ค่าซ่อมรวม"
+                    value={`${formatCurrency(memoizedData.kpis.totalCost)}`}
+                    theme="purple"
+                    subtext="บาท"
+                />
             </div>
 
             {/* Main Chart Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left: Downtime & Cost Trend (Area Chart) */}
-                <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm p-6 border border-slate-100">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-slate-800">📉 แนวโน้ม Downtime และค่าใช้จ่าย</h3>
-                    </div>
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={memoizedData.charts.trendData}>
-                                <defs>
-                                    <linearGradient id="colorDowntime" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis yAxisId="left" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'ชม.', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} />
-                                <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'บาท', angle: 90, position: 'insideRight', style: { fill: '#94a3b8' } }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                />
-                                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                <Area yAxisId="left" type="monotone" dataKey="downtime" name="Downtime (ชม.)" stroke="#8884d8" fillOpacity={1} fill="url(#colorDowntime)" />
-                                <Line yAxisId="right" type="monotone" dataKey="cost" name="ค่าใช้จ่าย (บาท)" stroke="#ff7300" strokeWidth={3} dot={{ r: 4 }} />
-                            </ComposedChart>
-                        </ResponsiveContainer>
-                    </div>
+                <div className="lg:col-span-2">
+                    <Card title="📉 แนวโน้ม Downtime และค่าใช้จ่าย">
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={memoizedData.charts.trendData}>
+                                    <defs>
+                                        <linearGradient id="colorDowntime" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis yAxisId="left" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'ชม.', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} />
+                                    <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'บาท', angle: 90, position: 'insideRight', style: { fill: '#94a3b8' } }} />
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                    <Area yAxisId="left" type="monotone" dataKey="downtime" name="Downtime (ชม.)" stroke="#8884d8" fillOpacity={1} fill="url(#colorDowntime)" />
+                                    <Line yAxisId="right" type="monotone" dataKey="cost" name="ค่าใช้จ่าย (บาท)" stroke="#ff7300" strokeWidth={3} dot={{ r: 4 }} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
                 </div>
 
                 {/* Right: Top Downtime Vehicles */}
-                <div className="bg-white rounded-3xl shadow-sm p-6 border border-slate-100">
-                    <h3 className="text-xl font-bold text-slate-800 mb-6">🚗 5 อันดับรถเสียบ่อยที่สุด</h3>
+                <Card title="🚗 5 อันดับรถเสียบ่อยที่สุด">
                     <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart layout="vertical" data={memoizedData.charts.topDowntimeVehicles}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px' }} />
+                                <Tooltip content={<CustomTooltip unit="ชม." />} cursor={{ fill: '#f8fafc' }} />
                                 <Bar dataKey="value" name="Downtime (ชม.)" fill="#f43f5e" radius={[0, 4, 4, 0]} barSize={20} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
+                </Card>
             </div>
 
             {/* Bottom Section: PM Stats & Alerts */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* PM Compliance Circular Chart */}
-                <div className="bg-white rounded-3xl shadow-sm p-6 border border-slate-100 flex flex-col items-center justify-center">
-                    <h3 className="text-xl font-bold text-slate-800 mb-4 w-full text-left">✅ สัดส่วนสถานะแผน PM</h3>
+                <Card title="✅ สัดส่วนสถานะแผน PM">
                     <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -411,48 +468,51 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                                         <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#ef4444'} />
                                     ))}
                                 </Pie>
-                                <Tooltip />
+                                <Tooltip content={<CustomTooltip />} />
                                 <Legend verticalAlign="bottom" height={36} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
+                </Card>
 
                 {/* Alerts Table */}
-                <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm p-6 border border-slate-100">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-slate-800">🚨 การแจ้งเตือนและการวิเคราะห์</h3>
-                        <button onClick={handleExport} className="text-sm font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
-                            ดาวน์โหลด CSV
-                        </button>
-                    </div>
-                    <div className="overflow-auto max-h-64 pr-2 custom-scrollbar">
-                        {memoizedData.alerts.length > 0 ? (
-                            <table className="w-full">
-                                <tbody className="divide-y divide-gray-100">
-                                    {memoizedData.alerts.map((alert, index) => (
-                                        <tr key={index} className="group hover:bg-slate-50 transition-colors">
-                                            <td className="py-3 px-2">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${alert.priority === 'high' ? 'bg-red-100 text-red-800' :
-                                                    alert.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-green-100 text-green-800'
-                                                    }`}>
-                                                    {alert.priority.toUpperCase()}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-2 font-semibold text-slate-700">{alert.vehicle}</td>
-                                            <td className="py-3 px-2 text-slate-600 text-sm">{alert.details}</td>
-                                            <td className="py-3 px-2 text-right text-xs text-slate-400">{alert.type}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                <p>No active alerts. Good job! 👍</p>
-                            </div>
-                        )}
-                    </div>
+                <div className="lg:col-span-2">
+                    <Card
+                        title="🚨 การแจ้งเตือนและการวิเคราะห์"
+                        headerAction={
+                            <button onClick={handleExport} className="text-sm font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
+                                ดาวน์โหลด CSV
+                            </button>
+                        }
+                    >
+                        <div className="overflow-auto max-h-64 pr-2 custom-scrollbar">
+                            {memoizedData.alerts.length > 0 ? (
+                                <table className="w-full">
+                                    <tbody className="divide-y divide-gray-100">
+                                        {memoizedData.alerts.map((alert, index) => (
+                                            <tr key={index} className="group hover:bg-slate-50 transition-colors">
+                                                <td className="py-3 px-2">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${alert.priority === 'high' ? 'bg-red-100 text-red-800' :
+                                                        alert.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                                            'bg-green-100 text-green-800'
+                                                        }`}>
+                                                        {alert.priority.toUpperCase()}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-2 font-semibold text-slate-700">{alert.vehicle}</td>
+                                                <td className="py-3 px-2 text-slate-600 text-sm">{alert.details}</td>
+                                                <td className="py-3 px-2 text-right text-xs text-slate-400">{alert.type}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                    <p>No active alerts. Good job! 👍</p>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
                 </div>
             </div>
         </div>

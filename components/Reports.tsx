@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import type { Repair, StockItem, Technician } from '../types';
+import type { Repair, StockItem, Technician, AnnualPMPlan, MonthStatus } from '../types';
 import { formatCurrency } from '../utils';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -92,7 +91,7 @@ const getWeekNumber = (d: Date): number => {
     return weekNo;
 }
 
-const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[], purchaseOrders?: import('../types').PurchaseOrder[], suppliers?: import('../types').Supplier[] }> = ({ repairs, stock, technicians, purchaseOrders = [], suppliers = [] }) => {
+const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[], purchaseOrders?: import('../types').PurchaseOrder[], suppliers?: import('../types').Supplier[], annualPlans?: AnnualPMPlan[] }> = ({ repairs, stock, technicians, purchaseOrders = [], suppliers = [], annualPlans = [] }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [supplierViewMode, setSupplierViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
@@ -101,6 +100,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         const safeAllRepairs = Array.isArray(repairs) ? repairs : [];
         const safeStock = Array.isArray(stock) ? stock : [];
         const safePOs = Array.isArray(purchaseOrders) ? purchaseOrders : [];
+        const safeAnnualPlans = Array.isArray(annualPlans) ? annualPlans : [];
 
         const start = startDate ? new Date(startDate) : null;
         const end = endDate ? new Date(endDate) : null;
@@ -164,6 +164,36 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             .map(([name, value]) => ({ name, value: value as number }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 5);
+
+
+        // --- PM Plan Stats Logic ---
+        const pmStatusCounts = {
+            planned: 0,
+            completed: 0,
+            completed_unplanned: 0,
+            none: 0
+        };
+
+        safeAnnualPlans.forEach(plan => {
+            Object.entries(plan.months || {}).forEach(([monthIndex, status]) => {
+                const month = parseInt(monthIndex);
+                const planDate = new Date(plan.year, month, 1);
+
+                // Check if the plan month is within the filtered range
+                if ((!start || planDate >= start) && (!end || planDate <= end)) {
+                    if (status === 'planned') pmStatusCounts.planned++;
+                    else if (status === 'completed') pmStatusCounts.completed++;
+                    else if (status === 'completed_unplanned') pmStatusCounts.completed_unplanned++;
+                    else pmStatusCounts.none++;
+                }
+            });
+        });
+
+        const pmPlanStatusData = [
+            { name: 'ตามแผน (Planned)', value: pmStatusCounts.planned },
+            { name: 'เสร็จสิ้น (Completed)', value: pmStatusCounts.completed },
+            { name: 'เสร็จสิ้นนอกแผน (Unplanned)', value: pmStatusCounts.completed_unplanned },
+        ].filter(d => d.value > 0);
 
 
         // --- Stat Cards ---
@@ -260,11 +290,13 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 vehicleTypeAnalysisData,
                 formattedSupplierTrendData,
                 topSuppliers,
+                pmPlanStatusData, // Expose new data
             }
         };
-    }, [repairs, stock, startDate, endDate, purchaseOrders, supplierViewMode]);
+    }, [repairs, stock, startDate, endDate, purchaseOrders, supplierViewMode, annualPlans]);
 
     const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
+    const PM_COLORS = ['#fbbf24', '#10b981', '#3b82f6']; // Yellow (Planned), Green (Completed), Blue (Unplanned)
 
     return (
         <div className="space-y-8 animate-fade-in-up">
@@ -288,6 +320,56 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 <ModernStatCard theme="green" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} subtext="งาน" />
                 <ModernStatCard theme="orange" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)}`} subtext="บาท" />
                 <ModernStatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)}`} subtext="บาท/งาน" />
+            </div>
+
+            {/* PM Plan Status Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card title="สัดส่วนสถานะแผน PM" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.charts.pmPlanStatusData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={120}
+                                fill="#8884d8"
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {data.charts.pmPlanStatusData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={PM_COLORS[index % PM_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip unit="รายการ" />} />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                <tspan x="50%" dy="-10" fontSize="24" fontWeight="bold" fill="#334155">
+                                    {data.charts.pmPlanStatusData.reduce((sum, d) => sum + d.value, 0)}
+                                </tspan>
+                                <tspan x="50%" dy="25" fontSize="14" fill="#94a3b8">รายการ PM</tspan>
+                            </text>
+                        </PieChart>
+                    </ResponsiveContainer>
+                </Card>
+
+                <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)" className="h-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={data.charts.repairTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="date" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <Tooltip content={<CustomTooltip unit="งาน" />} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                            <Area type="monotone" dataKey="count" name="งานเสร็จสิ้น" stroke="#10b981" fillOpacity={1} fill="url(#colorTrend)" strokeWidth={3} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </Card>
             </div>
 
             {/* Supplier Purchase Analysis Section */}
@@ -351,7 +433,9 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                         </BarChart>
                     </ResponsiveContainer>
                 </Card>
+            </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card title="5 อันดับรถที่ซ่อมบ่อยที่สุด" className="h-[450px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={data.charts.topRepairedVehicles} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
@@ -390,7 +474,9 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                         </PieChart>
                     </ResponsiveContainer>
                 </Card>
+            </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card title="สัดส่วนการใช้อะไหล่ (5 อันดับแรก)" className="h-[450px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -416,26 +502,6 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)" className="h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={data.charts.repairTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="date" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-                            <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-                            <Tooltip content={<CustomTooltip unit="งาน" />} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                            <Area type="monotone" dataKey="count" name="งานเสร็จสิ้น" stroke="#10b981" fillOpacity={1} fill="url(#colorTrend)" strokeWidth={3} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card title="สรุปค่าใช้จ่ายรายเดือน (6 เดือนล่าสุด)" className="h-[450px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.charts.lastSixMonthsExpenses}>
@@ -447,7 +513,9 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                         </BarChart>
                     </ResponsiveContainer>
                 </Card>
+            </div>
 
+            <div className="grid grid-cols-1">
                 <Card title="วิเคราะห์การซ่อมตามประเภทรถ" className="h-[450px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={data.charts.vehicleTypeAnalysisData}>
@@ -462,6 +530,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </ResponsiveContainer>
                 </Card>
             </div>
+
         </div>
     );
 };

@@ -3,6 +3,7 @@ import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Supplier, S
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
+import RepairTimelineModal from './RepairTimelineModal';
 import { useToast } from '../context/ToastContext';
 import { promptForPassword, formatCurrency } from '../utils';
 
@@ -25,6 +26,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
     const [addUsedPartsRepair, setAddUsedPartsRepair] = useState<Repair | null>(null);
     const [viewingRepair, setViewingRepair] = useState<Repair | null>(null);
+    const [viewingTimelineRepair, setViewingTimelineRepair] = useState<Repair | null>(null);
     const { addToast } = useToast();
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -187,7 +189,12 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                     <td className="px-4 py-3 text-sm">{getTechnicianDisplay(repair)}</td>
                                     <td className="px-4 py-3 text-base">{new Date(repair.repairEndDate || repair.createdAt).toLocaleDateString('th-TH')}</td>
                                     <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
-                                    <td className="px-4 py-3 text-center space-x-2">
+                                    <td className="px-4 py-3 text-center space-x-2 flex justify-center items-center">
+                                        <button onClick={() => setViewingTimelineRepair(repair)} className="text-purple-600 hover:text-purple-800 transition-transform hover:scale-110 p-1" title="ดู Timeline">
+                                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                            </svg>
+                                        </button>
                                         <button onClick={() => {
                                             if (promptForPassword('แก้ไข')) {
                                                 setEditingRepair(repair);
@@ -295,6 +302,12 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     allRepairs={repairs}
                     technicians={technicians}
                     onClose={() => setViewingRepair(null)}
+                />
+            )}
+            {viewingTimelineRepair && (
+                <RepairTimelineModal
+                    repair={viewingTimelineRepair}
+                    onClose={() => setViewingTimelineRepair(null)}
                 />
             )}
             {addUsedPartsRepair && <AddUsedPartsModal repair={addUsedPartsRepair} onSaveIndividual={addUsedParts} onSaveFungible={updateFungibleStock} stock={stock} onClose={() => setAddUsedPartsRepair(null)} />}

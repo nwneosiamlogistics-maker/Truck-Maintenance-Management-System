@@ -1,14 +1,19 @@
-
 import React, { useMemo } from 'react';
 import type { Repair, Vehicle } from '../types';
-
-import { formatHoursToHHMM } from '../utils';
+import { formatHoursToHHMM, formatCurrency } from '../utils';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    Cell, ComposedChart, Line, Area, AreaChart
+} from 'recharts';
 
 interface KPIDashboardProps {
     repairs: Repair[];
     vehicles: Vehicle[];
 }
 
+const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981'];
+
+// --- Styled Components ---
 
 const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
     let gradient = '';
@@ -43,35 +48,30 @@ const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
     );
 };
 
-const BarChart: React.FC<{ title: string, data: { label: string, value: number, formattedValue: string, color?: string }[] }> = ({ title, data }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 0);
-    return (
-        <div className="bg-white rounded-3xl shadow-sm p-6 border border-slate-100 h-full">
-            <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                <span className="w-1 h-6 bg-blue-500 rounded-full inline-block"></span>
-                {title}
-            </h3>
-            <div className="space-y-4">
-                {data.length > 0 ? data.map((item, index) => (
-                    <div key={item.label} className="group">
-                        <div className="flex justify-between items-end mb-1">
-                            <span className="text-sm font-semibold text-slate-700">{item.label}</span>
-                            <span className="text-xs font-bold text-slate-500">{item.formattedValue}</span>
-                        </div>
-                        <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                            <div
-                                className={`h-full rounded-full flex items-center justify-end px-2 transition-all duration-500 ease-out group-hover:brightness-110 ${item.color || 'bg-blue-500'}`}
-                                style={{ width: `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` }}
-                            >
-                            </div>
-                        </div>
-                    </div>
-                )) : <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                    <p>ไม่มีข้อมูลเพียงพอ</p>
-                </div>}
+const Card: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+    <div className={`bg-white rounded-3xl shadow-sm p-6 border border-slate-100 ${className}`}>
+        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <span className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full inline-block shadow-sm"></span>
+            {title}
+        </h3>
+        {children}
+    </div>
+);
+
+const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
+                <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
+                {payload.map((entry: any, index: number) => (
+                    <p key={index} style={{ color: entry.color }} className="text-xs font-semibold mt-1">
+                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+                    </p>
+                ))}
             </div>
-        </div>
-    );
+        );
+    }
+    return null;
 };
 
 const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
@@ -110,16 +110,16 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             }
         });
         const vehicleDowntime = Object.entries(downtimeByVehicle)
-            .map(([plate, totalMillis]: [string, number]) => ({ plate, hours: totalMillis / (1000 * 60 * 60) }))
-            .sort((a, b) => b.hours - a.hours).slice(0, 5);
+            .map(([plate, totalMillis]: [string, number]) => ({ name: plate, value: Number((totalMillis / (1000 * 60 * 60)).toFixed(1)) }))
+            .sort((a, b) => b.value - a.value).slice(0, 5);
 
         const repairsByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
         const mostRepairedVehicles = Object.entries(repairsByVehicle)
-            .map(([plate, count]: [string, number]) => ({ plate, count }))
-            .sort((a, b) => b.count - a.count).slice(0, 5);
+            .map(([plate, count]: [string, number]) => ({ name: plate, value: count }))
+            .sort((a, b) => b.value - a.value).slice(0, 5);
 
         const costByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
             const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
@@ -135,8 +135,8 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             return acc;
         }, {} as Record<string, number>);
         const mostExpensiveVehicles = Object.entries(costByVehicle)
-            .map(([plate, totalCost]: [string, number]) => ({ plate, totalCost }))
-            .sort((a, b) => b.totalCost - a.totalCost).slice(0, 5);
+            .map(([plate, totalCost]: [string, number]) => ({ name: plate, value: totalCost }))
+            .sort((a, b) => b.value - a.value).slice(0, 5);
 
         return {
             mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost,
@@ -178,33 +178,59 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <BarChart
-                    title="5 อันดับรถที่เข้าซ่อมบ่อยที่สุด"
-                    data={kpiData.mostRepairedVehicles.map((v, i) => ({
-                        label: v.plate,
-                        value: v.count,
-                        formattedValue: `${v.count} ครั้ง`,
-                        color: i === 0 ? 'bg-indigo-500' : 'bg-indigo-400'
-                    }))}
-                />
-                <BarChart
-                    title="5 อันดับรถที่มีค่าใช้จ่ายซ่อมสูงสุด"
-                    data={kpiData.mostExpensiveVehicles.map((v, i) => ({
-                        label: v.plate,
-                        value: v.totalCost,
-                        formattedValue: `${v.totalCost.toLocaleString('th-TH', { maximumFractionDigits: 0 })} บาท`,
-                        color: i === 0 ? 'bg-rose-500' : 'bg-rose-400'
-                    }))}
-                />
-                <BarChart
-                    title="5 อันดับรถที่ใช้เวลาจอดซ่อม (Downtime) นานที่สุด"
-                    data={kpiData.vehicleDowntime.map((v, i) => ({
-                        label: v.plate,
-                        value: v.hours,
-                        formattedValue: formatHoursToHHMM(v.hours),
-                        color: i === 0 ? 'bg-amber-500' : 'bg-amber-400'
-                    }))}
-                />
+                <Card title="5 อันดับรถที่เข้าซ่อมบ่อยที่สุด">
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={kpiData.mostRepairedVehicles} layout="vertical" margin={{ left: 10, right: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                                <Tooltip content={<CustomTooltip unit="ครั้ง" />} cursor={{ fill: '#f8fafc' }} />
+                                <Bar dataKey="value" name="จำนวนครั้ง" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20}>
+                                    {kpiData.mostRepairedVehicles.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <Card title="5 อันดับรถที่มีค่าใช้จ่ายซ่อมสูงสุด">
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={kpiData.mostExpensiveVehicles} layout="vertical" margin={{ left: 10, right: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                                <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
+                                <Bar dataKey="value" name="ค่าใช้จ่าย" fill="#f43f5e" radius={[0, 4, 4, 0]} barSize={20}>
+                                    {kpiData.mostExpensiveVehicles.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <Card title="5 อันดับรถที่ใช้เวลาจอดซ่อม (Downtime) นานที่สุด">
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={kpiData.vehicleDowntime} layout="vertical" margin={{ left: 10, right: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                                <Tooltip content={<CustomTooltip unit="ชม." />} cursor={{ fill: '#f8fafc' }} />
+                                <Bar dataKey="value" name="ชม." fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20}>
+                                    {kpiData.vehicleDowntime.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
             </div>
         </div>
     );
