@@ -44,7 +44,7 @@ const AppContent: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('dashboard');
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    
+
     // Data Management using Firebase Realtime Database
     const [repairs, setRepairs] = useFirebase<Repair[]>('repairs', getDefaultRepairs);
     const [technicians, setTechnicians] = useFirebase<Technician[]>('technicians', getDefaultTechnicians);
@@ -68,7 +68,7 @@ const AppContent: React.FC = () => {
     const [toolTransactions, setToolTransactions] = useFirebase('toolTransactions', []);
     const [kpiData, setKpiData] = useFirebase<RepairKPI[]>('kpiData', getDefaultKpiData);
     const [holidays, setHolidays] = useFirebase<Holiday[]>('companyHolidays', []);
-    
+
     const { addToast } = useToast();
 
 
@@ -78,7 +78,7 @@ const AppContent: React.FC = () => {
         const repairsThisYear = repairs.filter(r => new Date(r.createdAt).getFullYear() === year);
         const nextId = repairsThisYear.length + 1;
         const newRepairOrderNo = `RO-${year}-${String(nextId).padStart(5, '0')}`;
-        
+
         const newRepair: Repair = {
             ...newRepairData,
             id: `R-${Date.now()}`,
@@ -93,22 +93,22 @@ const AppContent: React.FC = () => {
         setRepairs(prev => [newRepair, ...prev]);
         setActiveTab('list');
     };
-    
+
     const addUsedParts = (newUsedParts: Omit<UsedPart, 'id'>[]) => {
-        const fullUsedParts = newUsedParts.map(p => ({ ...p, id: `UP-${Date.now()}-${Math.random()}`}));
+        const fullUsedParts = newUsedParts.map(p => ({ ...p, id: `UP-${Date.now()}-${Math.random()}` }));
         setUsedParts(prev => [...fullUsedParts, ...prev]);
     };
 
     const updateFungibleStock = (updates: { stockItemId: string, quantity: number, repairOrderNo: string }[]) => {
         let updatedStock = [...stock];
         const newTransactions: StockTransaction[] = [];
-        
+
         updates.forEach(update => {
             const stockIndex = updatedStock.findIndex(s => s.id === update.stockItemId);
             if (stockIndex > -1) {
                 const stockItem = updatedStock[stockIndex];
                 stockItem.quantity += update.quantity;
-                
+
                 newTransactions.push({
                     id: `TXN-RETURN-${Date.now()}-${stockItem.id}`,
                     stockItemId: stockItem.id,
@@ -168,7 +168,7 @@ const AppContent: React.FC = () => {
             } else {
                 revolvingStockItemToUpdate = stock.find(s => s.name === partToUpdate.name && s.isRevolvingPart);
             }
-            
+
             if (revolvingStockItemToUpdate) {
                 setStock(prev => prev.map(s => s.id === revolvingStockItemToUpdate!.id ? { ...s, quantity: s.quantity - dispositionToRemove.quantity } : s));
                 setTransactions(prev => [{
@@ -180,9 +180,9 @@ const AppContent: React.FC = () => {
                 stockReverted = true;
             }
         } else if (dispositionToRemove.dispositionType === 'ย้ายไปสต็อกของเก่ารวม') {
-             const notes = dispositionToRemove.notes || '';
-             const match = notes.match(/ย้ายไปยังสต็อกของเก่า: (.*?) \(/);
-             if (match && match[1]) {
+            const notes = dispositionToRemove.notes || '';
+            const match = notes.match(/ย้ายไปยังสต็อกของเก่า: (.*?) \(/);
+            if (match && match[1]) {
                 const fungibleItemName = match[1];
                 const fungibleItemToUpdate = stock.find(s => s.name === fungibleItemName && s.isFungibleUsedItem);
                 if (fungibleItemToUpdate) {
@@ -195,15 +195,15 @@ const AppContent: React.FC = () => {
                     }, ...prev]);
                     stockReverted = true;
                 }
-             }
+            }
         }
-        
+
         // --- Update UsedPart state ---
         setUsedParts(prev => {
             const newUsedParts = [...(Array.isArray(prev) ? prev : [])];
             const updatedPart = { ...newUsedParts[partIndex] };
             updatedPart.dispositions = (updatedPart.dispositions || []).filter(d => d.id !== dispositionId);
-    
+
             const totalDisposedQty = updatedPart.dispositions.reduce((sum, d) => sum + d.quantity, 0);
             let newStatus: UsedPartBatchStatus = 'รอจัดการ';
             if (totalDisposedQty >= updatedPart.initialQuantity) {
@@ -212,14 +212,14 @@ const AppContent: React.FC = () => {
                 newStatus = 'จัดการบางส่วน';
             }
             updatedPart.status = newStatus;
-    
+
             newUsedParts[partIndex] = updatedPart;
             return newUsedParts;
         });
 
         addToast(`ย้อนกลับรายการ '${dispositionToRemove.dispositionType}' ของ '${partToUpdate.name}' ${stockReverted ? 'และคืนสต็อก' : ''}สำเร็จ`, 'success');
     };
-    
+
     const processUsedPartBatch = (
         partId: string,
         decision: { type: 'to_fungible' | 'to_revolving_stock' | 'dispose', fungibleStockId?: string, quantity?: number, notes?: string }
@@ -279,7 +279,7 @@ const AppContent: React.FC = () => {
                     addToast(`ย้าย '${partToProcess.name}' ไปยังสต็อกของเก่ารวมสำเร็จ`, 'success');
                 }
                 break;
-            
+
             case 'to_revolving_stock': {
                 const originalStockItem = stock.find(s => s.id === partToProcess.originalPartId && !s.isFungibleUsedItem);
                 let newStockList = [...stock];
@@ -339,14 +339,14 @@ const AppContent: React.FC = () => {
                         newStockList.push(revolvingStockItem);
                     }
                 }
-                
+
                 setStock(newStockList);
 
                 setTransactions(prev => [{
                     id: `TXN-REVOLVE-${Date.now()}`,
                     stockItemId: revolvingStockItem!.id, stockItemName: revolvingStockItem!.name, type: 'คืนของใช้ได้',
                     quantity: remainingQty, transactionDate: new Date().toISOString(), actor: 'ระบบ',
-                    notes: `รับคืนจากอะไหล่เก่า: ${partToProcess.name}${originalStockItem ? '' : ' (สร้างรายการใหม่)'}`, 
+                    notes: `รับคืนจากอะไหล่เก่า: ${partToProcess.name}${originalStockItem ? '' : ' (สร้างรายการใหม่)'}`,
                     pricePerUnit: originalPrice // Will be 0 for new items
                 }, ...prev]);
 
@@ -363,9 +363,9 @@ const AppContent: React.FC = () => {
                 addToast(`ย้าย '${partToProcess.name}' ไปยังคลังอะไหล่หมุนเวียนสำเร็จ`, 'success');
                 break;
             }
-            
+
             case 'dispose':
-                 setUsedParts(prev => prev.map(p => p.id === partId ? {
+                setUsedParts(prev => prev.map(p => p.id === partId ? {
                     ...p,
                     status: 'จัดการครบแล้ว',
                     dispositions: [...(p.dispositions || []), {
@@ -382,7 +382,7 @@ const AppContent: React.FC = () => {
     const stats = useMemo(() => {
         const pendingRepairs = (Array.isArray(repairs) ? repairs : []).filter(r => ['รอซ่อม', 'กำลังซ่อม', 'รออะไหล่'].includes(r.status)).length;
         const lowStock = (Array.isArray(stock) ? stock : []).filter(s => s.quantity <= s.minStock).length;
-        
+
         const dueMaintenance = (Array.isArray(maintenancePlans) ? maintenancePlans : []).filter(plan => {
             const nextServiceDate = new Date(plan.lastServiceDate);
             if (plan.frequencyUnit === 'days') nextServiceDate.setDate(nextServiceDate.getDate() + plan.frequencyValue);
@@ -394,7 +394,7 @@ const AppContent: React.FC = () => {
 
         return { pendingRepairs, lowStock, dueMaintenance };
     }, [repairs, stock, maintenancePlans]);
-    
+
     const unreadNotificationCount = useMemo(() => (Array.isArray(notifications) ? notifications : []).filter(n => !n.isRead).length, [notifications]);
 
     const renderContent = () => {
@@ -410,12 +410,14 @@ const AppContent: React.FC = () => {
                     stock={stock}
                     technicians={technicians}
                     annualPlans={annualPlans}
+                    purchaseOrders={purchaseOrders}
+                    suppliers={suppliers}
                 />;
             case 'form':
-                return <RepairForm 
-                    technicians={technicians} 
-                    stock={stock} 
-                    addRepair={addRepair} 
+                return <RepairForm
+                    technicians={technicians}
+                    stock={stock}
+                    addRepair={addRepair}
                     repairs={repairs}
                     setActiveTab={setActiveTab}
                     vehicles={vehicles}
@@ -426,11 +428,11 @@ const AppContent: React.FC = () => {
                     holidays={holidays}
                 />;
             case 'list':
-                return <RepairList 
-                    repairs={repairs} 
-                    setRepairs={setRepairs} 
-                    technicians={technicians} 
-                    stock={stock} 
+                return <RepairList
+                    repairs={repairs}
+                    setRepairs={setRepairs}
+                    technicians={technicians}
+                    stock={stock}
                     setStock={setStock}
                     transactions={transactions}
                     setTransactions={setTransactions}
@@ -440,10 +442,10 @@ const AppContent: React.FC = () => {
                     suppliers={suppliers}
                 />;
             case 'history':
-                return <RepairHistory 
+                return <RepairHistory
                     repairs={repairs}
                     setRepairs={setRepairs}
-                    technicians={technicians} 
+                    technicians={technicians}
                     stock={stock}
                     setStock={setStock}
                     transactions={transactions}
@@ -456,10 +458,10 @@ const AppContent: React.FC = () => {
             case 'vehicle-repair-history':
                 return <VehicleRepairHistory repairs={repairs} vehicles={vehicles} />;
             case 'stock':
-                return <StockManagement 
-                    stock={stock} 
-                    setStock={setStock} 
-                    transactions={transactions} 
+                return <StockManagement
+                    stock={stock}
+                    setStock={setStock}
+                    transactions={transactions}
                     setTransactions={setTransactions}
                     usedParts={usedParts}
                     updateUsedPart={updateUsedPart}
@@ -473,19 +475,19 @@ const AppContent: React.FC = () => {
                     processUsedPartBatch={processUsedPartBatch}
                 />;
             case 'stock-history':
-                 return <StockHistory transactions={transactions} stock={stock} repairs={repairs} technicians={technicians} />;
+                return <StockHistory transactions={transactions} stock={stock} repairs={repairs} technicians={technicians} />;
             case 'requisitions':
-                return <PurchaseRequisitionComponent 
-                    purchaseRequisitions={purchaseRequisitions} 
-                    setPurchaseRequisitions={setPurchaseRequisitions} 
-                    stock={stock} 
+                return <PurchaseRequisitionComponent
+                    purchaseRequisitions={purchaseRequisitions}
+                    setPurchaseRequisitions={setPurchaseRequisitions}
+                    stock={stock}
                     setStock={setStock}
                     setTransactions={setTransactions}
                     suppliers={suppliers}
                     setActiveTab={setActiveTab}
                 />;
             case 'purchase-orders':
-                return <PurchaseOrderManagement 
+                return <PurchaseOrderManagement
                     purchaseOrders={purchaseOrders}
                     setPurchaseOrders={setPurchaseOrders}
                     purchaseRequisitions={purchaseRequisitions}
@@ -512,9 +514,9 @@ const AppContent: React.FC = () => {
             case 'estimation':
                 return <Estimation repairs={repairs} kpiData={kpiData} />;
             case 'maintenance':
-                return <MaintenancePlanner 
-                    plans={maintenancePlans} 
-                    setPlans={setMaintenancePlans} 
+                return <MaintenancePlanner
+                    plans={maintenancePlans}
+                    setPlans={setMaintenancePlans}
                     repairs={repairs}
                     technicians={technicians}
                     history={pmHistory}
@@ -523,12 +525,12 @@ const AppContent: React.FC = () => {
                     setActiveTab={setActiveTab}
                     vehicles={vehicles}
                 />;
-             case 'kpi-management':
+            case 'kpi-management':
                 return <KPIManagement kpiData={kpiData} setKpiData={setKpiData} />;
             case 'vehicles':
                 return <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />;
             case 'preventive-maintenance':
-                return <PreventiveMaintenance 
+                return <PreventiveMaintenance
                     plans={maintenancePlans}
                     annualPlans={annualPlans}
                     setAnnualPlans={setAnnualPlans}
@@ -539,9 +541,9 @@ const AppContent: React.FC = () => {
                     technicians={technicians}
                 />;
             case 'daily-checklist':
-                return <DailyChecklistPage 
-                    checklists={checklists} 
-                    setChecklists={setChecklists} 
+                return <DailyChecklistPage
+                    checklists={checklists}
+                    setChecklists={setChecklists}
                     vehicles={vehicles}
                     technicians={technicians}
                     setRepairFormSeed={setRepairFormSeed}
@@ -550,8 +552,8 @@ const AppContent: React.FC = () => {
             case 'tire-check':
                 return <TireCheckPage inspections={tireInspections} setInspections={setTireInspections} vehicles={vehicles} repairs={repairs} technicians={technicians} />;
             case 'tool-management':
-                return <ToolManagement 
-                    tools={tools} 
+                return <ToolManagement
+                    tools={tools}
                     setTools={setTools}
                     transactions={toolTransactions}
                     setTransactions={setToolTransactions}
@@ -563,7 +565,7 @@ const AppContent: React.FC = () => {
                 return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
         }
     };
-    
+
     return (
         <div className="flex h-screen bg-slate-100">
             <Sidebar

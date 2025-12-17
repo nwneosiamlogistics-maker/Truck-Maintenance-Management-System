@@ -358,19 +358,31 @@ const calculateTotalCost = (repair: Repair): number => {
     return (Number(repair.repairCost) || 0) + partsCost + (Number(repair.partsVat) || 0) + (Number(repair.laborVat) || 0);
 };
 
-const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[] }> = ({ repairs, stock, technicians }) => {
+// Helper to get week number
+const getWeekNumber = (d: Date): number => {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    var weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return weekNo;
+}
+
+const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[], purchaseOrders?: import('../types').PurchaseOrder[], suppliers?: import('../types').Supplier[] }> = ({ repairs, stock, technicians, purchaseOrders = [], suppliers = [] }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [supplierViewMode, setSupplierViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
 
     const data = useMemo(() => {
         const safeAllRepairs = Array.isArray(repairs) ? repairs : [];
         const safeStock = Array.isArray(stock) ? stock : [];
+        const safePOs = Array.isArray(purchaseOrders) ? purchaseOrders : [];
 
         const start = startDate ? new Date(startDate) : null;
         const end = endDate ? new Date(endDate) : null;
         if (start) start.setHours(0, 0, 0, 0);
         if (end) end.setHours(23, 59, 59, 999);
 
+        // Filter Repairs
         const dateFilteredCreatedRepairs = safeAllRepairs.filter(r => {
             const repairDate = new Date(r.createdAt);
             return (!start || repairDate >= start) && (!end || repairDate <= end);
@@ -381,6 +393,69 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             const repairDate = new Date(r.repairEndDate);
             return (!start || repairDate >= start) && (!end || repairDate <= end);
         });
+
+        // Filter Purchase Orders
+        const dateFilteredPOs = safePOs.filter(po => {
+            // Only count active POs? Or all? Usually 'Ordered' or 'Received'. Let's include everything except Cancelled for now, or just 'Ordered'/'Received'.
+            // Assuming 'Ordered' and 'Received' are valid purchases.
+            if (po.status === 'Cancelled' || po.status === 'Draft') return false;
+
+            const poDate = new Date(po.orderDate);
+            return (!start || poDate >= start) && (!end || poDate <= end);
+        });
+
+
+        // --- Supplier Stats Logic ---
+        // Group by Time Period
+        const supplierPurchaseOverTime: Record<string, number> = {};
+
+        dateFilteredPOs.forEach(po => {
+            const date = new Date(po.orderDate);
+            let key = '';
+
+            if (supplierViewMode === 'daily') {
+                key = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            } else if (supplierViewMode === 'weekly') {
+                key = `${date.getFullYear()}-W${getWeekNumber(date)}`;
+            } else if (supplierViewMode === 'monthly') {
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            } else if (supplierViewMode === 'yearly') {
+                key = `${date.getFullYear()}`;
+            }
+
+            supplierPurchaseOverTime[key] = (supplierPurchaseOverTime[key] || 0) + po.totalAmount;
+        });
+
+        // Convert to Chart Data
+        const supplierTrendData = Object.entries(supplierPurchaseOverTime)
+            .map(([key, value]) => ({ label: key, value }))
+            .sort((a, b) => a.label.localeCompare(b.label)); // Chronological Sort
+
+        // Format Labels for Display
+        const formattedSupplierTrendData = supplierTrendData.map(d => {
+            let label = d.label;
+            if (supplierViewMode === 'monthly') {
+                const [y, m] = d.label.split('-');
+                const date = new Date(Number(y), Number(m) - 1);
+                label = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
+            } else if (supplierViewMode === 'daily') {
+                const date = new Date(d.label);
+                label = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+            }
+            // Weekly and Yearly left as is (YYYY-Www, YYYY) or formatted if needed
+            return { label, value: d.value };
+        });
+
+        // Top Suppliers
+        const supplierStats = dateFilteredPOs.reduce((acc: Record<string, number>, po) => {
+            acc[po.supplierName] = (acc[po.supplierName] || 0) + po.totalAmount;
+            return acc;
+        }, {} as Record<string, number>);
+        const topSuppliers = Object.entries(supplierStats)
+            .map(([label, value]) => ({ label, value: value as number }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5);
+
 
         // --- Stat Cards ---
         const totalRepairs = dateFilteredCreatedRepairs.length;
@@ -468,9 +543,11 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 partUsageData,
                 lastSixMonthsExpenses,
                 vehicleTypeAnalysisData,
+                formattedSupplierTrendData,
+                topSuppliers, // New: Top Suppliers
             }
         };
-    }, [repairs, stock, startDate, endDate]);
+    }, [repairs, stock, startDate, endDate, purchaseOrders, supplierViewMode]);
 
     return (
         <div className="space-y-6">
@@ -490,7 +567,27 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 <StatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)} ฿`} />
             </div>
 
+            {/* Supplier Purchase Analysis Section */}
+            <Card title="วิเคราะห์ยอดการสั่งซื้อ (ผู้จำหน่าย)">
+                <div className="mb-4 flex flex-wrap gap-2 justify-end">
+                    {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(mode => (
+                        <button
+                            key={mode}
+                            onClick={() => setSupplierViewMode(mode)}
+                            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${supplierViewMode === mode
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                }`}
+                        >
+                            {mode === 'daily' ? 'รายวัน' : mode === 'weekly' ? 'รายสัปดาห์' : mode === 'monthly' ? 'รายเดือน' : 'รายปี'}
+                        </button>
+                    ))}
+                </div>
+                <BarChart data={data.charts.formattedSupplierTrendData} />
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card title="5 อันดับผู้จำหน่ายที่มียอดซื้อสูงสุด (บาท)">{<HorizontalBarChart data={data.charts.topSuppliers} />}</Card>
                 <Card title="ประเภทการซ่อมที่พบบ่อย">{<HorizontalBarChart data={data.charts.topRepairCategories} />}</Card>
                 <Card title="5 อันดับรถที่ซ่อมบ่อยที่สุด">{<HorizontalBarChart data={data.charts.topRepairedVehicles} />}</Card>
                 <Card title="สถิติการส่งซ่อม">{<DonutChart data={data.charts.dispatchData} unit="งาน" />}</Card>
