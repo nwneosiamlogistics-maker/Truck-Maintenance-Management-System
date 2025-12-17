@@ -329,7 +329,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                         <BarChart layout="vertical" data={data.charts.topSuppliers} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                             <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <YAxis dataKey="name" type="category" width={180} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                             <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
                             <Bar dataKey="value" name="ยอดซื้อ" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20}>
                                 {data.charts.topSuppliers.map((entry, index) => (
@@ -397,9 +397,9 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                             <Pie
                                 data={data.charts.partUsageData}
                                 cx="50%"
-                                cy="50%"
+                                cy="40%"
                                 innerRadius={60}
-                                outerRadius={100}
+                                outerRadius={90}
                                 fill="#8884d8"
                                 paddingAngle={2}
                                 dataKey="value"
@@ -411,7 +411,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                                 ))}
                             </Pie>
                             <Tooltip content={<CustomTooltip unit="ชิ้น" />} />
-                            <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" />
+                            <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '11px', paddingTop: '20px' }} />
                         </PieChart>
                     </ResponsiveContainer>
                 </Card>
