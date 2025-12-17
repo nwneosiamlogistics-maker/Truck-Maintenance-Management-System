@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { Repair, StockItem, Technician } from '../types';
-import StatCard from './StatCard';
+
 import { formatCurrency } from '../utils';
 
 // --- Reusable Chart Components ---
@@ -343,9 +343,49 @@ const MixedBarLineChart = ({ data }: { data: { label: string; count: number; avg
 };
 
 
+const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
+    let gradient = '';
+    let iconPath = '';
+    switch (theme) {
+        case 'blue':
+            gradient = 'from-blue-500 to-indigo-600';
+            iconPath = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2';
+            break;
+        case 'green':
+            gradient = 'from-emerald-500 to-teal-600';
+            iconPath = 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z';
+            break;
+        case 'purple':
+            gradient = 'from-purple-500 to-pink-500';
+            iconPath = 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+            break;
+        case 'orange':
+            gradient = 'from-orange-500 to-red-500';
+            iconPath = 'M13 10V3L4 14h7v7l9-11h-7z';
+            break;
+        default: // gray/indigo default
+            gradient = 'from-slate-700 to-slate-800';
+            iconPath = 'M4 6h16M4 10h16M4 14h16M4 18h16';
+    }
+
+    return (
+        <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center`}>
+            <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor"><path d={iconPath} /></svg>
+            </div>
+            <p className="text-white/90 font-medium mb-1 relative z-10">{title}</p>
+            <h3 className="text-3xl font-extrabold relative z-10">{value}</h3>
+            {subtext && <p className="text-sm mt-2 opacity-80 relative z-10">{subtext}</p>}
+        </div>
+    );
+};
+
 const Card: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
-    <div className={`bg-white/40 backdrop-blur-lg border border-white/20 rounded-2xl shadow-lg p-6 ${className}`}>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">{title}</h3>
+    <div className={`bg-white rounded-3xl shadow-sm p-6 border border-slate-100 ${className}`}>
+        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <span className="w-1 h-6 bg-blue-500 rounded-full inline-block"></span>
+            {title}
+        </h3>
         {children}
     </div>
 );
@@ -498,7 +538,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         }, {} as Record<string, number>);
         const partUsageData = Object.entries(partUsage).map(([label, value]) => ({ label, value: value as number })).sort((a, b) => b.value - a.value).slice(0, 5);
 
-        // Corrected logic for sorting monthly expenses using a sortable key (YYYY-MM).
+        // Corrected logic for monthly expenses
         const monthlyExpenses: Record<string, { value: number, label: string }> = {};
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
@@ -550,21 +590,27 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
     }, [repairs, stock, startDate, endDate, purchaseOrders, supplierViewMode]);
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap justify-between items-center gap-4">
-                <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-2 rounded-lg border border-white/30">
-                    <label className="text-sm font-semibold text-gray-600">จาก:</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-1.5 border border-gray-300 rounded-md text-sm" />
-                    <label className="text-sm font-semibold text-gray-600">ถึง:</label>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-1.5 border border-gray-300 rounded-md text-sm" />
+        <div className="space-y-8 animate-fade-in-up">
+            <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+                        รายงานและสถิติ (Reports & Statistics)
+                    </h2>
+                    <p className="text-gray-500 mt-1">ภาพรวมสถิติการซ่อมบำรุงและค่าใช้จ่าย</p>
+                </div>
+                <div className="flex items-center gap-2 mt-4 md:mt-0 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                    <span className="text-sm font-semibold text-gray-600">จาก:</span>
+                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                    <span className="text-sm font-semibold text-gray-600">ถึง:</span>
+                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <StatCard theme="gray" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} align="center" />
-                <StatCard theme="blue" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} align="center" />
-                <StatCard theme="green" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)} บาท`} align="center" />
-                <StatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)} บาท`} align="center" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <ModernStatCard theme="blue" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} subtext="งาน" />
+                <ModernStatCard theme="green" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} subtext="งาน" />
+                <ModernStatCard theme="orange" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)}`} subtext="บาท" />
+                <ModernStatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)}`} subtext="บาท/งาน" />
             </div>
 
             {/* Supplier Purchase Analysis Section */}
