@@ -241,7 +241,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         }, {} as Record<string, { count: number; totalCost: number }>);
 
         const vehicleTypeAnalysisData = Object.entries(repairsByVehicleType)
-            .map(([label, data]) => ({
+            .map(([label, data]: [string, { count: number; totalCost: number }]) => ({
                 name: label,
                 count: data.count,
                 avgCost: data.count > 0 ? data.totalCost / data.count : 0,

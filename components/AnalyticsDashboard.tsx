@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Repair, MaintenancePlan, Vehicle, PMHistory, StockItem, Technician, AnnualPMPlan } from '../types';
+import type { Repair, MaintenancePlan, Vehicle, PMHistory, StockItem, Technician, AnnualPMPlan, PurchaseOrder, Supplier } from '../types';
 
 import FleetKPIDashboard from './FleetKPIDashboard';
 import Reports from './Reports';

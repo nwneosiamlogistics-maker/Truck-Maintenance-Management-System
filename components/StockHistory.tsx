@@ -119,12 +119,12 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
         // 1. Stock Value Distribution (Current Stock)
         const stockValueByCategory = (Array.isArray(stock) ? stock : []).reduce((acc, item) => {
             const cat = item.category || 'อื่นๆ';
-            acc[cat] = (acc[cat] || 0) + (item.quantity * item.price);
+            acc[cat] = (acc[cat] || 0) + (Number(item.quantity) * Number(item.price));
             return acc;
         }, {} as Record<string, number>);
 
         const pieData = Object.entries(stockValueByCategory)
-            .map(([name, value]) => ({ name, value }))
+            .map(([name, value]: [string, number]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
 
         // 2. Usage Trend (Last 6 Months) - Internal vs External Costs
@@ -134,7 +134,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
             .filter(t => t.type === 'เบิกใช้' || t.type === 'ปรับสต็อก') // Including adjust down? Just usage usually.
             .reduce((acc, t) => {
                 const month = new Date(t.transactionDate).toLocaleString('th-TH', { month: 'short' });
-                const val = Math.abs(t.quantity * (t.pricePerUnit || 0));
+                const val = Math.abs(Number(t.quantity) * (Number(t.pricePerUnit) || 0));
                 acc[month] = (acc[month] || 0) + val;
                 return acc;
             }, {} as Record<string, number>);
@@ -178,7 +178,7 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                             <div>
                                 <p className="text-sm opacity-70 uppercase tracking-wide">มูลค่าสต็อกปัจจุบัน</p>
                                 <p className="text-4xl font-bold mt-1">
-                                    {formatCurrency((Array.isArray(stock) ? stock : []).reduce((sum, s) => sum + (s.quantity * s.price), 0))}
+                                    {formatCurrency((Array.isArray(stock) ? stock : []).reduce((sum, s) => sum + (Number(s.quantity) * Number(s.price)), 0))}
                                 </p>
                             </div>
                             <div>
