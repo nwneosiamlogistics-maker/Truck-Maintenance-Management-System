@@ -888,3 +888,230 @@ export interface InsuranceAlert {
     severity: 'low' | 'medium' | 'high';
     message: string;
 }
+
+export type CargoCoverageType = 'All Risks' | 'Named Perils' | 'Total Loss Only';
+
+export interface CargoInsurancePolicy {
+    id: string;
+    policyNumber: string;
+    insurer: string;
+    coverageType: CargoCoverageType;
+    coverageLimit: number;
+    deductible: number;
+    premium: number;
+    startDate: string;
+    expiryDate: string;
+    termsAndConditions?: string;
+    status: 'Active' | 'Expired' | 'Cancelled';
+    notes?: string;
+}
+
+export interface CargoInsuranceClaim {
+    id: string;
+    policyId: string;
+    claimNumber: string;
+    jobId?: string; // Link to a transport job/trip
+    vehicleId?: string;
+    vehicleLicensePlate?: string;
+    incidentDate: string;
+    incidentLocation: string;
+    cargoDescription: string;
+    damageDescription: string;
+    packagingType?: string;
+
+    claimedAmount: number;
+    approvedAmount?: number;
+    deductible?: number;
+
+    status: InsuranceClaimStatus;
+
+    photos: FileAttachment[];
+    documents: FileAttachment[];
+
+    notes?: string;
+
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface IncidentInvestigationReport {
+    id: string;
+    reportNo: string;
+
+    // 1. General Information
+    incidentDate: string;
+    incidentTime: string;
+    incidentShift: '02:01-06:00' | '06:01-12:00' | '12:01-18:00' | '18:01-02:00';
+    incidentTitle: string;
+    reportType: 'Near Miss' | 'Accident';
+    accidentType?: 'Company Premise' | 'Client Premise' | 'In Transit';
+
+    // 2. Incident Type Details
+    incidentType: {
+        injuryFatality: boolean;
+        employeeInjuredCount?: number;
+        employeeDeadCount?: number;
+        thirdPartyInjuredCount?: number;
+        thirdPartyDeadCount?: number;
+
+        fireExplosion: boolean;
+        spill: boolean;
+        spillDetails?: string;
+        propertyDamage: boolean;
+        propertyDamageDetails?: string;
+        envImpact: boolean;
+        vehicleIncident: boolean;
+        vehicleIncidentTankNo?: string;
+        vehicleIncidentThirdPartyNo?: string;
+        reputationImpact: boolean;
+        other: boolean;
+        otherDetails?: string;
+    };
+
+    // 3. Person Involved (Driver)
+    driverId?: string;
+    driverName: string;
+    driverAge?: number;
+    driverExperienceYears?: number;
+    driverTrainingHistory?: string; // Multi-line text
+
+    // 4. Location
+    location: string;
+    locationIsCompanyPremise: boolean;
+    vehicleId?: string;
+    vehicleLicensePlate: string;
+
+    // 5. Description
+    description: string;
+
+    // 6. Immediate Actions
+    immediateCorrectiveActions: string;
+    restorationDetails: string;
+
+    // 6.1 Notifications
+    notifications: {
+        lineManager?: string;
+        carrier?: string;
+        insurance?: string;
+        relatives?: string;
+        authorities?: string;
+        others?: string;
+    };
+
+    // 7. Tests (Alcohol & Drug)
+    drugAlcoholTest: {
+        alcoholDate?: string;
+        alcoholTime?: string;
+        alcoholResult: 'Found' | 'Not Found' | 'Not Tested';
+        alcoholValueMg?: string;
+
+        drugDate?: string;
+        drugTime?: string;
+        drugResult: 'Found' | 'Not Found' | 'Not Tested';
+
+        medicationCheck: 'Yes' | 'No' | 'Unknown';
+    };
+
+    // 8. Injured Persons List
+    injuredEmployees: { name: string; age?: number; jobTitle?: string; injuryNature?: string; absence?: boolean }[];
+    injuredThirdParties: { name: string; age?: number; jobTitle?: string; injuryNature?: string; absence?: boolean }[];
+
+    // 9. Damaged Product
+    damagedProducts: { name: string; quantity: number; estimatedLoss: number }[];
+
+    // 10. Env Impact
+    envProximityDetails?: string;
+    envEstimatedLoss?: number;
+
+    // 11. Property Damage List
+    damagedProperties: { description: string; owner: 'Company' | '3rd Party'; estimatedLoss: number }[];
+
+    // 12-13. Authorities & Medai
+    authoritiesInvolved?: string;
+    mediaCoverage: 'None' | 'Radio' | 'TV' | 'Newspaper' | 'Other';
+    mediaDetails?: string;
+
+    // 14. Effect on Equipment/Product
+    effectOnEquipment?: string;
+    effectOnProductQuality?: string;
+
+    // 15. Analysis (Root Causes)
+    rootCauseAnalysis: {
+        personalFactors: string[];
+        routeHazardous: string[];
+        truckCondition: string[];
+        environment: string[];
+        companyPolicy: string[];
+        otherCheck?: string[];
+        remarks: string; // explanation for "Other" in each category
+    };
+
+    whyWhyAnalysis?: {
+        problem: string;
+        roots: {
+            id: string;
+            text: string;
+            children: any[]; // Using any[] for recursive type simplicity in this context
+        }[];
+    };
+
+    scatAnalysis?: {
+        lackOfControl: string; // ขาดการควบคุมดูแล
+        basicCauses: string;   // สาเหตุพื้นฐาน
+        immediateCauses: string; // สาเหตุขณะนั้น
+        incident: string;      // อุบัติการณ์
+        accident: string;      // อุบัติเหตุ
+    };
+
+    // 16. Preventive Actions
+    preventiveActions: { action: string; responsiblePerson: string; dueDate: string; completedDate?: string }[];
+
+    // 17. Recommendations
+    recommendations: { recommendation: string; responsiblePerson: string }[];
+
+    // 18. Team
+    investigationTeam: { name: string; position: string; company: string }[];
+
+    // 19. Management Review
+    managementReview: {
+        requireMoreInvestigation: boolean;
+        reviewerName: string;
+        reviewedDate: string;
+    };
+
+    topManagementAcknowledge?: {
+        name: string;
+        position: string;
+        company: string;
+        date: string;
+    };
+
+    // Checklist Conditions
+    siteConditions: {
+        roadSurface?: 'Smooth' | 'Rough';
+        lighting?: 'Night (Street Lights)' | 'Night (No Lights)' | 'Day';
+        visibility?: 'Clear' | 'Fog/Dust' | 'Glare' | 'Rain' | 'Obstacle';
+        locationType?: string; // 1-16
+        locationTypeOther?: string;
+    };
+
+    // Linked Claims
+    relatedVehicleClaimId?: string;
+    relatedCargoClaimId?: string;
+
+    status: 'Open' | 'Investigating' | 'Closed';
+    investigatorName: string; // Usually prepared by
+    investigationDate: string;
+
+    // 5.2 Evidence
+    evidence: {
+        accidentPhotos?: FileAttachment[];
+        skidMarkPhotos?: FileAttachment[];
+        transportManifest?: FileAttachment[];
+        gpsData?: FileAttachment[];
+    };
+
+    createdAt: string;
+    updatedAt: string;
+    createdBy: string;
+}

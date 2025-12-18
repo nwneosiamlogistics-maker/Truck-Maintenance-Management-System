@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import type { InsuranceClaim, IncidentType, Vehicle } from '../types';
 import { formatCurrency } from '../utils';
 
@@ -14,11 +15,12 @@ const INCIDENT_TYPES: { value: IncidentType; label: string; icon: string }[] = [
     { value: 'theft', label: 'ขโมย (รถหาย/อุปกรณ์หาย)', icon: '🦹' },
     { value: 'fire', label: 'ไฟไหม้', icon: '🔥' },
     { value: 'flood', label: 'น้ำท่วม', icon: '🌊' },
-    { value: 'other', label: 'อื่นๆ (แตกเกิน, ฟ้าผ่า)', icon: '⚡' }
+    { value: 'other', label: 'ความเสียหายอื่นๆ (Other)', icon: '⚡' }
 ];
 
 const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose, onSave, vehicles, existingClaims }) => {
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+    const [otherIncidentDetail, setOtherIncidentDetail] = useState('');
 
     // Generate next claim number
     const generateNextClaimNumber = () => {
@@ -81,7 +83,9 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
             reportedBy: formData.reportedBy,
             incidentType: formData.incidentType,
             incidentLocation: formData.incidentLocation,
-            description: formData.description,
+            description: formData.incidentType === 'other' && otherIncidentDetail
+                ? `[สาเหตุ: ${otherIncidentDetail}] ${formData.description}`
+                : formData.description,
             policeReportNumber: formData.policeReportNumber || undefined,
             damageAssessment: formData.damageAssessment,
             claimAmount: Math.max(0, claimAmount),
@@ -117,10 +121,10 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
         setSelectedVehicle(vehicle || null);
     };
 
-    return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-rose-50">
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in" onClick={onClose} style={{ zIndex: 9999 }}>
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-rose-50 flex-shrink-0">
                     <div className="flex justify-between items-center">
                         <div>
                             <h3 className="text-2xl font-bold text-slate-800">เพิ่มการเคลมประกันรถ</h3>
@@ -137,7 +141,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)] custom-scrollbar">
+                <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                     {/* Claim Number */}
                     <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                         <p className="text-xs text-blue-600 font-medium mb-1">เลขที่เคลม</p>
@@ -260,6 +264,19 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                     </label>
                                 ))}
                             </div>
+                            {formData.incidentType === 'other' && (
+                                <div className="mt-3 animate-fade-in-up">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">ระบุความเสียหายอื่นๆ / สาเหตุ *</label>
+                                    <input
+                                        type="text"
+                                        value={otherIncidentDetail}
+                                        onChange={(e) => setOtherIncidentDetail(e.target.value)}
+                                        required
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
+                                        placeholder="ระบุสาเหตุความเสียหาย..."
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* Location */}
@@ -411,7 +428,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                     </div>
                 </form>
 
-                <div className="p-6 border-t border-gray-100 bg-slate-50 flex justify-end gap-3">
+                <div className="p-6 border-t border-gray-100 bg-slate-50 flex-shrink-0 flex justify-end gap-3 rounded-b-[2rem]">
                     <button
                         type="button"
                         onClick={onClose}
@@ -428,7 +445,8 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
