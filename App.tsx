@@ -424,6 +424,10 @@ const AppContent: React.FC = () => {
                     annualPlans={annualPlans}
                     purchaseOrders={purchaseOrders}
                     suppliers={suppliers}
+                    transactions={transactions}
+                    usedParts={usedParts}
+                    deleteUsedPartDisposition={deleteUsedPartDisposition}
+                    drivers={drivers}
                 />;
             case 'form':
                 return <RepairForm
@@ -438,6 +442,7 @@ const AppContent: React.FC = () => {
                     clearInitialData={() => setRepairFormSeed(null)}
                     kpiData={kpiData}
                     holidays={holidays}
+                    drivers={drivers}
                 />;
             case 'list':
                 return <RepairList

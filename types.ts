@@ -47,6 +47,7 @@ export interface EstimationAttempt {
 export interface Repair {
     id: string;
     repairOrderNo: string;
+    vehicleId?: string; // ID ของรถ (เพื่อการเชื่อมโยงที่แม่นยำ)
     licensePlate: string;
     vehicleType: string;
     vehicleMake?: string;

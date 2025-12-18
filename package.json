@@ -11,9 +11,11 @@
   "dependencies": {
     "@google/genai": "^1.19.0",
     "firebase": "^12.2.1",
+    "lucide-react": "^0.561.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "recharts": "^3.6.0"
+    "recharts": "^3.6.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

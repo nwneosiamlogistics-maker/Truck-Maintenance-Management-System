@@ -1,10 +1,16 @@
 
 import React from 'react';
 import type { Tab } from '../types';
+import {
+    Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
+    Shield, Calendar, Clock, ClipboardCheck, Disc, Box, ShoppingCart,
+    File, Store, Users, PenTool, UserCog, BookOpen, Wallet, Fuel,
+    Settings, ChevronLeft, ChevronRight, AlertTriangle, User
+} from 'lucide-react';
 
 interface NavItemProps {
     id: Tab;
-    icon: string;
+    icon: React.ReactNode;
     label: string;
     activeTab: Tab;
     onClick: (tab: Tab) => void;
@@ -24,7 +30,7 @@ const NavItem: React.FC<NavItemProps> = ({ id, icon, label, activeTab, onClick, 
                     }`}
                 onClick={() => onClick(id)}
             >
-                <span className="text-2xl w-6 text-center">{icon}</span>
+                <span className="text-2xl w-6 flex justify-center items-center">{icon}</span>
                 {!isCollapsed && <span className="ml-4 font-medium text-base flex-1 text-left">{label}</span>}
                 {!isCollapsed && badgeCount && badgeCount > 0 ? (
                     <span className={`text-sm font-bold text-white ${badgeBg} rounded-full px-2 py-0.5`}>
@@ -55,72 +61,69 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
     const navItems = [
         {
             section: 'ภาพรวม', items: [
-                { id: 'dashboard', icon: '🏠', label: 'แดชบอร์ด' },
-                { id: 'analytics', icon: '📈', label: 'รายงานและวิเคราะห์' },
+                { id: 'dashboard', icon: <Home size={20} />, label: 'แดชบอร์ด' },
+                { id: 'analytics', icon: <BarChart2 size={20} />, label: 'รายงานและวิเคราะห์' },
             ]
         },
         {
             section: 'งานซ่อมบำรุง', items: [
-                { id: 'form', icon: '📝', label: 'เพิ่มใบแจ้งซ่อม' },
-                { id: 'list', icon: '📊', label: 'รายการใบแจ้งซ่อม', badge: stats.pendingRepairs, badgeColor: 'red' },
-                { id: 'technician-view', icon: '📱', label: 'สำหรับช่าง' },
-                { id: 'history', icon: '📜', label: 'ประวัติการซ่อม' },
-                { id: 'vehicle-repair-history', icon: '🚚📜', label: 'ประวัติซ่อมรายคัน' },
+                { id: 'form', icon: <FileText size={20} />, label: 'เพิ่มใบแจ้งซ่อม' },
+                { id: 'list', icon: <ClipboardList size={20} />, label: 'รายการใบแจ้งซ่อม', badge: stats.pendingRepairs, badgeColor: 'red' },
+                { id: 'technician-view', icon: <Smartphone size={20} />, label: 'สำหรับช่าง' },
+                { id: 'history', icon: <History size={20} />, label: 'ประวัติการซ่อม' },
+                { id: 'vehicle-repair-history', icon: <Truck size={20} />, label: 'ประวัติซ่อมรายคัน' },
             ]
         },
         {
             section: 'การวางแผน', items: [
-                { id: 'preventive-maintenance', icon: '🛡️', label: 'แผนซ่อมบำรุง PM', badge: stats.dueMaintenance, badgeColor: 'yellow' },
-                { id: 'maintenance', icon: '📅', label: 'วางแผนซ่อมบำรุง' },
-                { id: 'estimation', icon: '⏱️', label: 'ระบบประมาณการณ์' },
+                { id: 'preventive-maintenance', icon: <AlertTriangle size={20} />, label: 'แผนซ่อมบำรุง PM', badge: stats.dueMaintenance, badgeColor: 'yellow' },
+                { id: 'maintenance', icon: <Calendar size={20} />, label: 'วางแผนซ่อมบำรุง' },
+                { id: 'estimation', icon: <Clock size={20} />, label: 'ระบบประมาณการณ์' },
             ]
         },
         {
             section: 'การจัดการยานพาหนะ', items: [
-                { id: 'vehicles', icon: '🚚', label: 'ข้อมูลรถและประกันภัย' },
-                { id: 'daily-checklist', icon: '📋', label: 'รายการตรวจเช็ค' },
-                { id: 'tire-check', icon: '🛞', label: 'ตรวจเช็คยาง' },
+                { id: 'vehicles', icon: <Truck size={20} />, label: 'ข้อมูลรถและประกันภัย' },
+                { id: 'daily-checklist', icon: <ClipboardCheck size={20} />, label: 'รายการตรวจเช็ค' },
+                { id: 'tire-check', icon: <Disc size={20} />, label: 'ตรวจเช็คยาง' },
             ]
         },
         {
             section: 'คลังสินค้าและจัดซื้อ', items: [
-                { id: 'stock', icon: '📦', label: 'จัดการสต๊อกอะไหล่', badge: stats.lowStock, badgeColor: 'yellow' },
-                { id: 'stock-history', icon: '📋', label: 'ประวัติเบิกจ่าย' },
-                { id: 'requisitions', icon: '🛒', label: 'ใบขอซื้อ (PR)' },
-                { id: 'purchase-orders', icon: '📑', label: 'ใบสั่งซื้อ (PO)' },
-                { id: 'suppliers', icon: '🏬', label: 'จัดการผู้จำหน่าย' },
-                { id: 'used-part-buyers', icon: '🤝', label: 'จัดการผู้รับซื้อ' },
-                { id: 'used-part-report', icon: '🔩', label: 'รายงานอะไหล่เก่า' },
+                { id: 'stock', icon: <Box size={20} />, label: 'จัดการสต๊อกอะไหล่', badge: stats.lowStock, badgeColor: 'yellow' },
+                { id: 'requisitions', icon: <ShoppingCart size={20} />, label: 'ใบขอซื้อ (PR)' },
+                { id: 'purchase-orders', icon: <File size={20} />, label: 'ใบสั่งซื้อ (PO)' },
+                { id: 'suppliers', icon: <Store size={20} />, label: 'จัดการผู้จำหน่าย' },
+                { id: 'used-part-buyers', icon: <Users size={20} />, label: 'จัดการผู้รับซื้อ' },
             ]
         },
         {
             section: 'เครื่องมือและอุปกรณ์', items: [
-                { id: 'tool-management', icon: '🛠️', label: 'จัดการเครื่องมือ' },
+                { id: 'tool-management', icon: <PenTool size={20} />, label: 'จัดการเครื่องมือ' },
             ]
         },
         {
             section: 'บุคลากร', items: [
-                { id: 'technicians', icon: '👨‍🔧', label: 'จัดการช่าง' },
-                { id: 'technicianPerformance', icon: '🧑‍📈', label: 'รายงานประสิทธิภาพช่าง' },
-                { id: 'technicianWorkLog', icon: '📖', label: 'ประวัติงานซ่อมช่าง' },
-                { id: 'driver-management', icon: '👨‍✈️', label: 'จัดการพนักงานขับรถ' },
+                { id: 'technicians', icon: <UserCog size={20} />, label: 'จัดการช่าง' },
+                { id: 'technicianWorkLog', icon: <BookOpen size={20} />, label: 'ประวัติงานซ่อมช่าง' },
+                { id: 'driver-management', icon: <User size={20} />, label: 'จัดการพนักงานขับรถ' },
             ]
         },
         {
             section: 'การเงินและทรัพยากร', items: [
-                { id: 'budget-management', icon: '💰', label: 'จัดการงบประมาณ' },
-                { id: 'fuel-management', icon: '⛽', label: 'บริหารจัดการน้ำมัน' },
+                { id: 'budget-management', icon: <Wallet size={20} />, label: 'จัดการงบประมาณ' },
+                { id: 'fuel-management', icon: <Fuel size={20} />, label: 'บริหารจัดการน้ำมัน' },
             ]
         },
         {
             section: 'การจัดการความเสี่ยง', items: [
-                { id: 'warranty-insurance', icon: '🛡️', label: 'การรับประกันและประกันภัย' },
+                { id: 'warranty-insurance', icon: <Shield size={20} />, label: 'การรับประกันและประกันภัย' },
             ]
         },
         {
             section: 'รายงานและการตั้งค่า', items: [
-                { id: 'kpi-management', icon: '🔧', label: 'จัดการ KPI' },
-                { id: 'settings', icon: '⚙️', label: 'ตั้งค่าระบบ' },
+                { id: 'kpi-management', icon: <BarChart2 size={20} />, label: 'จัดการ KPI' },
+                { id: 'settings', icon: <Settings size={20} />, label: 'ตั้งค่าระบบ' },
             ]
         },
     ];

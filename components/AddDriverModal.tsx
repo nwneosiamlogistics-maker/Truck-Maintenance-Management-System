@@ -420,7 +420,6 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                     </button>
                     <button
                         type="submit"
-                        onClick={handleSubmit}
                         className="px-8 py-2.5 text-sm font-bold text-white bg-purple-600 rounded-xl hover:bg-purple-700 shadow-md hover:shadow-lg transition-all active:scale-95"
                     >
                         บันทึกข้อมูลคนขับ

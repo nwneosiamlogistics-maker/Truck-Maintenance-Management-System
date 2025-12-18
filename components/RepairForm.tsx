@@ -1,5 +1,5 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef, useCallback } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
@@ -59,9 +59,10 @@ interface RepairFormProps {
     clearInitialData: () => void;
     kpiData: RepairKPI[];
     holidays: Holiday[];
+    drivers: Driver[];
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays, drivers }) => {
 
     const getInitialState = () => {
         const getRoundedStartDate = () => {
@@ -76,6 +77,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         return {
             repairOrderNo: 'จะถูกสร้างอัตโนมัติ',
+            vehicleId: '',
             licensePlate: '',
             vehicleType: '',
             vehicleMake: '',
@@ -116,6 +118,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 postRepair: [],
             },
             kpiTaskIds: [],
+            driverId: '',
         };
     };
 
@@ -283,13 +286,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        const finalValue = (['repairCost', 'partsVat', 'laborVat', 'laborVatRate'].includes(name))
+        const finalValue = (['repairCost', 'partsVat', 'laborVat', 'laborVatRate', 'currentMileage'].includes(name))
             ? parseFloat(value) || 0
             : value;
 
         setFormData(prev => ({ ...prev, [name]: finalValue }));
 
         if (name === 'licensePlate') {
+            // Reset vehicleId when manually typing to ensure validity required picking from suggestion or saving as new unbound text
+            setFormData(prev => ({ ...prev, vehicleId: '' }));
+
             if (value) {
                 const filteredSuggestions = vehicles.filter(v =>
                     v.licensePlate.toLowerCase().includes(value.toLowerCase())
@@ -328,6 +334,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         setFormData(prev => ({
             ...prev,
+            vehicleId: vehicle.id,
             licensePlate: vehicle.licensePlate,
             vehicleMake: vehicle.make || '',
             vehicleModel: vehicle.model || '',
@@ -566,6 +573,40 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">พนักงานขับรถ</label>
+                                <select
+                                    name="driverId"
+                                    value={formData.driverId || ''}
+                                    onChange={(e) => {
+                                        const selectedDriver = drivers.find(d => d.id === e.target.value);
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            driverId: e.target.value,
+                                            reportedBy: selectedDriver ? selectedDriver.name : prev.reportedBy
+                                        }));
+                                    }}
+                                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="">-- เลือกพนักงานขับรถ --</option>
+                                    {drivers && drivers.map(driver => (
+                                        <option key={driver.id} value={driver.id}>{driver.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">เลขไมล์ปัจจุบัน (กม.)</label>
+                                <input
+                                    type="number"
+                                    name="currentMileage"
+                                    value={formData.currentMileage}
+                                    onChange={handleInputChange}
+                                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                    placeholder="เช่น 120500"
+                                />
+                            </div>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
@@ -591,7 +632,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <label className="block text-sm font-medium text-gray-700">อาการเสีย *</label>
                             <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={4} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required></textarea>
                         </div>
-                    </div>
+                    </div >
                 );
             case 1: // การประเมินและมอบหมาย
                 return (
