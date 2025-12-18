@@ -578,7 +578,15 @@ const AppContent: React.FC = () => {
             case 'driver-management':
                 return <DriverManagement drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} fuelRecords={fuelRecords} incidents={drivingIncidents} repairs={repairs} />;
             case 'warranty-insurance':
-                return <WarrantyInsuranceManagement partWarranties={partWarranties} setPartWarranties={setPartWarranties} insuranceClaims={insuranceClaims} setInsuranceClaims={setInsuranceClaims} vehicles={vehicles} />;
+                return <WarrantyInsuranceManagement
+                    partWarranties={partWarranties}
+                    setPartWarranties={setPartWarranties}
+                    insuranceClaims={insuranceClaims}
+                    setInsuranceClaims={setInsuranceClaims}
+                    vehicles={vehicles}
+                    stock={stock}
+                    suppliers={suppliers}
+                />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:

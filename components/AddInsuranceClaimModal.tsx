@@ -6,6 +6,7 @@ interface AddInsuranceClaimModalProps {
     onClose: () => void;
     onSave: (claim: Omit<InsuranceClaim, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>) => void;
     vehicles: Vehicle[];
+    existingClaims: InsuranceClaim[];
 }
 
 const INCIDENT_TYPES: { value: IncidentType; label: string; icon: string }[] = [
@@ -16,10 +17,29 @@ const INCIDENT_TYPES: { value: IncidentType; label: string; icon: string }[] = [
     { value: 'other', label: 'อื่นๆ (แตกเกิน, ฟ้าผ่า)', icon: '⚡' }
 ];
 
-const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose, onSave, vehicles }) => {
+const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose, onSave, vehicles, existingClaims }) => {
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+
+    // Generate next claim number
+    const generateNextClaimNumber = () => {
+        const currentYear = new Date().getFullYear();
+        const sameYearClaims = existingClaims.filter(c => c.claimNumber.startsWith(`CLM-${currentYear}-`));
+        let nextRunningNumber = 1;
+
+        if (sameYearClaims.length > 0) {
+            const maxRunningNumber = Math.max(...sameYearClaims.map(c => {
+                const parts = c.claimNumber.split('-');
+                return parts.length === 3 ? parseInt(parts[2], 10) : 0;
+            }));
+            nextRunningNumber = maxRunningNumber + 1;
+        }
+
+        const runningNumberStr = nextRunningNumber.toString().padStart(4, '0');
+        return `CLM-${currentYear}-${runningNumberStr}`;
+    };
+
     const [formData, setFormData] = useState({
-        claimNumber: `CLM-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+        claimNumber: generateNextClaimNumber(),
         incidentDate: new Date().toISOString().split('T')[0],
         claimDate: new Date().toISOString().split('T')[0],
         reportedBy: '',
@@ -219,8 +239,8 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                     <label
                                         key={type.value}
                                         className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.incidentType === type.value
-                                                ? 'border-red-500 bg-red-50'
-                                                : 'border-slate-200 bg-white hover:border-red-200'
+                                            ? 'border-red-500 bg-red-50'
+                                            : 'border-slate-200 bg-white hover:border-red-200'
                                             }`}
                                     >
                                         <input

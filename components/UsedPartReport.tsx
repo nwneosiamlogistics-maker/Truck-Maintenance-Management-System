@@ -132,7 +132,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
             }
             return acc;
         }, {});
-        const topSoldItems = Object.entries(soldItems).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
+        const topSoldItems = Object.entries(soldItems).map(([name, value]) => ({ name, value })).sort((a, b) => Number(b.value) - Number(a.value)).slice(0, 5);
 
 
         return { partial: partialBatches, completed: completedBatches, totalSoldValue, totalItemsAwaiting, dispositionData, topSoldItems };

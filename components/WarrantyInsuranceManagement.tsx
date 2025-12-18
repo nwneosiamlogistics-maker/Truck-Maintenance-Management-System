@@ -13,6 +13,8 @@ interface WarrantyInsuranceManagementProps {
     insuranceClaims: InsuranceClaim[];
     setInsuranceClaims: React.Dispatch<React.SetStateAction<InsuranceClaim[]>>;
     vehicles: Vehicle[];
+    stock: StockItem[];
+    suppliers: Supplier[];
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -22,9 +24,13 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
     setPartWarranties,
     insuranceClaims,
     setInsuranceClaims,
-    vehicles
+    vehicles,
+    stock,
+    suppliers
 }) => {
     const [activeTab, setActiveTab] = useState<'warranty' | 'insurance'>('warranty');
+    const [isAddWarrantyModalOpen, setIsAddWarrantyModalOpen] = useState(false);
+    const [isAddInsuranceClaimModalOpen, setIsAddInsuranceClaimModalOpen] = useState(false);
     const { addToast } = useToast();
 
     // Calculate warranty alerts
@@ -208,6 +214,63 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                         <h2 className="text-3xl font-bold text-slate-800">การรับประกันและประกันภัย</h2>
                         <p className="text-gray-500 mt-1">จัดการการรับประกันอะไหล่และเคลมประกันรถ</p>
                     </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => {
+                                setActiveTab('warranty');
+                                setIsAddWarrantyModalOpen(true);
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl shadow-sm transition-all font-bold ${activeTab === 'warranty'
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                }`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span className="hidden sm:inline">เพิ่มการรับประกัน</span>
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setActiveTab('insurance');
+                                setIsAddInsuranceClaimModalOpen(true);
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl shadow-sm transition-all font-bold ${activeTab === 'insurance'
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                }`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span className="hidden sm:inline">แจ้งเคลมประกัน</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2">
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setActiveTab('warranty')}
+                        className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'warranty'
+                            ? 'bg-blue-600 text-white shadow-lg'
+                            : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                    >
+                        📦 การรับประกันอะไหล่
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('insurance')}
+                        className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'insurance'
+                            ? 'bg-blue-600 text-white shadow-lg'
+                            : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                    >
+                        🚗 การเคลมประกันรถ
+                    </button>
                 </div>
             </div>
 
@@ -258,29 +321,7 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                 </div>
             )}
 
-            {/* Tab Navigation */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2">
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setActiveTab('warranty')}
-                        className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'warranty'
-                            ? 'bg-blue-600 text-white shadow-lg'
-                            : 'text-slate-600 hover:bg-slate-50'
-                            }`}
-                    >
-                        📦 การรับประกันอะไหล่
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('insurance')}
-                        className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'insurance'
-                            ? 'bg-blue-600 text-white shadow-lg'
-                            : 'text-slate-600 hover:bg-slate-50'
-                            }`}
-                    >
-                        🚗 การเคลมประกันรถ
-                    </button>
-                </div>
-            </div>
+
 
             {/* Content based on active tab */}
             {activeTab === 'warranty' ? (
@@ -539,6 +580,48 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                         </div>
                     </div>
                 </>
+            )}
+
+            {isAddWarrantyModalOpen && (
+                <AddPartWarrantyModal
+                    onClose={() => setIsAddWarrantyModalOpen(false)}
+                    onSave={(newWarranty) => {
+                        const warrantyWithId: PartWarranty = {
+                            id: `W-${Date.now()}`,
+                            ...newWarranty,
+                            isActive: true,
+                            claims: []
+                        };
+                        setPartWarranties(prev => [...prev, warrantyWithId]);
+                        setIsAddWarrantyModalOpen(false);
+                        addToast('เพิ่มการรับประกันสำเร็จ', 'success');
+                    }}
+                    stock={stock}
+                    suppliers={suppliers}
+                />
+            )}
+
+            {isAddInsuranceClaimModalOpen && (
+                <AddInsuranceClaimModal
+                    onClose={() => setIsAddInsuranceClaimModalOpen(false)}
+                    onSave={(newClaim) => {
+                        const claimWithId: InsuranceClaim = {
+                            id: `CLM-${Date.now()}`,
+                            ...newClaim,
+                            status: 'filed',
+                            history: [{
+                                date: new Date().toISOString(),
+                                status: 'filed',
+                                note: 'ยื่นเรื่องเคลมใหม่'
+                            }]
+                        };
+                        setInsuranceClaims(prev => [...prev, claimWithId]);
+                        setIsAddInsuranceClaimModalOpen(false);
+                        addToast(`แจ้งเคลมประกันสำเร็จ (เลขที่: ${newClaim.claimNumber})`, 'success');
+                    }}
+                    vehicles={vehicles}
+                    existingClaims={insuranceClaims}
+                />
             )}
         </div>
     );
