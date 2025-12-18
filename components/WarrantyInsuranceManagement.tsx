@@ -11,6 +11,8 @@ import AddCargoPolicyModal from './AddCargoPolicyModal';
 import AddCargoClaimModal from './AddCargoClaimModal';
 import type { CargoInsurancePolicy, CargoInsuranceClaim, IncidentInvestigationReport } from '../types';
 import AddIncidentInvestigationModal from './AddIncidentInvestigationModal';
+import ReactDOMServer from 'react-dom/server';
+import IncidentInvestigationPrintLayout from './IncidentInvestigationPrintLayout';
 
 interface WarrantyInsuranceManagementProps {
     partWarranties: PartWarranty[];
@@ -48,6 +50,54 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
     const [isAddInvestigationModalOpen, setIsAddInvestigationModalOpen] = useState(false);
 
     const { addToast } = useToast();
+
+    const handlePrintReport = (report: IncidentInvestigationReport) => {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            const printContent = ReactDOMServer.renderToString(
+                <IncidentInvestigationPrintLayout data={report} />
+            );
+
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Incident Report - ${report.reportNo || 'Draft'}</title>
+                        <script src="https://cdn.tailwindcss.com"></script>
+                        <link rel="preconnect" href="https://fonts.googleapis.com">
+                        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                        <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+                        <style>
+                            @page {
+                                size: A4;
+                                margin: 10mm;
+                            }
+                            html, body {
+                                margin: 0;
+                                padding: 0;
+                                font-family: 'Sarabun', sans-serif;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                                background: white;
+                            }
+                            .page-break {
+                                page-break-after: always;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${printContent}
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            // Wait for Tailwind CDN and Fonts
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+                printWindow.close();
+            }, 1000);
+        }
+    };
 
     // Calculate warranty alerts
     const warrantyAlerts = useMemo((): WarrantyAlert[] => {
@@ -701,18 +751,20 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                             <table className="w-full">
                                 <thead className="bg-slate-50 border-b border-slate-200">
                                     <tr>
+                                        <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">เลขที่เอกสาร</th>
                                         <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">วันที่ / เวลา</th>
                                         <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">รถ / คนขับ</th>
                                         <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">รายละเอียดอุบัติเหตุ</th>
                                         <th className="px-6 py-4 text-left text-sm font-bold text-slate-700">สาเหตุ (Root Cause)</th>
                                         <th className="px-6 py-4 text-center text-sm font-bold text-slate-700">การเชื่อมโยง</th>
                                         <th className="px-6 py-4 text-center text-sm font-bold text-slate-700">สถานะ</th>
+                                        <th className="px-6 py-4 text-center text-sm font-bold text-slate-700">Export</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {incidentReports.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                            <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                                                 <div className="flex flex-col items-center justify-center gap-3">
                                                     <svg className="w-12 h-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -724,6 +776,11 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                                     ) : (
                                         incidentReports.map(report => (
                                             <tr key={report.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <span className="font-mono bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
+                                                        {report.reportNo || '-'}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-slate-800">{new Date(report.incidentDate).toLocaleDateString('th-TH')}</div>
                                                     <div className="text-xs text-slate-500">{report.incidentTime} น.</div>
@@ -761,12 +818,19 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className={`px-3 py-1 rounded-full text-xs font-bold border ${report.status === 'Open' ? 'bg-red-100 text-red-700 border-red-200' :
-                                                            report.status === 'Investigating' ? 'bg-orange-100 text-orange-700 border-orange-200' :
-                                                                'bg-green-100 text-green-700 border-green-200'
+                                                        report.status === 'Investigating' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                                                            'bg-green-100 text-green-700 border-green-200'
                                                         }`}>
                                                         {report.status === 'Open' ? 'รอแก้ไข' :
                                                             report.status === 'Investigating' ? 'กำลังสอบสวน' : 'ปิดงาน'}
                                                     </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <button onClick={() => handlePrintReport(report)} className="text-slate-400 hover:text-red-500 transition-colors" title="Export to PDF">
+                                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                        </svg>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))
@@ -855,16 +919,33 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                     existingVehicleClaims={insuranceClaims}
                     existingCargoClaims={cargoClaims}
                     onSave={(newReport) => {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const yearPrefix = `RPT-${year}-`;
+
+                        // Calculate next sequence ID
+                        const currentYearReports = incidentReports.filter(r => r.reportNo && r.reportNo.startsWith(yearPrefix));
+                        let nextSeq = 1;
+                        if (currentYearReports.length > 0) {
+                            const seqs = currentYearReports.map(r => {
+                                const parts = r.reportNo.split('-');
+                                return parts.length === 3 ? parseInt(parts[2], 10) : 0;
+                            });
+                            nextSeq = Math.max(...seqs) + 1;
+                        }
+                        const reportNo = `${yearPrefix}${String(nextSeq).padStart(4, '0')}`;
+
                         const reportWithId: IncidentInvestigationReport = {
                             id: `INV-${Date.now()}`,
-                            ...newReport,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
+                            reportNo: reportNo,
+                            ...newReport as any, // Ensuring reportNo is included even if omitted in interface
+                            createdAt: now.toISOString(),
+                            updatedAt: now.toISOString(),
                             createdBy: 'Admin' // Should be current user
                         };
                         setIncidentReports(prev => [reportWithId, ...prev]);
                         setIsAddInvestigationModalOpen(false);
-                        addToast('บันทึกรายงานการสอบสวนอุบัติเหตุสำเร็จ', 'success');
+                        addToast(`บันทึกรายงานสำเร็จ เลขที่ ${reportNo}`, 'success');
                     }}
                 />
             )}

@@ -1076,6 +1076,8 @@ export interface IncidentInvestigationReport {
     managementReview: {
         requireMoreInvestigation: boolean;
         reviewerName: string;
+        reviewerPosition?: string;
+        reviewerCompany?: string;
         reviewedDate: string;
     };
 
