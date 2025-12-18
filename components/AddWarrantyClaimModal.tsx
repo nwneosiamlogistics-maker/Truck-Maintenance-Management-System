@@ -114,7 +114,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                     </div>
 
                     {/* Claim Form */}
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form id="add-warranty-claim-form" onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Claim Date */}
                             <div>
@@ -257,7 +257,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                     </button>
                     <button
                         type="submit"
-                        onClick={handleSubmit}
+                        form="add-warranty-claim-form"
                         className="px-8 py-2.5 text-sm font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 shadow-md hover:shadow-lg transition-all active:scale-95"
                     >
                         ยื่นการเคลม

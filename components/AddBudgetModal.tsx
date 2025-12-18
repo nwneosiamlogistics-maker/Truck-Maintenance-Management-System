@@ -70,7 +70,7 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                <form id="budget-form" onSubmit={handleSubmit} className="p-8 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Year & Month */}
                         <div>
@@ -177,7 +177,6 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
                     <button
                         type="submit"
                         form="budget-form"
-                        onClick={handleSubmit}
                         className="px-8 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95"
                     >
                         บันทึกงบประมาณ

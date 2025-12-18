@@ -118,7 +118,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto max-h-[calc(90vh-200px)] custom-scrollbar">
+                <form id="add-driver-form" onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto max-h-[calc(90vh-200px)] custom-scrollbar">
                     {/* Basic Information */}
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -420,6 +420,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                     </button>
                     <button
                         type="submit"
+                        form="add-driver-form"
                         className="px-8 py-2.5 text-sm font-bold text-white bg-purple-600 rounded-xl hover:bg-purple-700 shadow-md hover:shadow-lg transition-all active:scale-95"
                     >
                         บันทึกข้อมูลคนขับ

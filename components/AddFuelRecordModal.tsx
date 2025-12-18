@@ -89,7 +89,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)] custom-scrollbar">
+                <form id="add-fuel-form" onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)] custom-scrollbar">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Vehicle Selection */}
                         <div className="md:col-span-2">
@@ -347,7 +347,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                     </button>
                     <button
                         type="submit"
-                        onClick={handleSubmit}
+                        form="add-fuel-form"
                         className="px-8 py-2.5 text-sm font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 shadow-md hover:shadow-lg transition-all active:scale-95"
                     >
                         บันทึกการเติมน้ำมัน
