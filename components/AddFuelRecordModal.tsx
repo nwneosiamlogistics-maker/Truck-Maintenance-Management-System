@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
 import type { FuelRecord, FuelType, Vehicle } from '../types';
 
 interface AddFuelRecordModalProps {
@@ -11,6 +12,7 @@ const FUEL_TYPES: FuelType[] = ['ดีเซล', 'เบนซิน 91', 'เ
 const PAYMENT_METHODS = ['เงินสด', 'บัตรเครดิต', 'บัตรน้ำมัน', 'โอน'] as const;
 
 const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave, vehicles }) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         vehicleId: '',
         driverName: '',
@@ -35,28 +37,27 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
         ? distanceTraveled / formData.liters
         : 0;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
 
-        if (!formData.vehicleId || !selectedVehicle) {
-            alert('กรุณาเลือกรถ');
-            return;
+        setIsSubmitting(true);
+        try {
+            const record: Omit<FuelRecord, 'id' | 'createdAt' | 'createdBy'> = {
+                ...formData,
+                licensePlate: selectedVehicle.licensePlate,
+                totalCost,
+                distanceTraveled,
+                fuelEfficiency
+            };
+
+            await onSave(record);
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            setTimeout(() => setIsSubmitting(false), 2000);
         }
-
-        if (formData.odometerAfter > 0 && formData.odometerBefore > 0 && formData.odometerAfter <= formData.odometerBefore) {
-            alert('เลขไมล์หลังเติมต้องมากกว่าเลขไมล์ก่อนเติม');
-            return;
-        }
-
-        const record: Omit<FuelRecord, 'id' | 'createdAt' | 'createdBy'> = {
-            ...formData,
-            licensePlate: selectedVehicle.licensePlate,
-            totalCost,
-            distanceTraveled,
-            fuelEfficiency
-        };
-
-        onSave(record);
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -80,7 +81,9 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm"
+                            disabled={isSubmitting}
+                            aria-label="Close modal"
+                            className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm disabled:opacity-50"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -99,6 +102,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                                 value={formData.vehicleId}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="Select Vehicle"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                             >
                                 <option value="">-- เลือกรถ --</option>
@@ -133,6 +137,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                                 value={formData.date}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="Fuel Date"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                             />
                         </div>
@@ -172,6 +177,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                                 value={formData.fuelType}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="Select Fuel Type"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                             >
                                 {FUEL_TYPES.map(type => (
@@ -188,6 +194,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                                 value={formData.paymentMethod}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="Select Payment Method"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                             >
                                 {PAYMENT_METHODS.map(method => (
@@ -341,16 +348,18 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+                        disabled={isSubmitting}
+                        className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
                     >
                         ยกเลิก
                     </button>
                     <button
                         type="submit"
+                        disabled={isSubmitting}
                         form="add-fuel-form"
-                        className="px-8 py-2.5 text-sm font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 shadow-md hover:shadow-lg transition-all active:scale-95"
+                        className="px-8 py-2.5 text-sm font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 shadow-md hover:shadow-lg transition-all active:scale-95 disabled:bg-amber-400 disabled:cursor-not-allowed"
                     >
-                        บันทึกการเติมน้ำมัน
+                        {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกการเติมน้ำมัน'}
                     </button>
                 </div>
             </div>

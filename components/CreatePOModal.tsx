@@ -68,6 +68,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
     const [whtType, setWhtType] = useState('custom');
     const [customWhtLabel, setCustomWhtLabel] = useState('');
     const [editingCell, setEditingCell] = useState<{ index: number, field: string } | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Auto-fill supplier info from the first PR if available
     useEffect(() => {
@@ -127,27 +128,42 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
         return { subtotal: sub, vatAmount: vat, whtAmount: wht, totalAmount: total };
     }, [items, isVatEnabled, vatRate, isWhtEnabled, whtRate]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
         if (!formData.supplierName) {
             addToast('กรุณากรอกชื่อผู้จำหน่าย', 'warning');
             return;
         }
 
-        onSave({
-            ...formData,
-            status: 'Ordered',
-            items,
-            subtotal,
-            vatAmount,
-            whtAmount,
-            whtRate: isWhtEnabled ? whtRate : undefined,
-            whtType: isWhtEnabled ? (whtType === 'custom' && customWhtLabel ? customWhtLabel : whtType) : undefined,
-            totalAmount,
-            linkedPrIds: selectedPRs.map(pr => pr.id),
-            linkedPrNumbers: selectedPRs.map(pr => pr.prNumber),
-            createdBy: 'Admin', // In a real app, get from auth context
-        });
+        setIsSubmitting(true);
+        try {
+            const poData: any = {
+                ...formData,
+                status: 'Ordered',
+                items,
+                subtotal,
+                vatAmount,
+                whtAmount,
+                totalAmount,
+                linkedPrIds: selectedPRs.map(pr => pr.id),
+                linkedPrNumbers: selectedPRs.map(pr => pr.prNumber),
+                createdBy: 'Admin', // In a real app, get from auth context
+            };
+
+            if (isWhtEnabled) {
+                poData.whtRate = whtRate;
+                poData.whtType = whtType === 'custom' && customWhtLabel ? customWhtLabel : whtType;
+            }
+
+            await onSave(poData);
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            setTimeout(() => setIsSubmitting(false), 2000);
+        }
     };
 
     return (
@@ -155,7 +171,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="text-2xl font-bold text-gray-800">สร้างใบสั่งซื้อ (Purchase Order)</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                    <button onClick={onClose} aria-label="Close modal" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
@@ -168,15 +184,15 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                 <h4 className="font-bold text-gray-700 border-b pb-2">ข้อมูลผู้จำหน่าย</h4>
                                 <div>
                                     <label className="block text-sm font-medium">ชื่อผู้จำหน่าย *</label>
-                                    <input type="text" name="supplierName" value={formData.supplierName} onChange={handleInputChange} required className="w-full p-2 border rounded mt-1" />
+                                    <input type="text" name="supplierName" value={formData.supplierName} onChange={handleInputChange} required placeholder="ชื่อผู้จำหน่าย" className="w-full p-2 border rounded mt-1" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">ที่อยู่</label>
-                                    <textarea name="supplierAddress" value={formData.supplierAddress} onChange={handleInputChange} rows={2} className="w-full p-2 border rounded mt-1" />
+                                    <textarea name="supplierAddress" value={formData.supplierAddress} onChange={handleInputChange} rows={2} placeholder="ที่อยู่ผู้จำหน่าย" className="w-full p-2 border rounded mt-1" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">ผู้ติดต่อ (ฝั่งผู้ขาย)</label>
-                                    <input type="text" name="contactPerson" value={formData.contactPerson} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                    <input type="text" name="contactPerson" value={formData.contactPerson} onChange={handleInputChange} placeholder="ชื่อผู้ติดต่อ" className="w-full p-2 border rounded mt-1" />
                                 </div>
                             </div>
                             <div className="space-y-3">
@@ -184,21 +200,21 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium">วันที่สั่งซื้อ</label>
-                                        <input type="date" name="orderDate" value={formData.orderDate} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                        <input type="date" name="orderDate" value={formData.orderDate} onChange={handleInputChange} title="Order Date" className="w-full p-2 border rounded mt-1" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">กำหนดส่งของ</label>
-                                        <input type="date" name="deliveryDate" value={formData.deliveryDate} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                        <input type="date" name="deliveryDate" value={formData.deliveryDate} onChange={handleInputChange} title="Delivery Date" className="w-full p-2 border rounded mt-1" />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium">ผู้ขอซื้อ</label>
-                                        <input type="text" name="requesterName" value={formData.requesterName} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                        <input type="text" name="requesterName" value={formData.requesterName} onChange={handleInputChange} placeholder="ชื่อผู้ขอซื้อ" className="w-full p-2 border rounded mt-1" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">แผนก/สาขา</label>
-                                        <input type="text" name="department" value={formData.department} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                        <input type="text" name="department" value={formData.department} onChange={handleInputChange} placeholder="แผนก/สาขา" className="w-full p-2 border rounded mt-1" />
                                     </div>
                                 </div>
                                 <div>
@@ -207,7 +223,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">หมายเหตุ</label>
-                                    <input type="text" name="notes" value={formData.notes} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                    <input type="text" name="notes" value={formData.notes} onChange={handleInputChange} placeholder="หมายเหตุเพิ่มเติม" className="w-full p-2 border rounded mt-1" />
                                 </div>
                             </div>
                         </div>
@@ -216,19 +232,19 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border">
                             <div>
                                 <label className="block text-sm font-medium">สถานที่ส่งสินค้า</label>
-                                <input type="text" name="deliveryLocation" value={formData.deliveryLocation} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                <input type="text" name="deliveryLocation" value={formData.deliveryLocation} onChange={handleInputChange} placeholder="สถานที่ส่งสินค้า" className="w-full p-2 border rounded mt-1" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">สำหรับโครงการ</label>
-                                <input type="text" name="project" value={formData.project} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                <input type="text" name="project" value={formData.project} onChange={handleInputChange} placeholder="โครงการ" className="w-full p-2 border rounded mt-1" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">ติดต่อบัญชี</label>
-                                <input type="text" name="contactAccount" value={formData.contactAccount} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                <input type="text" name="contactAccount" value={formData.contactAccount} onChange={handleInputChange} placeholder="ข้อมูลติดต่อบัญชี" className="w-full p-2 border rounded mt-1" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">ติดต่อผู้รับสินค้า</label>
-                                <input type="text" name="contactReceiver" value={formData.contactReceiver} onChange={handleInputChange} className="w-full p-2 border rounded mt-1" />
+                                <input type="text" name="contactReceiver" value={formData.contactReceiver} onChange={handleInputChange} placeholder="ข้อมูลผู้รับสินค้า" className="w-full p-2 border rounded mt-1" />
                             </div>
                         </div>
 
@@ -253,7 +269,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                             <tr key={index}>
                                                 <td className="px-3 py-2 text-sm">{item.name}</td>
                                                 <td className="px-3 py-2">
-                                                    <input type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))} className="w-full text-right border rounded p-1" min="1" />
+                                                    <input type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))} className="w-full text-right border rounded p-1" min="1" aria-label="Quantity" />
                                                 </td>
                                                 <td className="px-3 py-2 text-sm text-center">{item.unit}</td>
                                                 <td className="px-3 py-2">
@@ -267,6 +283,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                             min="0"
                                                             step="0.01"
                                                             autoFocus
+                                                            aria-label="Unit Price"
                                                         />
                                                     ) : (
                                                         <div
@@ -278,7 +295,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                     )}
                                                 </td>
                                                 <td className="px-3 py-2">
-                                                    <input type="number" value={item.discount || 0} onChange={(e) => handleItemChange(index, 'discount', Number(e.target.value))} className="w-full text-right border rounded p-1" min="0" />
+                                                    <input type="number" value={item.discount || 0} onChange={(e) => handleItemChange(index, 'discount', Number(e.target.value))} className="w-full text-right border rounded p-1" min="0" aria-label="Discount" />
                                                 </td>
                                                 <td className="px-3 py-2 text-right text-sm font-semibold">
                                                     {item.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -303,7 +320,13 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                 {/* Standard VAT */}
                                 <div className="flex justify-between items-center text-sm">
                                     <label className="flex items-center">
-                                        <input type="checkbox" checked={isVatEnabled} onChange={(e) => setIsVatEnabled(e.target.checked)} className="mr-2" />
+                                        <input
+                                            type="checkbox"
+                                            checked={isVatEnabled}
+                                            onChange={(e) => setIsVatEnabled(e.target.checked)}
+                                            className="mr-2"
+                                            aria-label="Toggle VAT"
+                                        />
                                         <span>ภาษีมูลค่าเพิ่ม (VAT)</span>
                                         {isVatEnabled && (
                                             <>
@@ -312,6 +335,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                     value={vatRate}
                                                     onChange={(e) => setVatRate(Number(e.target.value))}
                                                     className="w-12 mx-2 border rounded text-center px-1"
+                                                    aria-label="VAT Rate"
                                                 />
                                                 <span>%</span>
                                             </>
@@ -325,7 +349,13 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                     <div className="flex justify-between items-start text-sm">
                                         <div className="flex flex-col w-full">
                                             <label className="flex items-center mb-1">
-                                                <input type="checkbox" checked={isWhtEnabled} onChange={(e) => setIsWhtEnabled(e.target.checked)} className="mr-2" />
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isWhtEnabled}
+                                                    onChange={(e) => setIsWhtEnabled(e.target.checked)}
+                                                    className="mr-2"
+                                                    aria-label="Toggle WHT"
+                                                />
                                                 <span className="font-medium">หัก ณ ที่จ่าย (WHT)</span>
                                             </label>
 
@@ -341,6 +371,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                             }
                                                         }}
                                                         className="text-sm border rounded p-1 w-full"
+                                                        aria-label="Select WHT Type"
                                                     >
                                                         <option value="custom">กำหนดเอง</option>
                                                         {TAX_TYPES.map(t => (
@@ -359,6 +390,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                             }}
                                                             className="w-16 border rounded text-right px-1"
                                                             step="0.01"
+                                                            aria-label="WHT Rate"
                                                         />
                                                         <span className="ml-1 text-sm">%</span>
                                                     </div>
@@ -390,8 +422,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                     </div>
 
                     <div className="p-6 border-t flex justify-end space-x-3 bg-gray-50">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                        <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">ยืนยันสร้างใบสั่งซื้อ</button>
+                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50">ยกเลิก</button>
+                        <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:bg-blue-400 disabled:cursor-not-allowed">
+                            {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันสร้างใบสั่งซื้อ'}
+                        </button>
                     </div>
                 </form>
             </div >

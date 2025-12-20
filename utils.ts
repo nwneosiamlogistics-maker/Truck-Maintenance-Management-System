@@ -206,7 +206,7 @@ export function numberToThaiWords(num: number): string {
         if (decimalStr.length === 1) decimalNum *= 10;
 
         if (decimalNum > 0) {
-            result += convertInteger(String(decimalNum)) + 'สตางค์' + 'ถ้วน';
+            result += convertInteger(String(decimalNum)) + 'สตางค์';
         } else {
             result += 'ถ้วน';
         }

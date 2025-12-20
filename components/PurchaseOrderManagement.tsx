@@ -22,7 +22,9 @@ interface PurchaseOrderManagementProps {
 const TrackingView: React.FC<{
     purchaseRequisitions: PurchaseRequisition[];
     purchaseOrders: PurchaseOrder[];
-}> = ({ purchaseRequisitions, purchaseOrders }) => {
+    onResetPrStatus?: (pr: PurchaseRequisition) => void;
+}> = ({ purchaseRequisitions, purchaseOrders, onResetPrStatus }) => {
+    if (!purchaseRequisitions || !purchaseOrders) return null;
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -170,6 +172,7 @@ const TrackingView: React.FC<{
                 <div className="w-64">
                     <label className="block text-sm font-medium text-gray-700 mb-1">แผนก/สาขา</label>
                     <select
+                        aria-label="Filter by Department"
                         className="w-full p-2 border rounded-lg"
                         value={departmentFilter}
                         onChange={e => setDepartmentFilter(e.target.value)}
@@ -224,11 +227,21 @@ const TrackingView: React.FC<{
 
                                         <Step active={item.status.isReceived} label="รับของ" date={item.dates.receivedDate} icon="📦" />
                                     </div>
-                                    {item.po && (
+                                    {item.po ? (
                                         <div className={`text-center mt-2 text-xs text-gray-500 rounded py-1 inline-block px-2 mx-auto w-full ${item.po.status === 'Cancelled' ? 'bg-red-50 text-red-600' : 'bg-gray-100'}`}>
                                             PO: <strong>{item.po.poNumber}</strong> ({item.po.supplierName}) {item.po.status === 'Cancelled' && '(ยกเลิก)'}
                                         </div>
-                                    )}
+                                    ) : item.pr.relatedPoNumber ? (
+                                        <div className="flex flex-col items-center mt-2 bg-red-50 rounded p-1 border border-red-200">
+                                            <span className="text-xs text-red-600 font-bold mb-1">ไม่พบข้อมูล PO: {item.pr.relatedPoNumber}</span>
+                                            <button
+                                                onClick={() => onResetPrStatus && onResetPrStatus(item.pr)}
+                                                className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded hover:bg-red-700 transition-colors"
+                                            >
+                                                คืนสถานะ PR เพื่อสร้างใหม่
+                                            </button>
+                                        </div>
+                                    ) : null}
                                 </td>
                                 <td className="px-4 py-4 align-middle text-center">
                                     <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -272,6 +285,7 @@ const TrackingView: React.FC<{
                 <div className="flex items-center gap-2">
                     <label className="text-sm font-medium">แสดง:</label>
                     <select
+                        aria-label="Items per page"
                         value={itemsPerPage}
                         onChange={e => setItemsPerPage(Number(e.target.value))}
                         className="p-1 border border-gray-300 rounded-lg text-sm"
@@ -327,9 +341,29 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
 
     const sortedPOs = useMemo(() => {
         return (Array.isArray(purchaseOrders) ? purchaseOrders : [])
-            .filter(po => po.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplierName.toLowerCase().includes(searchTerm.toLowerCase()))
+            .filter(po => {
+                const searchLower = searchTerm.toLowerCase();
+                // 1. Check PO Number & Supplier
+                if (po.poNumber.toLowerCase().includes(searchLower) || po.supplierName.toLowerCase().includes(searchLower)) {
+                    return true;
+                }
+
+                // 2. Check cached linkedPrNumbers (if available)
+                if (po.linkedPrNumbers?.some(prNum => prNum.toLowerCase().includes(searchLower))) {
+                    return true;
+                }
+
+                // 3. Fallback: Check linkedPrIds by looking up in purchaseRequisitions
+                // This handles cases where linkedPrNumbers might be missing or out of sync
+                if (po.linkedPrIds && po.linkedPrIds.length > 0) {
+                    const linkedPRs = purchaseRequisitions.filter(pr => po.linkedPrIds.includes(pr.id));
+                    return linkedPRs.some(pr => pr.prNumber.toLowerCase().includes(searchLower));
+                }
+
+                return false;
+            })
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [purchaseOrders, searchTerm]);
+    }, [purchaseOrders, purchaseRequisitions, searchTerm]);
 
     const paginatedPOs = useMemo(() => {
         const startIndex = (poPage - 1) * poItemsPerPage;
@@ -615,6 +649,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                         <td className="px-4 py-3 text-center">
                                             <input
                                                 type="checkbox"
+                                                aria-label={`Select PR ${pr.prNumber}`}
                                                 checked={selectedPRIds.has(pr.id)}
                                                 onChange={() => handleTogglePRSelection(pr.id)}
                                                 className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
@@ -638,6 +673,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                         <div className="flex items-center gap-2">
                             <label className="text-sm font-medium">แสดง:</label>
                             <select
+                                aria-label="Items per page for Pending PRs"
                                 value={pendingItemsPerPage}
                                 onChange={e => setPendingItemsPerPage(Number(e.target.value))}
                                 className="p-1 border border-gray-300 rounded-lg text-sm"
@@ -765,6 +801,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                         <div className="flex items-center gap-2">
                             <label className="text-sm font-medium">แสดง:</label>
                             <select
+                                aria-label="Items per page for PO List"
                                 value={poItemsPerPage}
                                 onChange={e => setPoItemsPerPage(Number(e.target.value))}
                                 className="p-1 border border-gray-300 rounded-lg text-sm"
@@ -787,7 +824,23 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             )}
 
             {activeTab === 'tracking' && (
-                <TrackingView purchaseRequisitions={purchaseRequisitions} purchaseOrders={purchaseOrders} />
+                <TrackingView
+                    purchaseRequisitions={purchaseRequisitions}
+                    purchaseOrders={purchaseOrders}
+                    onResetPrStatus={(pr) => {
+                        if (window.confirm(`ยืนยันการคืนสถานะ PR ${pr.prNumber} เป็น "อนุมัติแล้ว" เพื่อสร้าง PO ใหม่?`)) {
+                            setPurchaseRequisitions(prev => prev.map(p => {
+                                if (p.id === pr.id) {
+                                    // Remove relatedPoNumber key safely (Firebase crash fix)
+                                    const { relatedPoNumber, ...rest } = p;
+                                    return { ...rest, status: 'อนุมัติแล้ว', updatedAt: new Date().toISOString() };
+                                }
+                                return p;
+                            }));
+                            addToast(`คืนสถานะ PR ${pr.prNumber} เรียบร้อยแล้ว คุณสามารถสร้างใบสั่งซื้อใหม่ได้ทันที`, 'success');
+                        }
+                    }}
+                />
             )}
 
             {/* Create PO Modal */}

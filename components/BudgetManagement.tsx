@@ -14,14 +14,13 @@ interface BudgetManagementProps {
     vehicles?: Vehicle[];
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-const CATEGORY_COLORS: Record<BudgetCategory, string> = {
-    'ซ่อมบำรุงรถ': '#3b82f6',
-    'อะไหล่': '#10b981',
-    'น้ำมันเชื้อเฟลิง': '#f59e0b',
-    'ค่าแรงช่าง': '#8b5cf6',
-    'ค่าภาษีและประกันภัย': '#ef4444',
-    'อื่นๆ': '#64748b'
+const CATEGORY_CLASSES: Record<BudgetCategory, string> = {
+    'ซ่อมบำรุงรถ': 'bg-blue-500',
+    'อะไหล่': 'bg-emerald-500',
+    'น้ำมันเชื้อเฟลิง': 'bg-amber-500',
+    'ค่าแรงช่าง': 'bg-violet-500',
+    'ค่าภาษีและประกันภัย': 'bg-red-500',
+    'อื่นๆ': 'bg-slate-500'
 };
 
 const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets, repairs, purchaseOrders, fuelRecords = [], vehicles = [] }) => {
@@ -216,6 +215,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
 
                         <div className="flex gap-2">
                             <select
+                                aria-label="Selected Year"
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(Number(e.target.value))}
                                 className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
@@ -227,6 +227,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
 
                             {activeTab === 'budget' && (
                                 <select
+                                    aria-label="Selected Month"
                                     value={selectedMonth}
                                     onChange={(e) => setSelectedMonth(Number(e.target.value))}
                                     className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
@@ -379,7 +380,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                                                 <tr key={budget.id} className="hover:bg-slate-50 transition-colors">
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-2">
-                                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[budget.category] }}></div>
+                                                            <div className={`w-3 h-3 rounded-full ${CATEGORY_CLASSES[budget.category]}`}></div>
                                                             <span className="text-sm font-bold text-slate-800">{budget.category}</span>
                                                         </div>
                                                     </td>
@@ -420,6 +421,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                     {/* Controls */}
                     <div className="flex gap-4 mb-4">
                         <select
+                            aria-label="Select Vehicle"
                             value={selectedVehicleId}
                             onChange={(e) => setSelectedVehicleId(e.target.value)}
                             className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"

@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
+import Swal from 'sweetalert2';
 
 
 interface StepperProps {
@@ -123,6 +124,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     };
 
     const [formData, setFormData] = useState(getInitialState());
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [otherVehicleType, setOtherVehicleType] = useState('');
     const [isStockModalOpen, setStockModalOpen] = useState(false);
     const [isRevolvingStockModalOpen, setRevolvingStockModalOpen] = useState(false);
@@ -433,8 +435,11 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat, formData.laborVat]);
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
+        setIsSubmitting(true); // Set submitting early to prevent double clicks
 
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const normalizedProblem = formData.problemDescription.trim().toLowerCase();
@@ -445,11 +450,21 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         );
 
         if (potentialDuplicate) {
-            const proceed = window.confirm(
-                `ตรวจพบใบแจ้งซ่อมที่คล้ายกันสำหรับรถคันนี้ (${potentialDuplicate.repairOrderNo}) ที่สร้างขึ้นเมื่อไม่นานมานี้ 
-คุณแน่ใจหรือไม่ว่าต้องการสร้างใบแจ้งซ่อมใบใหม่?`
-            );
-            if (!proceed) return;
+            const result = await Swal.fire({
+                title: 'ยืนยันใบแจ้งซ่อมซ้ำ',
+                text: `มีความเป็นไปได้ว่ารถทะเบียน ${formData.licensePlate} มีใบซ่อมที่กำลังดำเนินการอยู่แล้ว คุณต้องการสร้างใบแจ้งซ่อมใหม่หรือไม่?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'ยืนยันสร้างใหม่',
+                cancelButtonText: 'ตรวจสอบก่อน',
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+            });
+
+            if (!result.isConfirmed) {
+                setIsSubmitting(false);
+                return;
+            }
         }
 
         const { repairOrderNo, ...repairData } = formData;
@@ -457,14 +472,22 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         if (repairData.vehicleType === 'อื่นๆ') {
             if (!otherVehicleType.trim()) {
                 addToast('กรุณาระบุประเภทรถ', 'warning');
+                setIsSubmitting(false); // Reset submitting state if validation fails
                 return;
             }
             repairData.vehicleType = otherVehicleType.trim();
         }
 
-        addRepair(repairData as Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>);
-        addToast('สร้างใบแจ้งซ่อมสำเร็จ', 'success');
-        resetForm();
+        try {
+            await addRepair(repairData as Omit<Repair, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'repairOrderNo'>);
+            addToast('สร้างใบแจ้งซ่อมสำเร็จ', 'success');
+            resetForm();
+        } catch (error) {
+            console.error(error);
+            addToast('เกิดข้อผิดพลาดในการสร้างใบแจ้งซ่อม', 'error');
+        } finally {
+            setIsSubmitting(false); // Always reset submitting state
+        }
     };
 
     const validateStep = (step: number) => {
@@ -559,7 +582,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div ref={suggestionsRef} className="relative">
                                 <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ *</label>
-                                <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required autoComplete="off" />
+                                <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required autoComplete="off" placeholder="ระบุทะเบียนรถ" />
                                 {isSuggestionsOpen && suggestions.length > 0 && (
                                     <ul className="absolute z-10 w-full bg-white border rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
                                         {suggestions.map(vehicle => (
@@ -570,7 +593,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ชื่อผู้แจ้งซ่อม</label>
-                                <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" placeholder="ชื่อผู้แจ้ง" />
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -588,6 +611,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                         }));
                                     }}
                                     className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                    aria-label="Select Driver"
                                 >
                                     <option value="">-- เลือกพนักงานขับรถ --</option>
                                     {drivers && drivers.map(driver => (
@@ -610,7 +634,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
-                                <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                <select name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" aria-label="Select Vehicle Type">
                                     <option value="" disabled>-- เลือกประเภท --</option>
                                     {uniqueVehicleTypes.map(type => (<option key={type} value={type}>{type}</option>))}
                                     <option value="อื่นๆ">อื่นๆ...</option>
@@ -621,16 +645,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
-                                <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" placeholder="ยี่ห้อรถ" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">รุ่น</label>
-                                <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" placeholder="รุ่นรถ" />
                             </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">อาการเสีย *</label>
-                            <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={4} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required></textarea>
+                            <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={4} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required placeholder="ระบุอาการเสียโดยละเอียด"></textarea>
                         </div>
                     </div >
                 );
@@ -640,7 +664,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ความสำคัญ</label>
-                                <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-2 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`}>
+                                <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-2 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`} aria-label="Select Priority">
                                     <option value="ปกติ">ปกติ</option>
                                     <option value="ด่วน">ด่วน</option>
                                     <option value="ด่วนที่สุด">ด่วนที่สุด</option>
@@ -648,7 +672,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
-                                <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" aria-label="Select Repair Category">
                                     <option>ซ่อมทั่วไป</option>
                                     <option>เปลี่ยนอะไหล่</option>
                                     <option>ตรวจเช็ก</option>
@@ -656,7 +680,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">การประมาณการณ์เวลาซ่อม *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">การประมาณการณ์เวลาซ่อม *</label>
                             <div className="p-4 border rounded-lg bg-gray-50 mt-1 space-y-4">
                                 <div className="flex justify-end">
                                     <button type="button" onClick={() => setKPIModalOpen(true)} className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg hover:from-teal-600 hover:to-cyan-700">
@@ -686,7 +710,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
-                                        <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleDateChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                        <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleDateChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" aria-label="Estimated Start Date" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ</label>
@@ -697,6 +721,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                             className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100"
                                             readOnly
                                             required
+                                            aria-label="Estimated End Date"
                                         />
                                     </div>
                                 </div>
@@ -731,6 +756,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                             onChange={handleInputChange}
                                             className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
                                             required
+                                            aria-label="Select Technician"
                                         >
                                             <option value="" disabled>-- เลือกช่างหลัก --</option>
                                             {mainTechnicians.map(tech => (
@@ -777,8 +803,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <div key={part.partId} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
                                     <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
                                     <div className="col-span-4"><p className="font-medium">{part.name}</p></div>
-                                    <div className="col-span-2"><input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" /></div>
-                                    <div className="col-span-2"><input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} /></div>
+                                    <div className="col-span-2"><input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-1 border rounded text-right" aria-label="Quantity" /></div>
+                                    <div className="col-span-2"><input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-1 border rounded text-right ${part.source === 'สต็อกอู่' ? 'bg-gray-100' : ''}`} aria-label="Unit Price" /></div>
                                     <div className="col-span-2 font-semibold text-right">{formatCurrency(part.quantity * part.unitPrice)}</div>
                                     <div className="col-span-1 text-center"><button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold">×</button></div>
                                 </div>
@@ -792,7 +818,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ค่าแรง)</label>
-                                <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" aria-label="Repair Cost" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">VAT ค่าแรง</label>
@@ -804,6 +830,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                         checked={formData.isLaborVatEnabled}
                                         onChange={e => setFormData(prev => ({ ...prev, isLaborVatEnabled: e.target.checked }))}
                                         className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        title="Enable Labor VAT"
                                     />
                                     <label htmlFor="isLaborVatEnabled" className="text-sm font-medium text-gray-700">VAT</label>
                                     <input
@@ -912,10 +939,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         ) : (
                             <button
                                 type="submit"
-                                disabled={!isConfirmed || !isFormGloballyValid}
+                                disabled={!isConfirmed || !isFormGloballyValid || isSubmitting}
                                 className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
-                                ยืนยันสร้างใบแจ้งซ่อม
+                                {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันสร้างใบแจ้งซ่อม'}
                             </button>
                         )}
                     </div>
