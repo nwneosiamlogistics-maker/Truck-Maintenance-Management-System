@@ -38,14 +38,14 @@ const AddCargoPolicyModal: React.FC<AddCargoPolicyModalProps> = ({ onClose, onSa
     };
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-fade-in" style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-fade-in">
             <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-indigo-600 to-blue-600 text-white">
                     <div>
                         <h2 className="text-2xl font-bold">เพิ่มกรมธรรม์ประกันภัยสินค้า</h2>
                         <p className="text-indigo-100 text-sm mt-1">Inland Cargo Insurance Policy</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors" aria-label="Close modal">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -82,17 +82,21 @@ const AddCargoPolicyModal: React.FC<AddCargoPolicyModalProps> = ({ onClose, onSa
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">ประเภทความคุ้มครอง</label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                {['All Risks', 'Named Perils', 'Total Loss Only'].map((type) => (
+                                {[
+                                    { value: 'All Risks', label: 'ความเสี่ยงภัยทุกชนิด (All Risks)' },
+                                    { value: 'Named Perils', label: 'ระบุภัย (Named Perils)' },
+                                    { value: 'Total Loss Only', label: 'ความเสียหายสิ้นเชิง (Total Loss Only)' }
+                                ].map((type) => (
                                     <button
-                                        key={type}
+                                        key={type.value}
                                         type="button"
-                                        onClick={() => setCoverageType(type as CargoCoverageType)}
-                                        className={`p-3 rounded-xl border font-medium transition-all ${coverageType === type
-                                                ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500'
-                                                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                        onClick={() => setCoverageType(type.value as CargoCoverageType)}
+                                        className={`p-3 rounded-xl border font-medium transition-all text-sm ${coverageType === type.value
+                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500'
+                                            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                                             }`}
                                     >
-                                        {type}
+                                        {type.label}
                                     </button>
                                 ))}
                             </div>
@@ -146,6 +150,7 @@ const AddCargoPolicyModal: React.FC<AddCargoPolicyModalProps> = ({ onClose, onSa
                                     value={startDate}
                                     onChange={e => setStartDate(e.target.value)}
                                     className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                                    aria-label="วันคุ้มครอง"
                                 />
                             </div>
                             <div>
@@ -156,6 +161,7 @@ const AddCargoPolicyModal: React.FC<AddCargoPolicyModalProps> = ({ onClose, onSa
                                     value={expiryDate}
                                     onChange={e => setExpiryDate(e.target.value)}
                                     className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                                    aria-label="วันสิ้นสุดความคุ้มครอง"
                                 />
                             </div>
                         </div>

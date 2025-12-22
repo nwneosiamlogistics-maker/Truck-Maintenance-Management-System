@@ -272,6 +272,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     insuranceClaims={insuranceClaims}
                     setInsuranceClaims={setInsuranceClaims}
                     vehicles={vehicles}
+                    setVehicles={setVehicles}
                     stock={stock}
                     suppliers={suppliers}
                 />;

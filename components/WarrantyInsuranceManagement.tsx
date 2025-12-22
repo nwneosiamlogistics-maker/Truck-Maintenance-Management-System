@@ -13,6 +13,7 @@ import type { CargoInsurancePolicy, CargoInsuranceClaim, IncidentInvestigationRe
 import AddIncidentInvestigationModal from './AddIncidentInvestigationModal';
 import ReactDOMServer from 'react-dom/server';
 import IncidentInvestigationPrintLayout from './IncidentInvestigationPrintLayout';
+import VehicleManagement from './VehicleManagement';
 
 interface WarrantyInsuranceManagementProps {
     partWarranties: PartWarranty[];
@@ -20,6 +21,7 @@ interface WarrantyInsuranceManagementProps {
     insuranceClaims: InsuranceClaim[];
     setInsuranceClaims: React.Dispatch<React.SetStateAction<InsuranceClaim[]>>;
     vehicles: Vehicle[];
+    setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
     stock: StockItem[];
     suppliers: Supplier[];
 }
@@ -32,10 +34,11 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
     insuranceClaims,
     setInsuranceClaims,
     vehicles,
+    setVehicles,
     stock,
     suppliers
 }) => {
-    const [activeTab, setActiveTab] = useState<'warranty' | 'insurance' | 'cargo' | 'investigation'>('warranty');
+    const [activeTab, setActiveTab] = useState<'warranty' | 'insurance' | 'cargo' | 'investigation' | 'vehicles'>('vehicles');
     const [isAddWarrantyModalOpen, setIsAddWarrantyModalOpen] = useState(false);
     const [isAddInsuranceClaimModalOpen, setIsAddInsuranceClaimModalOpen] = useState(false);
     const [isAddCargoPolicyModalOpen, setIsAddCargoPolicyModalOpen] = useState(false);
@@ -338,10 +341,19 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
 
             {/* Tab Navigation */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                    <button
+                        onClick={() => setActiveTab('vehicles')}
+                        className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab === 'vehicles'
+                            ? 'bg-slate-800 text-white shadow-lg'
+                            : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                    >
+                        📋 ข้อมูลรถและประกันภัย
+                    </button>
                     <button
                         onClick={() => setActiveTab('warranty')}
-                        className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'warranty'
+                        className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab === 'warranty'
                             ? 'bg-blue-600 text-white shadow-lg'
                             : 'text-slate-600 hover:bg-slate-50'
                             }`}
@@ -685,6 +697,12 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                     onAddPolicy={() => setIsAddCargoPolicyModalOpen(true)}
                     onAddClaim={() => setIsAddCargoClaimModalOpen(true)}
                 />
+            )}
+
+            {activeTab === 'vehicles' && (
+                <div className="animate-fade-in-up">
+                    <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />
+                </div>
             )}
 
             {activeTab === 'investigation' && (
