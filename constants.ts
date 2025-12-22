@@ -90,10 +90,7 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'ประวัติแผนซ่อมบำรุง PM',
         subtitle: 'ดูข้อมูลย้อนหลังการบำรุงรักษาตามแผน'
     },
-    vehicles: {
-        title: 'ข้อมูลรถและประกันภัย',
-        subtitle: 'จัดการข้อมูลยานพาหนะและเอกสารสำคัญ'
-    },
+
     'daily-checklist': {
         title: 'รายการตรวจเช็ค (Checklist)',
         subtitle: 'รายการตรวจสอบรถบรรทุก (Checklist รถบรรทุก) ครอบคลุมหลายด้าน ทั้งการตรวจสอบก่อนใช้งาน (Pre-trip inspection), การตรวจสอบประจำวัน ประจำเดือน, และการตรวจสภาพเพื่อต่อภาษี'

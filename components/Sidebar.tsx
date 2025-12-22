@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         },
         {
             section: 'การจัดการยานพาหนะ', items: [
-                { id: 'vehicles', icon: <Truck size={20} />, label: 'ข้อมูลรถและประกันภัย' },
+
                 { id: 'daily-checklist', icon: <ClipboardCheck size={20} />, label: 'รายการตรวจเช็ค' },
                 { id: 'tire-check', icon: <Disc size={20} />, label: 'ตรวจเช็คยาง' },
             ]
