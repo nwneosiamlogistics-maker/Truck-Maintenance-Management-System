@@ -210,20 +210,21 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
         Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, { description: string; date: string }[]]) => {
             if (vehicleRepairs.length > 1) {
                 const sortedRepairs = vehicleRepairs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                let foundRework = false;
+                const problematicDescriptions = new Set<string>();
+
                 for (let i = 0; i < sortedRepairs.length; i++) {
                     for (let j = i + 1; j < sortedRepairs.length; j++) {
                         const daysBetween = (new Date(sortedRepairs[j].date).getTime() - new Date(sortedRepairs[i].date).getTime()) / (1000 * 3600 * 24);
-                        if (daysBetween <= 30 && areProblemsSimilar(sortedRepairs[i].description, sortedRepairs[j].description)) {
-                            foundRework = true;
-                            break;
+                        if (daysBetween <= 365 && areProblemsSimilar(sortedRepairs[i].description, sortedRepairs[j].description)) {
+                            problematicDescriptions.add(sortedRepairs[i].description);
+                            problematicDescriptions.add(sortedRepairs[j].description);
                         }
                     }
-                    if (foundRework) break;
                 }
-                if (foundRework) {
+
+                if (problematicDescriptions.size > 0) {
                     reworkVehicleCount++;
-                    reworkedVehicles.push({ plate, descriptions: vehicleRepairs.map(r => r.description) });
+                    reworkedVehicles.push({ plate, descriptions: Array.from(problematicDescriptions) });
                 }
             }
         });
@@ -335,7 +336,17 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             if (daysOverdue > 0) alerts.push({ type: 'PM', vehicle: plan.vehicleLicensePlate, details: `${plan.planName} (เกิน ${daysOverdue} วัน)`, value: daysOverdue, priority: 'high' });
         });
 
-        reworkedVehicles.forEach(rework => alerts.push({ type: 'Rework', vehicle: rework.plate, details: `ซ่อมซ้ำ (${rework.descriptions.length} ครั้ง)`, value: rework.descriptions.length, priority: 'high' }));
+        reworkedVehicles.forEach(rework => {
+            const uniqueDetails = Array.from(new Set(rework.descriptions));
+            const detailText = uniqueDetails.join(', ');
+            alerts.push({
+                type: 'Rework',
+                vehicle: rework.plate,
+                details: `ซ่อมซ้ำ (${rework.descriptions.length} ครั้ง): ${detailText}`,
+                value: rework.descriptions.length,
+                priority: 'high'
+            });
+        });
         unplannedPmItems.forEach(item => alerts.push({ type: 'Unplanned PM', vehicle: item.vehicle, details: `PM นอกแผน: ${item.planName}`, value: 1, priority: 'medium' }));
 
         return {

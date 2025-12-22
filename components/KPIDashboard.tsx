@@ -64,14 +64,27 @@ const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
             <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
                 <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
                 {payload.map((entry: any, index: number) => (
-                    <p key={index} style={{ color: entry.color }} className="text-xs font-semibold mt-1">
-                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
-                    </p>
+                    <TooltipItem key={index} entry={entry} unit={unit} />
                 ))}
             </div>
         );
     }
     return null;
+};
+
+const TooltipItem: React.FC<{ entry: any, unit: string }> = ({ entry, unit }) => {
+    const ref = React.useRef<HTMLParagraphElement>(null);
+    React.useLayoutEffect(() => {
+        if (ref.current) {
+            ref.current.style.color = entry.color;
+        }
+    }, [entry.color]);
+
+    return (
+        <p ref={ref} className="text-xs font-semibold mt-1">
+            {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+        </p>
+    );
 };
 
 const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
@@ -138,9 +151,73 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             .map(([plate, totalCost]: [string, number]) => ({ name: plate, value: totalCost }))
             .sort((a, b) => b.value - a.value).slice(0, 5);
 
+        // --- Rework Calculation (Clustered) ---
+        const areProblemsSimilar = (desc1: string, desc2: string): boolean => {
+            if (!desc1 || !desc2) return false;
+            const normalize = (str: string) => {
+                const thaiStopwords = ['ที่', 'มี', 'ตอน', 'แล้ว', 'ครับ', 'ค่ะ', 'ผิดปกติ', 'ระบบ', 'และ', 'กับ', 'ของ', 'ใน', 'การ', 'งาน'];
+                return str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").replace(/\s+/g, ' ').split(' ').filter(word => !thaiStopwords.includes(word) && word.length > 2).map(word => word.replace(/ๆ/g, ''));
+            };
+            const words1 = new Set(normalize(desc1));
+            const words2 = new Set(normalize(desc2));
+            if (words1.size === 0 || words2.size === 0) return false;
+            const intersection = new Set([...words1].filter(x => words2.has(x)));
+            const union = new Set([...words1, ...words2]);
+            if (union.size === 0) return false;
+            return (intersection.size / union.size) > 0.4;
+        };
+
+        const reworkList: { plate: string, clusters: { description: string, count: number }[] }[] = [];
+
+        const repairsByVehicleForRework = allRepairs.reduce((acc: Record<string, Repair[]>, r) => {
+            if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
+            acc[r.licensePlate].push(r);
+            return acc;
+        }, {});
+
+        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, Repair[]]) => {
+            if (vehicleRepairs.length > 1) {
+                // Sort by date descending (newest first)
+                let remainingRepairs = vehicleRepairs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                const clusters: { description: string, count: number }[] = [];
+
+                while (remainingRepairs.length > 0) {
+                    const current = remainingRepairs[0];
+                    remainingRepairs = remainingRepairs.slice(1);
+
+                    const group = [current];
+                    const nextRemaining: Repair[] = [];
+
+                    for (const r of remainingRepairs) {
+                        const daysBetween = Math.abs((new Date(current.createdAt).getTime() - new Date(r.createdAt).getTime()) / (1000 * 3600 * 24));
+                        if (daysBetween <= 365 && areProblemsSimilar(current.problemDescription, r.problemDescription)) {
+                            group.push(r);
+                        } else {
+                            nextRemaining.push(r);
+                        }
+                    }
+
+                    if (group.length > 1) {
+                        // Use the most recent description as the representative text
+                        clusters.push({
+                            description: current.problemDescription,
+                            count: group.length
+                        });
+                    }
+
+                    remainingRepairs = nextRemaining;
+                }
+
+                if (clusters.length > 0) {
+                    reworkList.push({ plate, clusters });
+                }
+            }
+        });
+
         return {
             mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost,
             vehicleDowntime, mostRepairedVehicles, mostExpensiveVehicles,
+            reworkList
         };
     }, [repairs, vehicles]);
 
@@ -232,6 +309,49 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                     </div>
                 </Card>
             </div>
+
+            {/* Rework Analysis Table */}
+            <Card title="รายงานการซ่อมซ้ำ (Rework Report)">
+                {kpiData.reworkList.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="text-sm text-gray-500 border-b border-gray-100">
+                                    <th className="py-3 font-medium w-1/4">ทะเบียนรถ</th>
+                                    <th className="py-3 font-medium w-1/2">รายการที่ซ่อมซ้ำ</th>
+                                    <th className="py-3 font-medium text-center w-1/4">จำนวน (ครั้ง)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 text-sm">
+                                {kpiData.reworkList.flatMap((item, itemIndex) =>
+                                    item.clusters.map((cluster, clusterIndex) => (
+                                        <tr key={`${itemIndex}-${clusterIndex}`} className="hover:bg-gray-50/50 border-b border-gray-50 last:border-0">
+                                            <td className="py-3 font-semibold text-slate-700 align-top">
+                                                {clusterIndex === 0 ? item.plate : ''}
+                                            </td>
+                                            <td className="py-3 text-slate-600 align-top">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                                    {cluster.description}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-center align-top">
+                                                <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full font-bold text-sm shadow-sm border border-red-100">
+                                                    {cluster.count}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="text-center py-8 text-gray-400">
+                        ไม่พบข้อมูลการซ่อมซ้ำ
+                    </div>
+                )}
+            </Card>
         </div>
     );
 };
