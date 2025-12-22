@@ -173,6 +173,9 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             setRepairs(prev => prev.map(r => r.id === repair.id ? updatedRepair : r));
             addToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อยแล้ว`, 'success');
 
+            const hasParts = updatedRepair.parts && updatedRepair.parts.length > 0;
+            const hasLoggedUsedParts = (Array.isArray(usedParts) ? usedParts : []).some(up => up.fromRepairId === updatedRepair.id);
+
             if (hasParts && !hasLoggedUsedParts) {
                 setAddUsedPartsRepair(updatedRepair);
             }
@@ -192,7 +195,7 @@ const getStatusBadge = (status: RepairStatus) => {
     }
 };
 
-const getTechnicianDisplay = (repair: Repair) => {
+const getTechnicianDisplay = (repair: Repair, technicians: Technician[]) => {
     if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
         return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
     }
@@ -256,7 +259,7 @@ return (
                         <tr key={repair.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3"><div className="font-semibold">{repair.repairOrderNo}</div><div className="text-sm text-gray-500">{repair.licensePlate}</div></td>
                             <td className="px-4 py-3 text-sm max-w-xs truncate" title={repair.problemDescription}>{repair.problemDescription}</td>
-                            <td className="px-4 py-3 text-sm">{getTechnicianDisplay(repair)}</td>
+                            <td className="px-4 py-3 text-sm">{getTechnicianDisplay(repair, technicians)}</td>
                             <td className="px-4 py-3 text-sm"><div>แจ้ง: {formatDateTime24h(repair.createdAt)}</div><div>เสร็จ: {formatDateTime24h(repair.estimations[repair.estimations.length - 1]?.estimatedEndDate)}</div></td>
                             <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
                             <td className="px-4 py-3 text-center space-x-2">
