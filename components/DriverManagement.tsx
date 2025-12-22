@@ -9,6 +9,8 @@ import DriverDetailModal from './DriverDetailModal';
 import DriverLeaveReport from './DriverLeaveReport';
 import { promptForPasswordAsync, showAlert } from '../utils';
 
+import AddIncidentModal from './AddIncidentModal';
+
 interface DriverManagementProps {
     drivers: Driver[];
     setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
@@ -16,17 +18,20 @@ interface DriverManagementProps {
     fuelRecords: FuelRecord[];
     incidents: DrivingIncident[];
     repairs: Repair[];
+    setIncidents: React.Dispatch<React.SetStateAction<DrivingIncident[]>>;
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers, vehicles, fuelRecords, incidents, repairs }) => {
+const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers, vehicles, fuelRecords, incidents, repairs, setIncidents }) => {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [sortBy, setSortBy] = useState<string>('safety_desc');
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+    const [incidentDriver, setIncidentDriver] = useState<Driver | null>(null); // For reporting incident
     const [modalTab, setModalTab] = useState<'overview' | 'performance' | 'leaves'>('overview');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false); // General incident modal
     const [viewMode, setViewMode] = useState<'list' | 'leave-report'>('list');
     const { addToast } = useToast();
 
@@ -48,6 +53,20 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
             setIsAddModalOpen(false);
             showAlert('สำเร็จ', `เพิ่มคนขับ ${newDriver.name} สำเร็จ`, 'success');
         }
+    };
+
+    const handleSaveIncident = (incidentData: Omit<DrivingIncident, 'id' | 'createdAt' | 'createdBy'>) => {
+        const newIncident: DrivingIncident = {
+            ...incidentData,
+            id: `INC-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            createdBy: 'Admin' // Should be current user
+        };
+
+        setIncidents(prev => [newIncident, ...prev]);
+        setIsIncidentModalOpen(false);
+        setIncidentDriver(null);
+        showAlert('สำเร็จ', 'บันทึกอุบัติเหตุ/การฝ่าฝืนเรียบร้อยแล้ว', 'success');
     };
 
     const handleEditClick = async (e: React.MouseEvent, driver: Driver) => {
@@ -395,27 +414,38 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                                     </div>
                                 </div>
 
-                                <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex gap-2">
+                                <div className="p-3 bg-slate-50/50 border-t border-slate-100 grid grid-cols-4 gap-2">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setSelectedDriver(driver); setModalTab('overview'); }}
-                                        className="flex-1 bg-white hover:bg-blue-50 text-slate-600 font-bold py-2 px-3 rounded-xl transition-all text-xs shadow-sm border border-slate-200 group-hover:border-blue-200 group-hover:text-blue-600"
+                                        className="flex flex-col items-center justify-center gap-1 bg-white hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200 hover:border-blue-200 rounded-xl py-2 transition-all shadow-sm group/btn"
+                                        title="ดูรายละเอียด"
                                     >
-                                        รายละเอียด
+                                        <svg className="w-4 h-4 text-slate-400 group-hover/btn:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        <span className="text-[10px] font-bold">ประวัติ</span>
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setSelectedDriver(driver); setModalTab('leaves'); }}
-                                        className="bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold py-2 px-3 rounded-xl transition-all shadow-sm border border-amber-200 flex items-center gap-2"
-                                        title="บันทึกการลาพักผ่อน/ลากิจ/ลาป่วย"
+                                        className="flex flex-col items-center justify-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl py-2 transition-all shadow-sm"
+                                        title="บันทึกการลา"
                                     >
-                                        <span className="text-xs">📅 ลา</span>
+                                        <span className="text-sm">📅</span>
+                                        <span className="text-[10px] font-bold">วันลา</span>
                                     </button>
                                     <button
                                         onClick={(e) => handleEditClick(e, driver)}
-                                        className="bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold py-2 px-3 rounded-xl transition-all shadow-sm border border-slate-200 flex items-center gap-2"
-                                        title="แก้ไขข้อมูลพนักงาน"
+                                        className="flex flex-col items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl py-2 transition-all shadow-sm"
+                                        title="แก้ไขข้อมูล"
                                     >
-                                        <Edit size={14} />
-                                        <span className="text-xs">แก้ไข</span>
+                                        <Edit size={16} className="text-slate-500" />
+                                        <span className="text-[10px] font-bold">แก้ไข</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIncidentDriver(driver); setIsIncidentModalOpen(true); }}
+                                        className="flex flex-col items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl py-2 transition-all shadow-sm"
+                                        title="แจ้งอุบัติเหตุ/ฝ่าฝืน"
+                                    >
+                                        <span className="text-sm">🚨</span>
+                                        <span className="text-[10px] font-bold">แจ้งเหตุ</span>
                                     </button>
                                 </div>
                             </div>
@@ -459,6 +489,17 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                     onClose={() => setSelectedDriver(null)}
                     onUpdate={handleUpdateDriver}
                     initialTab={modalTab}
+                />
+            )}
+
+            {/* Incident Modal */}
+            {isIncidentModalOpen && (
+                <AddIncidentModal
+                    driver={incidentDriver || undefined}
+                    drivers={drivers}
+                    vehicles={vehicles}
+                    onClose={() => { setIsIncidentModalOpen(false); setIncidentDriver(null); }}
+                    onSave={handleSaveIncident}
                 />
             )}
         </div>

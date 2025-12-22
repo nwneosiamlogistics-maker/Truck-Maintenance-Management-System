@@ -992,12 +992,16 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
         return { changeEvents: finalEvents, currentTires: latestTires };
     }, [selectedPlate, inspections]);
 
-    const getLifespanText = (tire: { lifespan?: string, mileageLifespan?: number }) => {
+    const getLifespanText = (tire: { changeDate?: string, lifespan?: string, mileageLifespan?: number }) => {
         if (tire.mileageLifespan != null && tire.mileageLifespan > 0) {
             return `${(tire.mileageLifespan || 0).toLocaleString()} กิโลเมตร`;
         }
-        if (tire.lifespan) {
-            return tire.lifespan; // Fallback to date difference
+        if (tire.lifespan && tire.lifespan !== 'N/A') {
+            return tire.lifespan;
+        }
+        // If still active (N/A), calculate from changeDate to now
+        if (tire.changeDate) {
+            return calculateDateDifference(tire.changeDate, new Date().toISOString()) + " (ใช้งานปัจจุบัน)";
         }
         return 'N/A';
     };
@@ -1044,9 +1048,9 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-lg">
-                    <h3 className="text-xl font-bold mb-4 border-b pb-2">ประวัติการเปลี่ยนยางชุดก่อนหน้า</h3>
+                    <h3 className="text-xl font-bold mb-4 border-b pb-2">ประวัติการเปลี่ยนยาง (Timeline)</h3>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                        {changeEvents.slice(1).map(event => (
+                        {changeEvents.map(event => (
                             <div key={event.date} className="bg-gray-50 p-4 rounded-lg">
                                 <p className="font-bold">เปลี่ยนเมื่อ: {new Date(event.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} (จำนวน {event.tires.length} เส้น)</p>
                                 <ul className="list-disc list-inside mt-2 text-sm pl-2 space-y-1">

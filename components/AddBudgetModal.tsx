@@ -25,12 +25,20 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
         allocatedAmount: 0,
         notes: ''
     });
+    const [customCategory, setCustomCategory] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        let finalNotes = formData.notes;
+
+        if (formData.category === 'อื่นๆ' && customCategory.trim()) {
+            finalNotes = `[หมวดหมู่: ${customCategory}] ${finalNotes}`;
+        }
+
         const budget: Omit<MaintenanceBudget, 'id' | 'createdAt' | 'updatedAt'> = {
             ...formData,
+            notes: finalNotes,
             spentAmount: 0,
             committedAmount: 0,
             availableAmount: formData.allocatedAmount,
@@ -62,6 +70,7 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
                         <button
                             onClick={onClose}
                             className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm"
+                            title="ปิดหน้าต่าง"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -81,6 +90,7 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
                                 onChange={handleInputChange}
                                 required
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                                title="เลือกปีงบประมาณ"
                             >
                                 {[currentDate.getFullYear() - 1, currentDate.getFullYear(), currentDate.getFullYear() + 1].map(year => (
                                     <option key={year} value={year}>{year + 543}</option>
@@ -96,6 +106,7 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
                                 onChange={handleInputChange}
                                 required
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                                title="เลือกเดือน"
                             >
                                 {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
                                     <option key={month} value={month}>
@@ -128,11 +139,23 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
                                 onChange={handleInputChange}
                                 required
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                                title="เลือกหมวดหมู่"
                             >
                                 {BUDGET_CATEGORIES.map(cat => (
                                     <option key={cat} value={cat}>{cat}</option>
                                 ))}
                             </select>
+                            {formData.category === 'อื่นๆ' && (
+                                <input
+                                    type="text"
+                                    placeholder="ระบุหมวดหมู่..."
+                                    value={customCategory}
+                                    onChange={(e) => setCustomCategory(e.target.value)}
+                                    className="mt-3 w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                                    title="ระบุหมวดหมู่เพิ่มเติม"
+                                    autoFocus
+                                />
+                            )}
                         </div>
 
                         {/* Allocated Amount */}

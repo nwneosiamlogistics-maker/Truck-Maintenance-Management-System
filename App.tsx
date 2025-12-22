@@ -264,7 +264,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
             case 'fuel-management':
                 return <FuelManagement fuelRecords={fuelRecords} setFuelRecords={setFuelRecords} vehicles={vehicles} />;
             case 'driver-management':
-                return <DriverManagement drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} fuelRecords={fuelRecords} incidents={drivingIncidents} repairs={repairs} />;
+                return <DriverManagement drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} fuelRecords={fuelRecords} incidents={drivingIncidents} repairs={repairs} setIncidents={setDrivingIncidents} />;
             case 'warranty-insurance':
                 return <WarrantyInsuranceManagement
                     partWarranties={partWarranties}
