@@ -95,6 +95,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState<StockStatus | 'all'>('all');
 
+    const [hideZeroRevolving, setHideZeroRevolving] = useState(true);
+
     // Pagination for Used Itemized Parts
     const [usedPartsCurrentPage, setUsedPartsCurrentPage] = useState(1);
     const [usedPartsItemsPerPage, setUsedPartsItemsPerPage] = useState(20);
@@ -134,7 +136,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     }, [safeStock, searchTerm, categoryFilter, statusFilter]);
 
     const newStockItems = useMemo(() => filteredStock.filter(item => !item.isFungibleUsedItem && !item.isRevolvingPart), [filteredStock]);
-    const revolvingStockItems = useMemo(() => filteredStock.filter(item => item.isRevolvingPart), [filteredStock]);
+    const revolvingStockItems = useMemo(() => filteredStock.filter(item => item.isRevolvingPart && (!hideZeroRevolving || item.quantity > 0)), [filteredStock, hideZeroRevolving]);
     const fungibleUsedItems = useMemo(() => filteredStock.filter(item => item.isFungibleUsedItem), [filteredStock]);
 
     const filteredUsedParts = useMemo(() => {
@@ -586,8 +588,18 @@ const StockManagement: React.FC<StockManagementProps> = ({
                 return (
                     <>
                         <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap justify-between items-center gap-2">
                                 <button onClick={() => handleOpenStockModal(null, { isRevolvingPart: true })} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"> + เพิ่มอะไหล่หมุนเวียน</button>
+
+                                <label className="flex items-center gap-2 text-sm text-gray-700 font-medium bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                                    <input
+                                        type="checkbox"
+                                        checked={hideZeroRevolving}
+                                        onChange={(e) => setHideZeroRevolving(e.target.checked)}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                    />
+                                    ซ่อนรายการที่หมด (0)
+                                </label>
                             </div>
                         </div>
                         {renderStockTable(revolvingStockItems)}
