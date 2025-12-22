@@ -54,11 +54,21 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                 else nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
 
                 const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-                
+
+                const normalizePlate = (p: string) => p ? p.trim().replace(/\s+/g, '') : '';
+                const targetPlate = normalizePlate(plan.vehicleLicensePlate);
+
                 const latestRepair = (Array.isArray(props.repairs) ? props.repairs : [])
-                    .filter(r => r.licensePlate === plan.vehicleLicensePlate && r.currentMileage)
-                    .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-                const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
+                    .filter(r => r.currentMileage && normalizePlate(r.licensePlate) === targetPlate)
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+                // Fallback: use vehicle's current mileage if available in the vehicle object (future proofing) or just rely on latest repair
+                const vehicleObj = vehicleMap.get(plan.vehicleLicensePlate);
+                const vehicleMileage = vehicleObj && 'currentMileage' in vehicleObj ? Number(vehicleObj.currentMileage) : 0;
+
+                // Priority: Latest Repair Mileage > Vehicle Object Mileage > null
+                const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : (vehicleMileage > 0 ? vehicleMileage : null);
+
                 const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
                 const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
 
@@ -68,23 +78,23 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                 } else if ((daysUntilNextService <= 30) || (kmUntilNextService !== null && kmUntilNextService <= 1500)) {
                     status = 'due';
                 }
-                
+
                 const vehicle = vehicleMap.get(plan.vehicleLicensePlate);
 
-                return { 
-                    ...plan, 
-                    status, 
-                    nextServiceDate, 
-                    daysUntilNextService, 
-                    currentMileage, 
-                    nextServiceMileage, 
+                return {
+                    ...plan,
+                    status,
+                    nextServiceDate,
+                    daysUntilNextService,
+                    currentMileage,
+                    nextServiceMileage,
                     kmUntilNextService,
                     vehicleType: vehicle?.vehicleType,
                     vehicleMake: vehicle?.make,
                 };
             });
     }, [props.plans, props.repairs, vehicleMap]);
-    
+
     const handleOpenEditModal = (plan: any, monthIndex: number) => {
         const effectiveStatus = (): MonthStatus => {
             const manual = plan.manualMonths[monthIndex];
@@ -99,9 +109,9 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
             return 'none';
         };
 
-        setEditingPlanData({ 
+        setEditingPlanData({
             plan: plan,
-            monthIndex: monthIndex, 
+            monthIndex: monthIndex,
             currentStatus: effectiveStatus()
         });
         setIsEditModalOpen(true);
@@ -121,11 +131,11 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                 p.year === planInfo.year &&
                 p.maintenancePlanId === planInfo.maintenancePlanId
             );
-            
+
             if (existingPlanIndex > -1) {
                 const newPlans = [...plans];
                 const updatedMonths = { ...newPlans[existingPlanIndex].months };
-                 if (status === 'none' && !planInfo.calculatedMonths[monthIndex]) {
+                if (status === 'none' && !planInfo.calculatedMonths[monthIndex]) {
                     delete updatedMonths[monthIndex];
                 } else {
                     updatedMonths[monthIndex] = status;
@@ -162,7 +172,7 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
     const handleDeleteHistory = (historyId: string) => {
         props.setHistory(prev => (Array.isArray(prev) ? prev : []).filter(h => h.id !== historyId));
     };
-    
+
     const TabButton: React.FC<{ tabId: typeof activeTab, label: string }> = ({ tabId, label }) => (
         <button
             onClick={() => setActiveTab(tabId)}
@@ -176,7 +186,7 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm space-y-4">
                 <div className="flex flex-wrap justify-between items-center gap-4">
-                     <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <TabButton tabId="plan" label="แผนประจำปี" />
                         <TabButton tabId="calendar" label="ปฏิทิน" />
                         <TabButton tabId="timeline" label="ไทม์ไลน์" />
@@ -192,7 +202,12 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full md:w-64 p-2 border border-gray-300 rounded-lg"
                             />
-                            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg">
+                            <select
+                                value={statusFilter}
+                                onChange={e => setStatusFilter(e.target.value as any)}
+                                className="p-2 border border-gray-300 rounded-lg"
+                                aria-label="Filter status"
+                            >
                                 <option value="all">สถานะทั้งหมด</option>
                                 <option value="ok">ปกติ</option>
                                 <option value="due">ใกล้ถึงกำหนด</option>
@@ -204,7 +219,7 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
             </div>
 
             {activeTab === 'plan' && (
-                <AnnualPMPlanComponent 
+                <AnnualPMPlanComponent
                     annualPlans={props.annualPlans}
                     enrichedPlans={enrichedPlans}
                     vehicles={props.vehicles}
@@ -220,11 +235,11 @@ const PreventiveMaintenance: React.FC<PreventiveMaintenanceProps> = (props) => {
                     viewMode="month"
                 />
             )}
-             {activeTab === 'timeline' && (
+            {activeTab === 'timeline' && (
                 <TimelineView plans={enrichedPlans} />
             )}
             {activeTab === 'history' && (
-                <PMHistoryView 
+                <PMHistoryView
                     history={props.history}
                     technicians={props.technicians}
                     onDelete={handleDeleteHistory}

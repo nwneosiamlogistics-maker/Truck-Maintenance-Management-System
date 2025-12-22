@@ -52,10 +52,20 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
 
                 const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
 
+                const normalizePlate = (p: string) => p ? p.trim().replace(/\s+/g, '') : '';
+                const targetPlate = normalizePlate(plan.vehicleLicensePlate);
+
                 const latestRepair = (Array.isArray(repairs) ? repairs : [])
-                    .filter(r => r.licensePlate === plan.vehicleLicensePlate && r.currentMileage)
+                    .filter(r => r.currentMileage && normalizePlate(r.licensePlate) === targetPlate)
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-                const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
+
+                // Fallback: use vehicle's current mileage if available in the vehicle object
+                const vehicleObj = vehicleMap.get(plan.vehicleLicensePlate);
+                const vehicleMileage = vehicleObj && 'currentMileage' in vehicleObj ? Number(vehicleObj.currentMileage) : 0;
+
+                // Priority: Latest Repair Mileage > Vehicle Object Mileage > null
+                const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : (vehicleMileage > 0 ? vehicleMileage : null);
+
                 const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
                 const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
 
