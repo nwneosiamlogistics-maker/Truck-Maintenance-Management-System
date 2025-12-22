@@ -58,15 +58,32 @@ const Card: React.FC<{ title: string; children: React.ReactNode; className?: str
 
 // --- Custom Recharts Components ---
 
+const TooltipEntry: React.FC<{ color: string; name: string; value: any; unit?: string }> = ({ color, name, value, unit = '' }) => {
+    const pRef = React.useRef<HTMLParagraphElement>(null);
+    React.useLayoutEffect(() => {
+        if (pRef.current) pRef.current.style.color = color;
+    }, [color]);
+
+    return (
+        <p ref={pRef} className="text-xs font-semibold mt-1">
+            {name}: {typeof value === 'number' ? value.toLocaleString() : value} {unit}
+        </p>
+    );
+};
+
 const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
                 <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
                 {payload.map((entry: any, index: number) => (
-                    <p key={index} style={{ color: entry.color }} className="text-xs font-semibold mt-1">
-                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
-                    </p>
+                    <TooltipEntry
+                        key={index}
+                        color={entry.color}
+                        name={entry.name}
+                        value={entry.value}
+                        unit={unit}
+                    />
                 ))}
             </div>
         );
@@ -91,10 +108,30 @@ const getWeekNumber = (d: Date): number => {
     return weekNo;
 }
 
+import { Download } from 'lucide-react';
+import { exportToCSV } from '../utils/exportUtils';
+
 const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[], purchaseOrders?: import('../types').PurchaseOrder[], suppliers?: import('../types').Supplier[], annualPlans?: AnnualPMPlan[] }> = ({ repairs, stock, technicians, purchaseOrders = [], suppliers = [], annualPlans = [] }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [supplierViewMode, setSupplierViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+
+    const handleExport = () => {
+        const exportData = repairs.map(r => ({
+            'ใบแจ้งซ่อม': r.repairOrderNo,
+            'ทะเบียนรถ': r.licensePlate,
+            'หน่วยงาน': r.department,
+            'ประเภทรถ': r.vehicleType,
+            'สถานะ': r.status,
+            'หมวดหมู่': r.repairCategory,
+            'วันที่แจ้ง': r.createdAt,
+            'วันที่เสร็จ': r.repairEndDate || '-',
+            'ค่าแรง': r.repairCost,
+            'ค่าอะไหล่': (r.parts || []).reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0),
+            'รวมสุทธิ': calculateTotalCost(r)
+        }));
+        exportToCSV('Maintenance_Report', exportData);
+    };
 
     const data = useMemo(() => {
         const safeAllRepairs = Array.isArray(repairs) ? repairs : [];
@@ -278,8 +315,26 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             }))
             .sort((a, b) => b.count - a.count).slice(0, 7);
 
+        // --- Forecasting Logic ---
+        const sortedMonthlyKeys = Object.keys(monthlyExpenses).sort();
+        const recentMonths = sortedMonthlyKeys.slice(-3);
+        const recentValues = recentMonths.map(key => monthlyExpenses[key].value);
+        const avgRecentExpense = recentValues.length > 0
+            ? recentValues.reduce((a, b) => a + b, 0) / recentValues.length
+            : 0;
+
+        let trendFactor = 1.0;
+        if (recentValues.length >= 2) {
+            const last = recentValues[recentValues.length - 1];
+            const prev = recentValues[recentValues.length - 2];
+            if (prev > 0) trendFactor = last / prev;
+            trendFactor = Math.min(Math.max(trendFactor, 0.9), 1.15); // Cap trend
+        }
+
+        const forecastedNextMonthCost = avgRecentExpense * trendFactor;
+
         return {
-            stats: { totalRepairs, totalCompleted, totalCost, avgCost },
+            stats: { totalRepairs, totalCompleted, totalCost, avgCost, forecastedNextMonthCost },
             charts: {
                 topRepairCategories,
                 topRepairedVehicles,
@@ -290,7 +345,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 vehicleTypeAnalysisData,
                 formattedSupplierTrendData,
                 topSuppliers,
-                pmPlanStatusData, // Expose new data
+                pmPlanStatusData,
             }
         };
     }, [repairs, stock, startDate, endDate, purchaseOrders, supplierViewMode, annualPlans]);
@@ -307,50 +362,84 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </h2>
                     <p className="text-gray-500 mt-1">ภาพรวมสถิติการซ่อมบำรุงและค่าใช้จ่ายแบบเจาะลึก</p>
                 </div>
-                <div className="flex items-center gap-3 mt-4 md:mt-0 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Date Range:</span>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
-                    <span className="text-gray-400">-</span>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
+                <div className="flex flex-wrap items-center gap-4 mt-6 md:mt-0">
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all transform hover:-translate-y-0.5 active:scale-95"
+                    >
+                        <Download size={18} />
+                        ส่งออกข้อมูล (Export)
+                    </button>
+                    <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Date Range:</span>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} title="วันที่เริ่มต้น" className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
+                        <span className="text-gray-400">-</span>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} title="วันที่สิ้นสุด" className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <ModernStatCard theme="blue" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} subtext="งาน" />
                 <ModernStatCard theme="green" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} subtext="งาน" />
                 <ModernStatCard theme="orange" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)}`} subtext="บาท" />
                 <ModernStatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)}`} subtext="บาท/งาน" />
+                <div className="bg-gradient-to-br from-indigo-500 to-blue-700 rounded-2xl p-6 text-white shadow-xl hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform">
+                        <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="p-1 px-2 bg-white/20 rounded-md text-[10px] font-bold uppercase tracking-wider">AI Insight</span>
+                        </div>
+                        <p className="text-white/80 font-medium text-xs">พยากรณ์ค่าซ่อมเดือนหน้า</p>
+                        <h3 className="text-2xl font-black mt-1">~ {formatCurrency(data.stats.forecastedNextMonthCost)}</h3>
+                        <div className="mt-3 flex items-center gap-1.5 text-[10px] font-bold text-blue-100 bg-white/10 w-fit px-2 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                            อ้างอิงจากแนวโน้ม 3 เดือนล่าสุด
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* PM Plan Status Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card title="สัดส่วนสถานะแผน PM" className="h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data.charts.pmPlanStatusData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={80}
-                                outerRadius={120}
-                                fill="#8884d8"
-                                paddingAngle={5}
-                                dataKey="value"
-                            >
-                                {data.charts.pmPlanStatusData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={PM_COLORS[index % PM_COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip unit="รายการ" />} />
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
-                                <tspan x="50%" dy="-10" fontSize="24" fontWeight="bold" fill="#334155">
-                                    {data.charts.pmPlanStatusData.reduce((sum, d) => sum + d.value, 0)}
-                                </tspan>
-                                <tspan x="50%" dy="25" fontSize="14" fill="#94a3b8">รายการ PM</tspan>
-                            </text>
-                        </PieChart>
-                    </ResponsiveContainer>
+                    <div className="h-full relative">
+                        {data.charts.pmPlanStatusData.length === 0 ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                                <span className="text-4xl mb-2">📊</span>
+                                <p className="text-sm font-medium">ไม่มีข้อมูล PM ในช่วงเวลานี้</p>
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={data.charts.pmPlanStatusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={80}
+                                        outerRadius={120}
+                                        fill="#8884d8"
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {data.charts.pmPlanStatusData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={PM_COLORS[index % PM_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<CustomTooltip unit="รายการ" />} />
+                                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                                    <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                        <tspan x="50%" dy="-10" fontSize="24" fontWeight="bold" fill="#334155">
+                                            {data.charts.pmPlanStatusData.reduce((sum, d) => sum + d.value, 0)}
+                                        </tspan>
+                                        <tspan x="50%" dy="25" fontSize="14" fill="#94a3b8">รายการ PM</tspan>
+                                    </text>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
                 </Card>
 
                 <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)" className="h-[450px]">

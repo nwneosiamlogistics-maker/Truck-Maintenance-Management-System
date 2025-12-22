@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { Vehicle } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction } from '../utils';
+import { Download } from 'lucide-react';
+import { exportToCSV } from '../utils/exportUtils';
 
 interface VehicleModalProps {
     vehicle: Vehicle | null;
@@ -221,9 +223,24 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
         return { text: 'ปกติ', className: 'text-green-600' };
     };
 
+    const handleExportVehicles = () => {
+        const exportData = filteredVehicles.map(v => ({
+            'ทะเบียน': v.licensePlate,
+            'ประเภทรถ': v.vehicleType,
+            'ยี่ห้อ': v.make,
+            'รุ่น': v.model,
+            'วันที่จดทะเบียน': v.registrationDate || '-',
+            'บริษัทประกัน': v.insuranceCompany || '-',
+            'วันหมดอายุประกัน': v.insuranceExpiryDate || '-',
+            'บริษัท พรบ.': v.actCompany || '-',
+            'วันหมดอายุ พรบ.': v.actExpiryDate || '-',
+        }));
+        exportToCSV('Fleet_Vehicles_List', exportData);
+    };
+
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
                 <input
                     type="text"
                     placeholder="ค้นหา (ทะเบียน, ประเภท, ยี่ห้อ)..."
@@ -231,9 +248,18 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full md:w-96 p-2 border border-gray-300 rounded-lg text-base"
                 />
-                <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap">
-                    + เพิ่มข้อมูลรถ
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleExportVehicles}
+                        className="px-4 py-2 text-sm font-bold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center gap-2"
+                    >
+                        <Download size={16} />
+                        ส่งออก CSV
+                    </button>
+                    <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap">
+                        + เพิ่มข้อมูลรถ
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">

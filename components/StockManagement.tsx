@@ -33,6 +33,9 @@ interface StockManagementProps {
     processUsedPartBatch: (partId: string, decision: { type: 'to_fungible' | 'to_revolving_stock' | 'dispose', fungibleStockId?: string, quantity?: number, notes?: string }) => void;
 }
 
+import { Download, TrendingDown } from 'lucide-react';
+import { exportToCSV } from '../utils/exportUtils';
+
 const StockManagement: React.FC<StockManagementProps> = ({
     stock, setStock, transactions, setTransactions,
     usedParts, updateUsedPart, deleteUsedPart,
@@ -44,6 +47,21 @@ const StockManagement: React.FC<StockManagementProps> = ({
     // General State
     const [activeTab, setActiveTab] = useState<'new' | 'revolving' | 'usedFungible' | 'usedItemized'>('new');
     const { addToast } = useToast();
+
+    const handleExportStock = () => {
+        const exportData = safeStock.map(s => ({
+            'รหัสอะไหล่': s.code,
+            'ชื่ออะไหล่': s.name,
+            'หมวดหมู่': s.category,
+            'จำนวนคงเหลือ': s.quantity,
+            'หน่วย': s.unit,
+            'ราคาทุน': s.price,
+            'มูลค่ารวม': s.quantity * s.price,
+            'จุดสั่งซื้อ': s.minStock,
+            'สถานะเบื้องต้น': calculateStockStatus(s.quantity, s.minStock, s.maxStock)
+        }));
+        exportToCSV('Inventory_Stock', exportData);
+    };
 
     // Modals State
     const [isStockModalOpen, setStockModalOpen] = useState(false);
@@ -136,6 +154,37 @@ const StockManagement: React.FC<StockManagementProps> = ({
         const paginated = filteredUsedParts.slice(startIndex, startIndex + usedPartsItemsPerPage);
         return { paginatedUsedParts: paginated, usedPartsTotalPages: totalPages };
     }, [filteredUsedParts, usedPartsCurrentPage, usedPartsItemsPerPage]);
+
+    // Forecasting Logic (Inventory Insights)
+    const stockInsights = useMemo(() => {
+        const safeTxns = Array.isArray(transactions) ? transactions : [];
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        // Map to store consumption rate per item
+        const usageRate: Record<string, number> = {};
+
+        // Calculate total withdrawn quantity in last 30 days
+        safeTxns
+            .filter(t => t.type === 'เบิกใช้' && new Date(t.transactionDate) >= thirtyDaysAgo)
+            .forEach(t => {
+                const qty = Math.abs(t.quantity);
+                usageRate[t.stockItemId] = (usageRate[t.stockItemId] || 0) + qty;
+            });
+
+        return safeStock.map(item => {
+            const monthlyUsage = usageRate[item.id] || 0;
+            const avgDailyUsage = monthlyUsage / 30;
+            const daysRemaining = avgDailyUsage > 0 ? Math.floor(item.quantity / avgDailyUsage) : Infinity;
+
+            return {
+                ...item,
+                avgDailyUsage,
+                daysRemaining,
+                isUrgent: daysRemaining <= 7 && item.quantity > 0
+            };
+        }).filter(item => item.avgDailyUsage > 0).sort((a, b) => a.daysRemaining - b.daysRemaining);
+    }, [safeStock, transactions]);
 
     useEffect(() => {
         setUsedPartsCurrentPage(1);
@@ -491,12 +540,44 @@ const StockManagement: React.FC<StockManagementProps> = ({
                 return (
                     <>
                         <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
-                            <div className="flex flex-wrap gap-2">
-                                <button onClick={() => handleOpenStockModal()} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"> + เพิ่มรายการใหม่</button>
-                                <button onClick={() => setReceiveFromPOModalOpen(true)} className="px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 disabled:bg-gray-400">รับเข้าสต็อก (จากใบขอซื้อ)</button>
-                                <button onClick={() => setWithdrawModalOpen(true)} disabled={safeStock.length === 0} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:bg-gray-400">เบิกใช้ทั่วไป</button>
-                                <button onClick={() => setReturnModalOpen(true)} disabled={safeStock.length === 0} className="px-4 py-2 text-sm font-medium text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 disabled:bg-gray-400">คืนร้านค้า</button>
+                            <div className="flex flex-wrap justify-between items-center gap-4">
+                                <div className="flex flex-wrap gap-2">
+                                    <button onClick={() => handleOpenStockModal()} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md transition-all active:scale-95 flex items-center gap-2"> <span>+</span> เพิ่มรายการใหม่</button>
+                                    <button onClick={() => setReceiveFromPOModalOpen(true)} className="px-4 py-2 text-sm font-bold text-white bg-green-500 rounded-lg hover:bg-green-600 shadow-md transition-all active:scale-95">รับเข้าสต็อก (จาก PO)</button>
+                                    <button onClick={() => setWithdrawModalOpen(true)} disabled={safeStock.length === 0} className="px-4 py-2 text-sm font-bold text-white bg-orange-500 rounded-lg hover:bg-orange-600 shadow-md transition-all active:scale-95 disabled:bg-slate-200 disabled:shadow-none">เบิกใช้ทั่วไป</button>
+                                    <button onClick={() => setReturnModalOpen(true)} disabled={safeStock.length === 0} className="px-4 py-2 text-sm font-bold text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 shadow-md transition-all active:scale-95 disabled:bg-slate-200 disabled:shadow-none">คืนร้านค้า</button>
+                                </div>
+                                <button
+                                    onClick={handleExportStock}
+                                    className="px-4 py-2 text-sm font-bold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all flex items-center gap-2 border border-slate-200"
+                                >
+                                    <Download size={16} />
+                                    ส่งออก CSV
+                                </button>
                             </div>
+
+                            {/* Inventory Insights (Forecasting) */}
+                            {activeTab === 'new' && stockInsights.length > 0 && (
+                                <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100">
+                                    <h4 className="text-sm font-bold text-amber-800 flex items-center gap-2 mb-3">
+                                        <TrendingDown size={18} />
+                                        พยากรณ์คลังสินค้า: รายการที่คาดว่าจะหมดเร็วๆ นี้ (Inventory Forecasting)
+                                    </h4>
+                                    <div className="flex flex-wrap gap-3">
+                                        {stockInsights.slice(0, 4).map(item => (
+                                            <div key={item.id} className={`flex-1 min-w-[200px] p-3 rounded-lg border bg-white ${item.isUrgent ? 'border-red-200 bg-red-50' : 'border-amber-200'}`}>
+                                                <div className="text-xs font-bold text-slate-500 truncate">{item.name}</div>
+                                                <div className="flex justify-between items-end mt-1">
+                                                    <div className="text-sm font-extrabold text-slate-800">{item.quantity} {item.unit}</div>
+                                                    <div className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${item.isUrgent ? 'bg-red-500 text-white' : 'bg-amber-100 text-amber-800'}`}>
+                                                        ~ {item.daysRemaining === Infinity ? '∞' : item.daysRemaining} วันจะหมด
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         {renderStockTable(newStockItems)}
                     </>

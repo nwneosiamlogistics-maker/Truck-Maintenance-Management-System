@@ -6,6 +6,8 @@ import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, formatDateTime24h } from '../utils';
+import { Download } from 'lucide-react';
+import { exportToCSV } from '../utils/exportUtils';
 
 interface RepairListProps {
     repairs: Repair[];
@@ -30,6 +32,23 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
     const { addToast } = useToast();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    const handleExport = () => {
+        const exportData = activeRepairs.map(r => ({
+            'เลขที่ใบสั่งซ่อม': r.repairOrderNo,
+            'ทะเบียนรถ': r.licensePlate,
+            'ประเภทรถ': r.vehicleType,
+            'สถานะ': r.status,
+            'ความเร่งด่วน': r.priority,
+            'อาการเสีย': r.problemDescription,
+            'หมวดหมู่': r.repairCategory,
+            'ช่างที่รับผิดชอบ': technicians.find(t => t.id === r.assignedTechnicianId)?.name || r.externalTechnicianName || '-',
+            'วันที่แจ้ง': r.createdAt,
+            'วันที่เริ่มซ่อม': r.repairStartDate || '-',
+            'วันที่เสร็จ': r.repairEndDate || '-'
+        }));
+        exportToCSV('Maintenance_Repairs_List', exportData);
+    };
 
     const activeRepairs = useMemo(() => {
         return (Array.isArray(repairs) ? repairs : [])
@@ -194,20 +213,29 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
-                <input
-                    type="text"
-                    aria-label="ค้นหาใบแจ้งซ่อม"
-                    placeholder="ค้นหา (ทะเบียน, เลขที่, อาการ)..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full md:w-80 p-2 border border-gray-300 rounded-lg text-base"
-                />
-                <select aria-label="กรองสถานะ" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
-                    <option value="all">สถานะทั้งหมด</option>
-                    <option value="รอซ่อม">รอซ่อม</option>
-                    <option value="กำลังซ่อม">กำลังซ่อม</option>
-                    <option value="รออะไหล่">รออะไหล่</option>
-                </select>
+                <div className="flex flex-wrap gap-4 items-center">
+                    <input
+                        type="text"
+                        aria-label="ค้นหาใบแจ้งซ่อม"
+                        placeholder="ค้นหา (ทะเบียน, เลขที่, อาการ)..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full md:w-80 p-2 border border-gray-300 rounded-lg text-base"
+                    />
+                    <select aria-label="กรองสถานะ" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
+                        <option value="all">สถานะทั้งหมด</option>
+                        <option value="รอซ่อม">รอซ่อม</option>
+                        <option value="กำลังซ่อม">กำลังซ่อม</option>
+                        <option value="รออะไหล่">รออะไหล่</option>
+                    </select>
+                </div>
+                <button
+                    onClick={handleExport}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-all border border-slate-200"
+                >
+                    <Download size={18} />
+                    ส่งออก CSV (Export)
+                </button>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
@@ -305,8 +333,6 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
 
             {editingRepair && <RepairEditModal repair={editingRepair} onSave={handleSaveRepair} onClose={() => setEditingRepair(null)} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} suppliers={suppliers} />}
             {viewingRepair && <VehicleDetailModal repair={viewingRepair} allRepairs={repairs} technicians={technicians} onClose={() => setViewingRepair(null)} />}
-            {addUsedPartsRepair && <AddUsedPartsModal repair={addUsedPartsRepair} onSaveIndividual={addUsedParts} onSaveFungible={updateFungibleStock} stock={stock} onClose={() => setAddUsedPartsRepair(null)} />}
-
             {addUsedPartsRepair && <AddUsedPartsModal repair={addUsedPartsRepair} onSaveIndividual={addUsedParts} onSaveFungible={updateFungibleStock} stock={stock} onClose={() => setAddUsedPartsRepair(null)} />}
         </div>
     );

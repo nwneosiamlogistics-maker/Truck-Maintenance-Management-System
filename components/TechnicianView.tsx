@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, Technician, RepairStatus, StockItem, StockTransaction } from '../types';
+import type { Repair, Technician, RepairStatus, StockItem, StockTransaction, FileAttachment } from '../types';
 import { useToast } from '../context/ToastContext';
 import { calculateStockStatus } from '../utils';
+import { Camera, CheckCircle2, Clock, Package, PlayCircle, FileText, Image as ImageIcon, X } from 'lucide-react';
 
 interface TechnicianViewProps {
     repairs: Repair[];
@@ -13,93 +14,247 @@ interface TechnicianViewProps {
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
 }
 
+// --- Job Card for Mobile ---
+interface JobCardProps {
+    job: Repair;
+    onUpdate: (repairId: string, updates: Partial<Repair>) => void;
+}
+
+const JobCard: React.FC<JobCardProps> = ({ job, onUpdate }) => {
+    const [note, setNote] = useState(job.notes || '');
+    const [showPhotoOverlay, setShowPhotoOverlay] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    React.useEffect(() => {
+        if (fileInputRef.current) {
+            fileInputRef.current.setAttribute('capture', 'environment');
+        }
+    }, []);
+
+    const handleStatusClick = (newStatus: RepairStatus) => {
+        const updates: Partial<Repair> = { status: newStatus };
+        if (newStatus === 'กำลังซ่อม' && !job.repairStartDate) {
+            updates.repairStartDate = new Date().toISOString();
+        }
+        if (newStatus === 'ซ่อมเสร็จ' && !job.repairEndDate) {
+            updates.repairEndDate = new Date().toISOString();
+        }
+        onUpdate(job.id, updates);
+    };
+
+    const handleSaveNote = () => {
+        onUpdate(job.id, { notes: note });
+    };
+
+    const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            // In a real app, we'd upload to a server. Here we'll simulate.
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const newAttachment: FileAttachment = {
+                    id: `ATT-${Date.now()}`,
+                    name: file.name,
+                    url: reader.result as string,
+                    type: file.type
+                };
+                onUpdate(job.id, {
+                    attachments: [...(job.attachments || []), newAttachment]
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-6 animate-fade-in-up">
+            {/* Header Area */}
+            <div className="p-5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <div className="bg-blue-600 text-white p-2.5 rounded-2xl shadow-lg">
+                        <PlayCircle size={20} />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{job.repairOrderNo}</span>
+                        <h4 className="text-xl font-black text-slate-800 leading-none mt-0.5">{job.licensePlate}</h4>
+                    </div>
+                </div>
+                <span className={`px-4 py-1.5 rounded-full text-xs font-black shadow-sm ${job.status === 'ซ่อมเสร็จ' ? 'bg-green-100 text-green-700' :
+                    job.status === 'กำลังซ่อม' ? 'bg-amber-100 text-amber-700' :
+                        job.status === 'รออะไหล่' ? 'bg-orange-100 text-orange-700' :
+                            'bg-slate-100 text-slate-700'
+                    }`}>
+                    {job.status}
+                </span>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 space-y-6">
+                <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">อาการเสีย / รายละเอียดงาน</label>
+                    <p className="text-slate-700 font-medium leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                        {job.problemDescription}
+                    </p>
+                </div>
+
+                {/* Notes Section - Large for Mobile */}
+                <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">หมายเหตุช่าง / รายงานผล</label>
+                    <div className="relative">
+                        <textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            onBlur={handleSaveNote}
+                            placeholder="ระบุรายละเอียดการตรวจสอบหรือปัญหาที่พบ..."
+                            className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none min-h-[100px] text-sm font-medium"
+                        />
+                    </div>
+                </div>
+
+                {/* Photos Section */}
+                <div>
+                    <div className="flex justify-between items-center mb-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">รูปภาพประกอบ ({job.attachments?.length || 0})</label>
+                        <label className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-slate-800 active:scale-95 transition-all">
+                            <Camera size={14} />
+                            ถ่ายรูป / แนบไฟล์
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleCapturePhoto}
+                                className="hidden"
+                            />
+                        </label>
+                    </div>
+
+                    {job.attachments && job.attachments.length > 0 ? (
+                        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
+                            {job.attachments.map(att => (
+                                <div key={att.id} className="relative group flex-shrink-0">
+                                    <img src={att.url} alt={att.name} className="w-20 h-20 object-cover rounded-2xl border border-slate-100" />
+                                    <button
+                                        onClick={() => onUpdate(job.id, { attachments: job.attachments?.filter(a => a.id !== att.id) })}
+                                        className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-md hover:bg-red-600 transition-colors"
+                                        title="ลบรูปภาพ"
+                                        aria-label="ลบรูปภาพ"
+                                    >
+                                        <X size={10} strokeWidth={4} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="py-4 text-center border-2 border-dashed border-slate-100 rounded-2xl text-slate-300">
+                            <ImageIcon size={32} className="mx-auto opacity-20 mb-1" />
+                            <p className="text-[10px] font-bold uppercase tracking-wider">ยังไม่มีรูปภาพ</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Action Buttons - Massive for Mobile */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap gap-3">
+                {job.status === 'รอซ่อม' && (
+                    <button
+                        onClick={() => handleStatusClick('กำลังซ่อม')}
+                        className="flex-1 min-w-[200px] bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 transition-all active:scale-95"
+                    >
+                        <PlayCircle size={24} />
+                        <span className="text-lg">เริ่มงานทันที</span>
+                    </button>
+                )}
+                {job.status === 'กำลังซ่อม' && (
+                    <>
+                        <button
+                            onClick={() => handleStatusClick('รออะไหล่')}
+                            className="flex-1 min-w-[140px] bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
+                        >
+                            <Package size={20} />
+                            รออะไหล่
+                        </button>
+                        <button
+                            onClick={() => handleStatusClick('ซ่อมเสร็จ')}
+                            className="flex-[2] min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-green-500/20 flex items-center justify-center gap-3 transition-all active:scale-95"
+                        >
+                            <CheckCircle2 size={24} />
+                            <span className="text-lg">ซ่อมเสร็จแล้ว</span>
+                        </button>
+                    </>
+                )}
+                {job.status === 'รออะไหล่' && (
+                    <button
+                        onClick={() => handleStatusClick('กำลังซ่อม')}
+                        className="flex-1 min-w-[200px] bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all active:scale-95"
+                    >
+                        <Clock size={24} />
+                        <span className="text-lg">กลับมาทำต่อ</span>
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
 // --- Job Management Modal ---
 interface JobModalProps {
     technician: Technician;
     jobs: Repair[];
     onClose: () => void;
-    onStatusUpdate: (repairId: string, newStatus: RepairStatus) => void;
+    onUpdateJob: (repairId: string, updates: Partial<Repair>) => void;
 }
 
-const JobModal: React.FC<JobModalProps> = ({ technician, jobs, onClose, onStatusUpdate }) => {
+const JobModal: React.FC<JobModalProps> = ({ technician, jobs, onClose, onUpdateJob }) => {
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 transition-all" onClick={onClose}>
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <div>
-                        <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            <span className="w-2 h-8 bg-blue-500 rounded-full inline-block"></span>
-                            รายการงานของ: {technician.name}
-                        </h3>
-                        <p className="text-gray-500 mt-1 ml-4">จัดการและอัปเดตสถานะงานที่ได้รับมอบหมาย</p>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex justify-center items-end md:items-center p-0 md:p-4 transition-all" onClick={onClose}>
+            <div className="bg-slate-50 w-full md:max-w-4xl h-full md:h-auto md:max-h-[90vh] md:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up md:animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                {/* Mobile Drag Handle */}
+                <div className="md:hidden flex justify-center py-3">
+                    <div className="w-12 h-1.5 bg-slate-300 rounded-full"></div>
+                </div>
+
+                <div className="px-6 py-4 md:p-8 flex justify-between items-center bg-white border-b border-slate-100">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+                            <FileText size={24} className="md:hidden" />
+                            <FileText size={32} className="hidden md:block" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl md:text-2xl font-black text-slate-800">งานของ: {technician.name}</h3>
+                            <p className="text-slate-400 text-xs md:text-sm font-bold uppercase tracking-widest">{technician.role} | สังกัดอู่หลัก</p>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm" title="ปิดหน้าต่าง">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    <button onClick={onClose} className="p-3 bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-90" title="ปิดหน้าต่าง">
+                        <X size={24} />
                     </button>
                 </div>
 
-                <div className="p-6 space-y-4 overflow-y-auto flex-1 bg-gray-50/50 custom-scrollbar">
-                    {jobs.length > 0 ? jobs.map(job => (
-                        <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold font-mono">
-                                            {job.repairOrderNo}
-                                        </span>
-                                        <span className="text-lg font-bold text-gray-800">{job.licensePlate}</span>
-                                    </div>
-                                    <p className="text-gray-600 text-sm leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-50">
-                                        {job.problemDescription}
-                                    </p>
-                                </div>
-                                <div className="flex flex-col items-end gap-2 min-w-[140px]">
-                                    <span className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm ${job.status === 'ซ่อมเสร็จ' ? 'bg-green-100 text-green-700' :
-                                        job.status === 'กำลังซ่อม' ? 'bg-yellow-100 text-yellow-700' :
-                                            job.status === 'รออะไหล่' ? 'bg-orange-100 text-orange-700' :
-                                                'bg-gray-100 text-gray-700'
-                                        }`}>
-                                        {job.status}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
-                                {job.status === 'รอซ่อม' && (
-                                    <button onClick={() => onStatusUpdate(job.id, 'กำลังซ่อม')} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
-                                        <span className="text-lg">🛠️</span> เริ่มเข้าซ่อม
-                                    </button>
-                                )}
-                                {job.status === 'กำลังซ่อม' && (
-                                    <>
-                                        <button onClick={() => onStatusUpdate(job.id, 'รออะไหล่')} className="px-5 py-2.5 text-sm font-bold text-white bg-orange-500 rounded-xl hover:bg-orange-600 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
-                                            <span className="text-lg">📦</span> รออะไหล่
-                                        </button>
-                                        <button onClick={() => onStatusUpdate(job.id, 'ซ่อมเสร็จ')} className="px-5 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
-                                            <span className="text-lg">✅</span> ซ่อมเสร็จ
-                                        </button>
-                                    </>
-                                )}
-                                {job.status === 'รออะไหล่' && (
-                                    <button onClick={() => onStatusUpdate(job.id, 'กำลังซ่อม')} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
-                                        <span className="text-lg">⚙️</span> กลับมาซ่อมต่อ
-                                    </button>
-                                )}
-                            </div>
+                <div className="p-4 md:p-8 space-y-4 overflow-y-auto flex-1 custom-scrollbar no-scrollbar">
+                    {jobs.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-4">
+                            {jobs.map(job => (
+                                <JobCard key={job.id} job={job} onUpdate={onUpdateJob} />
+                            ))}
                         </div>
-                    )) : (
-                        <div className="flex flex-col items-center justify-center py-16 text-gray-400 bg-white rounded-2xl border border-dashed border-gray-200">
-                            <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            <p className="text-lg font-medium">ไม่มีงานที่ต้องดำเนินการในขณะนี้</p>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                                <Clock size={40} className="text-slate-200" />
+                            </div>
+                            <p className="text-xl font-black text-slate-400">ยังไม่มีงานที่ต้องทำ</p>
+                            <p className="text-sm font-medium text-slate-300 mt-1">ใบสั่งซ่อมใหม่จะแสดงที่นี่เมื่อได้รับมอบหมาย</p>
                         </div>
                     )}
                 </div>
-                <div className="p-4 bg-white border-t border-gray-100 flex justify-end">
-                    <button onClick={onClose} className="px-8 py-2.5 text-base font-bold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">ปิด</button>
+
+                <div className="p-4 md:p-6 bg-white border-t border-slate-100 flex justify-center">
+                    <button
+                        onClick={onClose}
+                        className="w-full md:w-auto px-12 py-4 text-lg font-black text-slate-700 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+                    >
+                        ปิดหน้าต่างนี้
+                    </button>
                 </div>
             </div>
         </div>
@@ -179,83 +334,85 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
         setIsModalOpen(true);
     };
 
-    const handleStatusUpdate = (repairId: string, newStatus: RepairStatus) => {
+    const handleUpdateJob = (repairId: string, updates: Partial<Repair>) => {
         const repairToUpdate = repairs.find(r => r.id === repairId);
         if (!repairToUpdate) return;
 
-        const updatedRepair = { ...repairToUpdate, status: newStatus, updatedAt: new Date().toISOString() };
-        if (newStatus === 'กำลังซ่อม' && !repairToUpdate.repairStartDate) {
-            updatedRepair.repairStartDate = new Date().toISOString();
-        }
-        if (newStatus === 'ซ่อมเสร็จ' && !repairToUpdate.repairEndDate) {
-            updatedRepair.repairEndDate = new Date().toISOString();
-        }
-        setRepairs(prev => prev.map(r => r.id === repairId ? updatedRepair : r));
-        addToast(`อัปเดตสถานะใบซ่อม ${updatedRepair.repairOrderNo} เป็น "${newStatus}"`, 'success');
+        const updatedRepair = { ...repairToUpdate, ...updates, updatedAt: new Date().toISOString() };
 
-        if (newStatus === 'ซ่อมเสร็จ') {
-            const partsToWithdraw = (updatedRepair.parts || []).filter(p => p.source === 'สต็อกอู่');
-            if (partsToWithdraw.length > 0) {
-                const existingWithdrawalPartIds = new Set(
-                    (Array.isArray(transactions) ? transactions : [])
-                        .filter(t => t.relatedRepairOrder === updatedRepair.repairOrderNo && t.type === 'เบิกใช้')
-                        .map(t => t.stockItemId)
-                );
+        // Handle logic when status changes
+        if (updates.status && updates.status !== repairToUpdate.status) {
+            const newStatus = updates.status;
+            if (newStatus === 'กำลังซ่อม' && !repairToUpdate.repairStartDate) {
+                updatedRepair.repairStartDate = new Date().toISOString();
+            }
+            if (newStatus === 'ซ่อมเสร็จ' && !repairToUpdate.repairEndDate) {
+                updatedRepair.repairEndDate = new Date().toISOString();
+            }
 
-                const newPartsToProcess = partsToWithdraw.filter(part => !existingWithdrawalPartIds.has(part.partId));
+            if (newStatus === 'ซ่อมเสร็จ') {
+                const partsToWithdraw = (updatedRepair.parts || []).filter(p => p.source === 'สต็อกอู่');
+                if (partsToWithdraw.length > 0) {
+                    const existingWithdrawalPartIds = new Set(
+                        (Array.isArray(transactions) ? transactions : [])
+                            .filter(t => t.relatedRepairOrder === updatedRepair.repairOrderNo && t.type === 'เบิกใช้')
+                            .map(t => t.stockItemId)
+                    );
 
-                if (newPartsToProcess.length > 0) {
-                    const technicianNames = technicians
-                        .filter(t => updatedRepair.assignedTechnicianId === t.id || (updatedRepair.assistantTechnicianIds || []).includes(t.id))
-                        .map(t => t.name)
-                        .join(', ') || 'ไม่ระบุ';
-                    const now = new Date().toISOString();
-                    const stockUpdates: Record<string, number> = {};
-                    const transactionsToAdd: StockTransaction[] = [];
+                    const newPartsToProcess = partsToWithdraw.filter(part => !existingWithdrawalPartIds.has(part.partId));
 
-                    newPartsToProcess.forEach(part => {
-                        stockUpdates[part.partId] = (stockUpdates[part.partId] || 0) + part.quantity;
-                        transactionsToAdd.push({
-                            id: `TXN-${now}-${part.partId}`,
-                            stockItemId: part.partId,
-                            stockItemName: part.name,
-                            type: 'เบิกใช้',
-                            quantity: -part.quantity,
-                            transactionDate: now,
-                            actor: technicianNames,
-                            notes: `ใช้สำหรับใบแจ้งซ่อม ${updatedRepair.repairOrderNo}`,
-                            relatedRepairOrder: updatedRepair.repairOrderNo,
-                            pricePerUnit: part.unitPrice
+                    if (newPartsToProcess.length > 0) {
+                        const technicianNames = technicians
+                            .filter(t => updatedRepair.assignedTechnicianId === t.id || (updatedRepair.assistantTechnicianIds || []).includes(t.id))
+                            .map(t => t.name)
+                            .join(', ') || 'ไม่ระบุ';
+                        const now = new Date().toISOString();
+                        const stockUpdates: Record<string, number> = {};
+                        const transactionsToAdd: StockTransaction[] = [];
+
+                        newPartsToProcess.forEach(part => {
+                            stockUpdates[part.partId] = (stockUpdates[part.partId] || 0) + part.quantity;
+                            transactionsToAdd.push({
+                                id: `TXN-${now}-${part.partId}`,
+                                stockItemId: part.partId,
+                                stockItemName: part.name,
+                                type: 'เบิกใช้',
+                                quantity: -part.quantity,
+                                transactionDate: now,
+                                actor: technicianNames,
+                                notes: `ใช้สำหรับใบแจ้งซ่อม ${updatedRepair.repairOrderNo}`,
+                                relatedRepairOrder: updatedRepair.repairOrderNo,
+                                pricePerUnit: part.unitPrice
+                            });
                         });
-                    });
 
-                    setStock(prevStock => prevStock.map(s => {
-                        if (stockUpdates[s.id]) {
-                            const change = stockUpdates[s.id];
-                            const newQuantity = Number(s.quantity) - Number(change);
-                            const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
-                            return { ...s, quantity: newQuantity, status: newStatus };
-                        }
-                        return s;
-                    }));
-                    setTransactions(prev => [...transactionsToAdd, ...prev]);
-                    addToast(`หักสต็อกและบันทึกการเบิกจ่าย ${newPartsToProcess.length} รายการ`, 'info');
+                        setStock(prevStock => prevStock.map(s => {
+                            if (stockUpdates[s.id]) {
+                                const change = stockUpdates[s.id];
+                                const newQuantity = Number(s.quantity) - Number(change);
+                                const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
+                                return { ...s, quantity: newQuantity, status: newStatus };
+                            }
+                            return s;
+                        }));
+                        setTransactions(prev => [...transactionsToAdd, ...prev]);
+                        addToast(`หักสต็อกและบันทึกการเบิกจ่าย ${newPartsToProcess.length} รายการ`, 'info');
+                    }
                 }
             }
+            addToast(`อัปเดตสถานะใบซ่อม ${updatedRepair.repairOrderNo} เป็น "${newStatus}"`, 'success');
+        } else if (updates.notes !== undefined) {
+            addToast(`บันทึกหมายเหตุสำหรับ ${updatedRepair.repairOrderNo} แล้ว`, 'success');
+        } else if (updates.attachments !== undefined) {
+            addToast(`แนบไฟล์/รูปภาพสำหรับ ${updatedRepair.repairOrderNo} แล้ว`, 'info');
         }
 
-        // Refresh modal jobs if needed or close if empty
-        const updatedTech = techStats.find(t => t.id === selectedTechnician?.id);
-        if (updatedTech) {
-            const updatedTechActiveJobs = updatedTech.jobs.filter(j => j.id !== repairId || newStatus !== 'ซ่อมเสร็จ'); // Naive check, actually logic in techStats handles 'ซ่อมเสร็จ' exclusion from active
-            // If we strictly follow techStats logic, 'ซ่อมเสร็จ' is not active.
-            // We should just re-select based on the new prop state which will propagate.
-            // For smoother UX, we update the local selectedTech state if possible, but it depends on 'repairs' prop.
-            // Since 'repairs' is updated, 'techStats' will update. We just need useEffect or similar to keep selectedTech in sync?
-            // Or just close if no active jobs.
+        setRepairs(prev => prev.map(r => r.id === repairId ? updatedRepair : r));
 
-            // Simple check:
-            if (newStatus === 'ซ่อมเสร็จ' && updatedTech.jobs.length <= 1) {
+        // Auto close logic if finishing the last job
+        if (updates.status === 'ซ่อมเสร็จ') {
+            const currentTech = techStats.find(t => t.id === selectedTechnician?.id);
+            if (currentTech && currentTech.jobs.length <= 1) {
                 setIsModalOpen(false);
             }
         }
@@ -414,7 +571,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                     technician={selectedTechnician}
                     jobs={selectedTechnician.jobs}
                     onClose={() => setIsModalOpen(false)}
-                    onStatusUpdate={handleStatusUpdate}
+                    onUpdateJob={handleUpdateJob}
                 />
             )}
         </div>

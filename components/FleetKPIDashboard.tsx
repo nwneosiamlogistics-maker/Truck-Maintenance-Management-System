@@ -75,15 +75,32 @@ const Card: React.FC<{ title: string; children: React.ReactNode; className?: str
     </div>
 );
 
+const TooltipEntry: React.FC<{ color: string; name: string; value: any; unit?: string }> = ({ color, name, value, unit = '' }) => {
+    const pRef = React.useRef<HTMLParagraphElement>(null);
+    React.useLayoutEffect(() => {
+        if (pRef.current) pRef.current.style.color = color;
+    }, [color]);
+
+    return (
+        <p ref={pRef} className="text-xs font-semibold mt-1">
+            {name}: {typeof value === 'number' ? value.toLocaleString() : value} {unit}
+        </p>
+    );
+};
+
 const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
                 <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
                 {payload.map((entry: any, index: number) => (
-                    <p key={index} style={{ color: entry.color }} className="text-xs font-semibold mt-1">
-                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
-                    </p>
+                    <TooltipEntry
+                        key={index}
+                        color={entry.color}
+                        name={entry.name}
+                        value={entry.value}
+                        unit={unit}
+                    />
                 ))}
             </div>
         );
@@ -366,8 +383,12 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                 </div>
                 <div className="flex items-center gap-3 mt-4 md:mt-0">
                     <span className="text-gray-600 font-medium bg-gray-100 px-3 py-1 rounded-lg">PERIOD:</span>
-                    <select value={dateRange} onChange={e => setDateRange(e.target.value as DateRange)} className="p-2 bg-white border border-gray-200 rounded-lg text-gray-700 font-semibold shadow-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <option value="7d">Last 7 Days</option>
+                    <select
+                        value={dateRange}
+                        onChange={e => setDateRange(e.target.value as DateRange)}
+                        title="เลือกช่วงเวลาการวิเคราะห์"
+                        className="p-2 bg-white border border-gray-200 rounded-lg text-gray-700 font-semibold shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >        <option value="7d">Last 7 Days</option>
                         <option value="30d">Last 30 Days</option>
                         <option value="this_month">This Month</option>
                         <option value="last_month">Last Month</option>
@@ -451,27 +472,40 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* PM Compliance Circular Chart */}
                 <Card title="✅ สัดส่วนสถานะแผน PM">
-                    <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={memoizedData.charts.pmComplianceChartData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    fill="#8884d8"
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {memoizedData.charts.pmComplianceChartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#ef4444'} />
-                                    ))}
-                                </Pie>
-                                <Tooltip content={<CustomTooltip />} />
-                                <Legend verticalAlign="bottom" height={36} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    <div className="h-64 w-full relative">
+                        {memoizedData.charts.pmComplianceChartData.every(d => d.value === 0) ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                                <span className="text-4xl mb-2">📊</span>
+                                <p className="text-sm font-medium">ไม่มีข้อมูล PM ในช่วงเวลานี้</p>
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={memoizedData.charts.pmComplianceChartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {memoizedData.charts.pmComplianceChartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#ef4444'} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Legend verticalAlign="bottom" height={36} />
+                                    <text x="50%" y="54%" textAnchor="middle" dominantBaseline="middle">
+                                        <tspan x="50%" dy="-5" fontSize="18" fontWeight="bold" fill="#334155">
+                                            {memoizedData.charts.pmComplianceChartData.reduce((sum, d) => sum + d.value, 0)}
+                                        </tspan>
+                                        <tspan x="50%" dy="18" fontSize="10" fill="#94a3b8" fontWeight="bold">TOTAL</tspan>
+                                    </text>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </Card>
 
