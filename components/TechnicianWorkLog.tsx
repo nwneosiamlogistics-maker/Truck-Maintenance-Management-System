@@ -49,7 +49,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                 if (end) end.setHours(23, 59, 59, 999);
                 return (!start || repairDate >= start) && (!end || repairDate <= end);
             })
-            .filter(r => 
+            .filter(r =>
                 searchTerm === '' ||
                 r.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -57,7 +57,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
             )
             .sort((a, b) => new Date(b.repairEndDate || b.createdAt).getTime() - new Date(a.repairEndDate || a.createdAt).getTime());
     }, [repairs, selectedTechId, startDate, endDate, searchTerm]);
-    
+
     const totalPages = useMemo(() => Math.ceil(filteredRepairs.length / itemsPerPage), [filteredRepairs.length, itemsPerPage]);
     const paginatedRepairs = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -67,12 +67,12 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
     useEffect(() => {
         setCurrentPage(1);
     }, [selectedTechId, startDate, endDate, searchTerm, itemsPerPage]);
-    
+
     const getTechnicianDisplay = (repair: Repair) => {
         if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
         }
-        
+
         const mainTechnician = technicians.find(t => t.id === repair.assignedTechnicianId);
         const assistants = technicians.filter(t => (repair.assistantTechnicianIds || []).includes(t.id));
 
@@ -86,7 +86,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
 
         return display.length > 0 ? display.join(' | ') : 'N/A';
     };
-    
+
     const formatDate = (dateString: string | null) => {
         if (!dateString) return '-';
         return new Date(dateString).toLocaleDateString('th-TH', {
@@ -96,10 +96,10 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
 
     const handleExport = () => {
         const headers = [
-            "วันที่ซ่อม", "วันที่ซ่อมเสร็จ", "เลขที่ใบแจ้งซ่อม", "ทะเบียนรถ", 
+            "วันที่ซ่อม", "วันที่ซ่อมเสร็จ", "เลขที่ใบแจ้งซ่อม", "ทะเบียนรถ",
             "ประเภทการซ่อม", "อาการเสีย", "รายการอะไหล่ที่ใช้", "มอบหมายช่าง", "ประเภทการส่งซ่อม"
         ];
-        
+
         const rows = filteredRepairs.map(r => {
             const partsString = (r.parts || []).map(p => `${p.name} (x${p.quantity})`).join('; ');
             const row = [
@@ -120,13 +120,13 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
 
         const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        
+
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", "technician_work_log.csv");
         document.body.appendChild(link);
         link.click();
-        
+
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     };
@@ -150,6 +150,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                         <select
                             value={selectedTechId}
                             onChange={e => setSelectedTechId(e.target.value)}
+                            aria-label="เลือกช่าง"
                             className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
                         >
                             <option value="all">ช่างทั้งหมด</option>
@@ -157,28 +158,30 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700">จากวันที่</label>
                             <input
                                 type="date"
                                 value={startDate}
                                 onChange={e => setStartDate(e.target.value)}
+                                aria-label="จากวันที่"
                                 className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">ถึงวันที่</label>
-                             <input
+                            <input
                                 type="date"
                                 value={endDate}
                                 onChange={e => setEndDate(e.target.value)}
+                                aria-label="ถึงวันที่"
                                 className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
                             />
                         </div>
                     </div>
                 </div>
                 <div className="flex justify-end">
-                     <button
+                    <button
                         onClick={handleExport}
                         className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
                     >
@@ -213,7 +216,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                                     <div className="font-medium text-sm max-w-xs truncate" title={r.problemDescription}>{r.problemDescription}</div>
                                     <div className="text-sm text-gray-600">{r.repairCategory}</div>
                                 </td>
-                                 <td className="px-4 py-3 align-top">
+                                <td className="px-4 py-3 align-top">
                                     {(r.parts && r.parts.length > 0) ? (
                                         <button onClick={() => setViewingParts(r.parts)} className="text-blue-600 hover:underline text-sm">
                                             ดูรายการ ({r.parts.length})
@@ -222,7 +225,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                                         <span className="text-gray-400 text-sm">-</span>
                                     )}
                                 </td>
-                                 <td className="px-4 py-3 align-top">
+                                <td className="px-4 py-3 align-top">
                                     <div className="text-sm">{getTechnicianDisplay(r)}</div>
                                     <div className="text-sm text-gray-600">{r.dispatchType}</div>
                                 </td>
@@ -242,6 +245,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                     <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
                     <select
                         id="items-per-page"
+                        aria-label="จำนวนรายการต่อหน้า"
                         value={itemsPerPage}
                         onChange={e => setItemsPerPage(Number(e.target.value))}
                         className="p-1 border border-gray-300 rounded-lg text-sm"
@@ -255,12 +259,12 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} aria-label="หน้าก่อนหน้า" className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
                     <span className="text-sm font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} aria-label="หน้าถัดไป" className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
                 </div>
             </div>
-            
+
             {viewingParts && <PartsListModal parts={viewingParts} onClose={() => setViewingParts(null)} />}
         </div>
     );

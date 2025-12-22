@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Swal from 'sweetalert2';
 import type { FuelRecord, FuelType, Vehicle } from '../types';
 
 interface AddFuelRecordModalProps {

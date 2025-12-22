@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Holiday } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync } from '../utils';
 
 interface SettingsProps {
     holidays: Holiday[];
@@ -11,7 +11,7 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ holidays, setHolidays }) => {
     const { addToast } = useToast();
     const safeHolidays = useMemo(() => Array.isArray(holidays) ? holidays : [], [holidays]);
-    
+
     const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
 
     const handleAddHoliday = (e: React.FormEvent) => {
@@ -37,9 +37,9 @@ const Settings: React.FC<SettingsProps> = ({ holidays, setHolidays }) => {
         setNewHoliday({ date: '', name: '' });
         addToast(`เพิ่มวันหยุด "${holidayToAdd.name}" สำเร็จ`, 'success');
     };
-    
-    const handleDeleteHoliday = (holidayId: string) => {
-        if (promptForPassword('ลบวันหยุด')) {
+
+    const handleDeleteHoliday = async (holidayId: string) => {
+        if (await promptForPasswordAsync('ลบวันหยุด')) {
             setHolidays(prev => prev.filter(h => h.id !== holidayId));
             addToast('ลบวันหยุดสำเร็จ', 'info');
         }
@@ -53,12 +53,13 @@ const Settings: React.FC<SettingsProps> = ({ holidays, setHolidays }) => {
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-lg">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">จัดการวันหยุดบริษัท</h2>
-                
+
                 <form onSubmit={handleAddHoliday} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">วันที่</label>
                         <input
                             type="date"
+                            aria-label="วันที่วันหยุด"
                             value={newHoliday.date}
                             onChange={e => setNewHoliday({ ...newHoliday, date: e.target.value })}
                             className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
@@ -68,6 +69,7 @@ const Settings: React.FC<SettingsProps> = ({ holidays, setHolidays }) => {
                         <label className="block text-sm font-medium text-gray-700">ชื่อวันหยุด</label>
                         <input
                             type="text"
+                            aria-label="ชื่อวันหยุด"
                             placeholder="เช่น วันปีใหม่"
                             value={newHoliday.name}
                             onChange={e => setNewHoliday({ ...newHoliday, name: e.target.value })}
@@ -88,12 +90,12 @@ const Settings: React.FC<SettingsProps> = ({ holidays, setHolidays }) => {
                                     {new Date(holiday.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}
                                 </p>
                             </div>
-                            <button onClick={() => handleDeleteHoliday(holiday.id)} className="text-red-500 hover:text-red-700 font-bold text-xl px-2">
+                            <button onClick={() => handleDeleteHoliday(holiday.id)} aria-label={`Delete ${holiday.name}`} className="text-red-500 hover:text-red-700 font-bold text-xl px-2">
                                 &times;
                             </button>
                         </div>
                     ))}
-                     {sortedHolidays.length === 0 && (
+                    {sortedHolidays.length === 0 && (
                         <p className="text-center text-gray-500 py-6">ยังไม่มีการกำหนดวันหยุด</p>
                     )}
                 </div>

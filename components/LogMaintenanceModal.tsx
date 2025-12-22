@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import type { MaintenancePlan, Technician } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface LogMaintenanceModalProps {
     plan: MaintenancePlan;
@@ -16,23 +16,24 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, targets
     const [mileage, setMileage] = useState(targets ? targets.mileage : (plan.lastServiceMileage + plan.mileageFrequency));
     const [technicianId, setTechnicianId] = useState<string | null>(null);
     const [notes, setNotes] = useState('');
+    const { addToast } = useToast();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!serviceDate || mileage <= plan.lastServiceMileage) {
-            alert('กรุณากรอกข้อมูลให้ถูกต้อง (เลขไมล์ต้องมากกว่าครั้งล่าสุด)');
+            addToast('กรุณากรอกข้อมูลให้ถูกต้อง (เลขไมล์ต้องมากกว่าครั้งล่าสุด)', 'warning');
             return;
         }
-        onSave({ 
-            serviceDate, 
-            mileage, 
-            technicianId, 
+        onSave({
+            serviceDate,
+            mileage,
+            technicianId,
             notes,
             targetDate: targets?.date.toISOString(),
             targetMileage: targets?.mileage
         });
     };
-    
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
@@ -46,18 +47,19 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, targets
                             </p>
                         )}
                     </div>
-                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                    <button onClick={onClose} aria-label="ปิดหน้าต่าง" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
                 <form id="log-maintenance-form" onSubmit={handleSubmit} className="p-6 space-y-4">
-                     <div>
+                    <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">วันที่เข้ารับบริการ *</label>
                         <input
                             type="date"
                             value={serviceDate}
                             onChange={e => setServiceDate(e.target.value)}
                             required
+                            aria-label="วันที่เข้ารับบริการ"
                             className="w-full p-2 border border-gray-300 rounded-lg"
                         />
                     </div>
@@ -68,20 +70,21 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({ plan, targets
                             value={mileage}
                             onChange={e => setMileage(Number(e.target.value))}
                             required
+                            aria-label="เลขไมล์ปัจจุบัน"
                             className="w-full p-2 border border-gray-300 rounded-lg"
                             placeholder={`เลขไมล์ล่าสุด: ${plan.lastServiceMileage.toLocaleString()}`}
                         />
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">ช่างที่รับผิดชอบ</label>
-                         <select value={technicianId || ''} onChange={e => setTechnicianId(e.target.value || null)} className="w-full p-2 border border-gray-300 rounded-lg">
-                             <option value="">-- ไม่ระบุ --</option>
-                             {technicians.map(tech => <option key={tech.id} value={tech.id}>{tech.name}</option>)}
-                         </select>
+                        <select value={technicianId || ''} onChange={e => setTechnicianId(e.target.value || null)} aria-label="ช่างที่รับผิดชอบ" className="w-full p-2 border border-gray-300 rounded-lg">
+                            <option value="">-- ไม่ระบุ --</option>
+                            {technicians.map(tech => <option key={tech.id} value={tech.id}>{tech.name}</option>)}
+                        </select>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">หมายเหตุ</label>
-                         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full p-2 border border-gray-300 rounded-lg" placeholder="เช่น เปลี่ยนกรองอากาศ, สลับยาง" />
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} aria-label="หมายเหตุ" className="w-full p-2 border border-gray-300 rounded-lg" placeholder="เช่น เปลี่ยนกรองอากาศ, สลับยาง" />
                     </div>
                 </form>
                 <div className="p-6 border-t flex justify-end space-x-4">

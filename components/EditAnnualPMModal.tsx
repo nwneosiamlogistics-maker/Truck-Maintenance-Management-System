@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { AnnualPMPlan, Vehicle, MonthStatus, Technician, PMHistory } from '../types';
+import { useToast } from '../context/ToastContext';
 
 export interface EditModalData {
     plan: any; // The enriched display plan object
@@ -20,22 +21,23 @@ const MONTH_NAMES = ["มกราคม", "กุมภาพันธ์", "�
 export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, vehicle, onClose, onSave, technicians }) => {
     const { plan, monthIndex, currentStatus } = planData;
     const [status, setStatus] = useState<MonthStatus>(currentStatus);
-    
+
     // State for history log
     const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
     const [mileage, setMileage] = useState(plan.currentMileage || plan.nextServiceMileage || '');
     const [technicianId, setTechnicianId] = useState<string | null>(null);
     const [notes, setNotes] = useState('');
+    const { addToast } = useToast();
 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         let historyLog: Omit<PMHistory, 'id'> | undefined = undefined;
 
         if (status === 'completed' || status === 'completed_unplanned') {
             if (!serviceDate || !mileage) {
-                alert('กรุณากรอกวันที่และเลขไมล์ที่เข้ารับบริการ');
+                addToast('กรุณากรอกวันที่และเลขไมล์ที่เข้ารับบริการ', 'warning');
                 return;
             }
             historyLog = {
@@ -104,7 +106,7 @@ export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, 
                             {(Object.keys(statusConfig) as (keyof typeof statusConfig)[]).map((statusKey) => {
                                 const config = statusConfig[statusKey];
                                 const isChecked = status === statusKey;
-                                
+
                                 const checkedClasses = {
                                     none: "bg-gray-100 border-gray-400 ring-2 ring-gray-200",
                                     planned: "bg-lime-50 border-lime-400 ring-2 ring-lime-200",
@@ -131,30 +133,30 @@ export const EditAnnualPMModal: React.FC<EditAnnualPMModalProps> = ({ planData, 
                                 )
                             })}
                         </div>
-                        
+
                         {showHistoryForm && (
                             <div className="mt-4 pt-4 border-t space-y-4">
                                 <h4 className="font-semibold text-gray-800">บันทึกรายละเอียดการดำเนินการ</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">วันที่เข้ารับบริการ *</label>
-                                        <input type="date" value={serviceDate} onChange={e => setServiceDate(e.target.value)} required className="mt-1 w-full p-2 border rounded-lg"/>
+                                        <input type="date" value={serviceDate} onChange={e => setServiceDate(e.target.value)} required aria-label="วันที่เข้ารับบริการ" className="mt-1 w-full p-2 border rounded-lg" />
                                     </div>
-                                     <div>
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700">เลขไมล์ *</label>
-                                        <input type="number" value={mileage} onChange={e => setMileage(e.target.value)} required className="mt-1 w-full p-2 border rounded-lg"/>
+                                        <input type="number" value={mileage} onChange={e => setMileage(e.target.value)} required aria-label="เลขไมล์" className="mt-1 w-full p-2 border rounded-lg" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">ช่างที่รับผิดชอบ</label>
-                                    <select value={technicianId || ''} onChange={e => setTechnicianId(e.target.value || null)} className="mt-1 w-full p-2 border rounded-lg">
+                                    <select value={technicianId || ''} onChange={e => setTechnicianId(e.target.value || null)} aria-label="ช่างที่รับผิดชอบ" className="mt-1 w-full p-2 border rounded-lg">
                                         <option value="">-- ไม่ระบุ --</option>
                                         {technicians.map(tech => <option key={tech.id} value={tech.id}>{tech.name}</option>)}
                                     </select>
                                 </div>
-                                 <div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700">หมายเหตุ</label>
-                                    <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="mt-1 w-full p-2 border rounded-lg"/>
+                                    <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} aria-label="หมายเหตุ" className="mt-1 w-full p-2 border rounded-lg" />
                                 </div>
                             </div>
                         )}

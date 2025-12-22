@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction, Supplier, Tab } from '../types';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword, calculateStockStatus, formatCurrency } from '../utils';
+import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 
 interface PurchaseRequisitionProps {
     purchaseRequisitions: PurchaseRequisition[];
@@ -169,15 +169,18 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
         setIsModalOpen(false);
     };
 
-    const handleDeleteRequisition = (prId: string, prNumber: string) => {
-        if (promptForPassword('ลบใบขอซื้อ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบขอซื้อ ${prNumber}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
-            setPurchaseRequisitions(prev => prev.filter(pr => pr.id !== prId));
-            addToast(`ลบใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
+    const handleDeleteRequisition = async (prId: string, prNumber: string) => {
+        if (await promptForPasswordAsync('ลบใบขอซื้อ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบใบขอซื้อ ${prNumber}? การกระทำนี้ไม่สามารถย้อนกลับได้`, 'ลบ');
+            if (confirmed) {
+                setPurchaseRequisitions(prev => prev.filter(pr => pr.id !== prId));
+                addToast(`ลบใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
+            }
         }
     };
 
-    const handleCancelRequisition = (prId: string, prNumber: string) => {
-        if (promptForPassword('ยกเลิกใบขอซื้อ')) {
+    const handleCancelRequisition = async (prId: string, prNumber: string) => {
+        if (await promptForPasswordAsync('ยกเลิกใบขอซื้อ')) {
             setPurchaseRequisitions(prev =>
                 prev.map(pr =>
                     pr.id === prId
@@ -189,15 +192,17 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
         }
     };
 
-    const handleQuickStatusUpdate = (pr: PurchaseRequisition, newStatus: PurchaseRequisitionStatus) => {
+    const handleQuickStatusUpdate = async (pr: PurchaseRequisition, newStatus: PurchaseRequisitionStatus) => {
         const prompts = {
-            'รออนุมัติ': `ยืนยันส่งใบขอซื้อ ${pr.prNumber} เพื่อรออนุมัติ?`,
             'อนุมัติแล้ว': `คุณต้องการอนุมัติใบขอซื้อ ${pr.prNumber} ใช่หรือไม่?`,
             'รอสินค้า': `ยืนยันการสั่งซื้อสำหรับ ${pr.prNumber} ใช่หรือไม่?`,
             'รับของแล้ว': `ยืนยันการรับของสำหรับ ${pr.prNumber} ใช่หรือไม่?`
         };
         const promptMessage = prompts[newStatus];
-        if (promptMessage && !window.confirm(promptMessage)) return;
+        if (promptMessage) {
+            const confirmed = await confirmAction('ยืนยันสถานะ', promptMessage, 'ยืนยัน');
+            if (!confirmed) return;
+        }
 
         let updatedRequisition: PurchaseRequisition = { ...pr, status: newStatus, updatedAt: new Date().toISOString() };
 
@@ -285,17 +290,23 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                     <input
                         type="text"
                         placeholder="ค้นหา (เลขที่, ผู้จำหน่าย)..."
+                        aria-label="ค้นหาใบขอซื้อ"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-72 p-2 border border-gray-300 rounded-lg text-base"
                     />
-                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
+                    <select
+                        aria-label="กรองสถานะ"
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value as any)}
+                        className="p-2 border border-gray-300 rounded-lg text-base"
+                    >
                         {STATUS_FILTER_ORDER.map(option => (
                             <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
                 </div>
-                <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                <button onClick={() => handleOpenModal()} aria-label="สร้างใบขอซื้อใหม่" className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
                     + สร้างใบขอซื้อใหม่
                 </button>
             </div>
@@ -319,7 +330,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                             <React.Fragment key={pr.id}>
                                 <tr className="hover:bg-gray-50">
                                     <td className="px-4 py-3 text-center">
-                                        <button onClick={() => toggleExpand(pr.id)} className="text-blue-500 hover:text-blue-700 font-bold text-lg w-6 h-6 rounded-full flex items-center justify-center">
+                                        <button onClick={() => toggleExpand(pr.id)} aria-label={expandedPrIds.has(pr.id) ? 'ย่อรายการ' : 'ขยายรายการ'} className="text-blue-500 hover:text-blue-700 font-bold text-lg w-6 h-6 rounded-full flex items-center justify-center">
                                             {expandedPrIds.has(pr.id) ? '−' : '+'}
                                         </button>
                                     </td>
@@ -394,6 +405,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                     <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
                     <select
                         id="items-per-page"
+                        aria-label="จำนวนรายการต่อหน้า"
                         value={itemsPerPage}
                         onChange={e => setItemsPerPage(Number(e.target.value))}
                         className="p-1 border border-gray-300 rounded-lg text-sm"
@@ -407,9 +419,23 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        aria-label="หน้าก่อนหน้า"
+                        className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50"
+                    >
+                        ก่อนหน้า
+                    </button>
                     <span className="text-sm font-semibold">หน้า {currentPage} / {totalPages || 1}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        aria-label="หน้าถัดไป"
+                        className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50"
+                    >
+                        ถัดไป
+                    </button>
                 </div>
             </div>
 

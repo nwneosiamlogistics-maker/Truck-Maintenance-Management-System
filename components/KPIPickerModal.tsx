@@ -13,13 +13,13 @@ interface KPIPickerModalProps {
 const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddMultipleKPIs, kpiData, initialSelectedIds }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialSelectedIds));
-    
+
     const filteredAndGroupedKPIs = useMemo(() => {
-        const filtered = (Array.isArray(kpiData) ? kpiData : []).filter(kpi => 
+        const filtered = (Array.isArray(kpiData) ? kpiData : []).filter(kpi =>
             kpi.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
             kpi.category.toLowerCase().includes(searchTerm.toLowerCase())
         );
-        
+
         const grouped = filtered.reduce((acc, kpi) => {
             const category = kpi.category;
             if (!acc[category]) {
@@ -28,7 +28,7 @@ const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddM
             acc[category].push(kpi);
             return acc;
         }, {} as Record<string, RepairKPI[]>);
-        
+
         return Object.entries(grouped).sort((a, b) => a[0].localeCompare(b[0]));
 
     }, [searchTerm, kpiData]);
@@ -77,23 +77,25 @@ const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddM
                                     {kpis.map(kpi => {
                                         const isSelected = selectedIds.has(kpi.id);
                                         return (
-                                        <li 
-                                            key={kpi.id} 
-                                            onClick={() => handleToggleSelection(kpi.id)}
-                                            className={`p-3 flex justify-between items-center cursor-pointer transition-colors ${isSelected ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
-                                        >
-                                            <div className="flex items-center flex-1">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    readOnly
-                                                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-4"
-                                                />
-                                                <span className="flex-1">{kpi.item}</span>
-                                            </div>
-                                            <span className="font-semibold text-blue-600 w-32 text-right">{formatHoursDescriptive(kpi.standardHours)}</span>
-                                        </li>
-                                    )}
+                                            <li
+                                                key={kpi.id}
+                                                onClick={() => handleToggleSelection(kpi.id)}
+                                                className={`p-3 flex justify-between items-center cursor-pointer transition-colors ${isSelected ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
+                                            >
+                                                <div className="flex items-center flex-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        readOnly
+                                                        aria-label={`เลือกรายการ ${kpi.item}`}
+                                                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-4"
+                                                    />
+                                                    <span className="flex-1">{kpi.item}</span>
+                                                </div>
+                                                <span className="font-semibold text-blue-600 w-32 text-right">{formatHoursDescriptive(kpi.standardHours, 8)}</span>
+                                            </li>
+                                        )
+                                    }
                                     )}
                                 </ul>
                             </div>
@@ -104,16 +106,16 @@ const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddM
                 </div>
 
                 <div className="p-6 border-t flex justify-between items-center bg-gray-50">
-                     <p className="text-base font-semibold text-gray-700">
+                    <p className="text-base font-semibold text-gray-700">
                         {selectedIds.size} รายการที่เลือก
                     </p>
                     <div className="flex items-center gap-4">
                         <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
                             ยกเลิก
                         </button>
-                        <button 
-                            type="button" 
-                            onClick={handleSave} 
+                        <button
+                            type="button"
+                            onClick={handleSave}
                             disabled={selectedIds.size === 0}
                             className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
                         >

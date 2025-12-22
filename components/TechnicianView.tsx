@@ -33,7 +33,7 @@ const JobModal: React.FC<JobModalProps> = ({ technician, jobs, onClose, onStatus
                         </h3>
                         <p className="text-gray-500 mt-1 ml-4">จัดการและอัปเดตสถานะงานที่ได้รับมอบหมาย</p>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm" title="ปิดหน้าต่าง">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -68,16 +68,24 @@ const JobModal: React.FC<JobModalProps> = ({ technician, jobs, onClose, onStatus
 
                             <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
                                 {job.status === 'รอซ่อม' && (
-                                    <button onClick={() => onStatusUpdate(job.id, 'กำลังซ่อม')} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95">เริ่มซ่อม</button>
+                                    <button onClick={() => onStatusUpdate(job.id, 'กำลังซ่อม')} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                                        <span className="text-lg">🛠️</span> เริ่มเข้าซ่อม
+                                    </button>
                                 )}
                                 {job.status === 'กำลังซ่อม' && (
                                     <>
-                                        <button onClick={() => onStatusUpdate(job.id, 'รออะไหล่')} className="px-5 py-2.5 text-sm font-bold text-white bg-orange-500 rounded-xl hover:bg-orange-600 shadow-md hover:shadow-lg transition-all active:scale-95">รออะไหล่</button>
-                                        <button onClick={() => onStatusUpdate(job.id, 'ซ่อมเสร็จ')} className="px-5 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 shadow-md hover:shadow-lg transition-all active:scale-95">ซ่อมเสร็จ</button>
+                                        <button onClick={() => onStatusUpdate(job.id, 'รออะไหล่')} className="px-5 py-2.5 text-sm font-bold text-white bg-orange-500 rounded-xl hover:bg-orange-600 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                                            <span className="text-lg">📦</span> รออะไหล่
+                                        </button>
+                                        <button onClick={() => onStatusUpdate(job.id, 'ซ่อมเสร็จ')} className="px-5 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                                            <span className="text-lg">✅</span> ซ่อมเสร็จ
+                                        </button>
                                     </>
                                 )}
                                 {job.status === 'รออะไหล่' && (
-                                    <button onClick={() => onStatusUpdate(job.id, 'กำลังซ่อม')} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95">กลับมาซ่อมต่อ</button>
+                                    <button onClick={() => onStatusUpdate(job.id, 'กำลังซ่อม')} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                                        <span className="text-lg">⚙️</span> กลับมาซ่อมต่อ
+                                    </button>
                                 )}
                             </div>
                         </div>
@@ -274,6 +282,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
                                     className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                                    aria-label="กรองตามสถานะช่าง"
                                 >
                                     <option value="all">ทั้งหมด</option>
                                     <option value="ว่าง">ว่าง</option>
@@ -287,6 +296,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                                     value={sortOption}
                                     onChange={(e) => setSortOption(e.target.value)}
                                     className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                                    aria-label="เรียงลำดับข้อมูล"
                                 >
                                     <option value="rating_desc">เรตติ้ง (สูง-ต่ำ)</option>
                                     <option value="rating_asc">เรตติ้ง (ต่ำ-สูง)</option>
@@ -308,8 +318,8 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                             <button
                                 onClick={() => setSelectedSkill(null)}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${selectedSkill === null
-                                        ? 'bg-slate-800 text-white border-slate-800 shadow-md'
-                                        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                    ? 'bg-slate-800 text-white border-slate-800 shadow-md'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                     }`}
                             >
                                 ทั้งหมด
@@ -319,8 +329,8 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                                     key={skill}
                                     onClick={() => setSelectedSkill(skill === selectedSkill ? null : skill)}
                                     className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${selectedSkill === skill
-                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                         }`}
                                 >
                                     {skill}

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { RepairKPI } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword, formatHoursDescriptive } from '../utils';
+import { promptForPasswordAsync, confirmAction, formatHoursDescriptive } from '../utils';
 
 interface KPIModalProps {
     kpi: RepairKPI | null;
@@ -84,7 +84,7 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
                 <form id="kpi-form" onSubmit={handleSubmit}>
                     <div className="p-6 border-b flex justify-between items-center">
                         <h3 className="text-2xl font-bold text-gray-800">{kpi ? 'แก้ไข' : 'เพิ่ม'} KPI ใหม่</h3>
-                        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                        <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
@@ -98,6 +98,7 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
                                 value={formData.category}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="หมวดหมู่"
                                 className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
                             />
                             <datalist id="kpi-categories">
@@ -112,17 +113,19 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
                                 value={formData.item}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="รายการซ่อม"
                                 className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">เวลามาตรฐาน *</label>
-                             <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1">
                                 <input
                                     type="number"
                                     value={hours}
                                     onChange={(e) => setHours(e.target.value)}
                                     min="0"
+                                    aria-label="ชั่วโมง"
                                     className="w-full p-2 border border-gray-300 rounded-lg"
                                 />
                                 <span>ชั่วโมง</span>
@@ -132,6 +135,7 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
                                     onChange={(e) => setMinutes(e.target.value)}
                                     min="0"
                                     max="59"
+                                    aria-label="นาที"
                                     step="1"
                                     className="w-full p-2 border border-gray-300 rounded-lg"
                                 />
@@ -172,8 +176,8 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) =>
             .sort((a, b) => a.category.localeCompare(b.category) || a.item.localeCompare(b.item));
     }, [safeKpiData, searchTerm]);
 
-    const handleOpenModal = (kpi: RepairKPI | null = null) => {
-        if (kpi && !promptForPassword('แก้ไข')) {
+    const handleOpenModal = async (kpi: RepairKPI | null = null) => {
+        if (kpi && !(await promptForPasswordAsync('แก้ไข'))) {
             return;
         }
         setEditingKPI(kpi);
@@ -192,10 +196,13 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) =>
         setIsModalOpen(false);
     };
 
-    const handleDeleteKPI = (kpi: RepairKPI) => {
-        if (promptForPassword('ลบ')) {
-            setKpiData(prev => prev.filter(item => item.id !== kpi.id));
-            addToast(`ลบ KPI '${kpi.item}' สำเร็จ`, 'info');
+    const handleDeleteKPI = async (kpi: RepairKPI) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `ยืนยันการลบ KPI '${kpi.item}'?`, 'ลบ');
+            if (confirmed) {
+                setKpiData(prev => prev.filter(item => item.id !== kpi.id));
+                addToast(`ลบ KPI '${kpi.item}' สำเร็จ`, 'info');
+            }
         }
     };
 
@@ -204,6 +211,7 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) =>
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
                 <input
                     type="text"
+                    aria-label="ค้นหา KPI"
                     placeholder="ค้นหา (รายการซ่อม, หมวดหมู่)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -229,14 +237,14 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) =>
                             <tr key={kpi.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 text-sm">{kpi.category}</td>
                                 <td className="px-4 py-3 font-semibold">{kpi.item}</td>
-                                <td className="px-4 py-3 text-right font-bold">{formatHoursDescriptive(kpi.standardHours)}</td>
+                                <td className="px-4 py-3 text-right font-bold">{formatHoursDescriptive(kpi.standardHours, 8)}</td>
                                 <td className="px-4 py-3 text-center space-x-4">
                                     <button onClick={() => handleOpenModal(kpi)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
                                     <button onClick={() => handleDeleteKPI(kpi)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}
-                         {filteredKpiData.length === 0 && (
+                        {filteredKpiData.length === 0 && (
                             <tr>
                                 <td colSpan={4} className="text-center py-10 text-gray-500">ไม่พบข้อมูล KPI</td>
                             </tr>

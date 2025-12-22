@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Repair } from '../types';
+import { formatHoursDescriptive, formatCurrency, calculateDurationHours } from '../utils';
 
 interface RepairTimelineModalProps {
     repair: Repair;
@@ -25,7 +26,8 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
             icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', // File Text
             color: 'bg-blue-500',
             bg: 'bg-blue-50',
-            text: 'text-blue-700'
+            text: 'text-blue-700',
+            order: 1
         }
     ];
 
@@ -42,19 +44,24 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
             icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', // User
             color: 'bg-indigo-500',
             bg: 'bg-indigo-50',
-            text: 'text-indigo-700'
+            text: 'text-indigo-700',
+            order: 2
         });
     }
 
-    if (repair.repairStartDate) {
+    const hasStarted = repair.repairStartDate || ['กำลังซ่อม', 'รออะไหล่', 'ซ่อมเสร็จ'].includes(repair.status);
+    if (hasStarted) {
+        // Fallback: If no start date, use end date (if exists) or creation date
+        const startDate = repair.repairStartDate || (repair.repairEndDate || repair.createdAt);
         events.push({
             title: 'เริ่มดำเนินการ (Started)',
-            date: repair.repairStartDate,
+            date: startDate,
             description: 'เริ่มทำการซ่อมบำรุง',
             icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z', // Tool/Wrench
             color: 'bg-orange-500',
             bg: 'bg-orange-50',
-            text: 'text-orange-700'
+            text: 'text-orange-700',
+            order: 3
         });
     }
 
@@ -66,7 +73,8 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
             icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', // Check Circle
             color: 'bg-green-500',
             bg: 'bg-green-50',
-            text: 'text-green-700'
+            text: 'text-green-700',
+            order: 4
         });
     } else if (repair.status === 'ยกเลิก') {
         events.push({
@@ -76,17 +84,49 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
             icon: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z', // X Circle
             color: 'bg-red-500',
             bg: 'bg-red-50',
-            text: 'text-red-700'
+            text: 'text-red-700',
+            order: 5
         });
     }
 
     // Sort events
-    const sortedEvents = events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedEvents = [...events].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
 
-    // Calculate total duration (if completed)
-    const duration = repair.repairStartDate && repair.repairEndDate
-        ? ((new Date(repair.repairEndDate).getTime() - new Date(repair.repairStartDate).getTime()) / (1000 * 60 * 60)).toFixed(1) + ' ชม.'
+        if (timeA !== timeB) {
+            return timeA - timeB;
+        }
+
+        // Use order as tie-breaker for identical timestamps
+        return (a as any).order - (b as any).order;
+    });
+
+    // Calculate total duration (Request Created until Completed)
+    const rawHours = calculateDurationHours(repair.createdAt, repair.repairEndDate || null);
+    const duration = repair.repairEndDate
+        ? formatHoursDescriptive(rawHours)
         : '-';
+
+    // Detection for Manual Record (Full process completed within 5 minutes of creation, or start/end is identical)
+    const isManualRecord = repair.repairStartDate && repair.repairEndDate &&
+        (new Date(repair.repairEndDate).getTime() - new Date(repair.createdAt).getTime() < 300000 ||
+            new Date(repair.repairEndDate).getTime() === new Date(repair.repairStartDate).getTime());
+
+    // Calculate total cost (Labor + Parts + VAT)
+    const totalPartsCost = (repair.parts || []).reduce((sum, part) => sum + (Number(part.quantity) || 0) * (Number(part.unitPrice) || 0), 0);
+    const calculatedTotalCost = (repair.repairCost || 0) + (repair.laborVat || 0) + totalPartsCost + (repair.partsVat || 0);
+
+    // Helper to calculate time gap between events
+    const getTimeGap = (currentDate: string, prevDate: string | null) => {
+        if (!prevDate) return null;
+        const diffMs = new Date(currentDate).getTime() - new Date(prevDate).getTime();
+        if (diffMs < 0) return null; // Should not happen with sorting
+        if (diffMs < 60000) return '⚡ ดำเนินการต่อเนื่อง';
+
+        const diffHours = diffMs / (1000 * 60 * 60);
+        return `⏱️ ใช้เวลา ${formatHoursDescriptive(diffHours)}`;
+    };
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -113,12 +153,20 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
                                 </span>
                                 Timeline การซ่อม
                             </h3>
-                            <p className="mt-1 text-sm text-slate-300">
-                                ใบแจ้งซ่อม: <span className="font-mono bg-white/10 px-2 py-0.5 rounded text-white">{repair.repairOrderNo}</span> • ทะเบียน: <span className="font-mono text-white">{repair.licensePlate}</span>
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <p className="text-sm text-slate-300">
+                                    ใบแจ้งซ่อม: <span className="font-mono bg-white/10 px-2 py-0.5 rounded text-white">{repair.repairOrderNo}</span> • ทะเบียน: <span className="font-mono text-white">{repair.licensePlate}</span>
+                                </p>
+                                {isManualRecord && (
+                                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full font-bold backdrop-blur-sm animate-pulse">
+                                        Manual Record
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <button
                             type="button"
+                            aria-label="ปิดหน้าต่าง"
                             className="bg-white/10 rounded-full p-1 text-slate-400 hover:text-white hover:bg-white/20 transition-all focus:outline-none"
                             onClick={onClose}
                         >
@@ -144,7 +192,7 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-center">
                                 <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">ค่าใช้จ่าย</p>
-                                <p className="text-xl font-extrabold text-slate-700 mt-1">{(repair.repairCost || 0).toLocaleString()}</p>
+                                <p className="text-xl font-extrabold text-slate-700 mt-1">{formatCurrency(calculatedTotalCost)} บาท</p>
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-center">
                                 <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">ผู้รับผิดชอบ</p>
@@ -157,33 +205,50 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
                         {/* Timeline */}
                         <div className="relative">
                             {/* Vertical Line */}
-                            <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                            <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-200 via-gray-200 to-green-200"></div>
 
-                            <div className="space-y-8">
-                                {sortedEvents.map((event, index) => (
-                                    <div key={index} className="relative flex items-start group">
-                                        {/* Icon Wrapper */}
-                                        <div className={`absolute left-0 w-16 h-16 flex items-center justify-center rounded-full border-4 border-white shadow-md z-10 ${event.color} text-white transition-transform transform group-hover:scale-110`}>
-                                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={event.icon} />
-                                            </svg>
-                                        </div>
+                            <div className="space-y-0">
+                                {sortedEvents.map((event, index) => {
+                                    const prevEvent = index > 0 ? sortedEvents[index - 1] : null;
+                                    const timeGap = getTimeGap(event.date, prevEvent?.date || null);
 
-                                        {/* Content */}
-                                        <div className="ml-24 flex-1 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative hover:shadow-md transition-shadow">
-                                            {/* Arrow */}
-                                            <div className="absolute top-6 -left-2 w-4 h-4 bg-white transform rotate-45 border-l border-b border-gray-100"></div>
+                                    return (
+                                        <div key={index}>
+                                            {/* Time Gap Indicator */}
+                                            {timeGap && (
+                                                <div className="ml-16 py-2 flex items-center gap-2">
+                                                    <div className="w-4 h-0.5 bg-gray-200"></div>
+                                                    <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200/50 uppercase tracking-tighter">
+                                                        {timeGap}
+                                                    </span>
+                                                </div>
+                                            )}
 
-                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2">
-                                                <h4 className={`text-lg font-bold ${event.text}`}>{event.title}</h4>
-                                                <span className="text-sm font-mono text-gray-400 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                                                    {new Date(event.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                            <div className="relative flex items-start group pb-8">
+                                                {/* Icon Wrapper */}
+                                                <div className={`absolute left-0 w-16 h-16 flex items-center justify-center rounded-full border-4 border-white shadow-md z-10 ${event.color} text-white transition-all transform group-hover:scale-110 group-hover:shadow-lg`}>
+                                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={event.icon} />
+                                                    </svg>
+                                                </div>
+
+                                                {/* Content */}
+                                                <div className="ml-24 flex-1 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative hover:shadow-md transition-all hover:border-blue-100 group-hover:-translate-y-0.5">
+                                                    {/* Arrow */}
+                                                    <div className="absolute top-6 -left-2 w-4 h-4 bg-white transform rotate-45 border-l border-b border-gray-100"></div>
+
+                                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2">
+                                                        <h4 className={`text-lg font-bold ${event.text}`}>{event.title}</h4>
+                                                        <span className="text-sm font-mono text-gray-400 bg-gray-50 px-2 py-1 rounded-md border border-gray-100 group-hover:text-gray-600 group-hover:bg-gray-100 transition-colors">
+                                                            {new Date(event.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-gray-600 text-sm leading-relaxed">{event.description}</p>
+                                                </div>
                                             </div>
-                                            <p className="text-gray-600 text-sm">{event.description}</p>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

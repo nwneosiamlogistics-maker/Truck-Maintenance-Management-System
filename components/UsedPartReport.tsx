@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { UsedPart, UsedPartDisposition, UsedPartBatchStatus } from '../types';
-import { promptForPassword, formatCurrency } from '../utils';
+import { promptForPasswordAsync, confirmAction, formatCurrency } from '../utils';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, ComposedChart, Line
@@ -68,15 +68,28 @@ const Card: React.FC<{ title: string; children: React.ReactNode; className?: str
     </div>
 );
 
+const TooltipItem = ({ entry, unit }: { entry: any; unit: string; key?: React.Key }) => {
+    const itemRef = React.useRef<HTMLParagraphElement>(null);
+    React.useLayoutEffect(() => {
+        if (itemRef.current) {
+            itemRef.current.style.color = entry.color;
+        }
+    }, [entry.color]);
+
+    return (
+        <p ref={itemRef} className="text-xs font-semibold mt-1">
+            {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+        </p>
+    );
+};
+
 const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
                 <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
                 {payload.map((entry: any, index: number) => (
-                    <p key={index} style={{ color: entry.color }} className="text-xs font-semibold mt-1">
-                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
-                    </p>
+                    <TooltipItem key={index} entry={entry} unit={unit} />
                 ))}
             </div>
         );
@@ -181,9 +194,12 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
         setCurrentPage(1);
     }, [statusFilter, searchTerm, startDate, endDate, itemsPerPage]);
 
-    const handleDelete = (disposition: FlattenedDisposition) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบรายการจัดการนี้?\n\n- ${disposition.dispositionType}: ${disposition.parentPart.name} (จำนวน ${disposition.quantity})`)) {
-            deleteUsedPartDisposition(disposition.parentPart.id, disposition.id);
+    const handleDelete = async (disposition: FlattenedDisposition) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบรายการจัดการนี้?\n\n- ${disposition.dispositionType}: ${disposition.parentPart.name} (จำนวน ${disposition.quantity})`, 'ลบ');
+            if (confirmed) {
+                deleteUsedPartDisposition(disposition.parentPart.id, disposition.id);
+            }
         }
     };
 
@@ -282,6 +298,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                     <label className="block text-sm font-bold text-gray-700 mb-2">ค้นหา</label>
                     <input
                         type="text"
+                        aria-label="ค้นหาอะไหล่"
                         placeholder="ชื่อ, เลขที่ซ่อม, ทะเบียน, ผู้ซื้อ..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -292,6 +309,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                     <label className="block text-sm font-bold text-gray-700 mb-2">สถานะ (ของชุดอะไหล่)</label>
                     <select
                         value={statusFilter}
+                        aria-label="กรองสถานะ"
                         onChange={e => setStatusFilter(e.target.value as any)}
                         className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
                     >
@@ -304,12 +322,12 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                 <div className="flex items-center gap-2">
                     <div className="flex-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">จากวันที่</label>
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />
+                        <input type="date" aria-label="จากวันที่" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />
                     </div>
                     <span className="text-gray-400 mb-4">-</span>
                     <div className="flex-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">ถึงวันที่</label>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />
+                        <input type="date" aria-label="ถึงวันที่" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />
                     </div>
                 </div>
             </div>
@@ -374,6 +392,7 @@ const UsedPartReport: React.FC<UsedPartReportProps> = ({ usedParts, deleteUsedPa
                         <span className="text-sm text-gray-600">แสดง</span>
                         <select
                             value={itemsPerPage}
+                            aria-label="Items per page"
                             onChange={e => setItemsPerPage(Number(e.target.value))}
                             className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1"
                         >

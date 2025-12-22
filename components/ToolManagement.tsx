@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Tool, ToolTransaction, Technician, ToolStatus } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 interface ToolModalProps {
     tool: Tool | null;
@@ -55,6 +55,7 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
     };
 
     const [formData, setFormData] = useState(getInitialState());
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setFormData(getInitialState());
@@ -68,8 +69,10 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
         if (!formData.code.trim() || !formData.name.trim()) {
             addToast('กรุณากรอกรหัสและชื่อเครื่องมือ', 'warning');
             return;
@@ -85,12 +88,20 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
                 return;
             }
         }
-        
-        onSave({ 
-            ...formData, 
-            id: tool?.id || '', 
-            quantityCheckedOut: tool?.quantityCheckedOut || 0 
-        } as Tool);
+
+        setIsSubmitting(true);
+        try {
+            await onSave({
+                ...formData,
+                id: tool?.id || '',
+                quantityCheckedOut: tool?.quantityCheckedOut || 0
+            } as Tool);
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            setTimeout(() => setIsSubmitting(false), 2000);
+        }
     };
 
     return (
@@ -99,7 +110,7 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
                 <form id="tool-form" onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                     <div className="p-6 border-b flex justify-between items-center">
                         <h3 className="text-2xl font-bold">{tool ? 'แก้ไขข้อมูลเครื่องมือ' : 'เพิ่มเครื่องมือใหม่'}</h3>
-                         <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                        <button type="button" aria-label="Close modal" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
@@ -109,21 +120,21 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">รหัสเครื่องมือ *</label>
-                                <input type="text" name="code" value={formData.code} onChange={handleInputChange} required className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="code" aria-label="รหัสเครื่องมือ" value={formData.code} onChange={handleInputChange} required className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ชื่อเครื่องมือ *</label>
-                                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="name" aria-label="ชื่อเครื่องมือ" value={formData.name} onChange={handleInputChange} required className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">หมายเลขทรัพย์สิน</label>
-                                <input type="text" name="assetNumber" value={formData.assetNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="assetNumber" aria-label="หมายเลขทรัพย์สิน" value={formData.assetNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">หมวดหมู่</label>
-                                <select name="category" value={formData.category} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg bg-white">
+                                <select name="category" aria-label="หมวดหมู่" value={formData.category} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg bg-white">
                                     {TOOL_CATEGORIES.map(cat => (
                                         <option key={cat} value={cat}>{cat}</option>
                                     ))}
@@ -131,96 +142,98 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
-                                <input type="text" name="brand" value={formData.brand || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="brand" aria-label="ยี่ห้อ" value={formData.brand || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700">รุ่น</label>
-                                <input type="text" name="model" value={formData.model || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="model" aria-label="รุ่น" value={formData.model || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">หมายเลขเครื่อง</label>
-                                <input type="text" name="serialNumber" value={formData.serialNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="serialNumber" aria-label="หมายเลขเครื่อง" value={formData.serialNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                         </div>
 
-                         <h4 className="font-semibold text-lg border-b pb-2 mt-6">ข้อมูลสต็อก</h4>
-                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <h4 className="font-semibold text-lg border-b pb-2 mt-6">ข้อมูลสต็อก</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">จำนวนทั้งหมด *</label>
-                                <input type="number" name="totalQuantity" value={formData.totalQuantity ?? ''} onChange={handleInputChange} min="1" required className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="number" name="totalQuantity" aria-label="จำนวนทั้งหมด" value={formData.totalQuantity ?? ''} onChange={handleInputChange} min="1" required className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">จุดสั่งซื้อขั้นต่ำ</label>
-                                <input type="number" name="lowStockThreshold" value={formData.lowStockThreshold ?? ''} onChange={handleInputChange} min="0" className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="number" name="lowStockThreshold" aria-label="จุดสั่งซื้อขั้นต่ำ" value={formData.lowStockThreshold ?? ''} onChange={handleInputChange} min="0" className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700">สถานะ</label>
-                                <select name="status" value={formData.status} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg">
+                                <select name="status" aria-label="สถานะ" value={formData.status} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg">
                                     {TOOL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700">ที่เก็บ</label>
-                                <input type="text" name="storageLocation" value={formData.storageLocation || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="storageLocation" aria-label="ที่เก็บ" value={formData.storageLocation || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                         </div>
 
                         <h4 className="font-semibold text-lg border-b pb-2 mt-6">ข้อมูลการจัดซื้อและคู่มือ</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700">วันที่ซื้อ / นำเข้า</label>
-                                <input type="date" name="importDate" value={formData.importDate} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="date" name="importDate" aria-label="วันที่ซื้อ" value={formData.importDate} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">เลขที่อ้างอิงคู่มือ</label>
-                                <input type="text" name="manualRefNumber" value={formData.manualRefNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="manualRefNumber" aria-label="เลขที่อ้างอิงคู่มือ" value={formData.manualRefNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ผู้ขาย / ตัวแทนจำหน่าย</label>
-                                <input type="text" name="distributorName" value={formData.distributorName || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="distributorName" aria-label="ผู้ขาย" value={formData.distributorName || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ข้อมูลติดต่อ (โทรศัพท์, อีเมล)</label>
-                                <input type="text" name="distributorContact" value={formData.distributorContact || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="distributorContact" aria-label="ข้อมูลติดต่อ" value={formData.distributorContact || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700">ที่อยู่ผู้ขาย</label>
-                            <textarea name="distributorAddress" value={formData.distributorAddress || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
+                            <textarea name="distributorAddress" aria-label="ที่อยู่ผู้ขาย" value={formData.distributorAddress || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
-                        
-                         <h4 className="font-semibold text-lg border-b pb-2 mt-6">ข้อมูลทางเทคนิค</h4>
+
+                        <h4 className="font-semibold text-lg border-b pb-2 mt-6">ข้อมูลทางเทคนิค</h4>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">รายละเอียดการใช้งาน</label>
-                            <textarea name="usageDetails" value={formData.usageDetails || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
+                            <textarea name="usageDetails" aria-label="รายละเอียดการใช้งาน" value={formData.usageDetails || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700">ข้อมูลทางกล (แรงดึง, แรงกด)</label>
-                            <textarea name="mechanicalProperties" value={formData.mechanicalProperties || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
+                            <textarea name="mechanicalProperties" aria-label="ข้อมูลทางกล" value={formData.mechanicalProperties || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700">ข้อมูลทางไฟฟ้า (โวลต์, แอมป์, วัตต์)</label>
-                            <textarea name="electricalData" value={formData.electricalData || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
+                            <textarea name="electricalData" aria-label="ข้อมูลทางไฟฟ้า" value={formData.electricalData || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
-                        
-                         <h4 className="font-semibold text-lg border-b pb-2 mt-6">ข้อมูลเพิ่มเติม</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <h4 className="font-semibold text-lg border-b pb-2 mt-6">ข้อมูลเพิ่มเติม</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">ผู้บันทึก</label>
-                                <input type="text" name="recordedBy" value={formData.recordedBy || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
+                                <input type="text" name="recordedBy" aria-label="ผู้บันทึก" value={formData.recordedBy || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-lg" />
                             </div>
-                         </div>
+                        </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">หมายเหตุ</label>
-                            <textarea name="notes" value={formData.notes || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
+                            <textarea name="notes" aria-label="หมายเหตุ" value={formData.notes || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
                     </div>
-                    
+
                     <div className="p-6 border-t flex justify-end gap-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-200 rounded-lg">ยกเลิก</button>
-                        <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg">บันทึก</button>
+                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-2 bg-gray-200 rounded-lg disabled:opacity-50">ยกเลิก</button>
+                        <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[100px]">
+                            {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -241,7 +254,7 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
     const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTool, setEditingTool] = useState<Tool | null>(null);
-    
+
     const handleCheckout = () => addToast('ฟังก์ชันยืมเครื่องมือยังไม่เปิดใช้งาน', 'info');
     const handleCheckIn = () => addToast('ฟังก์ชันคืนเครื่องมือยังไม่เปิดใช้งาน', 'info');
 
@@ -261,7 +274,7 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
             const newTool: Tool = {
                 ...toolData,
                 id: `TOOL-${Date.now()}`,
-                quantityCheckedOut: 0, 
+                quantityCheckedOut: 0,
             };
             setTools(prev => [newTool, ...prev]);
             addToast(`เพิ่มเครื่องมือใหม่ '${newTool.name}' สำเร็จ`, 'success');
@@ -269,14 +282,17 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
         setIsModalOpen(false);
     };
 
-    const handleDeleteTool = (tool: Tool) => {
+    const handleDeleteTool = async (tool: Tool) => {
         if (tool.quantityCheckedOut > 0) {
             addToast(`ไม่สามารถลบ '${tool.name}' ได้เนื่องจากมีผู้ยืมอยู่`, 'error');
             return;
         }
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ '${tool.name}'?`)) {
-            setTools(prev => prev.filter(t => t.id !== tool.id));
-            addToast(`ลบเครื่องมือ '${tool.name}' สำเร็จ`, 'info');
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบ '${tool.name}'?`, 'ลบ');
+            if (confirmed) {
+                setTools(prev => prev.filter(t => t.id !== tool.id));
+                addToast(`ลบเครื่องมือ '${tool.name}' สำเร็จ`, 'info');
+            }
         }
     };
 
@@ -296,9 +312,9 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
                     <TabButton tabId="inventory" label="คลังเครื่องมือ" />
                     <TabButton tabId="history" label="ประวัติยืม-คืน" />
                 </div>
-                 <div className="flex items-center gap-2">
-                     <button onClick={handleCheckout} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">ยืม</button>
-                     <button onClick={handleCheckIn} className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600">คืน</button>
+                <div className="flex items-center gap-2">
+                    <button onClick={handleCheckout} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">ยืม</button>
+                    <button onClick={handleCheckIn} className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600">คืน</button>
                     <button onClick={() => handleOpenModal()} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-600">+ เพิ่มเครื่องมือใหม่</button>
                 </div>
             </div>
@@ -306,8 +322,8 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
             {activeTab === 'inventory' ? (
                 <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                     <table className="min-w-full divide-y divide-gray-200">
-                         <thead className="bg-gray-50 sticky top-0">
-                             <tr>
+                        <thead className="bg-gray-50 sticky top-0">
+                            <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รหัส / ชื่อเครื่องมือ</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ยี่ห้อ / รุ่น</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
@@ -315,9 +331,9 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">สถานะ</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ที่เก็บ</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
-                             </tr>
-                         </thead>
-                         <tbody className="divide-y">
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
                             {safeTools.map(tool => (
                                 <tr key={tool.id}>
                                     <td className="px-4 py-3"><div className="font-semibold">{tool.name}</div><div className="text-sm text-gray-500">{tool.code}</div></td>
@@ -334,23 +350,23 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
                                     </td>
                                 </tr>
                             ))}
-                         </tbody>
+                        </tbody>
                     </table>
                 </div>
             ) : (
-                 <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                     <table className="min-w-full divide-y divide-gray-200">
-                         <thead className="bg-gray-50 sticky top-0">
-                             <tr>
+                <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0">
+                            <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันที่</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภท</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เครื่องมือ</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">จำนวน</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง</th>
-                             </tr>
-                         </thead>
-                         <tbody className="divide-y">
-                             {safeTransactions.map(tx => (
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {safeTransactions.map(tx => (
                                 <tr key={tx.id}>
                                     <td className="px-4 py-3">{new Date(tx.transactionDate).toLocaleString('th-TH')}</td>
                                     <td className="px-4 py-3">
@@ -360,9 +376,9 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
                                     <td className="px-4 py-3 text-right">{tx.quantity}</td>
                                     <td className="px-4 py-3">{tx.technicianName}</td>
                                 </tr>
-                             ))}
-                         </tbody>
-                     </table>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
 

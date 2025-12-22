@@ -5,7 +5,7 @@ import type { PurchaseOrder, PurchaseRequisition, StockItem, StockTransaction, S
 import CreatePOModal from './CreatePOModal';
 import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword, calculateStockStatus, formatCurrency } from '../utils';
+import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 
 interface PurchaseOrderManagementProps {
     purchaseOrders: PurchaseOrder[];
@@ -392,7 +392,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         });
     };
 
-    const handleCreatePOClick = () => {
+    const handleCreatePOClick = async () => {
         if (selectedPRIds.size === 0) {
             addToast('กรุณาเลือกใบขอซื้อ (PR) อย่างน้อย 1 รายการ', 'warning');
             return;
@@ -401,7 +401,11 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         const selectedPRs = pendingPRs.filter(pr => selectedPRIds.has(pr.id));
         const uniqueSuppliers = new Set(selectedPRs.map(pr => pr.supplier));
         if (uniqueSuppliers.size > 1) {
-            if (!window.confirm(`คุณเลือก PR จากผู้จำหน่าย ${uniqueSuppliers.size} รายที่แตกต่างกัน ระบบจะใช้ชื่อผู้จำหน่ายจาก PR แรกเป็นหลัก ต้องการดำเนินการต่อหรือไม่?`)) {
+            const confirmed = await confirmAction(
+                'ข้อมูลผู้จำหน่ายไม่ตรงกัน',
+                `คุณเลือก PR จากผู้จำหน่าย ${uniqueSuppliers.size} รายที่แตกต่างกัน ระบบจะใช้ชื่อผู้จำหน่ายจาก PR แรกเป็นหลัก ต้องการดำเนินการต่อหรือไม่?`
+            );
+            if (!confirmed) {
                 return;
             }
         }
@@ -456,8 +460,12 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         setActiveLocalTab('po-list');
     };
 
-    const handleReceivePO = (po: PurchaseOrder) => {
-        if (!window.confirm(`ยืนยันการรับของสำหรับ PO: ${po.poNumber}? การกระทำนี้จะเพิ่มสต็อกสินค้าและปิด PR ที่เกี่ยวข้อง`)) return;
+    const handleReceivePO = async (po: PurchaseOrder) => {
+        const confirmed = await confirmAction(
+            'ยืนยันการรับของ',
+            `ยืนยันการรับของสำหรับ PO: ${po.poNumber}? การกระทำนี้จะเพิ่มสต็อกสินค้าและปิด PR ที่เกี่ยวข้อง`
+        );
+        if (!confirmed) return;
 
         const now = new Date().toISOString();
 
@@ -512,8 +520,8 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย`, 'success');
     };
 
-    const handleCancelPO = (poId: string) => {
-        if (promptForPassword('ยกเลิกใบสั่งซื้อ')) {
+    const handleCancelPO = async (poId: string) => {
+        if (await promptForPasswordAsync('ยกเลิกใบสั่งซื้อ')) {
             // Update PO status
             setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, status: 'Cancelled' } : p));
 
@@ -687,9 +695,9 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setPendingPage(p => Math.max(1, p - 1))} disabled={pendingPage === 1} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
+                            <button onClick={() => setPendingPage(p => Math.max(1, p - 1))} disabled={pendingPage === 1} aria-label="หน้าก่อนหน้า" className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ก่อนหน้า</button>
                             <span className="text-sm font-semibold">หน้า {pendingPage} / {pendingTotalPages}</span>
-                            <button onClick={() => setPendingPage(p => Math.min(pendingTotalPages, p + 1))} disabled={pendingPage === pendingTotalPages} className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
+                            <button onClick={() => setPendingPage(p => Math.min(pendingTotalPages, p + 1))} disabled={pendingPage === pendingTotalPages} aria-label="หน้าถัดไป" className="px-4 py-2 text-sm bg-gray-200 rounded-lg disabled:opacity-50">ถัดไป</button>
                         </div>
                     </div>
                 </div>
@@ -700,6 +708,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                     <input
                         type="text"
                         placeholder="ค้นหา PO, ผู้จำหน่าย..."
+                        aria-label="ค้นหาใบสั่งซื้อ"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="p-2 border rounded-lg w-full md:w-80"
@@ -725,7 +734,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                     <React.Fragment key={po.id}>
                                         <tr className="hover:bg-gray-50">
                                             <td className="px-2 text-center">
-                                                <button onClick={() => toggleExpandPO(po.id)} className="text-gray-500 hover:text-blue-600">
+                                                <button onClick={() => toggleExpandPO(po.id)} aria-label={expandedPOIds.has(po.id) ? 'ย่อรายการ' : 'ขยายรายการ'} className="text-gray-500 hover:text-blue-600">
                                                     {expandedPOIds.has(po.id) ? '▼' : '▶'}
                                                 </button>
                                             </td>
@@ -827,8 +836,13 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                 <TrackingView
                     purchaseRequisitions={purchaseRequisitions}
                     purchaseOrders={purchaseOrders}
-                    onResetPrStatus={(pr) => {
-                        if (window.confirm(`ยืนยันการคืนสถานะ PR ${pr.prNumber} เป็น "อนุมัติแล้ว" เพื่อสร้าง PO ใหม่?`)) {
+                    onResetPrStatus={async (pr) => {
+                        const confirmed = await confirmAction(
+                            'ยืนยันการคืนสถานะ',
+                            `ยืนยันการคืนสถานะ PR ${pr.prNumber} เป็น "อนุมัติแล้ว" เพื่อสร้าง PO ใหม่?`,
+                            'ยืนยัน'
+                        );
+                        if (confirmed) {
                             setPurchaseRequisitions(prev => prev.map(p => {
                                 if (p.id === pr.id) {
                                     // Remove relatedPoNumber key safely (Firebase crash fix)

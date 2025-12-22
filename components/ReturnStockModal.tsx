@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import type { StockItem } from '../types';
 import { calculateStockStatus } from '../utils';
+import { useToast } from '../context/ToastContext';
 
 interface ReturnStockModalProps {
     stock: StockItem[];
     onSave: (data: {
-      stockItemId: string;
-      quantity: number;
-      reason?: string;
-      supplier?: string;
-      creditNoteNumber?: string;
-      notes?: string;
+        stockItemId: string;
+        quantity: number;
+        reason?: string;
+        supplier?: string;
+        creditNoteNumber?: string;
+        notes?: string;
     }) => void;
     onClose: () => void;
 }
@@ -30,6 +31,7 @@ const ReturnStockModal: React.FC<ReturnStockModalProps> = ({ stock, onSave, onCl
     const [supplier, setSupplier] = useState('');
     const [creditNoteNumber, setCreditNoteNumber] = useState('');
     const [notes, setNotes] = useState('');
+    const { addToast } = useToast();
 
     const selectedStockItem = useMemo(() => {
         return stock.find(item => item.id === selectedStockId);
@@ -42,26 +44,26 @@ const ReturnStockModal: React.FC<ReturnStockModalProps> = ({ stock, onSave, onCl
         if (item) {
             setSupplier(item.supplier); // Pre-fill supplier
         }
-        setQuantity(1); 
+        setQuantity(1);
     };
-    
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedStockItem) {
-            alert('กรุณาเลือกอะไหล่ที่ต้องการคืน');
+            addToast('กรุณาเลือกอะไหล่ที่ต้องการคืน', 'warning');
             return;
         }
-        if (quantity <= 0 || quantity > selectedStockItem.quantity) {
-            alert('กรุณากรอกจำนวนให้ถูกต้อง');
+        if (quantity <= 0 || (selectedStockItem && quantity > selectedStockItem.quantity)) {
+            addToast('กรุณากรอกจำนวนให้ถูกต้อง', 'warning');
             return;
         }
 
         const finalReason = reason === 'อื่นๆ' ? otherReason : reason;
         if (!finalReason.trim()) {
-            alert('กรุณาระบุเหตุผลการคืน');
+            addToast('กรุณาระบุเหตุผลการคืน', 'warning');
             return;
         }
-        
+
         onSave({
             stockItemId: selectedStockId,
             quantity,
@@ -78,11 +80,11 @@ const ReturnStockModal: React.FC<ReturnStockModalProps> = ({ stock, onSave, onCl
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
                     <div>
-                         <h3 className="text-2xl font-bold text-gray-800">คืนอะไหล่ให้ร้านค้า</h3>
-                         <p className="text-base text-gray-500">บันทึกการนำสินค้าออกจากสต็อกเพื่อส่งคืน</p>
+                        <h3 className="text-2xl font-bold text-gray-800">คืนอะไหล่ให้ร้านค้า</h3>
+                        <p className="text-base text-gray-500">บันทึกการนำสินค้าออกจากสต็อกเพื่อส่งคืน</p>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
-                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <button onClick={onClose} aria-label="ปิดหน้าต่าง" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
                 <form id="return-stock-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
@@ -92,6 +94,7 @@ const ReturnStockModal: React.FC<ReturnStockModalProps> = ({ stock, onSave, onCl
                             value={selectedStockId}
                             onChange={handleStockChange}
                             required
+                            aria-label="เลือกอะไหล่"
                             className="w-full p-2 border border-gray-300 rounded-lg"
                         >
                             <option value="" disabled>-- กรุณาเลือก --</option>
@@ -106,34 +109,37 @@ const ReturnStockModal: React.FC<ReturnStockModalProps> = ({ stock, onSave, onCl
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">จำนวนที่คืน *</label>
-                            <input 
-                                type="number" 
-                                value={quantity} 
-                                onChange={(e) => setQuantity(Number(e.target.value))} 
+                            <input
+                                type="number"
+                                value={quantity}
+                                onChange={(e) => setQuantity(Number(e.target.value))}
                                 min="1"
                                 max={selectedStockItem?.quantity}
-                                required 
+                                required
                                 disabled={!selectedStockItem}
+                                aria-label="จำนวนที่คืน"
                                 className="w-full p-2 border border-gray-300 rounded-lg disabled:bg-gray-100"
                             />
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-base font-medium text-gray-700 mb-1">ร้านค้า/ผู้จำหน่าย</label>
-                            <input 
-                                type="text" 
-                                value={supplier} 
-                                onChange={(e) => setSupplier(e.target.value)} 
+                            <input
+                                type="text"
+                                value={supplier}
+                                onChange={(e) => setSupplier(e.target.value)}
                                 placeholder="ชื่อร้านค้า"
+                                aria-label="ร้านค้า/ผู้จำหน่าย"
                                 className="w-full p-2 border border-gray-300 rounded-lg"
                             />
                         </div>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">เลขที่ใบลดหนี้ (ถ้ามี)</label>
-                        <input 
-                            type="text" 
-                            value={creditNoteNumber} 
-                            onChange={(e) => setCreditNoteNumber(e.target.value)} 
+                        <input
+                            type="text"
+                            value={creditNoteNumber}
+                            onChange={(e) => setCreditNoteNumber(e.target.value)}
+                            aria-label="เลขที่ใบลดหนี้"
                             className="w-full p-2 border border-gray-300 rounded-lg"
                         />
                     </div>
@@ -142,27 +148,30 @@ const ReturnStockModal: React.FC<ReturnStockModalProps> = ({ stock, onSave, onCl
                         <select
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
+                            aria-label="เหตุผลการคืน"
                             className="w-full p-2 border border-gray-300 rounded-lg"
                         >
                             {REASON_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                         {reason === 'อื่นๆ' && (
-                             <input 
-                                type="text" 
-                                value={otherReason} 
-                                onChange={(e) => setOtherReason(e.target.value)} 
+                            <input
+                                type="text"
+                                value={otherReason}
+                                onChange={(e) => setOtherReason(e.target.value)}
                                 required
                                 placeholder="โปรดระบุเหตุผล"
+                                aria-label="ระบุเหตุผลอื่นๆ"
                                 className="mt-2 w-full p-2 border border-gray-300 rounded-lg"
                             />
                         )}
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-base font-medium text-gray-700 mb-1">หมายเหตุเพิ่มเติม</label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
+                            aria-label="หมายเหตุเพิ่มเติม"
                             className="w-full p-2 border border-gray-300 rounded-lg"
                         ></textarea>
                     </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import type { InsuranceClaim, IncidentType, Vehicle } from '../types';
 import { formatCurrency } from '../utils';
+import { useToast } from '../context/ToastContext';
 
 interface AddInsuranceClaimModalProps {
     onClose: () => void;
@@ -21,6 +22,7 @@ const INCIDENT_TYPES: { value: IncidentType; label: string; icon: string }[] = [
 const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose, onSave, vehicles, existingClaims }) => {
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
     const [otherIncidentDetail, setOtherIncidentDetail] = useState('');
+    const { addToast } = useToast();
 
     // Generate next claim number
     const generateNextClaimNumber = () => {
@@ -63,12 +65,12 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
         e.preventDefault();
 
         if (!selectedVehicle) {
-            alert('กรุณาเลือกรถ');
+            addToast('กรุณาเลือกรถ', 'warning');
             return;
         }
 
         if (!formData.description) {
-            alert('กรุณาระบุรายละเอียดอุบัติเหตุ');
+            addToast('กรุณาระบุรายละเอียดอุบัติเหตุ', 'warning');
             return;
         }
 
@@ -122,7 +124,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
     };
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in" onClick={onClose} style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-rose-50 flex-shrink-0">
                     <div className="flex justify-between items-center">
@@ -132,6 +134,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                         </div>
                         <button
                             onClick={onClose}
+                            aria-label="ปิดหน้าต่าง"
                             className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -155,6 +158,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                             <select
                                 onChange={handleVehicleSelect}
                                 required
+                                aria-label="เลือกรถ"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
                             >
                                 <option value="">-- เลือกรถ --</option>
@@ -205,6 +209,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                 value={formData.incidentDate}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="วันที่เกิดเหตุ"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
                             />
                         </div>
@@ -217,6 +222,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                 value={formData.claimDate}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="วันที่ยื่นเคลม"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
                             />
                         </div>
@@ -231,6 +237,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                 onChange={handleInputChange}
                                 required
                                 placeholder="ชื่อผู้รายงานอุบัติเหตุ"
+                                aria-label="ผู้รายงาน"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
                             />
                         </div>
@@ -272,6 +279,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                         value={otherIncidentDetail}
                                         onChange={(e) => setOtherIncidentDetail(e.target.value)}
                                         required
+                                        aria-label="สาเหตุความเสียหายอื่นๆ"
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
                                         placeholder="ระบุสาเหตุความเสียหาย..."
                                     />
@@ -288,6 +296,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                 value={formData.incidentLocation}
                                 onChange={handleInputChange}
                                 placeholder="เช่น กม.100 ทางหลวง 1, หน้าร้านสะดวกซื้อ"
+                                aria-label="สถานที่เกิดเหตุ"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
                             />
                         </div>
@@ -302,6 +311,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                 required
                                 rows={4}
                                 placeholder="อธิบายรายละเอียดอุบัติเหตุ, ความเสียหาย, และสภาพแวดล้อมขณะเกิดเหตุ"
+                                aria-label="รายละเอียดอุบัติเหตุ"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none resize-none"
                             />
                         </div>

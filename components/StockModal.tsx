@@ -34,6 +34,7 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
     // State Isolation: Initialize with a blank state.
     const [formData, setFormData] = useState<StockItem>(initialFormState as StockItem);
     const [sourceRepairOrderNo, setSourceRepairOrderNo] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { addToast } = useToast();
 
     // State Isolation: Populate state from props using useEffect, ensuring a new copy is created.
@@ -49,7 +50,7 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        
+
         if (type === 'checkbox') {
             const { checked } = e.target as HTMLInputElement;
             setFormData(prev => ({ ...prev, [name]: checked }));
@@ -59,9 +60,10 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
         const parsedValue = ['quantity', 'minStock', 'maxStock', 'price', 'sellingPrice'].includes(name) ? parseFloat(value) || 0 : value;
         setFormData(prev => ({ ...prev, [name]: parsedValue }));
     };
-    
-    const handleSubmit = (e: React.FormEvent) => {
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
 
         // --- Duplicate Check Logic (only for new items) ---
         if (!item) {
@@ -73,8 +75,8 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
                 return;
             }
 
-            const isDuplicate = existingStock.some(s => 
-                s.code.trim().toLowerCase() === codeToCheck || 
+            const isDuplicate = existingStock.some(s =>
+                s.code.trim().toLowerCase() === codeToCheck ||
                 s.name.trim().toLowerCase() === nameToCheck
             );
 
@@ -83,10 +85,17 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
                 return; // Stop submission
             }
         }
-        
-        const newStatus = calculateStockStatus(formData.quantity, formData.minStock, formData.maxStock);
-        
-        onSave({ ...formData, status: newStatus }, { sourceRepairOrderNo });
+
+        setIsSubmitting(true);
+        try {
+            const newStatus = calculateStockStatus(formData.quantity, formData.minStock, formData.maxStock);
+            await onSave({ ...formData, status: newStatus }, { sourceRepairOrderNo });
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            setTimeout(() => setIsSubmitting(false), 2000);
+        }
     };
 
     return (
@@ -94,83 +103,86 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="text-2xl font-bold text-gray-800">{item ? 'แก้ไข' : 'เพิ่ม'}รายการอะไหล่</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
-                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full" title="ปิดหน้าต่าง">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
                 <form id="stock-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">รหัสสินค้า *</label>
-                            <input type="text" name="code" value={formData.code} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg"/>
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-code">รหัสสินค้า *</label>
+                            <input id="stock-code" type="text" name="code" value={formData.code} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg" title="รหัสสินค้า" placeholder="ระบุรหัสสินค้า" />
                         </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ชื่ออะไหล่ *</label>
-                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg"/>
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-name">ชื่ออะไหล่ *</label>
+                            <input id="stock-name" type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded-lg" title="ชื่ออะไหล่" placeholder="ระบุชื่ออะไหล่" />
                         </div>
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">หมวดหมู่</label>
-                            <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg">
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-category">หมวดหมู่</label>
+                            <select id="stock-category" name="category" value={formData.category} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="หมวดหมู่">
                                 {STOCK_CATEGORIES.map(cat => (
                                     <option key={cat} value={cat}>{cat}</option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-quantity">
                                 {item ? 'จำนวนปัจจุบันในสต็อก' : 'จำนวนเริ่มต้น'}
                             </label>
                             <input
+                                id="stock-quantity"
                                 type="number"
                                 name="quantity"
                                 value={formData.quantity}
                                 onChange={handleInputChange}
                                 className="w-full p-2 border border-gray-300 rounded-lg"
+                                title="จำนวน"
+                                placeholder="0"
                             />
                             {item && <p className="text-xs text-gray-500 mt-1">การแก้ไขจำนวนที่นี่จะสร้างรายการ "ปรับสต็อก" ในประวัติ</p>}
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">หน่วยนับ</label>
-                            <input type="text" name="unit" value={formData.unit} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                        <div>
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-unit">หน่วยนับ</label>
+                            <input id="stock-unit" type="text" name="unit" value={formData.unit} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="หน่วยนับ" placeholder="เช่น ชิ้น, อัน, ลิตร" />
                         </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">สต๊อกขั้นต่ำ (Min)</label>
-                            <input type="number" name="minStock" value={formData.minStock} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-min-stock">สต๊อกขั้นต่ำ (Min)</label>
+                            <input id="stock-min-stock" type="number" name="minStock" value={formData.minStock} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="สต๊อกขั้นต่ำ" placeholder="0" />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">สต๊อกสูงสุด (Max)</label>
-                            <input type="number" name="maxStock" value={formData.maxStock || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-max-stock">สต๊อกสูงสุด (Max)</label>
+                            <input id="stock-max-stock" type="number" name="maxStock" value={formData.maxStock || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="สต๊อกสูงสุด" placeholder="0" />
                         </div>
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ราคาทุนต่อหน่วย</label>
-                            <input type="number" name="price" value={formData.price} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-price">ราคาทุนต่อหน่วย</label>
+                            <input id="stock-price" type="number" name="price" value={formData.price} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="ราคาทุน" placeholder="0.00" />
                         </div>
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ราคาขายต่อหน่วย</label>
-                            <input type="number" name="sellingPrice" value={formData.sellingPrice || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                            <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-selling-price">ราคาขายต่อหน่วย</label>
+                            <input id="stock-selling-price" type="number" name="sellingPrice" value={formData.sellingPrice || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="ราคาขาย" placeholder="0.00" />
                         </div>
                         {!item && (
-                         <div>
-                            <label className="block text-base font-medium text-gray-700 mb-1">ที่มาจากใบซ่อม (ถ้ามี)</label>
-                            <input type="text" name="sourceRepairOrderNo" value={sourceRepairOrderNo} onChange={(e) => setSourceRepairOrderNo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" placeholder="เช่น RO-2024-00123" />
-                        </div>
+                            <div>
+                                <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-source">ที่มาจากใบซ่อม (ถ้ามี)</label>
+                                <input id="stock-source" type="text" name="sourceRepairOrderNo" value={sourceRepairOrderNo} onChange={(e) => setSourceRepairOrderNo(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg" placeholder="เช่น RO-2024-00123" title="ที่มาใบแจ้งซ่อม" />
+                            </div>
                         )}
                     </div>
-                     <div>
-                        <label className="block text-base font-medium text-gray-700 mb-1">ตำแหน่งจัดเก็บ</label>
-                        <input type="text" name="storageLocation" value={formData.storageLocation || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-location">ตำแหน่งจัดเก็บ</label>
+                        <input id="stock-location" type="text" name="storageLocation" value={formData.storageLocation || ''} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="ตำแหน่งจัดเก็บ" placeholder="ระบุตำแหน่งจัดเก็บ" />
                     </div>
-                     <div>
-                        <label className="block text-base font-medium text-gray-700 mb-1">ผู้จัดจำหน่าย</label>
-                        <input type="text" name="supplier" value={formData.supplier} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg"/>
+                    <div>
+                        <label className="block text-base font-medium text-gray-700 mb-1" htmlFor="stock-supplier">ผู้จัดจำหน่าย</label>
+                        <input id="stock-supplier" type="text" name="supplier" value={formData.supplier} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-lg" title="ผู้จัดจำหน่าย" placeholder="ระบุชื่อผู้จัดจำหน่าย" />
                     </div>
                     <div className="pt-2">
                         <label className="flex items-center space-x-3 cursor-pointer">
@@ -197,12 +209,14 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
                             />
                             <span className="text-base font-medium text-gray-800">เป็นสต็อกของเก่าแบบรวม (สำหรับขาย/ทิ้ง)</span>
                         </label>
-                         <p className="text-xs text-gray-500 ml-8">ติ๊กช่องนี้สำหรับไอเท็มที่รับคืนของเก่ามารวมกันเพื่อขาย เช่น น้ำมันเครื่องใช้แล้ว, เศษเหล็ก, แบตเตอรี่เก่า</p>
+                        <p className="text-xs text-gray-500 ml-8">ติ๊กช่องนี้สำหรับไอเท็มที่รับคืนของเก่ามารวมกันเพื่อขาย เช่น น้ำมันเครื่องใช้แล้ว, เศษเหล็ก, แบตเตอรี่เก่า</p>
                     </div>
                 </form>
                 <div className="p-6 border-t flex justify-end space-x-4">
-                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button type="submit" form="stock-form" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
+                    <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50">ยกเลิก</button>
+                    <button type="submit" form="stock-form" disabled={isSubmitting} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[120px]">
+                        {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                    </button>
                 </div>
             </div>
         </div>

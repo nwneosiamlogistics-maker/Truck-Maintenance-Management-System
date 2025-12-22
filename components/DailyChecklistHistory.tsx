@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { DailyChecklist, RepairFormSeed } from '../types';
 import ChecklistDetailModal from './ChecklistDetailModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 interface DailyChecklistHistoryProps {
     checklists: DailyChecklist[];
@@ -30,7 +30,7 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
                 const isSearchMatch = searchTerm === '' ||
                     c.vehicleLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     c.reporterName.toLowerCase().includes(searchTerm.toLowerCase());
-                
+
                 return isDateInRange && isSearchMatch;
             })
             .sort((a, b) => new Date(b.inspectionDate).getTime() - new Date(a.inspectionDate).getTime());
@@ -40,23 +40,27 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
         const hasAbnormal = Object.values(checklist.items).some(item =>
             item.status.includes('ไม่ปกติ') || item.status.includes('ชำรุด') || item.status.includes('ไม่ดัง') || item.status.includes('ไม่ติด') || item.status.includes('มีรอยบุบ') || item.status.includes('มีเสียที่')
         );
-        return hasAbnormal 
+        return hasAbnormal
             ? { text: 'พบข้อบกพร่อง', className: 'bg-red-100 text-red-800' }
             : { text: 'ปกติทั้งหมด', className: 'bg-green-100 text-green-800' };
     };
 
-    const handleDelete = (id: string) => {
-        if(promptForPassword('ลบ') && window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบใบตรวจเช็คนี้?')) {
-            setChecklists(prev => prev.filter(c => c.id !== id));
-            addToast('ลบใบตรวจเช็คสำเร็จ', 'info');
+    const handleDelete = async (id: string) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยัน', 'คุณแน่ใจหรือไม่ว่าต้องการลบใบตรวจเช็คนี้?', 'ลบ');
+            if (confirmed) {
+                setChecklists(prev => prev.filter(c => c.id !== id));
+                addToast('ลบใบตรวจเช็คสำเร็จ', 'info');
+            }
         }
     };
 
     return (
         <div className="bg-white p-6 rounded-2xl shadow-lg space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                 <input
+                <input
                     type="text"
+                    aria-label="Search Checklists"
                     placeholder="ค้นหา (ทะเบียน, ผู้ตรวจ)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -64,9 +68,9 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
                 />
                 <div className="flex items-center gap-2 md:col-span-2">
                     <label className="text-sm font-medium">วันที่ตรวจ:</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border rounded-lg"/>
+                    <input type="date" aria-label="Start Date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border rounded-lg" />
                     <span>-</span>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded-lg"/>
+                    <input type="date" aria-label="End Date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded-lg" />
                 </div>
             </div>
 
@@ -111,8 +115,8 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
             </div>
 
             {viewingChecklist && (
-                <ChecklistDetailModal 
-                    checklist={viewingChecklist} 
+                <ChecklistDetailModal
+                    checklist={viewingChecklist}
                     onClose={() => setViewingChecklist(null)}
                     onNavigateAndCreateRepair={onNavigateAndCreateRepair}
                 />

@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import type { TireInspection, TireData, Vehicle, VehicleLayout, TireType, TireAction, Repair, Technician } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword, calculateDateDifference } from '../utils';
+import { promptForPasswordAsync, confirmAction, calculateDateDifference } from '../utils';
 
 // --- CONFIG & CONSTANTS ---
 const TREAD_DEPTH_THRESHOLDS = {
@@ -143,7 +143,7 @@ const TireDataModal: React.FC<{
                 mileageInstalled: (prev.mileageInstalled == null || prev.mileageInstalled === 0) ? currentVehicleMileage : prev.mileageInstalled
             }));
         } else {
-             setFormData(prev => ({
+            setFormData(prev => ({
                 ...prev,
                 changeDate: '',
                 mileageInstalled: null
@@ -182,11 +182,11 @@ const TireDataModal: React.FC<{
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">ความลึกดอกยาง (mm)</label>
-                            <input type="number" name="treadDepth" value={formData.treadDepth ?? ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" />
+                            <input type="number" name="treadDepth" aria-label="ความลึกดอกยาง" value={formData.treadDepth ?? ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">แรงดันลม (PSI)</label>
-                            <input type="number" name="psi" value={formData.psi ?? ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" />
+                            <input type="number" name="psi" aria-label="แรงดันลม" value={formData.psi ?? ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
                     </div>
 
@@ -194,37 +194,38 @@ const TireDataModal: React.FC<{
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
-                            <input type="text" name="brand" value={formData.brand} onChange={handleChange} placeholder="เช่น Michelin" className="mt-1 w-full p-2 border rounded-lg" />
+                            <input type="text" name="brand" aria-label="ยี่ห้อ" value={formData.brand} onChange={handleChange} placeholder="เช่น Michelin" className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">รุ่น</label>
-                            <input type="text" name="model" value={formData.model} onChange={handleChange} placeholder="เช่น XZY3" className="mt-1 w-full p-2 border rounded-lg" />
+                            <input type="text" name="model" aria-label="รุ่น" value={formData.model} onChange={handleChange} placeholder="เช่น XZY3" className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Serial Number</label>
-                            <input type="text" name="serialNumber" value={formData.serialNumber} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" />
+                            <input type="text" name="serialNumber" aria-label="Serial Number" value={formData.serialNumber} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">สัปดาห์/ปีผลิต (WW/YY)</label>
-                            <input type="text" name="productionDate" value={formData.productionDate} onChange={handleChange} placeholder="เช่น 35/23" className="mt-1 w-full p-2 border rounded-lg" />
+                            <input type="text" name="productionDate" aria-label="สัปดาห์ปีผลิต" value={formData.productionDate} onChange={handleChange} placeholder="เช่น 35/23" className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
                     </div>
-                    
+
                     {/* Action */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">การดำเนินการ</label>
-                            <select name="action" value={formData.action} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg">
+                            <select name="action" aria-label="การดำเนินการ" value={formData.action} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg">
                                 {TIRE_ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
                             </select>
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700">วันที่เปลี่ยนยาง</label>
                             <input
                                 type="date"
                                 name="changeDate"
+                                aria-label="วันที่เปลี่ยนยาง"
                                 value={formData.changeDate}
                                 onChange={handleChange}
                                 className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"
@@ -232,11 +233,12 @@ const TireDataModal: React.FC<{
                             />
                         </div>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700">เลขไมล์ที่เปลี่ยน</label>
                         <input
                             type="number"
                             name="mileageInstalled"
+                            aria-label="เลขไมล์ที่เปลี่ยน"
                             value={formData.mileageInstalled ?? ''}
                             onChange={handleChange}
                             className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"
@@ -247,13 +249,13 @@ const TireDataModal: React.FC<{
                     {/* Misc */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700">ประเภทยาง</label>
-                        <select name="tireType" value={formData.tireType} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg">
+                        <select name="tireType" aria-label="ประเภทยาง" value={formData.tireType} onChange={handleChange} className="mt-1 w-full p-2 border rounded-lg">
                             {TIRE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">หมายเหตุเพิ่มเติม</label>
-                        <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="หมายเหตุเพิ่มเติม..." rows={2} className="mt-1 w-full p-2 border rounded-lg" />
+                        <textarea name="notes" aria-label="หมายเหตุเพิ่มเติม" value={formData.notes} onChange={handleChange} placeholder="หมายเหตุเพิ่มเติม..." rows={2} className="mt-1 w-full p-2 border rounded-lg" />
                     </div>
                 </div>
                 <div className="p-4 border-t flex justify-end gap-2">
@@ -276,7 +278,7 @@ const TruckDiagram: React.FC<{
         const positionInfo = VEHICLE_LAYOUTS[layout]?.find(p => p.id === positionId.toString());
         const positionLabel = positionInfo?.label || `Tire ${positionId}`;
         const fullLabel = `${positionLabel} (ตำแหน่ง ${label})`;
-    
+
         return (
             <button
                 onClick={() => onSelectTire(positionId.toString())}
@@ -296,7 +298,7 @@ const TruckDiagram: React.FC<{
             <TireButton positionId={pos2.toString()} label={pos2} />
         </div>
     );
-    
+
     // Trailer-only layouts
     if (layout === 'หาง 3 เพลา' || layout === 'หางแม่ลูก 3 เพลา') {
         return (
@@ -317,7 +319,7 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={11} pos2={12} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="13" label={13} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="13" label={13} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                 </div>
@@ -327,7 +329,7 @@ const TruckDiagram: React.FC<{
 
     if (layout === 'หาง 2 เพลา' || layout === 'หางแม่ลูก 2 เพลา') {
         return (
-             <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg font-sans">
+            <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg font-sans">
                 <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-200 text-gray-700 text-sm font-bold rounded">{layout}</div>
                     <div className="flex flex-col items-center gap-8 pt-8">
@@ -340,18 +342,18 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={7} pos2={8} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="9" label={9} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="9" label={9} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                 </div>
             </div>
         );
     }
-    
+
     if (layout === 'รถ 12 ล้อ') {
         return (
             <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg font-sans">
-                 <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
+                <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-200 text-gray-700 text-sm font-bold rounded">{layout}</div>
                     <div className="flex flex-col items-center gap-8 pt-8">
                         <div className="flex justify-between w-full px-4 items-center">
@@ -359,7 +361,7 @@ const TruckDiagram: React.FC<{
                             <div className="w-20 h-12 bg-gray-300 rounded-t-lg flex items-center justify-center text-gray-500 text-sm">Cab</div>
                             <TireButton positionId="2" label={2} />
                         </div>
-                         <div className="flex justify-between w-full px-4">
+                        <div className="flex justify-between w-full px-4">
                             <TireButton positionId="3" label={3} />
                             <TireButton positionId="4" label={4} />
                         </div>
@@ -372,18 +374,18 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={11} pos2={12} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="13" label={13} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="13" label={13} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
-                 </div>
+                </div>
             </div>
         );
     }
 
     if (layout === 'รถ 6 ล้อ') {
-         return (
+        return (
             <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg font-sans">
-                 <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
+                <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-200 text-gray-700 text-sm font-bold rounded">{layout}</div>
                     <div className="flex flex-col items-center gap-8 pt-8">
                         <div className="flex justify-between w-full px-4 items-center">
@@ -396,23 +398,23 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={5} pos2={6} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="7" label={7} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="7" label={7} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
-                 </div>
+                </div>
             </div>
         );
     }
-    
+
     if (layout === 'รถกระบะ 4 ล้อ') {
         return (
             <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg font-sans">
-                 <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
+                <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-200 text-gray-700 text-sm font-bold rounded">{layout}</div>
                     <div className="flex flex-col items-center gap-8 pt-8">
                         <div className="flex justify-between w-full px-4 items-center">
                             <TireButton positionId="1" label={1} />
-                             <div className="w-20 h-12 bg-gray-300 rounded-t-lg flex items-center justify-center text-gray-500 text-sm">Cab</div>
+                            <div className="w-20 h-12 bg-gray-300 rounded-t-lg flex items-center justify-center text-gray-500 text-sm">Cab</div>
                             <TireButton positionId="2" label={2} />
                         </div>
                         <div className="flex justify-between w-full px-4">
@@ -420,10 +422,10 @@ const TruckDiagram: React.FC<{
                             <TireButton positionId="4" label={4} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="5" label={5} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="5" label={5} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
-                 </div>
+                </div>
             </div>
         );
     }
@@ -431,7 +433,7 @@ const TruckDiagram: React.FC<{
     if (layout === 'รถพ่วง 22 ล้อ') {
         return (
             <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg font-sans">
-                 <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
+                <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-200 text-gray-700 text-sm font-bold rounded">หัวลาก</div>
                     <div className="flex flex-col items-center gap-8 pt-8">
                         <div className="flex justify-between w-full px-4 items-center">
@@ -448,14 +450,14 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={9} pos2={10} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="23" label={23} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="23" label={23} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
-                 </div>
+                </div>
 
-                 <div className="w-1 h-4 bg-gray-400"></div>
-                
-                 <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
+                <div className="w-1 h-4 bg-gray-400"></div>
+
+                <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-200 text-gray-700 text-sm font-bold rounded">หางพ่วง</div>
                     <div className="flex flex-col items-center gap-8 pt-8">
                         <div className="flex justify-between w-full">
@@ -466,12 +468,12 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={15} pos2={16} />
                             <DualWheel pos1={17} pos2={18} />
                         </div>
-                         <div className="flex justify-between w-full">
+                        <div className="flex justify-between w-full">
                             <DualWheel pos1={19} pos2={20} />
                             <DualWheel pos1={21} pos2={22} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="24" label={24} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="24" label={24} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
                 </div>
@@ -480,7 +482,7 @@ const TruckDiagram: React.FC<{
     } else if (layout === 'รถ 10 ล้อ') {
         return (
             <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg font-sans">
-                 <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
+                <div className="border p-4 rounded-lg bg-white w-full max-w-sm relative shadow-inner">
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-200 text-gray-700 text-sm font-bold rounded">รถ 10 ล้อ</div>
                     <div className="flex flex-col items-center gap-8 pt-8">
                         <div className="flex justify-between w-full px-4 items-center">
@@ -497,14 +499,14 @@ const TruckDiagram: React.FC<{
                             <DualWheel pos1={9} pos2={10} />
                         </div>
                         <div className="flex justify-center pt-2">
-                             <TireButton positionId="11" label={11} className="w-20 h-20 rounded-full" />
+                            <TireButton positionId="11" label={11} className="w-20 h-20 rounded-full" />
                         </div>
                     </div>
-                 </div>
+                </div>
             </div>
         );
     }
-    
+
     return null;
 };
 
@@ -530,7 +532,7 @@ const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspectio
         setEditingInspection(null);
         setView('history');
     };
-    
+
     const handleComplete = () => {
         setEditingInspection(null);
         setView('history');
@@ -552,7 +554,7 @@ const TireCheckPage: React.FC<TireCheckPageProps> = ({ inspections, setInspectio
                 >
                     📜 ประวัติการตรวจเช็ค
                 </button>
-                 <button
+                <button
                     onClick={() => { setView('changeHistory'); setEditingInspection(null); }}
                     className={`px-4 py-2 rounded-lg font-semibold transition-colors w-full ${view === 'changeHistory' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 >
@@ -657,12 +659,12 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
             tires: { ...prev.tires, [data.positionId]: data },
         }));
     };
-    
+
     const handleVehicleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const plate = e.target.value;
         const latestRepair = (Array.isArray(repairs) ? repairs : [])
             .filter(r => r.licensePlate === plate && r.currentMileage)
-            .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
         setFormData(prev => ({
             ...prev,
@@ -684,7 +686,7 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
         }
 
         if (inspectionToEdit) {
-            setInspections(prev => prev.map(insp => 
+            setInspections(prev => prev.map(insp =>
                 insp.id === inspectionToEdit.id ? { ...formData, id: insp.id, inspectionDate: new Date(formData.inspectionDate).toISOString() } : insp
             ));
             addToast('แก้ไขข้อมูลการตรวจเช็คสำเร็จ', 'success');
@@ -699,71 +701,78 @@ const TireCheckForm: React.FC<TireCheckFormProps> = ({ vehicles, setInspections,
         }
         onComplete();
     };
-    
+
     const filledTireCount = useMemo(() => Object.values(formData.tires).filter((t: TireData) => t.isFilled).length, [formData.tires]);
     const totalTires = useMemo(() => Object.keys(formData.tires).length, [formData.tires]);
     const progress = totalTires > 0 ? (filledTireCount / totalTires) * 100 : 0;
-    
+
     const positionInfoForModal = selectedTirePos ? VEHICLE_LAYOUTS[formData.vehicleLayout].find(p => p.id === selectedTirePos) : null;
     const positionLabelForModal = positionInfoForModal ? `${positionInfoForModal.label} (ตำแหน่ง ${positionInfoForModal.id})` : '';
+
+    const progressBarRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        if (progressBarRef.current) {
+            progressBarRef.current.style.width = `${progress}%`;
+        }
+    }, [progress]);
 
     return (
         <div className="bg-white p-6 rounded-2xl shadow-lg space-y-6">
             <h2 className="text-2xl font-bold text-center">{inspectionToEdit ? `แก้ไขการตรวจเช็ค: ${inspectionToEdit.licensePlate}` : 'สร้างใบตรวจเช็คยาง'}</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                 <div>
+                <div>
                     <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ *</label>
-                    <input list="license-plates" name="licensePlate" value={formData.licensePlate} onChange={handleVehicleSelect} className="mt-1 w-full p-2 border rounded-lg" required/>
+                    <input list="license-plates" name="licensePlate" aria-label="ทะเบียนรถ" value={formData.licensePlate} onChange={handleVehicleSelect} className="mt-1 w-full p-2 border rounded-lg" required />
                     <datalist id="license-plates">
                         {safeVehicles.map(v => <option key={v.id} value={v.licensePlate} />)}
                     </datalist>
                 </div>
                 {formData.vehicleLayout === 'รถพ่วง 22 ล้อ' && (
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700">ทะเบียนหางพ่วง</label>
-                        <input type="text" name="trailerLicensePlate" value={formData.trailerLicensePlate || ''} onChange={e => setFormData(p => ({...p, trailerLicensePlate: e.target.value}))} className="mt-1 w-full p-2 border rounded-lg" />
+                        <input type="text" name="trailerLicensePlate" aria-label="ทะเบียนหางพ่วง" value={formData.trailerLicensePlate || ''} onChange={e => setFormData(p => ({ ...p, trailerLicensePlate: e.target.value }))} className="mt-1 w-full p-2 border rounded-lg" />
                     </div>
                 )}
-                 <div>
+                <div>
                     <label className="block text-sm font-medium text-gray-700">รูปแบบรถ *</label>
-                    <select name="vehicleLayout" value={formData.vehicleLayout} onChange={e => setFormData(p => ({...p, vehicleLayout: e.target.value as VehicleLayout, tires: {}}))} className="mt-1 w-full p-2 border rounded-lg">
+                    <select name="vehicleLayout" aria-label="รูปแบบรถ" value={formData.vehicleLayout} onChange={e => setFormData(p => ({ ...p, vehicleLayout: e.target.value as VehicleLayout, tires: {} }))} className="mt-1 w-full p-2 border rounded-lg">
                         {Object.keys(VEHICLE_LAYOUTS).map(layout => <option key={layout} value={layout}>{layout}</option>)}
                     </select>
                 </div>
-                 <div>
+                <div>
                     <label className="block text-sm font-medium text-gray-700">ผู้ตรวจ *</label>
-                    <select name="inspectorName" value={formData.inspectorName} onChange={e => setFormData(p => ({...p, inspectorName: e.target.value}))} className="mt-1 w-full p-2 border rounded-lg" required>
+                    <select name="inspectorName" aria-label="ผู้ตรวจ" value={formData.inspectorName} onChange={e => setFormData(p => ({ ...p, inspectorName: e.target.value }))} className="mt-1 w-full p-2 border rounded-lg" required>
                         <option value="" disabled>-- เลือกช่าง --</option>
                         {technicians.map(tech => (
                             <option key={tech.id} value={tech.name}>{tech.name}</option>
                         ))}
                     </select>
                 </div>
-                 <div>
+                <div>
                     <label className="block text-sm font-medium text-gray-700">เลขไมล์ (กม.)</label>
-                    <input type="number" name="mileage" value={formData.mileage || ''} onChange={e => setFormData(p => ({...p, mileage: Number(e.target.value)}))} className="mt-1 w-full p-2 border rounded-lg" />
+                    <input type="number" name="mileage" aria-label="เลขไมล์" value={formData.mileage || ''} onChange={e => setFormData(p => ({ ...p, mileage: Number(e.target.value) }))} className="mt-1 w-full p-2 border rounded-lg" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">วันที่ตรวจ</label>
-                    <input type="date" name="inspectionDate" value={formData.inspectionDate} onChange={e => setFormData(p => ({...p, inspectionDate: e.target.value}))} className="mt-1 w-full p-2 border rounded-lg" />
+                    <input type="date" name="inspectionDate" aria-label="วันที่ตรวจ" value={formData.inspectionDate} onChange={e => setFormData(p => ({ ...p, inspectionDate: e.target.value }))} className="mt-1 w-full p-2 border rounded-lg" />
                 </div>
             </div>
 
             <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-2">ความคืบหน้าการตรวจเช็ค ({filledTireCount}/{totalTires})</label>
-                 <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div className="bg-blue-600 h-4 rounded-full" style={{ width: `${progress}%` }}></div>
-                 </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ความคืบหน้าการตรวจเช็ค ({filledTireCount}/{totalTires})</label>
+                <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div ref={progressBarRef} className="bg-blue-600 h-4 rounded-full transition-all duration-300"></div>
+                </div>
             </div>
 
             <TruckDiagram layout={formData.vehicleLayout} tires={formData.tires} onSelectTire={setSelectedTirePos} />
 
             <div className="flex justify-end gap-4 pt-4 border-t">
-                 {inspectionToEdit && <button onClick={onCancel} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>}
-                 <button onClick={handleSaveInspection} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                {inspectionToEdit && <button onClick={onCancel} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>}
+                <button onClick={handleSaveInspection} className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
                     {inspectionToEdit ? 'บันทึกการแก้ไข' : 'บันทึกการตรวจเช็ค'}
-                 </button>
+                </button>
             </div>
 
             {selectedTirePos && (
@@ -794,8 +803,8 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
 
     const filteredInspections = useMemo(() => {
         return (Array.isArray(inspections) ? inspections : [])
-            .filter(insp => 
-                searchTerm === '' || 
+            .filter(insp =>
+                searchTerm === '' ||
                 insp.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (insp.trailerLicensePlate && insp.trailerLicensePlate.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 insp.inspectorName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -803,17 +812,21 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
             .sort((a, b) => new Date(b.inspectionDate).getTime() - new Date(a.inspectionDate).getTime());
     }, [inspections, searchTerm]);
 
-    const handleDelete = (id: string, plate: string) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบการตรวจเช็คของทะเบียน ${plate}?`)) {
-            setInspections(prev => prev.filter(i => i.id !== id));
-            addToast(`ลบการตรวจเช็คของ ${plate} สำเร็จ`, 'info');
+    const handleDelete = async (id: string, plate: string) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบการตรวจเช็คของทะเบียน ${plate}?`, 'ลบ');
+            if (confirmed) {
+                setInspections(prev => prev.filter(i => i.id !== id));
+                addToast(`ลบการตรวจเช็คของ ${plate} สำเร็จ`, 'info');
+            }
         }
     };
-    
+
     return (
         <div className="bg-white p-6 rounded-2xl shadow-lg space-y-4">
-             <input
+            <input
                 type="text"
+                aria-label="ค้นหาประวัติการตรวจเช็ค"
                 placeholder="ค้นหา (ทะเบียน, ผู้ตรวจ)..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -833,8 +846,8 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                                     <p className="text-sm text-gray-500">{new Date(insp.inspectionDate).toLocaleDateString('th-TH')} - โดย {insp.inspectorName} - เลขไมล์: {(insp.mileage || 0).toLocaleString()} กม.</p>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                     <button onClick={(e) => { e.stopPropagation(); if (promptForPassword('แก้ไข')) { onEdit(insp); } }} className="text-yellow-600 hover:text-yellow-800">แก้ไข</button>
-                                     <button onClick={(e) => { e.stopPropagation(); handleDelete(insp.id, insp.licensePlate); }} className="text-red-500 hover:text-red-700">ลบ</button>
+                                    <button onClick={async (e) => { e.stopPropagation(); if (await promptForPasswordAsync('แก้ไข')) { onEdit(insp); } }} className="text-yellow-600 hover:text-yellow-800">แก้ไข</button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(insp.id, insp.licensePlate); }} className="text-red-500 hover:text-red-700">ลบ</button>
                                     <span className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                                 </div>
                             </div>
@@ -857,17 +870,18 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                                             {tireList.map((tire: TireData) => {
                                                 const positionLabel = layoutPositions.find(p => p.id === tire.positionId)?.label || tire.positionId;
                                                 return (
-                                                <tr key={tire.positionId} className="border-b">
-                                                    <td className="p-2 font-medium">{positionLabel}</td>
-                                                    <td className="p-2 text-right">{tire.treadDepth}</td>
-                                                    <td className="p-2 text-right">{tire.psi}</td>
-                                                    <td className="p-2">{tire.action}</td>
-                                                    <td className="p-2">{tire.brand} {tire.model}</td>
-                                                    <td className="p-2">{tire.changeDate ? new Date(tire.changeDate).toLocaleDateString('th-TH') : '-'}</td>
-                                                    <td className="p-2 text-right">{tire.mileageInstalled ? tire.mileageInstalled.toLocaleString() : '-'}</td>
-                                                    <td className="p-2">{calculateTireAge(tire.changeDate)}</td>
-                                                </tr>
-                                            )})}
+                                                    <tr key={tire.positionId} className="border-b">
+                                                        <td className="p-2 font-medium">{positionLabel}</td>
+                                                        <td className="p-2 text-right">{tire.treadDepth}</td>
+                                                        <td className="p-2 text-right">{tire.psi}</td>
+                                                        <td className="p-2">{tire.action}</td>
+                                                        <td className="p-2">{tire.brand} {tire.model}</td>
+                                                        <td className="p-2">{tire.changeDate ? new Date(tire.changeDate).toLocaleDateString('th-TH') : '-'}</td>
+                                                        <td className="p-2 text-right">{tire.mileageInstalled ? tire.mileageInstalled.toLocaleString() : '-'}</td>
+                                                        <td className="p-2">{calculateTireAge(tire.changeDate)}</td>
+                                                    </tr>
+                                                )
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -875,7 +889,7 @@ const TireCheckHistory: React.FC<TireCheckHistoryProps> = ({ inspections, onEdit
                         </div>
                     )
                 })}
-                 {filteredInspections.length === 0 && (
+                {filteredInspections.length === 0 && (
                     <p className="text-center text-gray-500 py-8">ไม่พบประวัติการตรวจเช็ค</p>
                 )}
             </div>
@@ -904,7 +918,7 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
             .filter(v => platesWithChanges.has(v.licensePlate))
             .map(v => ({ ...v, changeEventCount: inspections.filter(i => i.licensePlate === v.licensePlate && Object.values(i.tires).some((t: TireData) => t.action === 'เปลี่ยน')).length }));
     }, [inspections, vehicles]);
-    
+
     const filteredVehicleStats = useMemo(() => {
         if (!searchTerm) return vehicleChangeStats.sort((a, b) => b.changeEventCount - a.changeEventCount);
         return vehicleChangeStats.filter(v => v.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -929,40 +943,40 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                 }
             }
         }
-        
+
         Object.values(positionHistory).forEach(history => history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-        
+
         const eventsByDate: Record<string, { tires: (TireData & { layout: VehicleLayout, lifespan?: string, mileageLifespan?: number })[] }> = {};
 
         for (const [posId, history] of Object.entries(positionHistory)) {
             for (let i = 0; i < history.length; i++) {
                 const installEvent = history[i];
                 const removalEvent = history[i + 1];
-                
+
                 const eventDate = installEvent.date;
                 if (!eventsByDate[eventDate]) {
                     eventsByDate[eventDate] = { tires: [] };
                 }
-                
+
                 const lifespan = removalEvent ? calculateDateDifference(installEvent.date, removalEvent.date) : undefined;
                 const mileageLifespan = (removalEvent && installEvent.tire.mileageInstalled != null && removalEvent.tire.mileageInstalled != null)
                     ? removalEvent.tire.mileageInstalled - installEvent.tire.mileageInstalled
                     : undefined;
-                    
+
                 eventsByDate[eventDate].tires.push({ ...installEvent.tire, layout: installEvent.layout, lifespan, mileageLifespan });
             }
         }
-        
+
         const finalEvents = Object.entries(eventsByDate)
             .map(([date, data]) => ({ date, ...data }))
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            
+
         const latestTires = Object.entries(positionHistory).map(([posId, history]) => {
             const latestChange = history[history.length - 1];
             const latestTire = latestChange.tire;
             const latestLayout = latestChange.layout;
             const positionInfo = (VEHICLE_LAYOUTS[latestLayout] || []).find(p => p.id === posId);
-            
+
             const latestInspection = vehicleInspections.length > 0 ? vehicleInspections[vehicleInspections.length - 1] : null;
             const currentMileage = latestInspection?.mileage || null;
             const mileageAge = (currentMileage && latestTire.mileageInstalled != null) ? currentMileage - latestTire.mileageInstalled : null;
@@ -973,7 +987,7 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                 currentAge: calculateDateDifference(latestTire.changeDate, new Date().toISOString()),
                 currentMileageAge: mileageAge
             };
-        }).sort((a,b) => parseInt(a.positionId) - parseInt(b.positionId));
+        }).sort((a, b) => parseInt(a.positionId) - parseInt(b.positionId));
 
         return { changeEvents: finalEvents, currentTires: latestTires };
     }, [selectedPlate, inspections]);
@@ -1030,33 +1044,35 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-lg">
-                     <h3 className="text-xl font-bold mb-4 border-b pb-2">ประวัติการเปลี่ยนยางชุดก่อนหน้า</h3>
-                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                    <h3 className="text-xl font-bold mb-4 border-b pb-2">ประวัติการเปลี่ยนยางชุดก่อนหน้า</h3>
+                    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                         {changeEvents.slice(1).map(event => (
                             <div key={event.date} className="bg-gray-50 p-4 rounded-lg">
                                 <p className="font-bold">เปลี่ยนเมื่อ: {new Date(event.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} (จำนวน {event.tires.length} เส้น)</p>
                                 <ul className="list-disc list-inside mt-2 text-sm pl-2 space-y-1">
                                     {event.tires.map((tire, idx) => {
-                                         const positionLabel = (VEHICLE_LAYOUTS[tire.layout] || []).find(p => p.id === tire.positionId)?.label || tire.positionId;
+                                        const positionLabel = (VEHICLE_LAYOUTS[tire.layout] || []).find(p => p.id === tire.positionId)?.label || tire.positionId;
                                         return (
-                                        <li key={idx}>
-                                            {positionLabel}: {tire.brand || 'N/A'} {tire.model || ''} - อายุการใช้งาน: <span className="font-semibold text-blue-600">{getLifespanText(tire)}</span>
-                                        </li>
-                                    )})}
+                                            <li key={idx}>
+                                                {positionLabel}: {tire.brand || 'N/A'} {tire.model || ''} - อายุการใช้งาน: <span className="font-semibold text-blue-600">{getLifespanText(tire)}</span>
+                                            </li>
+                                        )
+                                    })}
                                 </ul>
                             </div>
                         ))}
-                     </div>
+                    </div>
                 </div>
             </div>
         );
     }
-    
+
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm">
                 <input
                     type="text"
+                    aria-label="ค้นหาด้วยทะเบียนรถ"
                     placeholder="ค้นหาด้วยทะเบียนรถ..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -1081,8 +1097,8 @@ const TireChangeHistory: React.FC<TireChangeHistoryProps> = ({ inspections, vehi
                             </div>
                         </div>
                         <div className="mt-6">
-                            <button 
-                                onClick={() => setSelectedPlate(vehicle.licensePlate)} 
+                            <button
+                                onClick={() => setSelectedPlate(vehicle.licensePlate)}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                                 ดูประวัติการเปลี่ยน

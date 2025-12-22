@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { Technician, Repair, RepairStatus, TechnicianRole } from '../types';
 import TechnicianModal from './TechnicianModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 interface TechnicianEditModalProps {
     technician: Technician | null;
@@ -29,6 +29,7 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
 
     const [formData, setFormData] = useState<Technician>(getInitialState);
     const [skillsString, setSkillsString] = useState(technician?.skills.join(', ') || '');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setFormData(getInitialState());
@@ -41,10 +42,20 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
         setFormData(prev => ({ ...prev, [name]: parsedValue as any }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const skillsArray = skillsString.split(',').map(s => s.trim()).filter(Boolean);
-        onSave({ ...formData, skills: skillsArray });
+        if (isSubmitting) return;
+
+        setIsSubmitting(true);
+        try {
+            const skillsArray = skillsString.split(',').map(s => s.trim()).filter(Boolean);
+            await onSave({ ...formData, skills: skillsArray });
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            setTimeout(() => setIsSubmitting(false), 2000);
+        }
     };
 
     return (
@@ -55,7 +66,7 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
                         <h3 className="text-2xl font-bold text-gray-800">{technician ? 'แก้ไขข้อมูลช่าง' : 'เพิ่มช่างใหม่'}</h3>
                         <p className="text-gray-500 text-sm mt-1">กรอกข้อมูลให้ครบถ้วนเพื่อบันทึกในระบบ</p>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm">
+                    <button onClick={onClose} aria-label="Close" title="ปิดหน้าต่าง" className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
@@ -64,12 +75,12 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">ชื่อ-สกุล</label>
-                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
+                            <input type="text" name="name" aria-label="Name" value={formData.name} onChange={handleInputChange} required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" title="ชื่อ-สกุล" placeholder="ระบุชื่อ-นามสกุล" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">ตำแหน่ง</label>
                             <div className="relative">
-                                <select name="role" value={formData.role} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none appearance-none transition-all">
+                                <select name="role" aria-label="Role" value={formData.role} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none appearance-none transition-all" title="ตำแหน่ง">
                                     <option value="ช่าง">ช่าง</option>
                                     <option value="ผู้ช่วยช่าง">ผู้ช่วยช่าง</option>
                                 </select>
@@ -81,17 +92,17 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
                     </div>
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">ทักษะ (คั่นด้วย ,)</label>
-                        <input type="text" name="skills" value={skillsString} onChange={(e) => setSkillsString(e.target.value)} placeholder="เช่น เครื่องยนต์, เบรก, ไฟฟ้า" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
+                        <input type="text" name="skills" aria-label="Skills" value={skillsString} onChange={(e) => setSkillsString(e.target.value)} placeholder="เช่น เครื่องยนต์, เบรก, ไฟฟ้า" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" title="ทักษะ" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">ประสบการณ์ (ปี)</label>
-                            <input type="number" name="experience" value={formData.experience} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
+                            <input type="number" name="experience" aria-label="Experience" value={formData.experience} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" title="ประสบการณ์ (ปี)" placeholder="0" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">สถานะเริ่มต้น</label>
                             <div className="relative">
-                                <select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none appearance-none transition-all">
+                                <select name="status" aria-label="Status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none appearance-none transition-all" title="สถานะ">
                                     <option value="ว่าง">ว่าง</option>
                                     <option value="ไม่ว่าง">ไม่ว่าง</option>
                                     <option value="ลา">ลา</option>
@@ -105,21 +116,23 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">เรตติ้ง</label>
-                            <input type="number" step="0.1" name="rating" value={formData.rating} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
+                            <input type="number" step="0.1" name="rating" aria-label="Rating" value={formData.rating} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">งานที่เสร็จแล้ว</label>
-                            <input type="number" name="completedJobs" value={formData.completedJobs} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
+                            <input type="number" name="completedJobs" aria-label="Completed Jobs" value={formData.completedJobs} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">งานปัจจุบัน</label>
-                            <input type="number" name="currentJobs" value={formData.currentJobs} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
+                            <input type="number" name="currentJobs" aria-label="Current Jobs" value={formData.currentJobs} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
                         </div>
                     </div>
                 </form>
                 <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                    <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">ยกเลิก</button>
-                    <button type="submit" form="technician-form" className="px-8 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95">บันทึกข้อมูล</button>
+                    <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50">ยกเลิก</button>
+                    <button type="submit" form="technician-form" disabled={isSubmitting} className="px-8 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[120px]">
+                        {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+                    </button>
                 </div>
             </div>
         </div>
@@ -234,10 +247,13 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
         setEditModalOpen(false);
     };
 
-    const handleDeleteTechnician = (techId: string, techName: string) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ ${techName}?`)) {
-            setTechnicians(prev => prev.filter(t => t.id !== techId));
-            addToast(`ลบช่าง ${techName} สำเร็จ`, 'info');
+    const handleDeleteTechnician = async (techId: string, techName: string) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบ ${techName}?`, 'ลบ');
+            if (confirmed) {
+                setTechnicians(prev => prev.filter(t => t.id !== techId));
+                addToast(`ลบช่าง ${techName} สำเร็จ`, 'info');
+            }
         }
     };
 
@@ -259,6 +275,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold text-slate-600">สถานะ:</span>
                                 <select
+                                    aria-label="Filter by Status"
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
                                     className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
@@ -272,6 +289,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold text-slate-600">เรียงตาม:</span>
                                 <select
+                                    aria-label="Sort by"
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
                                     className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
@@ -296,8 +314,8 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                             <button
                                 onClick={() => setSkillFilter('all')}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${skillFilter === 'all'
-                                        ? 'bg-slate-800 text-white border-slate-800 shadow-md'
-                                        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                    ? 'bg-slate-800 text-white border-slate-800 shadow-md'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                     }`}
                             >
                                 ทั้งหมด
@@ -307,8 +325,8 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                                     key={skill}
                                     onClick={() => setSkillFilter(skill === skillFilter ? 'all' : skill)}
                                     className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${skillFilter === skill
-                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                         }`}
                                 >
                                     {skill}
@@ -374,10 +392,10 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                                 <button onClick={() => openDetailModal(tech)} className="flex-1 bg-white hover:bg-blue-50 text-slate-600 font-bold py-2.5 px-4 rounded-xl transition-all active:scale-95 text-xs shadow-sm hover:shadow border border-slate-200 group-hover:border-blue-200 group-hover:text-blue-600">
                                     รายละเอียด
                                 </button>
-                                <button onClick={() => handleOpenEditModal(tech)} className="px-3 bg-white hover:bg-amber-50 text-slate-600 hover:text-amber-600 font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm hover:shadow border border-slate-200">
+                                <button onClick={() => handleOpenEditModal(tech)} aria-label={`Edit ${tech.name}`} className="px-3 bg-white hover:bg-amber-50 text-slate-600 hover:text-amber-600 font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm hover:shadow border border-slate-200">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 </button>
-                                <button onClick={() => handleDeleteTechnician(tech.id, tech.name)} className="px-3 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm hover:shadow border border-slate-200">
+                                <button onClick={() => handleDeleteTechnician(tech.id, tech.name)} aria-label={`Delete ${tech.name}`} className="px-3 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm hover:shadow border border-slate-200">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
                             </div>

@@ -4,10 +4,8 @@ import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
-import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency } from '../utils';
+import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
-import Swal from 'sweetalert2';
-
 
 interface StepperProps {
     steps: string[];
@@ -450,18 +448,13 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         );
 
         if (potentialDuplicate) {
-            const result = await Swal.fire({
-                title: 'ยืนยันใบแจ้งซ่อมซ้ำ',
-                text: `มีความเป็นไปได้ว่ารถทะเบียน ${formData.licensePlate} มีใบซ่อมที่กำลังดำเนินการอยู่แล้ว คุณต้องการสร้างใบแจ้งซ่อมใหม่หรือไม่?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'ยืนยันสร้างใหม่',
-                cancelButtonText: 'ตรวจสอบก่อน',
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-            });
+            const confirmed = await confirmAction(
+                'ยืนยันใบแจ้งซ่อมซ้ำ',
+                `มีความเป็นไปได้ว่ารถทะเบียน ${formData.licensePlate} มีใบซ่อมที่กำลังดำเนินการอยู่แล้ว คุณต้องการสร้างใบแจ้งซ่อมใหม่หรือไม่?`,
+                'ยืนยันสร้างใหม่'
+            );
 
-            if (!result.isConfirmed) {
+            if (!confirmed) {
                 setIsSubmitting(false);
                 return;
             }
@@ -693,7 +686,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                         <div className="flex justify-between items-center mb-2">
                                             <label className="block text-sm font-medium text-gray-700">รายการ KPI ที่เลือก:</label>
                                             <div className="text-sm font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
-                                                เวลามาตรฐานรวม: {formatHoursDescriptive(totalKpiHours)}
+                                                เวลามาตรฐานรวม: {formatHoursDescriptive(totalKpiHours, 8)}
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
@@ -728,7 +721,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
                                 {totalKpiHours > 0 &&
                                     <p className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 italic">
-                                        "{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}"
+                                        "{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours, 8)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}"
                                     </p>
                                 }
                             </div>

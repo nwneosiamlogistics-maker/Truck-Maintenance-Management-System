@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Supplier } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 interface SupplierModalProps {
     supplier: Supplier | null;
@@ -24,6 +24,7 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ supplier, onSave, onClose
     };
 
     const [formData, setFormData] = useState(getInitialState());
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { addToast } = useToast();
 
     useEffect(() => {
@@ -35,8 +36,10 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ supplier, onSave, onClose
         setFormData(prev => ({ ...prev, [name]: value || null }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
         if (!formData.name.trim() || !formData.code.trim()) {
             addToast('กรุณากรอกรหัสและชื่อผู้จำหน่าย', 'warning');
             return;
@@ -53,8 +56,16 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ supplier, onSave, onClose
             addToast('รหัสหรือชื่อผู้จำหน่ายนี้มีอยู่แล้ว', 'error');
             return;
         }
-        
-        onSave({ ...formData, id: supplier?.id || '' });
+
+        setIsSubmitting(true);
+        try {
+            await onSave({ ...formData, id: supplier?.id || '' });
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            setTimeout(() => setIsSubmitting(false), 2000);
+        }
     };
 
     return (
@@ -62,47 +73,49 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ supplier, onSave, onClose
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="text-2xl font-bold text-gray-800">{supplier ? 'แก้ไข' : 'เพิ่ม'}ข้อมูลผู้จำหน่าย</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                    <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
                 <form id="supplier-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-span-1">
                             <label className="block text-sm font-medium">รหัส *</label>
-                            <input type="text" name="code" value={formData.code || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="text" name="code" aria-label="รหัสผู้จำหน่าย" value={formData.code || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium">ชื่อผู้จำหน่าย *</label>
-                            <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="text" name="name" aria-label="ชื่อผู้จำหน่าย" value={formData.name || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium">สินค้า/บริการ</label>
-                        <input type="text" name="services" value={formData.services || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <input type="text" name="services" aria-label="สินค้าและบริการ" value={formData.services || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">ที่อยู่</label>
-                        <textarea name="address" value={formData.address || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <textarea name="address" aria-label="ที่อยู่" value={formData.address || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium">เบอร์โทรศัพท์</label>
-                            <input type="text" name="phone" value={formData.phone || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="text" name="phone" aria-label="เบอร์โทรศัพท์" value={formData.phone || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">อีเมล</label>
-                            <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="email" name="email" aria-label="อีเมล" value={formData.email || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">ช่องทางติดต่ออื่นๆ (Line, Facebook)</label>
-                        <input type="text" name="otherContacts" value={formData.otherContacts || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <input type="text" name="otherContacts" aria-label="ช่องทางติดต่ออื่นๆ" value={formData.otherContacts || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
                 </form>
                 <div className="p-6 border-t flex justify-end space-x-4">
-                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button type="submit" form="supplier-form" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
+                    <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50">ยกเลิก</button>
+                    <button type="submit" form="supplier-form" disabled={isSubmitting} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[120px]">
+                        {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                    </button>
                 </div>
             </div>
         </div>
@@ -150,10 +163,13 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, setS
         setIsModalOpen(false);
     };
 
-    const handleDeleteSupplier = (supplier: Supplier) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ ${supplier.name}?`)) {
-            setSuppliers(prev => prev.filter(s => s.id !== supplier.id));
-            addToast(`ลบ ${supplier.name} สำเร็จ`, 'info');
+    const handleDeleteSupplier = async (supplier: Supplier) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบ ${supplier.name}?`, 'ลบ');
+            if (confirmed) {
+                setSuppliers(prev => prev.filter(s => s.id !== supplier.id));
+                addToast(`ลบ ${supplier.name} สำเร็จ`, 'info');
+            }
         }
     };
 
@@ -162,6 +178,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ suppliers, setS
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
                 <input
                     type="text"
+                    aria-label="ค้นหาผู้จำหน่าย"
                     placeholder="ค้นหา (รหัส, ชื่อ, บริการ)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import type { PMHistory, Technician } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 interface PMHistoryViewProps {
     history: PMHistory[];
@@ -32,16 +32,19 @@ const PMHistoryView: React.FC<PMHistoryViewProps> = ({ history, technicians, onD
                     h.vehicleLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     h.planName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     (h.technicianId && technicianMap.get(h.technicianId)?.toLowerCase().includes(searchTerm.toLowerCase()));
-                
+
                 return isDateInRange && isSearchMatch;
             })
             .sort((a, b) => new Date(b.serviceDate).getTime() - new Date(a.serviceDate).getTime());
     }, [history, searchTerm, startDate, endDate, technicianMap]);
-    
-    const handleDelete = (historyItem: PMHistory) => {
-        if(promptForPassword('ลบประวัติ')) {
-            onDelete(historyItem.id);
-            addToast('ลบประวัติสำเร็จ', 'info');
+
+    const handleDelete = async (historyItem: PMHistory) => {
+        if (await promptForPasswordAsync('ลบประวัติ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', 'คุณแน่ใจหรือไม่ว่าต้องการลบประวัตินี้?', 'ลบ');
+            if (confirmed) {
+                onDelete(historyItem.id);
+                addToast('ลบประวัติสำเร็จ', 'info');
+            }
         }
     }
 
@@ -58,7 +61,7 @@ const PMHistoryView: React.FC<PMHistoryViewProps> = ({ history, technicians, onD
         let isMileageCompliant = true;
 
         const actualDate = new Date(item.serviceDate);
-        
+
         if (item.targetServiceDate) {
             const targetDate = new Date(item.targetServiceDate);
             const diffTime = actualDate.getTime() - targetDate.getTime();
@@ -75,12 +78,12 @@ const PMHistoryView: React.FC<PMHistoryViewProps> = ({ history, technicians, onD
         // We prioritize the one that triggered the service usually, but for simple visualization:
         // Green if ANY criteria is met within tolerance.
         // Red/Yellow if ALL available targets are missed.
-        
+
         const hasTargetDate = !!item.targetServiceDate;
         const hasTargetMileage = !!item.targetMileage;
-        
+
         let status: 'on-track' | 'deviated' = 'deviated';
-        
+
         if (hasTargetDate && hasTargetMileage) {
             if (isDateCompliant || isMileageCompliant) status = 'on-track';
         } else if (hasTargetDate) {
@@ -103,21 +106,22 @@ const PMHistoryView: React.FC<PMHistoryViewProps> = ({ history, technicians, onD
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap gap-4 items-center">
                 <input
                     type="text"
+                    aria-label="ค้นหาประวัติ"
                     placeholder="ค้นหา (ทะเบียน, แผน, ช่าง)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="flex-grow p-2 border rounded-lg"
                 />
-                 <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <label className="text-sm font-medium">จากวันที่:</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-lg"/>
+                    <input type="date" aria-label="จากวันที่" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-lg" />
                 </div>
-                 <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <label className="text-sm font-medium">ถึงวันที่:</label>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-lg"/>
+                    <input type="date" aria-label="ถึงวันที่" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-lg" />
                 </div>
             </div>
-            
+
             <div className="bg-white rounded-2xl shadow-sm overflow-x-auto">
                 <table className="min-w-full divide-y">
                     <thead className="bg-gray-50">
@@ -136,42 +140,43 @@ const PMHistoryView: React.FC<PMHistoryViewProps> = ({ history, technicians, onD
                         {filteredHistory.map(item => {
                             const compliance = analyzeCompliance(item);
                             return (
-                            <tr key={item.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-sm">{new Date(item.serviceDate).toLocaleDateString('th-TH')}</td>
-                                <td className="px-4 py-3 font-semibold">{item.vehicleLicensePlate}</td>
-                                <td className="px-4 py-3">{item.planName}</td>
-                                <td className="px-4 py-3 text-right">{item.mileage.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-center">
-                                    {compliance ? (
-                                        <div className="flex flex-col items-center justify-center">
-                                            <span className={`px-2 py-1 text-xs font-bold rounded-full ${compliance.status === 'on-track' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                {compliance.status === 'on-track' ? 'ตรงตามแผน' : 'คลาดเคลื่อน'}
-                                            </span>
-                                            <div className="text-[10px] text-gray-500 mt-1 space-y-0.5">
-                                                {compliance.hasTargetDate && (
-                                                    <div title="ส่วนต่างวัน (เกณฑ์ +/- 7 วัน)">
-                                                        {compliance.dateDiff > 0 ? `+${compliance.dateDiff}` : compliance.dateDiff} วัน
-                                                    </div>
-                                                )}
-                                                {compliance.hasTargetMileage && (
-                                                    <div title="ส่วนต่างกิโลเมตร (เกณฑ์ +/- 2000 กม.)">
-                                                        {compliance.mileageDiff > 0 ? `+${compliance.mileageDiff.toLocaleString()}` : compliance.mileageDiff.toLocaleString()} กม.
-                                                    </div>
-                                                )}
+                                <tr key={item.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm">{new Date(item.serviceDate).toLocaleDateString('th-TH')}</td>
+                                    <td className="px-4 py-3 font-semibold">{item.vehicleLicensePlate}</td>
+                                    <td className="px-4 py-3">{item.planName}</td>
+                                    <td className="px-4 py-3 text-right">{item.mileage.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        {compliance ? (
+                                            <div className="flex flex-col items-center justify-center">
+                                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${compliance.status === 'on-track' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {compliance.status === 'on-track' ? 'ตรงตามแผน' : 'คลาดเคลื่อน'}
+                                                </span>
+                                                <div className="text-[10px] text-gray-500 mt-1 space-y-0.5">
+                                                    {compliance.hasTargetDate && (
+                                                        <div title="ส่วนต่างวัน (เกณฑ์ +/- 7 วัน)">
+                                                            {compliance.dateDiff > 0 ? `+${compliance.dateDiff}` : compliance.dateDiff} วัน
+                                                        </div>
+                                                    )}
+                                                    {compliance.hasTargetMileage && (
+                                                        <div title="ส่วนต่างกิโลเมตร (เกณฑ์ +/- 2000 กม.)">
+                                                            {compliance.mileageDiff > 0 ? `+${compliance.mileageDiff.toLocaleString()}` : compliance.mileageDiff.toLocaleString()} กม.
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <span className="text-gray-400 text-xs">-</span>
-                                    )}
-                                </td>
-                                <td className="px-4 py-3 text-sm">{item.technicianId ? technicianMap.get(item.technicianId) || 'N/A' : '-'}</td>
-                                <td className="px-4 py-3 text-sm max-w-xs truncate" title={item.notes}>{item.notes || '-'}</td>
-                                <td className="px-4 py-3 text-center">
-                                    <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700">ลบ</button>
-                                </td>
-                            </tr>
-                        )})}
-                         {filteredHistory.length === 0 && (
+                                        ) : (
+                                            <span className="text-gray-400 text-xs">-</span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">{item.technicianId ? technicianMap.get(item.technicianId) || 'N/A' : '-'}</td>
+                                    <td className="px-4 py-3 text-sm max-w-xs truncate" title={item.notes}>{item.notes || '-'}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700">ลบ</button>
+                                    </td>
+                                </tr>
+                            )
+                        })}
+                        {filteredHistory.length === 0 && (
                             <tr>
                                 <td colSpan={8} className="text-center p-8 text-gray-500">
                                     ไม่พบข้อมูลประวัติ

@@ -2,61 +2,81 @@ import React, { useState } from 'react';
 import type { Driver, LicenseClass, DriverStatus } from '../types';
 
 interface AddDriverModalProps {
+    driver?: Driver | null;
     onClose: () => void;
-    onSave: (driver: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => void;
+    onSave: (driver: Driver | Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 const LICENSE_CLASSES: LicenseClass[] = ['ใบขับขี่ส่วนบุคคล', 'ใบขับขี่สาธารณะ', 'ใบขับขี่บรรทุก'];
 
-const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
+const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave }) => {
     const [formData, setFormData] = useState({
-        employeeId: '',
-        name: '',
-        nickname: '',
-        phone: '',
-        email: '',
-        address: '',
+        employeeId: driver?.employeeId || '',
+        name: driver?.name || '',
+        nickname: driver?.nickname || '',
+        phone: driver?.phone || '',
+        email: driver?.email || '',
+        address: driver?.address || '',
         emergencyContact: {
-            name: '',
-            phone: '',
-            relationship: ''
+            name: driver?.emergencyContact?.name || '',
+            phone: driver?.emergencyContact?.phone || '',
+            relationship: driver?.emergencyContact?.relationship || ''
         },
-        licenseNumber: '',
-        licenseClass: 'ใบขับขี่บรรทุก' as LicenseClass,
-        licenseIssueDate: '',
-        licenseExpiry: '',
-        hireDate: new Date().toISOString().split('T')[0],
-        experience: 0,
-        previousEmployer: '',
-        assignedVehicles: [] as string[],
-        primaryVehicle: '',
-        totalDistanceDriven: 0,
-        totalTrips: 0,
-        accidentCount: 0,
-        violationCount: 0,
-        onTimeDeliveryRate: 100,
-        lastSafetyTraining: '',
-        certifications: [] as string[],
-        safetyScore: 100,
-        monthlySalary: 0,
-        bonus: 0,
-        leaveQuota: { sick: 30, personal: 6, vacation: 6 },
-        usedLeave: { sick: 0, personal: 0, vacation: 0 },
-        leaves: [],
-        status: 'active' as DriverStatus,
-        notes: ''
+        licenseNumber: driver?.licenseNumber || '',
+        licenseClass: (driver?.licenseClass || 'ใบขับขี่บรรทุก') as LicenseClass,
+        licenseIssueDate: driver?.licenseIssueDate || '',
+        licenseExpiry: driver?.licenseExpiry || '',
+        hireDate: driver?.hireDate || new Date().toISOString().split('T')[0],
+        experience: driver?.experience || 0,
+        previousEmployer: driver?.previousEmployer || '',
+        assignedVehicles: driver?.assignedVehicles || [] as string[],
+        primaryVehicle: driver?.primaryVehicle || '',
+        totalDistanceDriven: driver?.totalDistanceDriven || 0,
+        totalTrips: driver?.totalTrips || 0,
+        accidentCount: driver?.accidentCount || 0,
+        violationCount: driver?.violationCount || 0,
+        onTimeDeliveryRate: driver?.onTimeDeliveryRate || 100,
+        lastSafetyTraining: driver?.lastSafetyTraining || '',
+        certifications: driver?.certifications || [] as string[],
+        safetyScore: driver?.safetyScore || 100,
+        monthlySalary: driver?.monthlySalary || 0,
+        bonus: driver?.bonus || 0,
+        leaveQuota: driver?.leaveQuota || { sick: 30, personal: 6, vacation: 6 },
+        usedLeave: driver?.usedLeave || { sick: 0, personal: 0, vacation: 0 },
+        leaves: driver?.leaves || [],
+        status: (driver?.status || 'active') as DriverStatus,
+        notes: driver?.notes || ''
     });
 
     const [certificationInput, setCertificationInput] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
 
-        const driver: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'> = {
-            ...formData
-        };
-
-        onSave(driver);
+        setIsSubmitting(true);
+        try {
+            if (driver) {
+                // Editing existing driver
+                await onSave({
+                    ...driver,
+                    ...formData,
+                    updatedAt: new Date().toISOString()
+                } as Driver);
+            } else {
+                // Adding new driver
+                const newDriver: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'> = {
+                    ...formData
+                };
+                await onSave(newDriver);
+            }
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            setTimeout(() => setIsSubmitting(false), 2000);
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -104,12 +124,14 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                 <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
                     <div className="flex justify-between items-center">
                         <div>
-                            <h3 className="text-2xl font-bold text-slate-800">เพิ่มพนักงานขับรถ</h3>
-                            <p className="text-sm text-slate-500 mt-1">กรอกข้อมูลคนขับให้ครบถ้วน</p>
+                            <h3 className="text-2xl font-bold text-slate-800">{driver ? 'แก้ไขข้อมูลพนักงานขับรถ' : 'เพิ่มพนักงานขับรถ'}</h3>
+                            <p className="text-sm text-slate-500 mt-1">{driver ? 'แก้ไขความต้องการข้อมูลคนขับ' : 'กรอกข้อมูลคนขับให้ครบถ้วน'}</p>
                         </div>
                         <button
                             onClick={onClose}
                             className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm"
+                            title="ปิดหน้าต่าง"
+                            aria-label="Close"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -127,71 +149,83 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">รหัสพนักงาน *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-id">รหัสพนักงาน *</label>
                                 <input
+                                    id="driver-id"
                                     type="text"
                                     name="employeeId"
                                     value={formData.employeeId}
                                     onChange={handleInputChange}
                                     required
                                     placeholder="เช่น D001"
+                                    title="รหัสพนักงาน"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อ-นามสกุล *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-name">ชื่อ-นามสกุล *</label>
                                 <input
+                                    id="driver-name"
                                     type="text"
                                     name="name"
                                     value={formData.name}
                                     onChange={handleInputChange}
                                     required
                                     placeholder="ระบุชื่อเต็ม"
+                                    title="ชื่อ-นามสกุล"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อเล่น</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-nickname">ชื่อเล่น</label>
                                 <input
+                                    id="driver-nickname"
                                     type="text"
                                     name="nickname"
                                     value={formData.nickname}
                                     onChange={handleInputChange}
                                     placeholder="ชื่อเล่น"
+                                    title="ชื่อเล่น"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">เบอร์โทรศัพท์ *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-phone">เบอร์โทรศัพท์ *</label>
                                 <input
+                                    id="driver-phone"
                                     type="tel"
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleInputChange}
                                     required
                                     placeholder="0xx-xxx-xxxx"
+                                    title="เบอร์โทรศัพท์"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">อีเมล</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-email">อีเมล</label>
                                 <input
+                                    id="driver-email"
                                     type="email"
                                     name="email"
                                     value={formData.email}
                                     onChange={handleInputChange}
                                     placeholder="example@email.com"
+                                    title="อีเมล"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">ที่อยู่</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-address">ที่อยู่</label>
                                 <input
+                                    id="driver-address"
                                     type="text"
                                     name="address"
                                     value={formData.address}
                                     onChange={handleInputChange}
                                     placeholder="ที่อยู่ปัจจุบัน"
+                                    title="ที่อยู่"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none"
                                 />
                             </div>
@@ -206,24 +240,28 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">หมายเลขใบขับขี่ *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="license-number">หมายเลขใบขับขี่ *</label>
                                 <input
+                                    id="license-number"
                                     type="text"
                                     name="licenseNumber"
                                     value={formData.licenseNumber}
                                     onChange={handleInputChange}
                                     required
                                     placeholder="ระบุหมายเลข"
+                                    title="หมายเลขใบขับขี่"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">ประเภทใบขับขี่ *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="license-class">ประเภทใบขับขี่ *</label>
                                 <select
+                                    id="license-class"
                                     name="licenseClass"
                                     value={formData.licenseClass}
                                     onChange={handleInputChange}
                                     required
+                                    title="ประเภทใบขับขี่"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none"
                                 >
                                     {LICENSE_CLASSES.map(cls => (
@@ -232,24 +270,28 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">วันออกใบขับขี่ *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="license-issue">วันออกใบขับขี่ *</label>
                                 <input
+                                    id="license-issue"
                                     type="date"
                                     name="licenseIssueDate"
                                     value={formData.licenseIssueDate}
                                     onChange={handleInputChange}
                                     required
+                                    title="วันออกใบขับขี่"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">วันหมดอายุ *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="license-expiry">วันหมดอายุ *</label>
                                 <input
+                                    id="license-expiry"
                                     type="date"
                                     name="licenseExpiry"
                                     value={formData.licenseExpiry}
                                     onChange={handleInputChange}
                                     required
+                                    title="วันหมดอายุ"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none"
                                 />
                             </div>
@@ -264,35 +306,42 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">วันที่เริ่มงาน *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="hire-date">วันที่เริ่มงาน *</label>
                                 <input
+                                    id="hire-date"
                                     type="date"
                                     name="hireDate"
                                     value={formData.hireDate}
                                     onChange={handleInputChange}
                                     required
+                                    title="วันที่เริ่มงาน"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">ประสบการณ์ (ปี) *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-experience">ประสบการณ์ (ปี) *</label>
                                 <input
+                                    id="driver-experience"
                                     type="number"
                                     name="experience"
                                     value={formData.experience}
                                     onChange={handleInputChange}
                                     required
                                     min="0"
+                                    title="ประสบการณ์"
+                                    placeholder="0"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">สถานะ *</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-status">สถานะ *</label>
                                 <select
+                                    id="driver-status"
                                     name="status"
                                     value={formData.status}
                                     onChange={handleInputChange}
                                     required
+                                    title="สถานะ"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 >
                                     <option value="active">ปฏิบัติงาน</option>
@@ -302,13 +351,15 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">นายจ้างก่อนหน้า</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="prev-employer">นายจ้างก่อนหน้า</label>
                                 <input
+                                    id="prev-employer"
                                     type="text"
                                     name="previousEmployer"
                                     value={formData.previousEmployer}
                                     onChange={handleInputChange}
                                     placeholder="ชื่อบริษัทเดิม"
+                                    title="นายจ้างก่อนหน้า"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
@@ -398,12 +449,14 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">หมายเหตุ</label>
+                        <label className="block text-sm font-bold text-slate-700 mb-2" htmlFor="driver-notes">หมายเหตุ</label>
                         <textarea
+                            id="driver-notes"
                             name="notes"
                             value={formData.notes}
                             onChange={handleInputChange}
                             rows={3}
+                            title="หมายเหตุ"
                             placeholder="ระบุรายละเอียดเพิ่มเติม..."
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none resize-none"
                         />
@@ -414,16 +467,18 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ onClose, onSave }) => {
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+                        disabled={isSubmitting}
+                        className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
                     >
                         ยกเลิก
                     </button>
                     <button
                         type="submit"
                         form="add-driver-form"
-                        className="px-8 py-2.5 text-sm font-bold text-white bg-purple-600 rounded-xl hover:bg-purple-700 shadow-md hover:shadow-lg transition-all active:scale-95"
+                        disabled={isSubmitting}
+                        className="px-8 py-2.5 text-sm font-bold text-white bg-purple-600 rounded-xl hover:bg-purple-700 shadow-md hover:shadow-lg transition-all active:scale-95 disabled:bg-purple-400 disabled:cursor-not-allowed min-w-[160px]"
                     >
-                        บันทึกข้อมูลคนขับ
+                        {isSubmitting ? 'กำลังบันทึก...' : driver ? 'อัปเดตข้อมูล' : 'บันทึกข้อมูลคนขับ'}
                     </button>
                 </div>
             </div>

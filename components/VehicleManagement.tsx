@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Vehicle } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 interface VehicleModalProps {
     vehicle: Vehicle | null;
@@ -29,6 +29,7 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
     };
 
     const [formData, setFormData] = useState(getInitialState());
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { addToast } = useToast();
 
     useEffect(() => {
@@ -40,8 +41,10 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
         setFormData(prev => ({ ...prev, [name]: value || null }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
         if (!formData.licensePlate.trim()) {
             addToast('กรุณากรอกทะเบียนรถ', 'warning');
             return;
@@ -57,8 +60,17 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
                 return;
             }
         }
-        
-        onSave({ ...formData, id: vehicle?.id || '' });
+
+        setIsSubmitting(true);
+        try {
+            await onSave({ ...formData, id: vehicle?.id || '' });
+        } catch (error) {
+            console.error(error);
+            setIsSubmitting(false);
+        } finally {
+            // Keep button disabled for 2s to prevent multiple quick clicks after return
+            setTimeout(() => setIsSubmitting(false), 2000);
+        }
     };
 
     return (
@@ -66,7 +78,7 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="text-2xl font-bold text-gray-800">{vehicle ? 'แก้ไข' : 'เพิ่ม'}ข้อมูลรถและประกันภัย</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                    <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
@@ -76,69 +88,71 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="lg:col-span-2">
                                 <label className="block text-sm font-medium">ทะเบียนรถ *</label>
-                                <input type="text" name="licensePlate" value={formData.licensePlate || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="licensePlate" placeholder="ระบุทะเบียนรถ" aria-label="License Plate" value={formData.licensePlate || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                             <div className="lg:col-span-2">
+                            <div className="lg:col-span-2">
                                 <label className="block text-sm font-medium">ประเภทรถ</label>
-                                <input type="text" name="vehicleType" value={formData.vehicleType || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="vehicleType" placeholder="เช่น รถบรรทุก 10 ล้อ" aria-label="Vehicle Type" value={formData.vehicleType || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">ยี่ห้อ</label>
-                                <input type="text" name="make" value={formData.make || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="make" placeholder="เช่น Hino, Isuzu" aria-label="Make" value={formData.make || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">รุ่น</label>
-                                <input type="text" name="model" value={formData.model || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="model" placeholder="ระบุรุ่น" aria-label="Model" value={formData.model || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                             <div className="lg:col-span-2">
+                            <div className="lg:col-span-2">
                                 <label className="block text-sm font-medium">วันจดทะเบียนรถ</label>
-                                <input type="date" name="registrationDate" value={formData.registrationDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="date" name="registrationDate" aria-label="Registration Date" value={formData.registrationDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                         </div>
                     </div>
-                     <div className="p-4 border rounded-lg bg-gray-50">
+                    <div className="p-4 border rounded-lg bg-gray-50">
                         <h4 className="font-semibold mb-2">ประกันภัย</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                             <div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
                                 <label className="block text-sm font-medium">บริษัทประกันภัย</label>
-                                <input type="text" name="insuranceCompany" value={formData.insuranceCompany || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="insuranceCompany" placeholder="ระบุบริษัทประกัน" aria-label="Insurance Company" value={formData.insuranceCompany || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium">ประเภทประกัน</label>
-                                <input type="text" name="insuranceType" value={formData.insuranceType || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="insuranceType" placeholder="เช่น ชั้น 1" aria-label="Insurance Type" value={formData.insuranceType || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium">วันที่หมดอายุ</label>
-                                <input type="date" name="insuranceExpiryDate" value={formData.insuranceExpiryDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="date" name="insuranceExpiryDate" aria-label="Insurance Expiry Date" value={formData.insuranceExpiryDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                         </div>
+                        </div>
                     </div>
-                     <div className="p-4 border rounded-lg bg-gray-50">
+                    <div className="p-4 border rounded-lg bg-gray-50">
                         <h4 className="font-semibold mb-2">พ.ร.บ.</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
                                 <label className="block text-sm font-medium">บริษัท พ.ร.บ.</label>
-                                <input type="text" name="actCompany" value={formData.actCompany || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="actCompany" placeholder="ระบุบริษัท พ.ร.บ." aria-label="ACT Company" value={formData.actCompany || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                             <div>
+                            <div>
                                 <label className="block text-sm font-medium">วันที่หมดอายุ</label>
-                                <input type="date" name="actExpiryDate" value={formData.actExpiryDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="date" name="actExpiryDate" aria-label="ACT Expiry Date" value={formData.actExpiryDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                         </div>
+                        </div>
                     </div>
-                     <div className="p-4 border rounded-lg bg-gray-50">
+                    <div className="p-4 border rounded-lg bg-gray-50">
                         <h4 className="font-semibold mb-2">ประกันสินค้า</h4>
-                         <div className="grid grid-cols-1">
-                             <div>
+                        <div className="grid grid-cols-1">
+                            <div>
                                 <label className="block text-sm font-medium">บริษัทประกันสินค้า</label>
-                                <input type="text" name="cargoInsuranceCompany" value={formData.cargoInsuranceCompany || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                                <input type="text" name="cargoInsuranceCompany" placeholder="ระบุบริษัทประกันสินค้า" aria-label="Cargo Insurance Company" value={formData.cargoInsuranceCompany || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
-                         </div>
+                        </div>
                     </div>
                 </form>
                 <div className="p-6 border-t flex justify-end space-x-4">
-                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button type="submit" form="vehicle-form" className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึก</button>
+                    <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50">ยกเลิก</button>
+                    <button type="submit" form="vehicle-form" disabled={isSubmitting} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[120px]">
+                        {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                    </button>
                 </div>
             </div>
         </div>
@@ -185,20 +199,23 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
         }
         setIsModalOpen(false);
     };
-    
-    const handleDeleteVehicle = (vehicle: Vehicle) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลรถทะเบียน ${vehicle.licensePlate}?`)) {
-            setVehicles(prev => prev.filter(v => v.id !== vehicle.id));
-            addToast(`ลบข้อมูลรถทะเบียน ${vehicle.licensePlate} สำเร็จ`, 'info');
+
+    const handleDeleteVehicle = async (vehicle: Vehicle) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลรถทะเบียน ${vehicle.licensePlate}?`, 'ลบ');
+            if (confirmed) {
+                setVehicles(prev => prev.filter(v => v.id !== vehicle.id));
+                addToast(`ลบข้อมูลรถทะเบียน ${vehicle.licensePlate} สำเร็จ`, 'info');
+            }
         }
     };
-    
+
     const getExpiryStatus = (dateString: string | null) => {
         if (!dateString) return { text: 'ไม่มีข้อมูล', className: 'text-gray-500' };
         const expiryDate = new Date(dateString);
         const today = new Date();
         const daysDiff = (expiryDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
-        
+
         if (daysDiff < 0) return { text: 'หมดอายุ', className: 'text-red-600 font-bold' };
         if (daysDiff <= 30) return { text: 'ใกล้หมดอายุ', className: 'text-yellow-600 font-bold' };
         return { text: 'ปกติ', className: 'text-green-600' };
@@ -258,7 +275,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
             </div>
 
             {isModalOpen && (
-                <VehicleModal 
+                <VehicleModal
                     vehicle={editingVehicle}
                     onSave={handleSaveVehicle}
                     onClose={() => setIsModalOpen(false)}

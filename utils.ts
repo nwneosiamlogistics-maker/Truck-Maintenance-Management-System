@@ -1,5 +1,6 @@
 
 import type { StockStatus } from './types';
+import Swal, { SweetAlertIcon } from 'sweetalert2';
 
 export function promptForPassword(action: string): boolean {
     const password = window.prompt(`โปรดยืนยันรหัสผ่านเพื่อดำเนินการ '${action}':`);
@@ -11,6 +12,53 @@ export function promptForPassword(action: string): boolean {
     }
     return false;
 }
+
+export async function promptForPasswordAsync(action: string): Promise<boolean> {
+    const result = await Swal.fire({
+        title: 'ยืนยันรหัสผ่าน',
+        text: `โปรดยืนยันรหัสผ่านเพื่อดำเนินการ '${action}'`,
+        input: 'password',
+        inputPlaceholder: 'ระบุรหัสผ่าน (1234)',
+        showCancelButton: true,
+        confirmButtonText: 'ยืนยัน',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        preConfirm: (password) => {
+            if (password !== '1234') {
+                Swal.showValidationMessage('รหัสผ่านไม่ถูกต้อง')
+            }
+            return password === '1234';
+        }
+    });
+
+    return result.isConfirmed && result.value === true;
+}
+
+export async function confirmAction(title: string, text: string, confirmButtonText: string = 'ยืนยัน'): Promise<boolean> {
+    const result = await Swal.fire({
+        title: title,
+        text: text,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: confirmButtonText,
+        cancelButtonText: 'ยกเลิก'
+    });
+    return result.isConfirmed;
+}
+
+export async function showAlert(title: string, text: string, icon: SweetAlertIcon = 'info') {
+    await Swal.fire({
+        title,
+        text,
+        icon,
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#3085d6'
+    });
+}
+
 
 export function calculateStockStatus(quantity: number, minStock: number, maxStock: number | null): StockStatus {
     if (quantity <= 0) return 'หมดสต็อก';
@@ -50,7 +98,7 @@ export function calculateDurationHours(start: string | null, end: string | null)
     }
 }
 
-export function formatHoursDescriptive(totalHours: number): string {
+export function formatHoursDescriptive(totalHours: number, hoursPerDay: number = 24): string {
     if (isNaN(totalHours) || !isFinite(totalHours)) {
         return 'N/A';
     }
@@ -58,9 +106,8 @@ export function formatHoursDescriptive(totalHours: number): string {
     const sign = totalHours < 0 ? '-' : '';
     const absHours = Math.abs(totalHours);
 
-    // Assuming an 8-hour workday for 'day' calculation
-    const days = Math.floor(absHours / 8);
-    const remainingHoursAfterDays = absHours % 8;
+    const days = Math.floor(absHours / hoursPerDay);
+    const remainingHoursAfterDays = absHours % hoursPerDay;
     const hours = Math.floor(remainingHoursAfterDays);
     const minutes = Math.round((remainingHoursAfterDays - hours) * 60);
 

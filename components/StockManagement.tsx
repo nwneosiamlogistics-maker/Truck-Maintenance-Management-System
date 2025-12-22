@@ -12,7 +12,7 @@ import SellFungibleItemModal, { GradedSaleData } from './SellFungibleItemModal';
 import CashBillPrintModal from './CashBillPrintModal';
 import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
-import { promptForPassword, calculateStockStatus, formatCurrency } from '../utils';
+import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 import ProcessUsedPartModal from './ProcessUsedPartModal';
 
 
@@ -195,10 +195,13 @@ const StockManagement: React.FC<StockManagementProps> = ({
         setStockModalOpen(false);
     };
 
-    const handleDeleteItem = (itemId: string, itemName: string) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ "${itemName}" ออกจากสต็อก?`)) {
-            setStock(prev => prev.filter(s => s.id !== itemId));
-            addToast(`ลบ ${itemName} สำเร็จ`, 'info');
+    const handleDeleteItem = async (itemId: string, itemName: string) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบ "${itemName}" ออกจากสต็อก?`, 'ลบ');
+            if (confirmed) {
+                setStock(prev => prev.filter(s => s.id !== itemId));
+                addToast(`ลบ ${itemName} สำเร็จ`, 'info');
+            }
         }
     };
 
@@ -378,9 +381,12 @@ const StockManagement: React.FC<StockManagementProps> = ({
         setItemToSell(null); // Close the sale modal
     };
 
-    const handleDeleteUsedPart = (partId: string) => {
-        if (promptForPassword('ลบ') && window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?')) {
-            deleteUsedPart(partId);
+    const handleDeleteUsedPart = async (partId: string) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', 'คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?', 'ลบ');
+            if (confirmed) {
+                deleteUsedPart(partId);
+            }
         }
     };
 
@@ -451,8 +457,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                     {item.isFungibleUsedItem && (
                                         <button onClick={() => setItemToSell(item)} className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold">คัดแยก/ขาย</button>
                                     )}
-                                    <button onClick={() => {
-                                        if (promptForPassword('แก้ไข')) {
+                                    <button onClick={async () => {
+                                        if (await promptForPasswordAsync('แก้ไข')) {
                                             handleOpenStockModal(item);
                                         }
                                     }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
@@ -540,7 +546,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                             <td data-label="สถานะ" className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getUsedPartStatusBadge(part.status)}`}>{part.status}</span></td>
                                             <td data-label="จัดการ" className="px-4 py-3 text-center lg:text-right whitespace-nowrap space-x-1">
                                                 <button onClick={() => { setPartToProcess(part); setProcessUsedPartModalOpen(true); }} className="text-green-600 hover:text-green-800 p-1 text-xs font-semibold">จัดการ</button>
-                                                <button onClick={() => { if (promptForPassword('แก้ไข')) { setPartToEdit(part); setEditUsedPartModalOpen(true); } }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
+                                                <button onClick={async () => { if (await promptForPasswordAsync('แก้ไข')) { setPartToEdit(part); setEditUsedPartModalOpen(true); } }} className="text-yellow-600 hover:text-yellow-800 p-1 text-xs font-semibold">แก้</button>
                                                 <button onClick={() => handleDeleteUsedPart(part.id)} className="text-red-500 hover:text-red-700 p-1 text-xs font-semibold">ลบ</button>
                                             </td>
                                         </tr>
@@ -599,11 +605,21 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     <input type="text" placeholder="ค้นหา..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg lg:col-span-2" />
                     {activeTab !== 'usedItemized' && (
                         <>
-                            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg">
+                            <select
+                                aria-label="Filter by category"
+                                value={categoryFilter}
+                                onChange={e => setCategoryFilter(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg"
+                            >
                                 <option value="all">ทุกหมวดหมู่</option>
                                 {STOCK_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                             </select>
-                            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="w-full p-3 border border-gray-300 rounded-lg">
+                            <select
+                                aria-label="Filter by status"
+                                value={statusFilter}
+                                onChange={e => setStatusFilter(e.target.value as any)}
+                                className="w-full p-3 border border-gray-300 rounded-lg"
+                            >
                                 <option value="all">ทุกสถานะ</option>
                                 <option value="ปกติ">ปกติ</option>
                                 <option value="สต็อกต่ำ">สต็อกต่ำ</option>

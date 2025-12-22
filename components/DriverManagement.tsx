@@ -2,11 +2,12 @@ import React, { useState, useMemo } from 'react';
 import type { Driver, DriverPerformance, DrivingIncident, Vehicle, FuelRecord, Repair } from '../types';
 import { formatCurrency } from '../utils';
 import { BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { LayoutGrid, FileText } from 'lucide-react';
+import { LayoutGrid, FileText, Edit } from 'lucide-react';
 import AddDriverModal from './AddDriverModal';
 import { useToast } from '../context/ToastContext';
 import DriverDetailModal from './DriverDetailModal';
 import DriverLeaveReport from './DriverLeaveReport';
+import { promptForPasswordAsync, showAlert } from '../utils';
 
 interface DriverManagementProps {
     drivers: Driver[];
@@ -23,21 +24,38 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [sortBy, setSortBy] = useState<string>('safety_desc');
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+    const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
     const [modalTab, setModalTab] = useState<'overview' | 'performance' | 'leaves'>('overview');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'leave-report'>('list');
     const { addToast } = useToast();
 
-    const handleAddDriver = (driver: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => {
-        const newDriver: Driver = {
-            ...driver,
-            id: `DRV-${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-        setDrivers(prev => [newDriver, ...prev]);
-        setIsAddModalOpen(false);
-        addToast(`เพิ่มคนขับ ${newDriver.name} สำเร็จ`, 'success');
+    const handleSaveDriver = (driver: Driver | Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => {
+        if ('id' in driver) {
+            // Update existing driver
+            setDrivers(prev => prev.map(d => d.id === driver.id ? driver : d));
+            setEditingDriver(null);
+            showAlert('สำเร็จ', `อัปเดตข้อมูล ${driver.name} สำเร็จ`, 'success');
+        } else {
+            // Add new driver
+            const newDriver: Driver = {
+                ...driver,
+                id: `DRV-${Date.now()}`,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            setDrivers(prev => [newDriver, ...prev]);
+            setIsAddModalOpen(false);
+            showAlert('สำเร็จ', `เพิ่มคนขับ ${newDriver.name} สำเร็จ`, 'success');
+        }
+    };
+
+    const handleEditClick = async (e: React.MouseEvent, driver: Driver) => {
+        e.stopPropagation();
+        const isAdmin = await promptForPasswordAsync(`แก้ไขข้อมูลคุณ ${driver.name}`);
+        if (isAdmin) {
+            setEditingDriver(driver);
+        }
     };
 
     const handleUpdateDriver = (updatedDriver: Driver) => {
@@ -195,6 +213,7 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                                     <select
                                         value={statusFilter}
                                         onChange={(e) => setStatusFilter(e.target.value)}
+                                        title="กรองสถานะพนักงาน"
                                         className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
                                     >
                                         <option value="all">สถานะทั้งหมด</option>
@@ -205,6 +224,7 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                                     <select
                                         value={sortBy}
                                         onChange={(e) => setSortBy(e.target.value)}
+                                        title="เรียงลำดับพนักงาน"
                                         className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
                                     >
                                         <option value="safety_desc">ความปลอดภัย (สูง-ต่ำ)</option>
@@ -384,10 +404,18 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setSelectedDriver(driver); setModalTab('leaves'); }}
-                                        className="px-4 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold py-2 rounded-xl transition-all shadow-sm border border-amber-200 flex items-center gap-2"
+                                        className="bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold py-2 px-3 rounded-xl transition-all shadow-sm border border-amber-200 flex items-center gap-2"
                                         title="บันทึกการลาพักผ่อน/ลากิจ/ลาป่วย"
                                     >
-                                        <span className="text-xs">📅 บันทึกการลา</span>
+                                        <span className="text-xs">📅 ลา</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleEditClick(e, driver)}
+                                        className="bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold py-2 px-3 rounded-xl transition-all shadow-sm border border-slate-200 flex items-center gap-2"
+                                        title="แก้ไขข้อมูลพนักงาน"
+                                    >
+                                        <Edit size={14} />
+                                        <span className="text-xs">แก้ไข</span>
                                     </button>
                                 </div>
                             </div>
@@ -411,7 +439,16 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
             {isAddModalOpen && (
                 <AddDriverModal
                     onClose={() => setIsAddModalOpen(false)}
-                    onSave={handleAddDriver}
+                    onSave={handleSaveDriver}
+                />
+            )}
+
+            {/* Edit Driver Modal */}
+            {editingDriver && (
+                <AddDriverModal
+                    driver={editingDriver}
+                    onClose={() => setEditingDriver(null)}
+                    onSave={handleSaveDriver}
                 />
             )}
 

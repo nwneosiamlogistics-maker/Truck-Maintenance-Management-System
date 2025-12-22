@@ -5,7 +5,7 @@ import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
 import RepairTimelineModal from './RepairTimelineModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword, formatCurrency } from '../utils';
+import { promptForPasswordAsync, confirmAction, formatCurrency } from '../utils';
 
 interface RepairHistoryProps {
     repairs: Repair[];
@@ -100,10 +100,13 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
         }
     };
 
-    const handleDeleteRepair = (repairId: string, repairOrderNo: string) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
-            setRepairs(prev => prev.filter(r => r.id !== repairId));
-            addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
+    const handleDeleteRepair = async (repairId: string, repairOrderNo: string) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}? การกระทำนี้ไม่สามารถย้อนกลับได้`, 'ลบ');
+            if (confirmed) {
+                setRepairs(prev => prev.filter(r => r.id !== repairId));
+                addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
+            }
         }
     };
 
@@ -149,6 +152,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
                 <input
                     type="text"
+                    aria-label="ค้นหาประวัติการซ่อม"
                     placeholder="ค้นหา (ทะเบียน, เลขที่, อาการ)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -156,9 +160,9 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                 />
                 <div className="flex items-center gap-2">
                     <label className="text-sm font-medium">วันที่ซ่อมเสร็จ:</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg" />
+                    <input type="date" aria-label="จากวันที่" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg" />
                     <span>-</span>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg" />
+                    <input type="date" aria-label="ถึงวันที่" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border border-gray-300 rounded-lg" />
                 </div>
             </div>
 
@@ -195,8 +199,8 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                                             </svg>
                                         </button>
-                                        <button onClick={() => {
-                                            if (promptForPassword('แก้ไข')) {
+                                        <button onClick={async () => {
+                                            if (await promptForPasswordAsync('แก้ไข')) {
                                                 setEditingRepair(repair);
                                             }
                                         }} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
@@ -264,6 +268,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
                     <select
                         id="items-per-page"
+                        aria-label="Items per page"
                         value={itemsPerPage}
                         onChange={e => setItemsPerPage(Number(e.target.value))}
                         className="p-1 border border-gray-300 rounded-lg text-sm"

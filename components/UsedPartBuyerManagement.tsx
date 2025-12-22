@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { UsedPartBuyer } from '../types';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 interface UsedPartBuyerModalProps {
     buyer: UsedPartBuyer | null;
@@ -53,7 +53,7 @@ const UsedPartBuyerModal: React.FC<UsedPartBuyerModalProps> = ({ buyer, onSave, 
             addToast('รหัสหรือชื่อผู้รับซื้อนี้มีอยู่แล้ว', 'error');
             return;
         }
-        
+
         onSave({ ...formData, id: buyer?.id || '' });
     };
 
@@ -62,42 +62,42 @@ const UsedPartBuyerModal: React.FC<UsedPartBuyerModalProps> = ({ buyer, onSave, 
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex justify-between items-center">
                     <h3 className="text-2xl font-bold text-gray-800">{buyer ? 'แก้ไข' : 'เพิ่ม'}ข้อมูลผู้รับซื้อ</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                    <button onClick={onClose} aria-label="Close modal" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
                 <form id="buyer-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-span-1">
                             <label className="block text-sm font-medium">รหัส *</label>
-                            <input type="text" name="code" value={formData.code || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="text" name="code" aria-label="รหัส" value={formData.code || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium">ชื่อผู้รับซื้อ *</label>
-                            <input type="text" name="name" value={formData.name || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="text" name="name" aria-label="ชื่อผู้รับซื้อ" value={formData.name || ''} onChange={handleInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium">สินค้าที่รับซื้อ (คั่นด้วย ,)</label>
-                        <input type="text" name="products" value={formData.products || ''} onChange={handleInputChange} placeholder="เช่น ยางรถยนต์, น้ำมันเครื่องเก่า" className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <input type="text" name="products" aria-label="สินค้าที่รับซื้อ" value={formData.products || ''} onChange={handleInputChange} placeholder="เช่น ยางรถยนต์, น้ำมันเครื่องเก่า" className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">ที่อยู่</label>
-                        <textarea name="address" value={formData.address || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <textarea name="address" aria-label="ที่อยู่" value={formData.address || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium">เบอร์โทรศัพท์</label>
-                            <input type="text" name="phone" value={formData.phone || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="text" name="phone" aria-label="เบอร์โทรศัพท์" value={formData.phone || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">อีเมล</label>
-                            <input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                            <input type="email" name="email" aria-label="อีเมล" value={formData.email || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                         </div>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">ช่องทางติดต่ออื่นๆ (Line, Facebook)</label>
-                        <input type="text" name="otherContacts" value={formData.otherContacts || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg"/>
+                        <input type="text" name="otherContacts" aria-label="ช่องทางติดต่ออื่นๆ" value={formData.otherContacts || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                     </div>
                 </form>
                 <div className="p-6 border-t flex justify-end space-x-4">
@@ -150,10 +150,13 @@ const UsedPartBuyerManagement: React.FC<UsedPartBuyerManagementProps> = ({ buyer
         setIsModalOpen(false);
     };
 
-    const handleDeleteBuyer = (buyer: UsedPartBuyer) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ ${buyer.name}?`)) {
-            setBuyers(prev => prev.filter(b => b.id !== buyer.id));
-            addToast(`ลบ ${buyer.name} สำเร็จ`, 'info');
+    const handleDeleteBuyer = async (buyer: UsedPartBuyer) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบ ${buyer.name}?`, 'ลบ');
+            if (confirmed) {
+                setBuyers(prev => prev.filter(b => b.id !== buyer.id));
+                addToast(`ลบ ${buyer.name} สำเร็จ`, 'info');
+            }
         }
     };
 
@@ -162,6 +165,7 @@ const UsedPartBuyerManagement: React.FC<UsedPartBuyerManagementProps> = ({ buyer
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
                 <input
                     type="text"
+                    aria-label="ค้นหาผู้รับซื้อ"
                     placeholder="ค้นหา (รหัส, ชื่อ, สินค้า)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}

@@ -60,6 +60,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>(
         repair.externalTechnicianName ? 'external' : 'internal'
     );
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { addToast } = useToast();
 
@@ -143,6 +144,9 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         }
     };
 
+    const isAssigned = !!(formData.assignedTechnicianId || formData.externalTechnicianName);
+    const hasStarted = !!formData.repairStartDate;
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         const finalValue = (['repairCost', 'partsVat', 'laborVat', 'laborVatRate'].includes(name))
@@ -153,6 +157,17 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
 
         if (name === 'status') {
             const newStatus = value as RepairStatus;
+
+            // Sequential Gate Logic
+            if (newStatus === 'กำลังซ่อม' && !isAssigned) {
+                addToast('กรุณามอบหมายช่างก่อนเริ่มดำเนินการ (ขั้นตอนที่ 2)', 'warning');
+                return;
+            }
+            if (newStatus === 'ซ่อมเสร็จ' && !hasStarted && !newFormData.repairStartDate) {
+                addToast('กรุณาบันทึกปุ่มเริ่มซ่อมก่อนจบงาน (ขั้นตอนที่ 3)', 'warning');
+                return;
+            }
+
             const now = new Date().toISOString();
             if (newStatus === 'กำลังซ่อม' && !newFormData.repairStartDate) newFormData.repairStartDate = now;
             if (newStatus === 'ซ่อมเสร็จ' && !newFormData.repairEndDate) newFormData.repairEndDate = now;
@@ -192,91 +207,101 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         setExternalPartModalOpen(false);
     };
 
-    const handleSave = () => {
-        let finalFormData = { ...formData };
+    const handleSave = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
 
-        // 1. Update Estimation Status if repair is completed
-        if (finalFormData.status === 'ซ่อมเสร็จ' && Array.isArray(finalFormData.estimations) && finalFormData.estimations.length > 0) {
-            const updatedEstimations = JSON.parse(JSON.stringify(finalFormData.estimations));
-            let estimationToCompleteIndex = updatedEstimations.findIndex((e: EstimationAttempt) => e.status === 'Active');
-            if (estimationToCompleteIndex === -1) {
-                let maxSequence = -1;
-                updatedEstimations.forEach((e: EstimationAttempt, index: number) => {
-                    if (e.sequence > maxSequence) {
-                        maxSequence = e.sequence;
-                        estimationToCompleteIndex = index;
+        try {
+            let finalFormData = { ...formData };
+
+            // 1. Update Estimation Status if repair is completed
+            if (finalFormData.status === 'ซ่อมเสร็จ' && Array.isArray(finalFormData.estimations) && finalFormData.estimations.length > 0) {
+                const updatedEstimations = JSON.parse(JSON.stringify(finalFormData.estimations));
+                let estimationToCompleteIndex = updatedEstimations.findIndex((e: EstimationAttempt) => e.status === 'Active');
+                if (estimationToCompleteIndex === -1) {
+                    let maxSequence = -1;
+                    updatedEstimations.forEach((e: EstimationAttempt, index: number) => {
+                        if (e.sequence > maxSequence) {
+                            maxSequence = e.sequence;
+                            estimationToCompleteIndex = index;
+                        }
+                    });
+                }
+                if (estimationToCompleteIndex > -1) {
+                    for (let i = 0; i < updatedEstimations.length; i++) {
+                        if (i !== estimationToCompleteIndex && updatedEstimations[i].status !== 'Completed') {
+                            updatedEstimations[i].status = 'Failed';
+                        }
+                    }
+                    updatedEstimations[estimationToCompleteIndex].status = 'Completed';
+                    finalFormData.estimations = updatedEstimations;
+                }
+            }
+
+            const partsAfterEdit = finalFormData.parts || [];
+
+            // 2. Create 'เบิกใช้' transactions and finalize stock if repair is completed
+            if (finalFormData.status === 'ซ่อมเสร็จ') {
+                const allTechIds = [finalFormData.assignedTechnicianId, ...(finalFormData.assistantTechnicianIds || [])].filter(Boolean);
+                const technicianNames = technicians.filter(t => allTechIds.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
+                const now = new Date().toISOString();
+
+                const existingWithdrawalPartIds = new Set(
+                    (Array.isArray(transactions) ? transactions : [])
+                        .filter(t => t.relatedRepairOrder === finalFormData.repairOrderNo && t.type === 'เบิกใช้')
+                        .map(t => t.stockItemId)
+                );
+
+                const stockToUpdate: Record<string, number> = {};
+                const transactionsToAdd: StockTransaction[] = [];
+
+                partsAfterEdit.forEach(part => {
+                    if (part.source === 'สต็อกอู่') {
+                        // Only create a new withdrawal transaction if one doesn't already exist for this part in this repair order
+                        if (!existingWithdrawalPartIds.has(part.partId)) {
+                            stockToUpdate[part.partId] = (stockToUpdate[part.partId] || 0) + part.quantity;
+
+                            transactionsToAdd.push({
+                                id: `TXN-${now}-${part.partId}`,
+                                stockItemId: part.partId,
+                                stockItemName: part.name,
+                                type: 'เบิกใช้',
+                                quantity: -part.quantity,
+                                transactionDate: now,
+                                actor: technicianNames,
+                                notes: `ใช้สำหรับใบแจ้งซ่อม ${finalFormData.repairOrderNo}`,
+                                relatedRepairOrder: finalFormData.repairOrderNo,
+                                pricePerUnit: part.unitPrice
+                            });
+                        }
                     }
                 });
-            }
-            if (estimationToCompleteIndex > -1) {
-                for (let i = 0; i < updatedEstimations.length; i++) {
-                    if (i !== estimationToCompleteIndex && updatedEstimations[i].status !== 'Completed') {
-                        updatedEstimations[i].status = 'Failed';
-                    }
+
+                if (Object.keys(stockToUpdate).length > 0) {
+                    setStock(prevStock => prevStock.map(s => {
+                        if (stockToUpdate[s.id]) {
+                            const quantityChange = stockToUpdate[s.id];
+                            const newQuantity = Number(s.quantity) - Number(quantityChange);
+                            const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
+                            return { ...s, quantity: newQuantity, status: newStatus };
+                        }
+                        return s;
+                    }));
+                    addToast(`หักสต็อก ${Object.keys(stockToUpdate).length} รายการ`, 'info');
                 }
-                updatedEstimations[estimationToCompleteIndex].status = 'Completed';
-                finalFormData.estimations = updatedEstimations;
-            }
-        }
-
-        const partsAfterEdit = finalFormData.parts || [];
-
-        // 2. Create 'เบิกใช้' transactions and finalize stock if repair is completed
-        if (finalFormData.status === 'ซ่อมเสร็จ') {
-            const allTechIds = [finalFormData.assignedTechnicianId, ...(finalFormData.assistantTechnicianIds || [])].filter(Boolean);
-            const technicianNames = technicians.filter(t => allTechIds.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
-            const now = new Date().toISOString();
-
-            const existingWithdrawalPartIds = new Set(
-                (Array.isArray(transactions) ? transactions : [])
-                    .filter(t => t.relatedRepairOrder === finalFormData.repairOrderNo && t.type === 'เบิกใช้')
-                    .map(t => t.stockItemId)
-            );
-
-            const stockToUpdate: Record<string, number> = {};
-            const transactionsToAdd: StockTransaction[] = [];
-
-            partsAfterEdit.forEach(part => {
-                if (part.source === 'สต็อกอู่') {
-                    // Only create a new withdrawal transaction if one doesn't already exist for this part in this repair order
-                    if (!existingWithdrawalPartIds.has(part.partId)) {
-                        stockToUpdate[part.partId] = (stockToUpdate[part.partId] || 0) + part.quantity;
-
-                        transactionsToAdd.push({
-                            id: `TXN-${now}-${part.partId}`,
-                            stockItemId: part.partId,
-                            stockItemName: part.name,
-                            type: 'เบิกใช้',
-                            quantity: -part.quantity,
-                            transactionDate: now,
-                            actor: technicianNames,
-                            notes: `ใช้สำหรับใบแจ้งซ่อม ${finalFormData.repairOrderNo}`,
-                            relatedRepairOrder: finalFormData.repairOrderNo,
-                            pricePerUnit: part.unitPrice
-                        });
-                    }
+                if (transactionsToAdd.length > 0) {
+                    setTransactions(prev => [...transactionsToAdd, ...prev]);
+                    addToast(`สร้างประวัติการเบิกจ่ายใหม่ ${transactionsToAdd.length} รายการ`, 'info');
                 }
-            });
+            }
 
-            if (Object.keys(stockToUpdate).length > 0) {
-                setStock(prevStock => prevStock.map(s => {
-                    if (stockToUpdate[s.id]) {
-                        const quantityChange = stockToUpdate[s.id];
-                        const newQuantity = Number(s.quantity) - Number(quantityChange);
-                        const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
-                        return { ...s, quantity: newQuantity, status: newStatus };
-                    }
-                    return s;
-                }));
-                addToast(`หักสต็อก ${Object.keys(stockToUpdate).length} รายการ`, 'info');
-            }
-            if (transactionsToAdd.length > 0) {
-                setTransactions(prev => [...transactionsToAdd, ...prev]);
-                addToast(`สร้างประวัติการเบิกจ่ายใหม่ ${transactionsToAdd.length} รายการ`, 'info');
-            }
+            onSave(finalFormData);
+        } catch (error) {
+            console.error(error);
+            addToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+        } finally {
+            setIsSubmitting(false);
         }
-
-        onSave(finalFormData);
     };
 
     const SectionHeader: React.FC<{ title: string; sectionId: keyof typeof openSections }> = ({ title, sectionId }) => (
@@ -330,7 +355,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                             <h3 className="text-2xl font-bold text-gray-800">แก้ไขใบแจ้งซ่อม</h3>
                             <p className="text-base text-gray-500">{formData.repairOrderNo} - {formData.licensePlate}</p>
                         </div>
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full" title="ปิดหน้าต่าง">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
@@ -344,25 +369,31 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium">สถานะ</label>
-                                        <select name="status" value={formData.status} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg">
+                                        <select name="status" value={formData.status} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="สถานะการซ่อม">
                                             <option value="รอซ่อม">รอซ่อม</option>
-                                            <option value="กำลังซ่อม">กำลังซ่อม</option>
-                                            <option value="รออะไหล่">รออะไหล่</option>
-                                            <option value="ซ่อมเสร็จ">ซ่อมเสร็จ</option>
+                                            <option value="กำลังซ่อม" disabled={!isAssigned}>
+                                                กำลังซ่อม {!isAssigned && '(ระบุช่างก่อน)'}
+                                            </option>
+                                            <option value="รออะไหล่" disabled={!hasStarted}>
+                                                รออะไหล่ {!hasStarted && '(ต้องเริ่มซ่อมก่อน)'}
+                                            </option>
+                                            <option value="ซ่อมเสร็จ" disabled={!hasStarted}>
+                                                ซ่อมเสร็จ {!hasStarted && '(ต้องเริ่มซ่อมก่อน)'}
+                                            </option>
                                             <option value="ยกเลิก">ยกเลิก</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">วันที่อนุมัติ</label>
-                                        <input type="datetime-local" value={toLocalISOString(formData.approvalDate)} onChange={(e) => handleDateChange('approvalDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                        <input type="datetime-local" value={toLocalISOString(formData.approvalDate)} onChange={(e) => handleDateChange('approvalDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="วันที่อนุมัติ" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">วันที่เริ่มซ่อม</label>
-                                        <input type="datetime-local" value={toLocalISOString(formData.repairStartDate)} onChange={(e) => handleDateChange('repairStartDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                        <input type="datetime-local" value={toLocalISOString(formData.repairStartDate)} onChange={(e) => handleDateChange('repairStartDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="วันที่เริ่มซ่อม" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">วันที่ซ่อมเสร็จ</label>
-                                        <input type="datetime-local" value={toLocalISOString(formData.repairEndDate)} onChange={(e) => handleDateChange('repairEndDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                        <input type="datetime-local" value={toLocalISOString(formData.repairEndDate)} onChange={(e) => handleDateChange('repairEndDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="วันที่ซ่อมเสร็จ" />
                                     </div>
                                 </div>
                             )}
@@ -388,11 +419,11 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">ระยะเวลา</label>
-                                                    <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                                    <input type="number" value={durationValue} onChange={(e) => setDurationValue(Number(e.target.value) || 1)} min="1" className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ระยะเวลาประมาณการณ์" placeholder="ตัวเลข" />
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">หน่วย</label>
-                                                    <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-3 border border-gray-300 rounded-lg">
+                                                    <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value as 'hours' | 'days')} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="หน่วยเวลาประมาณการณ์">
                                                         <option value="hours">ชั่วโมง</option>
                                                         <option value="days">วัน</option>
                                                     </select>
@@ -402,7 +433,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะเริ่มซ่อม</label>
-                                                <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleEstimationChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                                <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedStartDate) || ''} onChange={(e) => handleEstimationChange('estimatedStartDate', e.target.value)} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="เวลาที่คาดว่าจะเริ่มซ่อม" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">เวลาที่คาดว่าจะซ่อมเสร็จ *</label>
@@ -413,6 +444,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                                     className="mt-1 w-full p-3 border border-gray-300 rounded-lg"
                                                     readOnly={estimationMode === 'duration'}
                                                     required
+                                                    aria-label="เวลาที่คาดว่าจะซ่อมเสร็จ"
                                                 />
                                             </div>
                                         </div>
@@ -430,23 +462,23 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ทะเบียนรถ</label>
-                                            <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" required />
+                                            <input type="text" name="licensePlate" value={formData.licensePlate} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" required aria-label="ทะเบียนรถ" placeholder="ทะเบียนรถ" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ยี่ห้อ</label>
-                                            <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                            <input type="text" name="vehicleMake" value={formData.vehicleMake} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ยี่ห้อรถ" placeholder="ยี่ห้อรถ" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">รุ่น</label>
-                                            <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                            <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="รุ่นรถ" placeholder="รุ่นรถ" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ประเภทรถ</label>
-                                            <input type="text" name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                            <input type="text" name="vehicleType" value={formData.vehicleType} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ประเภทรถ" placeholder="ประเภทรถ" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
-                                            <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg">
+                                            <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ประเภทการซ่อม">
                                                 <option>ซ่อมทั่วไป</option>
                                                 <option>เปลี่ยนอะไหล่</option>
                                                 <option>ตรวจเช็ก</option>
@@ -454,11 +486,11 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">เลขไมล์</label>
-                                            <input type="number" name="currentMileage" value={formData.currentMileage} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                            <input type="number" name="currentMileage" value={formData.currentMileage} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="เลขไมล์" placeholder="เลขไมล์" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ความสำคัญ</label>
-                                            <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-3 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`}>
+                                            <select name="priority" value={formData.priority} onChange={handleInputChange} className={`mt-1 w-full p-3 border rounded-lg transition-colors ${getPriorityClass(formData.priority)}`} aria-label="ความสำคัญ">
                                                 <option value="ปกติ">ปกติ</option>
                                                 <option value="ด่วน">ด่วน</option>
                                                 <option value="ด่วนที่สุด">ด่วนที่สุด</option>
@@ -471,16 +503,17 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                                 value={toLocalISOString(formData.createdAt)}
                                                 onChange={(e) => handleCreatedAtChange(e.target.value)}
                                                 className="mt-1 w-full p-3 border border-gray-300 rounded-lg"
+                                                aria-label="วันที่แจ้งซ่อม"
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ชื่อผู้แจ้งซ่อม</label>
-                                            <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                            <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ชื่อผู้แจ้งซ่อม" placeholder="ชื่อผู้แจ้งซ่อม" />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">อาการเสีย</label>
-                                        <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={3} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" required></textarea>
+                                        <textarea name="problemDescription" value={formData.problemDescription} onChange={handleInputChange} rows={3} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" required aria-label="อาการเสีย" placeholder="ระบุอาการเสียที่ตรวจพบ"></textarea>
                                     </div>
                                 </div>
                             )}
@@ -512,6 +545,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                                         value={formData.assignedTechnicianId || ''}
                                                         onChange={handleInputChange}
                                                         className="mt-1 w-full p-3 border border-gray-300 rounded-lg"
+                                                        aria-label="ระบุช่างหลัก"
                                                     >
                                                         <option value="">-- ไม่ระบุช่างหลัก --</option>
                                                         {mainTechnicians.map(tech => (
@@ -541,7 +575,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">ค่าใช้จ่ายในการซ่อม (ค่าแรง)</label>
-                                        <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" />
+                                        <input type="number" name="repairCost" value={formData.repairCost} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ค่าใช้จ่ายค่าแรง" placeholder="0" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">VAT ค่าแรง</label>
@@ -563,6 +597,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                                 placeholder="7"
                                                 disabled={!formData.isLaborVatEnabled}
                                                 className="w-24 p-2 border border-gray-300 rounded-lg text-center disabled:bg-gray-100"
+                                                aria-label="อัตราภาษี VAT ค่าแรง"
                                             />
                                             <span className="text-sm font-medium text-gray-700">%</span>
                                         </div>
@@ -602,7 +637,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                                     {formatCurrency(part.quantity * part.unitPrice)}
                                                 </div>
                                                 <div className="col-span-1 text-center">
-                                                    <button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold">×</button>
+                                                    <button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold" title="ลบรายการอะไหล่">×</button>
                                                 </div>
                                             </div>
                                         ))}
@@ -643,7 +678,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                             {openSections.result && (
                                 <div className="p-6">
                                     <label className="block text-sm font-medium text-gray-700">บันทึกผลการซ่อม</label>
-                                    <textarea name="repairResult" value={formData.repairResult} onChange={handleInputChange} rows={4} className="mt-1 w-full p-3 border border-gray-300 rounded-lg"></textarea>
+                                    <textarea name="repairResult" value={formData.repairResult} onChange={handleInputChange} rows={4} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="บันทึกผลการซ่อม" placeholder="ระบุรายละเอียดหลังการซ่อมเสร็จสิ้น"></textarea>
                                 </div>
                             )}
                         </div>
@@ -651,8 +686,10 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
 
                     {/* Footer */}
                     <div className="p-6 border-t flex justify-end space-x-4 bg-gray-50">
-                        <button type="button" onClick={onClose} className="px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                        <button type="button" onClick={handleSave} className="px-8 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">บันทึกการเปลี่ยนแปลง</button>
+                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50">ยกเลิก</button>
+                        <button type="button" onClick={handleSave} disabled={isSubmitting} className="px-8 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[160px]">
+                            {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
+                        </button>
                     </div>
                 </div>
             </div>

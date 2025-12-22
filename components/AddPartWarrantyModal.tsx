@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { PartWarranty, WarrantyType, StockItem, Supplier } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface AddPartWarrantyModalProps {
     onClose: () => void;
@@ -31,6 +32,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
         purchaseCost: 0,
         notes: ''
     });
+    const { addToast } = useToast();
 
     // Calculate warranty expiry date based on install date and duration
     const calculateExpiryDate = (installDate: string, durationMonths: number): string => {
@@ -45,7 +47,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
         e.preventDefault();
 
         if (!formData.partName || !formData.supplier) {
-            alert('กรุณากรอกชื่ออะไหล่และผู้จำหน่าย');
+            addToast('กรุณากรอกชื่ออะไหล่และผู้จำหน่าย', 'warning');
             return;
         }
 
@@ -104,6 +106,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                         </div>
                         <button
                             onClick={onClose}
+                            aria-label="ปิดหน้าต่าง"
                             className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -121,6 +124,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                             <select
                                 onChange={handlePartSelect}
                                 required
+                                aria-label="เลือกอะไหล่"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             >
                                 <option value="">-- เลือกอะไหล่ --</option>
@@ -142,6 +146,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 onChange={handleInputChange}
                                 required
                                 placeholder="ระบุชื่ออะไหล่"
+                                aria-label="ชื่ออะไหล่"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             />
                         </div>
@@ -155,6 +160,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 value={formData.purchaseDate}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="วันที่ซื้อ"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             />
                         </div>
@@ -167,6 +173,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 value={formData.installDate}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="วันที่ติดตั้ง"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             />
                         </div>
@@ -180,6 +187,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 value={formData.vehicleLicensePlate}
                                 onChange={handleInputChange}
                                 placeholder="เช่น 70-6937"
+                                aria-label="ทะเบียนรถ"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             />
                         </div>
@@ -192,6 +200,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 value={formData.repairOrderNo}
                                 onChange={handleInputChange}
                                 placeholder="เช่น R-2024-001"
+                                aria-label="เลขที่ใบแจ้งซ่อม"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             />
                         </div>
@@ -204,6 +213,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 value={formData.warrantyType}
                                 onChange={handleInputChange}
                                 required
+                                aria-label="ประเภทการรับประกัน"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             >
                                 {WARRANTY_TYPES.map(type => (
@@ -221,6 +231,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 onChange={handleInputChange}
                                 required
                                 min="1"
+                                aria-label="ระยะเวลารับประกัน"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             />
                         </div>
@@ -243,6 +254,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                             <select
                                 onChange={handleSupplierSelect}
                                 required
+                                aria-label="เลือกผู้จำหน่าย"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             >
                                 <option value="">-- เลือกผู้จำหน่าย --</option>
@@ -265,6 +277,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 required
                                 min="0"
                                 step="0.01"
+                                aria-label="มูลค่าอะไหล่"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
                             />
                         </div>
@@ -291,6 +304,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                                 required
                                 rows={3}
                                 placeholder="เช่น รับประกัน 12 เดือน หรือ 100,000 กม. แล้วแต่อย่างใดอย่างหนึ่งถึงก่อน"
+                                aria-label="เงื่อนไขการรับประกัน"
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none resize-none"
                             />
                         </div>

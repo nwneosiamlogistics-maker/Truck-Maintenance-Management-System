@@ -4,17 +4,17 @@ import type { MaintenancePlan, Repair, Technician, PMHistory, RepairFormSeed, Ta
 import MaintenancePlanModal from './MaintenancePlanModal';
 import LogMaintenanceModal from './LogMaintenanceModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword } from '../utils';
+import { promptForPasswordAsync, confirmAction } from '../utils';
 
 type PlanStatus = 'ok' | 'due' | 'overdue';
 
 interface EnrichedPlan extends MaintenancePlan {
-  status: PlanStatus;
-  nextServiceDate: Date;
-  daysUntilNextService: number;
-  currentMileage: number | null;
-  nextServiceMileage: number;
-  kmUntilNextService: number | null;
+    status: PlanStatus;
+    nextServiceDate: Date;
+    daysUntilNextService: number;
+    currentMileage: number | null;
+    nextServiceMileage: number;
+    kmUntilNextService: number | null;
 }
 
 interface MaintenancePlannerProps {
@@ -34,7 +34,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
     const [isLogModalOpen, setLogModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<MaintenancePlan | null>(null);
     // Use EnrichedPlan here to access calculated targets
-    const [loggingPlan, setLoggingPlan] = useState<EnrichedPlan | null>(null); 
+    const [loggingPlan, setLoggingPlan] = useState<EnrichedPlan | null>(null);
     const [statusFilter, setStatusFilter] = useState<PlanStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
@@ -51,10 +51,10 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                 else nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
 
                 const daysUntilNextService = Math.ceil((nextServiceDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-                
+
                 const latestRepair = (Array.isArray(repairs) ? repairs : [])
                     .filter(r => r.licensePlate === plan.vehicleLicensePlate && r.currentMileage)
-                    .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
                 const currentMileage = latestRepair ? Number(latestRepair.currentMileage) : null;
                 const nextServiceMileage = plan.lastServiceMileage + plan.mileageFrequency;
                 const kmUntilNextService = currentMileage ? nextServiceMileage - currentMileage : null;
@@ -70,7 +70,7 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
             })
             .filter(plan => statusFilter === 'all' || plan.status === statusFilter)
             .filter(plan => searchTerm === '' || plan.vehicleLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()) || plan.planName.toLowerCase().includes(searchTerm.toLowerCase()))
-            .sort((a,b) => a.daysUntilNextService - b.daysUntilNextService);
+            .sort((a, b) => a.daysUntilNextService - b.daysUntilNextService);
     }, [plans, repairs, statusFilter, searchTerm]);
 
     const handleOpenModal = (plan: MaintenancePlan | null = null) => {
@@ -89,17 +89,20 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
         }
         setModalOpen(false);
     };
-    
-    const handleDeletePlan = (plan: MaintenancePlan) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบแผน "${plan.planName}" สำหรับรถทะเบียน ${plan.vehicleLicensePlate}?`)) {
-            setPlans(prev => prev.filter(p => p.id !== plan.id));
-            addToast(`ลบแผน "${plan.planName}" สำเร็จ`, 'info');
+
+    const handleDeletePlan = async (plan: MaintenancePlan) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบแผน "${plan.planName}" สำหรับรถทะเบียน ${plan.vehicleLicensePlate}?`, 'ลบ');
+            if (confirmed) {
+                setPlans(prev => prev.filter(p => p.id !== plan.id));
+                addToast(`ลบแผน "${plan.planName}" สำเร็จ`, 'info');
+            }
         }
     };
-    
+
     const handleLogService = (logData: { serviceDate: string; mileage: number; technicianId: string | null; notes: string; targetDate?: string; targetMileage?: number }) => {
         if (!loggingPlan) return;
-        
+
         const newHistoryItem: PMHistory = {
             id: `PMH-${Date.now()}`,
             maintenancePlanId: loggingPlan.id,
@@ -148,27 +151,28 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
-                 <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
                     <input
                         type="text"
+                        aria-label="Search Plans"
                         placeholder="ค้นหา (ทะเบียน, ชื่อแผน)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full md:w-72 p-2 border border-gray-300 rounded-lg text-base"
                     />
-                     <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
+                    <select aria-label="Filter by Status" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
                         <option value="all">สถานะทั้งหมด</option>
                         <option value="ok">ปกติ</option>
                         <option value="due">ใกล้ถึงกำหนด</option>
                         <option value="overdue">เกินกำหนด</option>
                     </select>
                 </div>
-                 <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
                     + เพิ่มแผนใหม่
                 </button>
             </div>
 
-             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
+            <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
@@ -189,35 +193,35 @@ const MaintenancePlanner: React.FC<MaintenancePlannerProps> = ({ plans, setPlans
                                     <div className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusBadge(plan.status)}`}>
                                         {plan.status === 'overdue' ? `เกินกำหนด` : (plan.status === 'due' ? `อีก ${plan.daysUntilNextService} วัน` : 'ปกติ')}
                                     </div>
-                                    {plan.kmUntilNextService !== null && 
+                                    {plan.kmUntilNextService !== null &&
                                         <div className="text-xs mt-1">({plan.kmUntilNextService > 0 ? `อีก ${plan.kmUntilNextService.toLocaleString()} กม.` : 'เกินระยะ'})</div>
                                     }
                                 </td>
                                 <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
-                                     {['due', 'overdue'].includes(plan.status) && (
+                                    {['due', 'overdue'].includes(plan.status) && (
                                         <button onClick={() => handleCreateRepair(plan)} className="text-purple-600 hover:text-purple-800 text-base font-medium">สร้างงานซ่อม</button>
-                                     )}
-                                     <button onClick={() => { setLoggingPlan(plan); setLogModalOpen(true); }} className="text-green-600 hover:text-green-800 text-base font-medium">บันทึก</button>
-                                     <button onClick={() => handleOpenModal(plan)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้</button>
-                                     <button onClick={() => handleDeletePlan(plan)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
+                                    )}
+                                    <button onClick={() => { setLoggingPlan(plan); setLogModalOpen(true); }} className="text-green-600 hover:text-green-800 text-base font-medium">บันทึก</button>
+                                    <button onClick={() => handleOpenModal(plan)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้</button>
+                                    <button onClick={() => handleDeletePlan(plan)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                 </td>
                             </tr>
                         ))}
-                         {enrichedPlans.length === 0 && (
+                        {enrichedPlans.length === 0 && (
                             <tr><td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบแผนซ่อมบำรุง</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
-            
+
             {isModalOpen && <MaintenancePlanModal plan={editingPlan} onSave={handleSavePlan} onClose={() => setModalOpen(false)} allRepairs={repairs} />}
             {isLogModalOpen && loggingPlan && (
-                <LogMaintenanceModal 
-                    plan={loggingPlan} 
+                <LogMaintenanceModal
+                    plan={loggingPlan}
                     targets={{ date: loggingPlan.nextServiceDate, mileage: loggingPlan.nextServiceMileage }}
-                    technicians={technicians} 
-                    onSave={handleLogService} 
-                    onClose={() => setLogModalOpen(false)} 
+                    technicians={technicians}
+                    onSave={handleLogService}
+                    onClose={() => setLogModalOpen(false)}
                 />
             )}
         </div>

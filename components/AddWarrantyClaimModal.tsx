@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { PartWarranty, WarrantyClaim, WarrantyClaimStatus } from '../types';
 import { formatCurrency } from '../utils';
+import { useToast } from '../context/ToastContext';
 
 interface AddWarrantyClaimModalProps {
     onClose: () => void;
@@ -19,12 +20,13 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
         laborCost: 0,
         notes: ''
     });
+    const { addToast } = useToast();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!formData.issue) {
-            alert('กรุณาระบุปัญหาที่พบ');
+            addToast('กรุณาระบุปัญหาที่พบ', 'warning');
             return;
         }
 
@@ -59,6 +61,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                         </div>
                         <button
                             onClick={onClose}
+                            aria-label="ปิดหน้าต่าง"
                             className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -125,6 +128,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     value={formData.claimDate}
                                     onChange={handleInputChange}
                                     required
+                                    aria-label="วันที่ยื่นเคลม"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
@@ -138,6 +142,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     value={formData.repairOrderNo}
                                     onChange={handleInputChange}
                                     placeholder="เช่น R-2024-001"
+                                    aria-label="เลขที่ใบแจ้งซ่อม"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
@@ -152,6 +157,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     onChange={handleInputChange}
                                     required
                                     placeholder="เช่น อะไหล่ชำรุด, ทำงานผิดปกติ, เสียหาย"
+                                    aria-label="ปัญหาที่พบ"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
@@ -165,6 +171,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     onChange={handleInputChange}
                                     rows={4}
                                     placeholder="อธิบายรายละเอียดปัญหาที่พบ, อาการ, และสภาพการใช้งาน"
+                                    aria-label="รายละเอียดปัญหา"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none resize-none"
                                 />
                             </div>
@@ -180,6 +187,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     min="0"
                                     step="0.01"
                                     placeholder="0.00"
+                                    aria-label="ค่าอะไหล์ทดแทน"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
@@ -194,6 +202,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     min="0"
                                     step="0.01"
                                     placeholder="0.00"
+                                    aria-label="ค่าแรงติดตั้ง"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                             </div>
@@ -208,6 +217,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     min="0"
                                     step="0.01"
                                     placeholder="0.00"
+                                    aria-label="จำนวนที่คาดว่าจะได้รับคืน"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">จำนวนเงินที่ผู้จำหน่ายจะรับผิดชอบ</p>
@@ -240,6 +250,7 @@ const AddWarrantyClaimModal: React.FC<AddWarrantyClaimModalProps> = ({ onClose, 
                                     onChange={handleInputChange}
                                     rows={2}
                                     placeholder="ข้อมูลเพิ่มเติม..."
+                                    aria-label="หมายเหตุเพิ่มเติม"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none resize-none"
                                 />
                             </div>

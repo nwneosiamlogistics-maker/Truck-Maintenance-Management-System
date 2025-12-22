@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import type { Repair, Technician, RepairStatus, StockItem, UsedPart, Supplier, StockTransaction } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPassword, formatDateTime24h } from '../utils';
+import { promptForPasswordAsync, confirmAction, formatDateTime24h } from '../utils';
 
 interface RepairListProps {
     repairs: Repair[];
@@ -63,7 +64,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
         setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
         setEditingRepair(null);
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
-        
+
         const originalRepair = repairs.find(r => r.id === updatedRepair.id);
         if (originalRepair?.status !== 'ซ่อมเสร็จ' && updatedRepair.status === 'ซ่อมเสร็จ') {
             const hasParts = updatedRepair.parts && updatedRepair.parts.length > 0;
@@ -73,11 +74,92 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             }
         }
     };
-    
-    const handleDeleteRepair = (repairId: string, repairOrderNo: string) => {
-        if (promptForPassword('ลบ') && window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}?`)) {
-            setRepairs(prev => prev.filter(r => r.id !== repairId));
-            addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
+
+    const handleDeleteRepair = async (repairId: string, repairOrderNo: string) => {
+        if (await promptForPasswordAsync('ลบ')) {
+            const confirmed = await confirmAction('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบใบแจ้งซ่อม ${repairOrderNo}?`, 'ลบ');
+            if (confirmed) {
+                setRepairs(prev => prev.filter(r => r.id !== repairId));
+                addToast(`ลบใบแจ้งซ่อม ${repairOrderNo} สำเร็จ`, 'info');
+            }
+        }
+    };
+
+    const handleQuickStatusUpdate = async (repair: Repair, newStatus: RepairStatus) => {
+        const now = new Date();
+        const nowDate = now.toISOString().split('T')[0];
+        const nowTime = now.toTimeString().slice(0, 5);
+
+        const { value: selectedDateTime } = await Swal.fire({
+            title: `<div class="text-2xl font-bold mb-2">ยืนยันสถานะ: ${newStatus}</div>`,
+            html: `
+                <div class="text-left space-y-4 font-sans">
+                    <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 mb-6">
+                        <p class="text-sm text-blue-800 font-medium flex justify-between">
+                            <span>เลขที่ใบแจ้งซ่อม:</span>
+                            <span class="font-bold font-mono">${repair.repairOrderNo}</span>
+                        </p>
+                        <p class="text-sm text-blue-800 font-medium flex justify-between mt-1">
+                            <span>ทะเบียนรถ:</span>
+                            <span class="font-bold">${repair.licensePlate}</span>
+                        </p>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <div class="flex-1 space-y-2">
+                            <label class="block text-sm font-bold text-gray-700">วันที่:</label>
+                            <input id="swal-input-date" type="date" class="swal2-input !m-0 !w-full !rounded-xl !border-gray-200 !text-sm" value="${nowDate}">
+                        </div>
+                        <div class="w-36 space-y-2">
+                            <label class="block text-sm font-bold text-gray-700">เวลา:</label>
+                            <input id="swal-input-time" type="time" class="swal2-input !m-0 !w-full !rounded-xl !border-gray-200 !text-sm" value="${nowTime}">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2 italic text-center">* คุณสามารถแก้ไขวันย้อนหลังหากบันทึกล่าช้า</p>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'ยืนยันบันทึก',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#2563eb',
+            cancelButtonColor: '#94a3b8',
+            preConfirm: () => {
+                const dateInput = document.getElementById('swal-input-date') as HTMLInputElement;
+                const timeInput = document.getElementById('swal-input-time') as HTMLInputElement;
+                if (!dateInput.value || !timeInput.value) {
+                    Swal.showValidationMessage('กรุณาระบุทั้งวันที่และเวลา');
+                    return false;
+                }
+                return `${dateInput.value}T${timeInput.value}`;
+            },
+            customClass: {
+                popup: 'rounded-[2rem]',
+                confirmButton: 'rounded-xl font-bold px-8 py-3',
+                cancelButton: 'rounded-xl font-bold px-8 py-3'
+            }
+        });
+
+        if (selectedDateTime) {
+            const timestamp = new Date(selectedDateTime).toISOString();
+            const updatedRepair = { ...repair, status: newStatus, updatedAt: new Date().toISOString() };
+
+            if (newStatus === 'กำลังซ่อม') {
+                updatedRepair.repairStartDate = timestamp;
+            } else if (newStatus === 'ซ่อมเสร็จ') {
+                updatedRepair.repairEndDate = timestamp;
+            }
+
+            setRepairs(prev => prev.map(r => r.id === repair.id ? updatedRepair : r));
+            addToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อยแล้ว`, 'success');
+
+            if (newStatus === 'ซ่อมเสร็จ') {
+                const hasParts = updatedRepair.parts && updatedRepair.parts.length > 0;
+                const hasLoggedUsedParts = (Array.isArray(usedParts) ? usedParts : []).some(up => up.fromRepairId === updatedRepair.id);
+                if (hasParts && !hasLoggedUsedParts) {
+                    setAddUsedPartsRepair(updatedRepair);
+                }
+            }
         }
     };
 
@@ -89,12 +171,12 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             default: return 'bg-gray-100';
         }
     };
-    
+
     const getTechnicianDisplay = (repair: Repair) => {
         if (repair.dispatchType === 'ภายนอก' && repair.externalTechnicianName) {
             return `ซ่อมภายนอก: ${repair.externalTechnicianName}`;
         }
-        
+
         const mainTechnician = technicians.find(t => t.id === repair.assignedTechnicianId);
         const assistants = technicians.filter(t => (repair.assistantTechnicianIds || []).includes(t.id));
 
@@ -114,12 +196,13 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-4">
                 <input
                     type="text"
+                    aria-label="ค้นหาใบแจ้งซ่อม"
                     placeholder="ค้นหา (ทะเบียน, เลขที่, อาการ)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full md:w-80 p-2 border border-gray-300 rounded-lg text-base"
                 />
-                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
+                <select aria-label="กรองสถานะ" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="p-2 border border-gray-300 rounded-lg text-base">
                     <option value="all">สถานะทั้งหมด</option>
                     <option value="รอซ่อม">รอซ่อม</option>
                     <option value="กำลังซ่อม">กำลังซ่อม</option>
@@ -148,13 +231,45 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                                 <td className="px-4 py-3 text-sm"><div>แจ้ง: {formatDateTime24h(repair.createdAt)}</div><div>เสร็จ: {formatDateTime24h(repair.estimations[repair.estimations.length - 1]?.estimatedEndDate)}</div></td>
                                 <td className="px-4 py-3"><span className={`px-3 py-1 text-sm leading-5 font-semibold rounded-full ${getStatusBadge(repair.status)}`}>{repair.status}</span></td>
                                 <td className="px-4 py-3 text-center space-x-2">
-                                    <button onClick={() => setEditingRepair(repair)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
-                                    <button onClick={() => setViewingRepair(repair)} className="text-blue-600 hover:text-blue-800 text-base font-medium">ดู</button>
-                                    <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
+                                    <div className="flex flex-col gap-1 items-center">
+                                        <div className="flex gap-2">
+                                            {repair.status === 'รอซ่อม' && (
+                                                !(repair.assignedTechnicianId || repair.externalTechnicianName) ? (
+                                                    <button onClick={() => setEditingRepair(repair)} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 border border-gray-300">
+                                                        👤 มอบหมายช่าง
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => handleQuickStatusUpdate(repair, 'กำลังซ่อม')} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all active:scale-95">
+                                                        🛠️ เริ่มเข้าซ่อม
+                                                    </button>
+                                                )
+                                            )}
+                                            {repair.status === 'กำลังซ่อม' && (
+                                                <>
+                                                    <button onClick={() => handleQuickStatusUpdate(repair, 'รออะไหล่')} className="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 shadow-sm transition-all active:scale-95">
+                                                        📦 รออะไหล่
+                                                    </button>
+                                                    <button onClick={() => handleQuickStatusUpdate(repair, 'ซ่อมเสร็จ')} className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm transition-all active:scale-95">
+                                                        ✅ ซ่อมเสร็จ
+                                                    </button>
+                                                </>
+                                            )}
+                                            {repair.status === 'รออะไหล่' && (
+                                                <button onClick={() => handleQuickStatusUpdate(repair, 'กำลังซ่อม')} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all active:scale-95">
+                                                    ⚙️ กลับมาซ่อมต่อ
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-3 mt-1 items-center">
+                                            <button onClick={() => setEditingRepair(repair)} className="text-gray-500 hover:text-yellow-600 text-xs font-medium underline">แก้ไข</button>
+                                            <button onClick={() => setViewingRepair(repair)} className="text-gray-500 hover:text-blue-600 text-xs font-medium underline">ดู</button>
+                                            <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-gray-400 hover:text-red-500 text-xs font-medium underline">ลบ</button>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
-                         {paginatedRepairs.length === 0 && (
+                        {paginatedRepairs.length === 0 && (
                             <tr>
                                 <td colSpan={6} className="text-center py-10 text-gray-500">ไม่พบใบแจ้งซ่อม</td>
                             </tr>
@@ -162,12 +277,13 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                     </tbody>
                 </table>
             </div>
-            
+
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                     <label htmlFor="items-per-page" className="text-sm font-medium">แสดง:</label>
                     <select
                         id="items-per-page"
+                        aria-label="Items per page"
                         value={itemsPerPage}
                         onChange={e => setItemsPerPage(Number(e.target.value))}
                         className="p-1 border border-gray-300 rounded-lg text-sm"
@@ -189,6 +305,8 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
 
             {editingRepair && <RepairEditModal repair={editingRepair} onSave={handleSaveRepair} onClose={() => setEditingRepair(null)} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} suppliers={suppliers} />}
             {viewingRepair && <VehicleDetailModal repair={viewingRepair} allRepairs={repairs} technicians={technicians} onClose={() => setViewingRepair(null)} />}
+            {addUsedPartsRepair && <AddUsedPartsModal repair={addUsedPartsRepair} onSaveIndividual={addUsedParts} onSaveFungible={updateFungibleStock} stock={stock} onClose={() => setAddUsedPartsRepair(null)} />}
+
             {addUsedPartsRepair && <AddUsedPartsModal repair={addUsedPartsRepair} onSaveIndividual={addUsedParts} onSaveFungible={updateFungibleStock} stock={stock} onClose={() => setAddUsedPartsRepair(null)} />}
         </div>
     );
