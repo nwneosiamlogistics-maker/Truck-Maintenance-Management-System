@@ -42,10 +42,15 @@ import BudgetManagement from './components/BudgetManagement';
 import FuelManagement from './components/FuelManagement';
 import DriverManagement from './components/DriverManagement';
 import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
+import Login from './components/Login';
 
 
-const AppContent: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+interface AppContentProps {
+    activeTab: Tab;
+    setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
+}
+
+const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -311,9 +316,32 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+    // Determine initial login state (e.g., check localStorage in a real app)
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userRole, setUserRole] = useState<string>('');
+    const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+
+    const handleLogin = (role: string) => {
+        setUserRole(role);
+        setIsLoggedIn(true);
+        if (role === 'technician') {
+            setActiveTab('technician-view');
+        } else if (role === 'driver') {
+            setActiveTab('form');
+        } else {
+            setActiveTab('dashboard');
+        }
+    };
+
     return (
         <ToastProvider>
-            <AppContent />
+            {isLoggedIn ? (
+                <div role-key={userRole}>
+                    <AppContent activeTab={activeTab} setActiveTab={setActiveTab} />
+                </div>
+            ) : (
+                <Login onLogin={handleLogin} />
+            )}
             <ToastContainer />
         </ToastProvider>
     );
