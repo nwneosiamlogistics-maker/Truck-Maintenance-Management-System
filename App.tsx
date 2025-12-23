@@ -78,7 +78,8 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
         technicians, setTechnicians, drivers, setDrivers, drivingIncidents, setDrivingIncidents,
         budgets, setBudgets, fuelRecords, setFuelRecords, partWarranties, setPartWarranties,
         insuranceClaims, setInsuranceClaims, reports, setReports, notifications, setNotifications,
-        tools, setTools, toolTransactions, setToolTransactions, unreadNotificationCount
+        tools, setTools, toolTransactions, setToolTransactions, cargoPolicies, setCargoPolicies,
+        cargoClaims, setCargoClaims, unreadNotificationCount
     } = useAdmin();
 
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
@@ -184,7 +185,6 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     setStock={setStock}
                     setTransactions={setTransactions}
                     suppliers={suppliers}
-                    setActiveTab={setActiveTab}
                 />;
             case 'purchase-orders':
                 return <PurchaseOrderManagement
@@ -274,11 +274,15 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     setVehicles={setVehicles}
                     stock={stock}
                     suppliers={suppliers}
+                    cargoPolicies={cargoPolicies}
+                    setCargoPolicies={setCargoPolicies}
+                    cargoClaims={cargoClaims}
+                    setCargoClaims={setCargoClaims}
                 />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:
-                return <Dashboard repairs={repairs} stock={stock} setActiveTab={setActiveTab} />;
+                return <Dashboard repairs={repairs} stock={stock} maintenancePlans={maintenancePlans} vehicles={vehicles} setActiveTab={setActiveTab} />;
         }
     };
 

@@ -591,7 +591,13 @@ export interface FuelAlert {
 // ==================== DRIVER MANAGEMENT ====================
 
 export type DriverStatus = 'active' | 'on_leave' | 'suspended' | 'terminated';
-export type LicenseClass = 'ใบขับขี่ส่วนบุคคล' | 'ใบขับขี่สาธารณะ' | 'ใบขับขี่บรรทุก';
+export type LicenseClass =
+    | 'ใบขับขี่ส่วนบุคคล'
+    | 'ใบขับขี่สาธารณะ'
+    | 'ใบขับขี่บรรทุก'
+    | 'บ.1' | 'บ.2' | 'บ.3' | 'บ.4'
+    | 'ท.1' | 'ท.2' | 'ท.3' | 'ท.4';
+
 
 export interface Driver {
     id: string;
@@ -896,12 +902,39 @@ export interface CargoInsurancePolicy {
     id: string;
     policyNumber: string;
     insurer: string;
+    insuredName?: string;
     coverageType: CargoCoverageType;
-    coverageLimit: number;
+    coverageLimit: number; // Single accident limit
+    totalAnnualLimit?: number;
     deductible: number;
     premium: number;
     startDate: string;
     expiryDate: string;
+    contactInfo?: {
+        center: string;
+        email: string;
+    };
+    coverageRules?: {
+        vehicleType: string | string[];
+        limitPerAccident: number;
+        limitPerVehicle?: number;
+        extensions?: {
+            containerCoverage?: number;
+            crossBorderRangeKm?: number;
+        };
+    }[];
+    deductibleRules?: {
+        type?: 'fixed' | 'percentage_with_min';
+        standard: number;
+        percentage?: number;
+        minAmount?: number;
+        highRisk?: {
+            rate: number;
+            minAmount: number;
+            categories: string[];
+        };
+    };
+    coveredVehicles?: string[]; // List of license plates
     termsAndConditions?: string;
     status: 'Active' | 'Expired' | 'Cancelled';
     notes?: string;
@@ -914,15 +947,19 @@ export interface CargoInsuranceClaim {
     jobId?: string; // Link to a transport job/trip
     vehicleId?: string;
     vehicleLicensePlate?: string;
+    driverName?: string;
     incidentDate: string;
     incidentLocation: string;
+    incidentDescription?: string;
     cargoDescription: string;
     damageDescription: string;
+    cargoCategory?: string;
     packagingType?: string;
 
     claimedAmount: number;
     approvedAmount?: number;
     deductible?: number;
+    estimatedDamage?: number;
 
     status: InsuranceClaimStatus;
 

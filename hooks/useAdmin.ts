@@ -1,5 +1,5 @@
 import { useFirebase } from './useFirebase';
-import type { Technician, Driver, DrivingIncident, MaintenanceBudget, FuelRecord, PartWarranty, InsuranceClaim, Report, Notification } from '../types';
+import type { Technician, Driver, DrivingIncident, MaintenanceBudget, FuelRecord, PartWarranty, InsuranceClaim, Report, Notification, CargoInsurancePolicy, CargoInsuranceClaim } from '../types';
 import { getDefaultTechnicians, getDefaultDrivers, getDefaultBudgets, getDefaultFuelRecords, getDefaultReports } from '../data/defaultData';
 
 export const useAdmin = () => {
@@ -14,6 +14,8 @@ export const useAdmin = () => {
     const [notifications, setNotifications] = useFirebase<Notification[]>('notifications', []);
     const [tools, setTools] = useFirebase('tools', []);
     const [toolTransactions, setToolTransactions] = useFirebase('toolTransactions', []);
+    const [cargoPolicies, setCargoPolicies] = useFirebase<CargoInsurancePolicy[]>('cargoPolicies', []);
+    const [cargoClaims, setCargoClaims] = useFirebase<CargoInsuranceClaim[]>('cargoClaims', []);
 
     const unreadNotificationCount = (Array.isArray(notifications) ? notifications : []).filter(n => !n.isRead).length;
 
@@ -40,6 +42,10 @@ export const useAdmin = () => {
         setTools,
         toolTransactions,
         setToolTransactions,
+        cargoPolicies,
+        setCargoPolicies,
+        cargoClaims,
+        setCargoClaims,
         unreadNotificationCount
     };
 };

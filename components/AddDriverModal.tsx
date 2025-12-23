@@ -7,7 +7,27 @@ interface AddDriverModalProps {
     onSave: (driver: Driver | Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
-const LICENSE_CLASSES: LicenseClass[] = ['ใบขับขี่ส่วนบุคคล', 'ใบขับขี่สาธารณะ', 'ใบขับขี่บรรทุก'];
+const LICENSE_GROUPS = [
+    {
+        label: '1. ใบขับขี่ส่วนบุคคล (ป้ายขาว ตัวอักษรดำ)',
+        options: [
+            { value: 'บ.1', label: 'บ.1: รถยนต์, รถกระบะ, รถตู้ น้ำหนักรวมไม่เกิน 3,500 กก. (อายุ 18 ปีขึ้นไป)' },
+            { value: 'บ.2', label: 'บ.2: รถบรรทุกส่วนบุคคล น้ำหนักรวมเกิน 3,500 กก. (อายุ 20 ปีขึ้นไป)' },
+            { value: 'บ.3', label: 'บ.3: รถพ่วง, รถเทรลเลอร์ (ส่วนบุคคล) (อายุ 20 ปีขึ้นไป)' },
+            { value: 'บ.4', label: 'บ.4: รถบรรทุกวัตถุอันตราย (ส่วนบุคคล) (อายุ 25 ปีขึ้นไป)' }
+        ]
+    },
+    {
+        label: '2. ใบขับขี่ทุกประเภท/สาธารณะ (ป้ายเหลือง ตัวอักษรดำ)',
+        options: [
+            { value: 'ท.1', label: 'ท.1: รถแท็กซี่, รถตู้สาธารณะ, รถส่งของ (อายุ 22 ปีขึ้นไป)' },
+            { value: 'ท.2', label: 'ท.2: รถบัส, รถเมล์, รถบรรทุกขนาดใหญ่ (เกิน 3,500 กก. หรือเกิน 20 คน)' },
+            { value: 'ท.3', label: 'ท.3: รถพ่วง, รถเทรลเลอร์ (สาธารณะ) (อายุ 22 ปีขึ้นไป)' },
+            { value: 'ท.4', label: 'ท.4: รถขนส่งวัตถุอันตราย (สาธารณะ) (อายุ 25 ปีขึ้นไป)' }
+        ]
+    }
+];
+
 
 const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave }) => {
     const [formData, setFormData] = useState({
@@ -23,7 +43,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
             relationship: driver?.emergencyContact?.relationship || ''
         },
         licenseNumber: driver?.licenseNumber || '',
-        licenseClass: (driver?.licenseClass || 'ใบขับขี่บรรทุก') as LicenseClass,
+        licenseClass: (driver?.licenseClass || 'ท.2') as LicenseClass,
         licenseIssueDate: driver?.licenseIssueDate || '',
         licenseExpiry: driver?.licenseExpiry || '',
         hireDate: driver?.hireDate || new Date().toISOString().split('T')[0],
@@ -264,8 +284,12 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                                     title="ประเภทใบขับขี่"
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 outline-none"
                                 >
-                                    {LICENSE_CLASSES.map(cls => (
-                                        <option key={cls} value={cls}>{cls}</option>
+                                    {LICENSE_GROUPS.map(group => (
+                                        <optgroup key={group.label} label={group.label}>
+                                            {group.options.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </optgroup>
                                     ))}
                                 </select>
                             </div>

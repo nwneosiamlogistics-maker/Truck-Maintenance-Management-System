@@ -24,6 +24,10 @@ interface WarrantyInsuranceManagementProps {
     setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
     stock: StockItem[];
     suppliers: Supplier[];
+    cargoPolicies: CargoInsurancePolicy[];
+    setCargoPolicies: React.Dispatch<React.SetStateAction<CargoInsurancePolicy[]>>;
+    cargoClaims: CargoInsuranceClaim[];
+    setCargoClaims: React.Dispatch<React.SetStateAction<CargoInsuranceClaim[]>>;
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -36,17 +40,21 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
     vehicles,
     setVehicles,
     stock,
-    suppliers
+    suppliers,
+    cargoPolicies,
+    setCargoPolicies,
+    cargoClaims,
+    setCargoClaims
 }) => {
     const [activeTab, setActiveTab] = useState<'warranty' | 'insurance' | 'cargo' | 'investigation' | 'vehicles'>('vehicles');
     const [isAddWarrantyModalOpen, setIsAddWarrantyModalOpen] = useState(false);
     const [isAddInsuranceClaimModalOpen, setIsAddInsuranceClaimModalOpen] = useState(false);
     const [isAddCargoPolicyModalOpen, setIsAddCargoPolicyModalOpen] = useState(false);
     const [isAddCargoClaimModalOpen, setIsAddCargoClaimModalOpen] = useState(false);
+    const [policyToRenew, setPolicyToRenew] = useState<CargoInsurancePolicy | undefined>(undefined);
+    const [policyToEdit, setPolicyToEdit] = useState<CargoInsurancePolicy | undefined>(undefined);
 
-    // Mock Data for Cargo (Prototype)
-    const [cargoPolicies, setCargoPolicies] = useState<CargoInsurancePolicy[]>([]);
-    const [cargoClaims, setCargoClaims] = useState<CargoInsuranceClaim[]>([]);
+    // Mock Data for Cargo (Prototype) - REMOVED
 
     // Incident Investigation State
     const [incidentReports, setIncidentReports] = useState<IncidentInvestigationReport[]>([]);
@@ -694,8 +702,27 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                 <CargoInsuranceView
                     policies={cargoPolicies}
                     claims={cargoClaims}
-                    onAddPolicy={() => setIsAddCargoPolicyModalOpen(true)}
+                    onAddPolicy={() => {
+                        setPolicyToRenew(undefined);
+                        setPolicyToEdit(undefined);
+                        setIsAddCargoPolicyModalOpen(true);
+                    }}
                     onAddClaim={() => setIsAddCargoClaimModalOpen(true)}
+                    onRenew={(policy) => {
+                        setPolicyToRenew(policy);
+                        setPolicyToEdit(undefined);
+                        setIsAddCargoPolicyModalOpen(true);
+                    }}
+                    onEdit={(policy) => {
+                        const pin = prompt('กรุณาใส่รหัสเพื่อแก้ไข (PIN Code):');
+                        if (pin === '1234') {
+                            setPolicyToEdit(policy);
+                            setPolicyToRenew(undefined);
+                            setIsAddCargoPolicyModalOpen(true);
+                        } else {
+                            addToast('รหัสผ่านไม่ถูกต้อง', 'error');
+                        }
+                    }}
                 />
             )}
 
@@ -813,8 +840,8 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="max-w-xs break-words text-sm text-slate-600 line-clamp-2" title={report.rootCause}>
-                                                        {report.rootCause}
+                                                    <div className="max-w-xs break-words text-sm text-slate-600 line-clamp-2" title={report.rootCauseAnalysis?.remarks || 'N/A'}>
+                                                        {report.rootCauseAnalysis?.remarks || 'N/A'}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -864,11 +891,14 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                 <AddPartWarrantyModal
                     onClose={() => setIsAddWarrantyModalOpen(false)}
                     onSave={(newWarranty) => {
+                        const now = new Date().toISOString();
                         const warrantyWithId: PartWarranty = {
                             id: `W-${Date.now()}`,
                             ...newWarranty,
                             isActive: true,
-                            claims: []
+                            claims: [],
+                            createdAt: now,
+                            updatedAt: now
                         };
                         setPartWarranties(prev => [...prev, warrantyWithId]);
                         setIsAddWarrantyModalOpen(false);
@@ -883,15 +913,19 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                 <AddInsuranceClaimModal
                     onClose={() => setIsAddInsuranceClaimModalOpen(false)}
                     onSave={(newClaim) => {
+                        const now = new Date().toISOString();
                         const claimWithId: InsuranceClaim = {
                             id: `CLM-${Date.now()}`,
                             ...newClaim,
                             status: 'filed',
-                            history: [{
-                                date: new Date().toISOString(),
+                            statusHistory: [{
                                 status: 'filed',
-                                note: 'ยื่นเรื่องเคลมใหม่'
-                            }]
+                                date: now,
+                                notes: 'ยื่นเรื่องเคลมใหม่'
+                            }],
+                            createdAt: now,
+                            updatedAt: now,
+                            createdBy: 'Admin'
                         };
                         setInsuranceClaims(prev => [...prev, claimWithId]);
                         setIsAddInsuranceClaimModalOpen(false);
@@ -904,14 +938,30 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
 
             {isAddCargoPolicyModalOpen && (
                 <AddCargoPolicyModal
-                    onClose={() => setIsAddCargoPolicyModalOpen(false)}
-                    onSave={(newPolicy) => {
-                        const policyWithId: CargoInsurancePolicy = {
-                            id: `CP-${Date.now()}`,
-                            ...newPolicy
-                        };
-                        setCargoPolicies(prev => [...prev, policyWithId]);
-                        addToast('เพิ่มกรมธรรม์ประกันภัยสินค้าสำเร็จ', 'success');
+                    initialData={policyToEdit || policyToRenew}
+                    isEditMode={!!policyToEdit}
+                    onClose={() => {
+                        setIsAddCargoPolicyModalOpen(false);
+                        setPolicyToRenew(undefined);
+                        setPolicyToEdit(undefined);
+                    }}
+                    onSave={(policyData) => {
+                        if (policyToEdit) {
+                            // Update existing
+                            setCargoPolicies(prev => prev.map(p => p.id === policyToEdit.id ? { ...p, ...policyData } : p));
+                            addToast('แก้ไขกรมธรรม์สำเร็จ', 'success');
+                        } else {
+                            // Create new
+                            const policyWithId: CargoInsurancePolicy = {
+                                id: `CP-${Date.now()}`,
+                                ...policyData
+                            };
+                            setCargoPolicies(prev => [...prev, policyWithId]);
+                            addToast(policyToRenew ? 'ต่ออายุกรมธรรม์สำเร็จ' : 'เพิ่มกรมธรรม์ประกันภัยสินค้าสำเร็จ', 'success');
+                        }
+                        setIsAddCargoPolicyModalOpen(false);
+                        setPolicyToRenew(undefined);
+                        setPolicyToEdit(undefined);
                     }}
                 />
             )}
