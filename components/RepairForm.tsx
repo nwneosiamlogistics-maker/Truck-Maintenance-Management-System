@@ -5,7 +5,7 @@ import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
-import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction } from '../utils';
+import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 import TruckModel3D from './TruckModel3D';
 
@@ -282,7 +282,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const laborCost = Number(formData.repairCost) || 0;
         if (formData.isLaborVatEnabled) {
             const rate = Number(formData.laborVatRate) || 0;
-            const calculatedVat = laborCost * (rate / 100);
+            const calculatedVat = calculateThaiTax(laborCost * (rate / 100));
             setFormData(prev => ({ ...prev, laborVat: calculatedVat }));
         } else {
             setFormData(prev => ({ ...prev, laborVat: 0 }));
@@ -463,9 +463,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const { totalPartsCost, grandTotal } = useMemo(() => {
         const safeParts = Array.isArray(formData.parts) ? formData.parts : [];
         const partsCost = safeParts.reduce((total, part) => {
-            return total + (Number(part.quantity) || 0) * (Number(part.unitPrice) || 0);
+            const lineTotal = calculateThaiTax((Number(part.quantity) || 0) * (Number(part.unitPrice) || 0));
+            return total + lineTotal;
         }, 0);
-        const total = partsCost + (Number(formData.partsVat) || 0) + (Number(formData.repairCost) || 0) + (Number(formData.laborVat) || 0);
+
+        // Calculate totals with strict rounding
+        const currentPartsVat = Number(formData.partsVat) || 0;
+        const currentRepairCost = Number(formData.repairCost) || 0;
+        const currentLaborVat = Number(formData.laborVat) || 0;
+
+        const total = calculateThaiTax(partsCost + currentPartsVat + currentRepairCost + currentLaborVat);
         return { totalPartsCost: partsCost, grandTotal: total };
     }, [formData.parts, formData.repairCost, formData.partsVat, formData.laborVat]);
 

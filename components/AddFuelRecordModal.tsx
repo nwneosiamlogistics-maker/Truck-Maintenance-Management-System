@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { FuelRecord, FuelType, Vehicle } from '../types';
+import { calculateThaiTax } from '../utils';
 
 interface AddFuelRecordModalProps {
     onClose: () => void;
@@ -31,7 +32,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
 
     const selectedVehicle = vehicles.find(v => v.id === formData.vehicleId);
     const distanceTraveled = formData.odometerAfter - formData.odometerBefore;
-    const totalCost = formData.liters * formData.pricePerLiter;
+    const totalCost = calculateThaiTax(formData.liters * formData.pricePerLiter);
     const fuelEfficiency = distanceTraveled > 0 && formData.liters > 0
         ? distanceTraveled / formData.liters
         : 0;
