@@ -79,7 +79,7 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                 partId,
                 partName: selectedPart.name,
                 partCode: selectedPart.code || '',
-                purchaseCost: selectedPart.unitPrice || 0
+                purchaseCost: selectedPart.price || 0
             }));
         }
     };
@@ -340,8 +340,8 @@ const AddPartWarrantyModal: React.FC<AddPartWarrantyModalProps> = ({ onClose, on
                         บันทึกการรับประกัน
                     </button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

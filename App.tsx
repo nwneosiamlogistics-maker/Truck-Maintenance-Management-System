@@ -43,6 +43,7 @@ import FuelManagement from './components/FuelManagement';
 import DriverManagement from './components/DriverManagement';
 import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
 import Login from './components/Login';
+import { sendRepairStatusLineNotification } from './utils/lineService';
 
 
 interface AppContentProps {
@@ -83,7 +84,10 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
     } = useAdmin();
 
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
-        addRepairLogic(newRepairData);
+        const newRepair = addRepairLogic(newRepairData);
+        if (newRepair) {
+            sendRepairStatusLineNotification(newRepair, 'สร้างใบแจ้งซ่อม', newRepair.status);
+        }
         setActiveTab('list');
     };
 

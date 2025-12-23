@@ -138,7 +138,7 @@ const FuelManagement: React.FC<FuelManagementProps> = ({ fuelRecords, setFuelRec
             'จำนวน (ลิตร)': r.liters,
             'ราคา/ลิตร': r.pricePerLiter,
             'ยอดรวม (บาท)': r.totalCost,
-            'เลขไมล์': r.odometerReading,
+            'เลขไมล์': r.odometerAfter,
             'ระยะทาง (กม.)': r.distanceTraveled,
             'กม./ลิตร': r.fuelEfficiency.toFixed(2),
             'สถานที่เติม': r.station || '-'

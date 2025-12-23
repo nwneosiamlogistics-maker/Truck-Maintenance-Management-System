@@ -73,13 +73,12 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ repairs, stock, vehicles, t
 
         // Search Vehicles
         vehicles.filter(v =>
-            v.licensePlate.toLowerCase().includes(q) ||
-            (v.province && v.province.toLowerCase().includes(q))
+            v.licensePlate.toLowerCase().includes(q)
         ).slice(0, 3).forEach(v => {
             searchResults.push({
                 id: v.id,
                 title: v.licensePlate,
-                subtitle: `${v.type} | ${v.province || ''}`,
+                subtitle: `${v.vehicleType}`,
                 type: 'vehicle',
                 tab: 'vehicles'
             });
