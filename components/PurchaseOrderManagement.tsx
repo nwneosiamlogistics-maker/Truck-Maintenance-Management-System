@@ -5,7 +5,7 @@ import type { PurchaseOrder, PurchaseRequisition, StockItem, StockTransaction, S
 import CreatePOModal from './CreatePOModal';
 import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
-import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
+import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency, formatTotalCurrency } from '../utils';
 
 interface PurchaseOrderManagementProps {
     purchaseOrders: PurchaseOrder[];
@@ -748,7 +748,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                                     ? po.linkedPrNumbers.join(', ')
                                                     : '-'}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold">{formatCurrency(po.totalAmount)}</td>
+                                            <td className="px-4 py-3 text-right font-bold">{formatTotalCurrency(po.totalAmount)}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusBadge(po.status)}`}>
                                                     {po.status}

@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { calculateThaiTax } from '../utils';
 import type { PurchaseRequisition, PurchaseOrder, PurchaseOrderItem, Supplier } from '../types';
 import { useToast } from '../context/ToastContext';
 
@@ -122,10 +123,15 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
 
     const { subtotal, vatAmount, whtAmount, totalAmount } = useMemo(() => {
         const sub = items.reduce((sum, item) => sum + item.totalPrice, 0);
-        const vat = isVatEnabled ? sub * (vatRate / 100) : 0;
-        const wht = isWhtEnabled ? sub * (whtRate / 100) : 0;
-        const total = sub + vat - wht; // Grand Total = Subtotal + VAT - WHT
-        return { subtotal: sub, vatAmount: vat, whtAmount: wht, totalAmount: total };
+        // Ensure subtotal is also rounded strictly to 2 decimals to be Tax Base
+        const roundedSub = calculateThaiTax(sub);
+
+        const vat = isVatEnabled ? calculateThaiTax(roundedSub * (vatRate / 100)) : 0;
+        const wht = isWhtEnabled ? calculateThaiTax(roundedSub * (whtRate / 100)) : 0;
+        const total = roundedSub + vat - wht; // Grand Total = Subtotal + VAT - WHT
+
+        // Final total rounded strictly
+        return { subtotal: roundedSub, vatAmount: vat, whtAmount: wht, totalAmount: calculateThaiTax(total) };
     }, [items, isVatEnabled, vatRate, isWhtEnabled, whtRate]);
 
     const handleSubmit = async (e: React.FormEvent) => {

@@ -4,7 +4,7 @@ import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionS
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
 import { useToast } from '../context/ToastContext';
 import ReactDOMServer from 'react-dom/server';
-import { promptForPassword, formatCurrency } from '../utils';
+import { promptForPassword, formatCurrency, calculateThaiTax } from '../utils';
 
 
 // Define temporary item type with a unique rowId for UI management
@@ -48,6 +48,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
                     disabled={!isEditable || isProductFromStock}
                     className="w-full p-1 border rounded disabled:bg-gray-100 disabled:border-transparent"
                     placeholder="ชื่อรายการ"
+                    aria-label="ชื่อรายการ"
                 />
             </td>
             <td className="px-2 py-1">
@@ -58,6 +59,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
                     disabled={!areFinancialsEditable}
                     className="w-24 p-1 border rounded text-right disabled:bg-gray-100 disabled:border-transparent"
                     min="1"
+                    aria-label="จำนวน"
                 />
             </td>
             <td className="px-2 py-1">
@@ -67,6 +69,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
                     onChange={e => onItemChange(item.rowId, 'unit', e.target.value)}
                     disabled={!isEditable || isProductFromStock}
                     className="w-24 p-1 border rounded text-center disabled:bg-gray-100 disabled:border-transparent"
+                    aria-label="หน่วย"
                 />
             </td>
             <td className="px-2 py-1">
@@ -80,6 +83,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
                             className="w-24 p-1 border rounded text-right"
                             min="0"
                             autoFocus
+                            aria-label="ราคาต่อหน่วย"
                         />
                     ) : (
                         <div
@@ -95,6 +99,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
                         value={formatCurrency(item.unitPrice)}
                         disabled
                         className="w-24 p-1 border rounded text-right bg-gray-100 border-transparent"
+                        aria-label="ราคาต่อหน่วย"
                     />
                 )}
             </td>
@@ -105,6 +110,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, isEditable, areFinancialsEditab
                     onChange={e => onItemChange(item.rowId, 'deliveryOrServiceDate', e.target.value)}
                     disabled={!isEditable}
                     className="w-full p-1 border rounded disabled:bg-gray-100 disabled:border-transparent"
+                    aria-label="วันที่กำหนดส่ง"
                 />
             </td>
             <td className="px-4 py-2 text-right font-semibold">
@@ -213,9 +219,13 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     const { subtotal, vatAmount, grandTotal } = useMemo(() => {
         const items = Array.isArray(prData.items) ? prData.items : [];
         const sub = items.reduce((total: number, item) => total + (item.quantity * item.unitPrice), 0);
-        const vat = isVatEnabled ? sub * (vatRate / 100) : 0;
-        const grand = sub + vat;
-        return { subtotal: sub, vatAmount: vat, grandTotal: grand };
+        // Round subtotal to 2 decimals to be a proper Tax Base
+        const roundedSub = calculateThaiTax(sub);
+
+        const vat = isVatEnabled ? calculateThaiTax(roundedSub * (vatRate / 100)) : 0;
+        const grand = calculateThaiTax(roundedSub + vat);
+
+        return { subtotal: roundedSub, vatAmount: vat, grandTotal: grand };
     }, [prData.items, isVatEnabled, vatRate]);
 
     const handlePrint = () => {
@@ -435,7 +445,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                 พิมพ์
                             </button>
                         )}
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                        <button onClick={onClose} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
@@ -447,7 +457,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-medium">ผู้ขอซื้อ *</label>
-                            <input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" />
+                            <input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" aria-label="ชื่อผู้ขอซื้อ" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">แผนก/สาขา *</label>
@@ -456,6 +466,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                 onChange={handleDepartmentSelectChange}
                                 disabled={!isEditable}
                                 className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100 mb-2"
+                                aria-label="เลือกแผนกหรือสาขา"
                             >
                                 {PREDEFINED_DEPARTMENTS.map(dept => (
                                     <option key={dept} value={dept}>{dept}</option>
@@ -471,12 +482,13 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                     disabled={!isEditable}
                                     placeholder="ระบุแผนก/สาขา"
                                     className="w-full p-2 border rounded-lg disabled:bg-gray-100"
+                                    aria-label="ระบุแผนกหรือสาขาอื่นๆ"
                                 />
                             )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium">วันที่ต้องการใช้ *</label>
-                            <input type="date" name="dateNeeded" value={prData.dateNeeded} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" />
+                            <input type="date" name="dateNeeded" value={prData.dateNeeded} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" aria-label="วันที่ต้องการใช้" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">ผู้จำหน่าย *</label>
@@ -488,6 +500,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                 onChange={handleInputChange}
                                 disabled={!isEditable}
                                 className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100"
+                                aria-label="ชื่อผู้จำหน่าย"
                             />
                             <datalist id="supplier-list-modal">
                                 {suppliers.map(s => <option key={s.id} value={s.name} />)}
@@ -495,7 +508,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         </div>
                         <div>
                             <label className="block text-sm font-medium">ประเภทการขอซื้อ</label>
-                            <select name="requestType" value={prData.requestType} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100 mb-2">
+                            <select name="requestType" value={prData.requestType} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100 mb-2" aria-label="ประเภทการขอซื้อ">
                                 <option value="Product">สินค้า</option>
                                 <option value="Service">บริการ</option>
                                 <option value="Equipment">อุปกรณ์</option>
@@ -511,19 +524,20 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                     disabled={!isEditable}
                                     placeholder="ระบุประเภทอื่นๆ"
                                     className="w-full p-2 border rounded-lg disabled:bg-gray-100"
+                                    aria-label="ระบุประเภทอื่นๆ"
                                 />
                             )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium">สถานะงบประมาณ</label>
-                            <select name="budgetStatus" value={prData.budgetStatus} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100">
+                            <select name="budgetStatus" value={prData.budgetStatus} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" aria-label="สถานะงบประมาณ">
                                 <option value="Have Budget">มีงบประมาณ</option>
                                 <option value="No Budget">ไม่มีงบประมาณ</option>
                             </select>
                         </div>
                         <div className="lg:col-span-2">
                             <label className="block text-sm font-medium">หมายเหตุ</label>
-                            <input type="text" name="notes" value={prData.notes} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" />
+                            <input type="text" name="notes" value={prData.notes} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" aria-label="หมายเหตุเพิ่มเติม" />
                         </div>
                     </div>
 
@@ -532,7 +546,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         <h4 className="font-semibold text-lg border-b pb-2 mb-3">รายการ</h4>
                         {isEditable && (
                             <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
-                                <select value={selectedStockId} onChange={e => setSelectedStockId(e.target.value)} className="w-full lg:w-1/3 p-2 border rounded-lg">
+                                <select value={selectedStockId} onChange={e => setSelectedStockId(e.target.value)} className="w-full lg:w-1/3 p-2 border rounded-lg" aria-label="เลือกสินค้าจากสต็อก">
                                     <option value="" disabled>-- เลือกจากสต็อก --</option>
                                     {stockItems.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
                                 </select>
@@ -580,9 +594,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                             <div className="flex justify-between"><span>ราคารวม</span><span>{formatCurrency(subtotal)}</span></div>
                             <div className="flex justify-between items-center">
                                 <span>
-                                    <input type="checkbox" checked={isVatEnabled} onChange={e => setIsVatEnabled(e.target.checked)} className="mr-2" disabled={!areFinancialsEditable} />
+                                    <input type="checkbox" checked={isVatEnabled} onChange={e => setIsVatEnabled(e.target.checked)} className="mr-2" disabled={!areFinancialsEditable} aria-label="เปิดใช้งาน VAT" />
                                     VAT
-                                    <input type="number" value={vatRate} onChange={e => setVatRate(Number(e.target.value))} className="w-16 ml-2 p-1 border rounded text-right" disabled={!isVatEnabled || !areFinancialsEditable} /> %
+                                    <input type="number" value={vatRate} onChange={e => setVatRate(Number(e.target.value))} className="w-16 ml-2 p-1 border rounded text-right" disabled={!isVatEnabled || !areFinancialsEditable} aria-label="อัตราภาษีมูลค่าเพิ่ม (%)" /> %
                                 </span>
                                 <span>{formatCurrency(vatAmount)}</span>
                             </div>

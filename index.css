@@ -218,3 +218,22 @@ body {
 .delay-1000 {
   animation-delay: 1000ms;
 }
+
+/* Print Utilities */
+.print-page-a4 {
+  width: 210mm;
+  height: 297mm;
+  padding: 15mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+@media print {
+  .print-page-a4 {
+    size: A4;
+    margin: 0;
+    width: 210mm;
+    height: 297mm;
+  }
+}

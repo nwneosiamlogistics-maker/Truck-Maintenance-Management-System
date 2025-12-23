@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { PurchaseOrder } from '../types';
-import { numberToThaiWords, formatCurrency } from '../utils';
+import { numberToThaiWords, formatCurrency, formatTotalCurrency } from '../utils';
 
 interface PurchaseOrderPrintProps {
     po: PurchaseOrder;
@@ -48,15 +48,7 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
 
     return (
         <div
-            className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative"
-            style={{
-                width: '210mm',
-                height: '297mm',
-                padding: '15mm',
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column'
-            }}
+            className="bg-white font-sarabun text-gray-900 text-sm leading-tight mx-auto relative print-page-a4"
         >
             {/* --- HEADER SECTION --- */}
             <div className="flex justify-between items-start mb-4">
@@ -207,7 +199,7 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
                         )}
                         <div className="flex justify-between py-2 font-bold text-sm">
                             <span>ยอดเงินสุทธิ</span>
-                            <span className="text-base underline">{formatCurrency(po.totalAmount)}</span>
+                            <span className="text-base underline">{formatTotalCurrency(po.totalAmount)}</span>
                         </div>
                     </div>
                 </div>

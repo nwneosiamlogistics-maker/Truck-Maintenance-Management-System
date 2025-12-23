@@ -320,12 +320,41 @@ export const calculateDateDifference = (startDateStr: string | null | undefined,
     return parts.length > 0 ? parts.join(' ') : '0 วัน';
 };
 
-export const formatCurrency = (amount: number | null | undefined): string => {
-    if (amount === null || amount === undefined || isNaN(amount)) {
+// Rounds to 2 decimal places according to Thai Revenue Department rule:
+// If 3rd decimal < 5, truncate. If >= 5, round up 2nd decimal.
+export const calculateThaiTax = (amount: number): number => {
+    return Math.round((amount + Number.EPSILON) * 100) / 100;
+};
+
+export const formatCurrency = (amount: number | string | null | undefined): string => {
+    if (amount === null || amount === undefined || amount === '') {
         return '0.00';
     }
-    return amount.toLocaleString('th-TH', {
+
+    let num: number;
+    if (typeof amount === 'string') {
+        const cleanStr = amount.replace(/,/g, '');
+        num = Number(cleanStr);
+    } else {
+        // Ensure it is treated as a number
+        num = Number(amount);
+    }
+
+    if (isNaN(num)) {
+        return '0.00';
+    }
+
+    // Explicitly round to 2 distinct decimal places using the same tax logic
+    // This handles cases where floating point numbers like 81899.999 might be passed directly
+    // and .toLocaleString might default to 3 decimals in some environments or configurations.
+    const roundedNum = calculateThaiTax(num);
+
+    return roundedNum.toLocaleString('th-TH', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+};
+
+export const formatTotalCurrency = (amount: number | null | undefined): string => {
+    return formatCurrency(amount);
 };
