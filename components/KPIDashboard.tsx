@@ -2,89 +2,106 @@ import React, { useMemo } from 'react';
 import type { Repair, Vehicle } from '../types';
 import { formatHoursToHHMM, formatCurrency } from '../utils';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    Cell, ComposedChart, Line, Area, AreaChart
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    Cell
 } from 'recharts';
+import { TrendingUp, Clock, DollarSign, Activity, AlertCircle, Award } from 'lucide-react';
 
 interface KPIDashboardProps {
     repairs: Repair[];
     vehicles: Vehicle[];
 }
 
-const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981'];
+const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#f43f5e'];
 
-// --- Styled Components ---
+// --- Premium Styled Components ---
 
-const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
+const ModernStatCard = ({ title, value, subtext, theme, icon, delay = '' }: any) => {
     let gradient = '';
-    let iconPath = '';
     switch (theme) {
-        case 'blue':
-            gradient = 'from-blue-500 to-indigo-600';
-            iconPath = 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'; // Clock
-            break;
-        case 'green':
-            gradient = 'from-emerald-500 to-teal-600';
-            iconPath = 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'; // Money
-            break;
-        case 'orange':
-            gradient = 'from-orange-500 to-red-500';
-            iconPath = 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'; // Alert
-            break;
-        default:
-            gradient = 'from-slate-700 to-slate-800';
-            iconPath = 'M4 6h16M4 10h16M4 14h16M4 18h16';
+        case 'blue': gradient = 'from-blue-600 to-indigo-700'; break;
+        case 'green': gradient = 'from-emerald-500 to-teal-700'; break;
+        case 'orange': gradient = 'from-orange-500 to-red-700'; break;
+        case 'purple': gradient = 'from-purple-500 to-pink-700'; break;
+        default: gradient = 'from-slate-700 to-slate-900';
     }
 
     return (
-        <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center`}>
-            <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-                <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor"><path d={iconPath} /></svg>
+        <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-10 rounded-[3.5rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
+            <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700">
+                {icon}
             </div>
-            <p className="text-white/90 font-medium mb-1 relative z-10">{title}</p>
-            <h3 className="text-4xl font-extrabold relative z-10">{value}</h3>
-            {subtext && <p className="text-sm mt-2 opacity-80 relative z-10">{subtext}</p>}
+            <div className="relative z-10">
+                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/70 mb-4">{title}</p>
+                <div className="flex items-baseline gap-2">
+                    <h3 className="text-5xl font-black tracking-tighter">{value}</h3>
+                </div>
+                {subtext && <div className="mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+            </div>
         </div>
     );
 };
 
-const Card: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
-    <div className={`bg-white rounded-3xl shadow-sm p-6 border border-slate-100 ${className}`}>
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full inline-block shadow-sm"></span>
-            {title}
-        </h3>
-        {children}
+const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode; delay?: string }> = ({ title, children, className = '', icon, delay = '' }) => (
+    <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+        <div className="flex items-center justify-between mb-10">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
+                <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+                {title}
+            </h3>
+            {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+        </div>
+        <div className="h-[calc(100%-100px)]">
+            {children}
+        </div>
     </div>
 );
 
 const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
+    const getColorClass = (color: string) => {
+        if (!color) return 'text-slate-500';
+        const mapping: Record<string, string> = {
+            '#3b82f6': 'text-blue-500',
+            '#8b5cf6': 'text-violet-500',
+            '#10b981': 'text-emerald-500',
+            '#f59e0b': 'text-amber-500',
+            '#ec4899': 'text-pink-500',
+            '#fbbf24': 'text-yellow-400',
+            '#6366f1': 'text-indigo-500',
+            '#f43f5e': 'text-rose-500'
+        };
+        return mapping[color.toLowerCase()] || 'text-slate-500';
+    };
+
+    const getBgClass = (color: string) => {
+        if (!color) return 'bg-slate-500';
+        const mapping: Record<string, string> = {
+            '#3b82f6': 'bg-blue-500',
+            '#8b5cf6': 'bg-violet-500',
+            '#10b981': 'bg-emerald-500',
+            '#f59e0b': 'bg-amber-500',
+            '#ec4899': 'bg-pink-500',
+            '#fbbf24': 'bg-yellow-400',
+            '#6366f1': 'bg-indigo-500',
+            '#f43f5e': 'bg-rose-500'
+        };
+        return mapping[color.toLowerCase()] || 'bg-slate-500';
+    };
+
     if (active && payload && payload.length) {
         return (
-            <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
-                <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
+            <div className="glass p-5 border border-white shadow-2xl rounded-3xl z-50 backdrop-blur-xl">
+                <p className="font-black text-slate-800 mb-3 text-xs border-b border-slate-100/50 pb-2 uppercase tracking-widest">{label}</p>
                 {payload.map((entry: any, index: number) => (
-                    <TooltipItem key={index} entry={entry} unit={unit} />
+                    <p key={index} className={`text-[11px] font-black mt-1.5 flex items-center gap-2 ${getColorClass(entry.color)}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${getBgClass(entry.color)}`}></span>
+                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+                    </p>
                 ))}
             </div>
         );
     }
     return null;
-};
-
-const TooltipItem: React.FC<{ entry: any, unit: string }> = ({ entry, unit }) => {
-    const ref = React.useRef<HTMLParagraphElement>(null);
-    React.useLayoutEffect(() => {
-        if (ref.current) {
-            ref.current.style.color = entry.color;
-        }
-    }, [entry.color]);
-
-    return (
-        <p ref={ref} className="text-xs font-semibold mt-1">
-            {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
-        </p>
-    );
 };
 
 const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
@@ -93,7 +110,6 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             r => r.status === 'ซ่อมเสร็จ' && r.repairStartDate && r.repairEndDate && r.createdAt
         );
 
-        // --- Core KPI Calculations ---
         const totalRepairTime = completedRepairs.reduce((acc, r) => acc + (new Date(r.repairEndDate!).getTime() - new Date(r.repairStartDate!).getTime()), 0);
         const mttrHours = completedRepairs.length > 0 ? totalRepairTime / completedRepairs.length / (1000 * 60 * 60) : 0;
 
@@ -106,14 +122,10 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                 const unitPrice = Number(p.unitPrice) || 0;
                 return pAcc + (quantity * unitPrice);
             }, 0);
-            const repairCost = Number(r.repairCost) || 0;
-            const partsVat = Number(r.partsVat) || 0;
-            const laborVat = Number(r.laborVat) || 0;
-            return acc + repairCost + partsCost + partsVat + laborVat;
+            return acc + (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0);
         }, 0);
         const avgCost = completedRepairs.length > 0 ? totalCost / completedRepairs.length : 0;
 
-        // --- Top 5 Chart Data Calculations ---
         const allRepairs = Array.isArray(repairs) ? repairs : [];
         const downtimeByVehicle: Record<string, number> = {};
         allRepairs.forEach(r => {
@@ -123,7 +135,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             }
         });
         const vehicleDowntime = Object.entries(downtimeByVehicle)
-            .map(([plate, totalMillis]: [string, number]) => ({ name: plate, value: Number((totalMillis / (1000 * 60 * 60)).toFixed(1)) }))
+            .map(([plate, totalMillis]) => ({ name: plate, value: Number((totalMillis / (1000 * 60 * 60)).toFixed(1)) }))
             .sort((a, b) => b.value - a.value).slice(0, 5);
 
         const repairsByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
@@ -131,227 +143,182 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             return acc;
         }, {} as Record<string, number>);
         const mostRepairedVehicles = Object.entries(repairsByVehicle)
-            .map(([plate, count]: [string, number]) => ({ name: plate, value: count }))
+            .map(([plate, count]) => ({ name: plate, value: count }))
             .sort((a, b) => b.value - a.value).slice(0, 5);
 
         const costByVehicle = allRepairs.reduce((acc: Record<string, number>, r) => {
-            const partsCost = (r.parts || []).reduce((pAcc: number, p) => {
-                const quantity = Number(p.quantity) || 0;
-                const unitPrice = Number(p.unitPrice) || 0;
-                return pAcc + (quantity * unitPrice);
-            }, 0);
-            const repairCost = Number(r.repairCost) || 0;
-            const partsVat = Number(r.partsVat) || 0;
-            const laborVat = Number(r.laborVat) || 0;
-            const totalRepairCost = repairCost + partsCost + partsVat + laborVat;
-            acc[r.licensePlate] = (acc[r.licensePlate] || 0) + totalRepairCost;
+            const partsCost = (r.parts || []).reduce((pAcc, p) => pAcc + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
+            acc[r.licensePlate] = (acc[r.licensePlate] || 0) + (Number(r.repairCost) || 0) + partsCost + (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0);
             return acc;
         }, {} as Record<string, number>);
         const mostExpensiveVehicles = Object.entries(costByVehicle)
-            .map(([plate, totalCost]: [string, number]) => ({ name: plate, value: totalCost }))
+            .map(([plate, cost]) => ({ name: plate, value: cost }))
             .sort((a, b) => b.value - a.value).slice(0, 5);
 
-        // --- Rework Calculation (Clustered) ---
+        // --- Rework Logic ---
         const areProblemsSimilar = (desc1: string, desc2: string): boolean => {
             if (!desc1 || !desc2) return false;
-            const normalize = (str: string) => {
-                const thaiStopwords = ['ที่', 'มี', 'ตอน', 'แล้ว', 'ครับ', 'ค่ะ', 'ผิดปกติ', 'ระบบ', 'และ', 'กับ', 'ของ', 'ใน', 'การ', 'งาน'];
-                return str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").replace(/\s+/g, ' ').split(' ').filter(word => !thaiStopwords.includes(word) && word.length > 2).map(word => word.replace(/ๆ/g, ''));
-            };
+            const normalize = (str: string) => str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").replace(/\s+/g, ' ').split(' ').filter(w => w.length > 2);
             const words1 = new Set(normalize(desc1));
             const words2 = new Set(normalize(desc2));
-            if (words1.size === 0 || words2.size === 0) return false;
             const intersection = new Set([...words1].filter(x => words2.has(x)));
             const union = new Set([...words1, ...words2]);
-            if (union.size === 0) return false;
-            return (intersection.size / union.size) > 0.4;
+            return union.size > 0 && (intersection.size / union.size) > 0.4;
         };
 
         const reworkList: { plate: string, clusters: { description: string, count: number }[] }[] = [];
-
         const repairsByVehicleForRework = allRepairs.reduce((acc: Record<string, Repair[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             acc[r.licensePlate].push(r);
             return acc;
         }, {});
 
-        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, Repair[]]) => {
+        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, any]) => {
             if (vehicleRepairs.length > 1) {
-                // Sort by date descending (newest first)
-                let remainingRepairs = vehicleRepairs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                const clusters: { description: string, count: number }[] = [];
-
-                while (remainingRepairs.length > 0) {
-                    const current = remainingRepairs[0];
-                    remainingRepairs = remainingRepairs.slice(1);
-
+                let remaining = [...vehicleRepairs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                const clusters: any[] = [];
+                while (remaining.length > 0) {
+                    const current = remaining[0];
+                    remaining = remaining.slice(1);
                     const group = [current];
-                    const nextRemaining: Repair[] = [];
-
-                    for (const r of remainingRepairs) {
-                        const daysBetween = Math.abs((new Date(current.createdAt).getTime() - new Date(r.createdAt).getTime()) / (1000 * 3600 * 24));
-                        if (daysBetween <= 365 && areProblemsSimilar(current.problemDescription, r.problemDescription)) {
-                            group.push(r);
-                        } else {
-                            nextRemaining.push(r);
-                        }
+                    const nextRemaining: any[] = [];
+                    for (const r of remaining) {
+                        if (areProblemsSimilar(current.problemDescription, r.problemDescription)) group.push(r);
+                        else nextRemaining.push(r);
                     }
-
-                    if (group.length > 1) {
-                        // Use the most recent description as the representative text
-                        clusters.push({
-                            description: current.problemDescription,
-                            count: group.length
-                        });
-                    }
-
-                    remainingRepairs = nextRemaining;
+                    if (group.length > 1) clusters.push({ description: current.problemDescription, count: group.length });
+                    remaining = nextRemaining;
                 }
-
-                if (clusters.length > 0) {
-                    reworkList.push({ plate, clusters });
-                }
+                if (clusters.length > 0) reworkList.push({ plate, clusters });
             }
         });
 
-        return {
-            mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost,
-            vehicleDowntime, mostRepairedVehicles, mostExpensiveVehicles,
-            reworkList
-        };
-    }, [repairs, vehicles]);
+        return { mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost, vehicleDowntime, mostRepairedVehicles, mostExpensiveVehicles, reworkList };
+    }, [repairs]);
 
     return (
-        <div className="space-y-8 animate-fade-in-up">
-            {/* Header */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <div>
-                    <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600">
-                        ภาพรวม KPI การซ่อม (Repair KPI Overview)
+        <div className="space-y-12 animate-fade-in-up pb-12">
+            {/* Premium Header */}
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-teal-600/5 via-transparent to-emerald-600/5 pointer-events-none"></div>
+                <div className="relative z-10 text-center lg:text-left">
+                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-teal-900 via-emerald-900 to-green-900 leading-none">
+                        KPI Strategic Hub
                     </h2>
-                    <p className="text-gray-500 mt-1">ตัวชี้วัดประสิทธิภาพงานซ่อมบำรุง</p>
+                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
+                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-glow"></span>
+                        ดัชนีชี้วัดประสิทธิภาพงานซ่อมบำรุง (Maintenance KPI Overview)
+                    </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <ModernStatCard
-                    title="MTTR (เวลาซ่อมเฉลี่ย)"
-                    value={formatHoursToHHMM(kpiData.mttr)}
-                    theme="blue"
-                    subtext="เป้าหมาย: < 24:00"
-                />
-                <ModernStatCard
-                    title="Downtime เฉลี่ย"
-                    value={formatHoursToHHMM(kpiData.avgDowntime)}
-                    theme="orange"
-                    subtext="เวลาที่รถจอดรอซ่อม"
-                />
-                <ModernStatCard
-                    title="ค่าซ่อมเฉลี่ย"
-                    value={`${kpiData.avgCost.toLocaleString('th-TH', { maximumFractionDigits: 0 })}`}
-                    theme="green"
-                    subtext="บาท ต่อใบแจ้งซ่อม"
-                />
-            </div>
+            {/* Bento Grid */}
+            <div className="bento-grid h-auto lg:h-auto gap-10">
+                <ModernStatCard delay="delay-100" theme="blue" title="MTTR (เวลาซ่อมเฉลี่ย)" value={formatHoursToHHMM(kpiData.mttr)} subtext="Mean Time To Repair" icon={<Clock size={150} />} />
+                <ModernStatCard delay="delay-200" theme="orange" title="Downtime เฉลี่ย" value={formatHoursToHHMM(kpiData.avgDowntime)} subtext="Avg. Machine Stop" icon={<Activity size={150} />} />
+                <ModernStatCard delay="delay-300" theme="green" title="ค่าซ่อมเฉลี่ย" value={`฿${formatCurrency(kpiData.avgCost)}`} subtext="Avg. Cost Per Order" icon={<DollarSign size={150} />} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card title="5 อันดับรถที่เข้าซ่อมบ่อยที่สุด">
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={kpiData.mostRepairedVehicles} layout="vertical" margin={{ left: 10, right: 10 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                <Tooltip content={<CustomTooltip unit="ครั้ง" />} cursor={{ fill: '#f8fafc' }} />
-                                <Bar dataKey="value" name="จำนวนครั้ง" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20}>
-                                    {kpiData.mostRepairedVehicles.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                {/* Rework AI Card */}
+                <div className="bg-slate-950 rounded-[3.5rem] p-12 text-white shadow-3xl animate-scale-in delay-400 border border-white/5 col-span-1">
+                    <div className="relative z-10 flex flex-col h-full justify-between">
+                        <div>
+                            <div className="flex items-center gap-3 mb-8">
+                                <span className="p-1 px-5 bg-red-600 text-white rounded-full text-[9px] font-black uppercase tracking-[0.4em] shadow-lg shadow-red-500/40 border border-red-400/30">วิเคราะห์งานซ่อมซ้ำ</span>
+                            </div>
+                            <h4 className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-3">จำนวนเคสที่พบการซ่อมซ้ำ</h4>
+                            <h3 className="text-4xl font-black mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-500">
+                                {kpiData.reworkList.length} เคส
+                            </h3>
+                        </div>
+                        <p className="mt-12 text-[10px] text-slate-500 leading-relaxed font-bold uppercase tracking-widest opacity-60">
+                            Maintenance Integrity Check
+                        </p>
                     </div>
+                </div>
+
+                {/* Charts */}
+                <Card title="ความถี่การซ่อมบ่อยที่สุด (Top 5 Repairs)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-500">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={kpiData.mostRepairedVehicles} layout="vertical" margin={{ left: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10, fontWeight: '900', fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomTooltip unit="ครั้ง" />} cursor={{ fill: '#f8fafc' }} />
+                            <Bar dataKey="value" name="จำนวนครั้ง" radius={[0, 10, 10, 0]} barSize={25}>
+                                {kpiData.mostRepairedVehicles.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </Card>
 
-                <Card title="5 อันดับรถที่มีค่าใช้จ่ายซ่อมสูงสุด">
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={kpiData.mostExpensiveVehicles} layout="vertical" margin={{ left: 10, right: 10 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
-                                <Bar dataKey="value" name="ค่าใช้จ่าย" fill="#f43f5e" radius={[0, 4, 4, 0]} barSize={20}>
-                                    {kpiData.mostExpensiveVehicles.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                <Card title="ต้นทุนการซ่อมรุนแรง (Repair Cost Exposure)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-600">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={kpiData.mostExpensiveVehicles} layout="vertical" margin={{ left: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10, fontWeight: '900', fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
+                            <Bar dataKey="value" name="ยอดใช้จ่าย" radius={[0, 10, 10, 0]} barSize={25}>
+                                {kpiData.mostExpensiveVehicles.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </Card>
 
-                <Card title="5 อันดับรถที่ใช้เวลาจอดซ่อม (Downtime) นานที่สุด">
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={kpiData.vehicleDowntime} layout="vertical" margin={{ left: 10, right: 10 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                <Tooltip content={<CustomTooltip unit="ชม." />} cursor={{ fill: '#f8fafc' }} />
-                                <Bar dataKey="value" name="ชม." fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20}>
-                                    {kpiData.vehicleDowntime.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                <Card title="เวลาหยุดรถวิกฤต (Critical Downtime)" className="col-span-1 min-h-[500px]" delay="delay-700">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={kpiData.vehicleDowntime} layout="vertical" margin={{ left: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10, fontWeight: '900', fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <Tooltip content={<CustomTooltip unit="ชม." />} cursor={{ fill: '#f8fafc' }} />
+                            <Bar dataKey="value" name="จำนวนชั่วโมง" radius={[0, 10, 10, 0]} barSize={25}>
+                                {kpiData.vehicleDowntime.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </Card>
-            </div>
 
-            {/* Rework Analysis Table */}
-            <Card title="รายงานการซ่อมซ้ำ (Rework Report)">
-                {kpiData.reworkList.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="text-sm text-gray-500 border-b border-gray-100">
-                                    <th className="py-3 font-medium w-1/4">ทะเบียนรถ</th>
-                                    <th className="py-3 font-medium w-1/2">รายการที่ซ่อมซ้ำ</th>
-                                    <th className="py-3 font-medium text-center w-1/4">จำนวน (ครั้ง)</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50 text-sm">
-                                {kpiData.reworkList.flatMap((item, itemIndex) =>
-                                    item.clusters.map((cluster, clusterIndex) => (
-                                        <tr key={`${itemIndex}-${clusterIndex}`} className="hover:bg-gray-50/50 border-b border-gray-50 last:border-0">
-                                            <td className="py-3 font-semibold text-slate-700 align-top">
-                                                {clusterIndex === 0 ? item.plate : ''}
-                                            </td>
-                                            <td className="py-3 text-slate-600 align-top">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                {/* Rework Detailed Report */}
+                <Card title="รายงานการซ่อมซ้ำ (Rework Logic Breakdown)" className="col-span-1 lg:col-span-3 min-h-[600px]" delay="delay-800">
+                    {kpiData.reworkList.length > 0 ? (
+                        <div className="overflow-x-auto custom-scrollbar h-full">
+                            <table className="w-full text-left">
+                                <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10">
+                                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                        <th className="py-6 px-4">ทะเบียนรถ (License Plate)</th>
+                                        <th className="py-6 px-4">อาการที่พบปัญหาเดิม (Recurrent Problem)</th>
+                                        <th className="py-6 px-4 text-center">ความถี่ (Freq)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {kpiData.reworkList.flatMap((item, i) =>
+                                        item.clusters.map((cluster, ci) => (
+                                            <tr key={`${i}-${ci}`} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="py-6 px-4 font-black text-slate-900 text-sm">{ci === 0 ? item.plate : ''}</td>
+                                                <td className="py-6 px-4 text-slate-600 text-xs font-bold flex items-center gap-3">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0"></div>
                                                     {cluster.description}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 text-center align-top">
-                                                <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full font-bold text-sm shadow-sm border border-red-100">
-                                                    {cluster.count}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div className="text-center py-8 text-gray-400">
-                        ไม่พบข้อมูลการซ่อมซ้ำ
-                    </div>
-                )}
-            </Card>
+                                                </td>
+                                                <td className="py-6 px-4 text-center">
+                                                    <span className="bg-red-50 text-red-600 px-4 py-2 rounded-full font-black text-xs shadow-sm border border-red-100">
+                                                        {cluster.count} ครั้ง
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-300">
+                            <Award size={60} className="mb-4 opacity-20" />
+                            <p className="font-black uppercase tracking-widest text-[11px]">ไม่พบข้อมูลการซ่อมซ้ำ (Excellent Integrity)</p>
+                        </div>
+                    )}
+                </Card>
+            </div>
         </div>
     );
 };

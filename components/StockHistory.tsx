@@ -6,6 +6,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
+import { Package, Inbox, TrendingUp, AlertCircle, ShoppingCart, Activity, History } from 'lucide-react';
 
 interface StockHistoryProps {
     transactions: StockTransaction[];
@@ -15,6 +16,107 @@ interface StockHistoryProps {
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
+
+// --- Premium Styled Components ---
+
+const ModernStatCard = ({ title, value, subtext, theme, icon, delay = '' }: any) => {
+    let gradient = '';
+    switch (theme) {
+        case 'blue': gradient = 'from-blue-600 to-indigo-700'; break;
+        case 'green': gradient = 'from-emerald-500 to-teal-700'; break;
+        case 'orange': gradient = 'from-orange-500 to-red-700'; break;
+        case 'purple': gradient = 'from-purple-500 to-pink-700'; break;
+        default: gradient = 'from-slate-700 to-slate-900';
+    }
+
+    return (
+        <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-8 rounded-[3rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
+            <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700">
+                {icon}
+            </div>
+            <div className="relative z-10">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70 mb-3">{title}</p>
+                <div className="flex items-baseline gap-2">
+                    <h3 className="text-4xl font-black tracking-tighter">{value}</h3>
+                </div>
+                {subtext && <div className="mt-4 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 py-1.5 rounded-full text-[9px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+            </div>
+        </div>
+    );
+};
+
+const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode; delay?: string; headerAction?: React.ReactNode }> = ({ title, children, className = '', icon, delay = '', headerAction }) => (
+    <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+        <div className="flex items-center justify-between mb-10">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
+                <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+                {title}
+            </h3>
+            <div className="flex items-center gap-4">
+                {headerAction}
+                {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+            </div>
+        </div>
+        <div className="h-[calc(100%-100px)]">
+            {children}
+        </div>
+    </div>
+);
+
+const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
+    const getColorClass = (color: string) => {
+        if (!color) return 'text-slate-500';
+        const mapping: Record<string, string> = {
+            '#3b82f6': 'text-blue-500',
+            '#10b981': 'text-emerald-500',
+            '#f59e0b': 'text-amber-500',
+            '#ef4444': 'text-red-500',
+            '#8b5cf6': 'text-violet-500',
+            '#ec4899': 'text-pink-500',
+            '#6366f1': 'text-indigo-500',
+            '#14b8a6': 'text-teal-500'
+        };
+        return mapping[color.toLowerCase()] || 'text-slate-500';
+    };
+
+    const getBgClass = (color: string) => {
+        if (!color) return 'bg-slate-500';
+        const mapping: Record<string, string> = {
+            '#3b82f6': 'bg-blue-500',
+            '#10b981': 'bg-emerald-500',
+            '#f59e0b': 'bg-amber-500',
+            '#ef4444': 'bg-red-500',
+            '#8b5cf6': 'bg-violet-500',
+            '#ec4899': 'bg-pink-500',
+            '#6366f1': 'bg-indigo-500',
+            '#14b8a6': 'bg-teal-500'
+        };
+        return mapping[color.toLowerCase()] || 'bg-slate-500';
+    };
+
+    if (active && payload && payload.length) {
+        return (
+            <div className="glass p-5 border border-white shadow-2xl rounded-3xl z-50 backdrop-blur-xl">
+                <p className="font-black text-slate-800 mb-3 text-xs border-b border-slate-100/50 pb-2 uppercase tracking-widest">{label}</p>
+                {payload.map((entry: any, index: number) => (
+                    <p key={index} className={`text-[11px] font-black mt-1.5 flex items-center gap-2 ${getColorClass(entry.color)}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${getBgClass(entry.color)}`}></span>
+                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+                    </p>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
+
+const getCategoryColorClass = (index: number) => {
+    const classes = [
+        'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-red-500',
+        'bg-violet-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
+    ];
+    return classes[index % classes.length];
+};
 
 const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repairs, technicians }) => {
     const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
@@ -28,15 +130,12 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
     const stockMap = useMemo(() => new Map((Array.isArray(stock) ? stock : []).map(item => [item.id, item])), [stock]);
     const repairMap = useMemo(() => new Map((Array.isArray(repairs) ? repairs : []).map(item => [item.repairOrderNo, item])), [repairs]);
 
-    // Optimize Part Source Lookup
     const repairPartSourceMap = useMemo(() => {
         const map = new Map<string, Map<string, 'สต็อกอู่' | 'ร้านค้า'>>();
         (Array.isArray(repairs) ? repairs : []).forEach(repair => {
             if (repair.repairOrderNo && Array.isArray(repair.parts)) {
-                const partMap = new Map<string, 'สต็อกอู่' | 'ร้านค้า'>();
-                repair.parts.forEach(part => {
-                    partMap.set(part.partId, part.source);
-                });
+                const partMap = new Map();
+                repair.parts.forEach(part => partMap.set(part.partId, part.source));
                 map.set(repair.repairOrderNo, partMap);
             }
         });
@@ -55,11 +154,10 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
                     unit: p.unit,
                     unitPrice: p.unitPrice,
                     source: p.source,
-                    category: stockMap.get(p.partId)?.category || 'ไม่พบหมวดหมู่',
+                    category: stockMap.get(p.partId)?.category || 'อื่นๆ',
                     dateUsed: r.repairEndDate!,
                     repairOrderNo: r.repairOrderNo,
                     licensePlate: r.licensePlate,
-                    allTechnicianIds: [r.assignedTechnicianId, ...(r.assistantTechnicianIds || [])].filter(Boolean) as string[],
                 }))
             );
     }, [repairs, stockMap]);
@@ -67,310 +165,163 @@ const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repair
     const filteredData = useMemo(() => {
         const start = startDate ? new Date(startDate) : null;
         const end = endDate ? new Date(endDate) : null;
-        if (start) start.setHours(0, 0, 0, 0);
-        if (end) end.setHours(23, 59, 59, 999);
+        if (start) start.setHours(0, 0, 0, 0); if (end) end.setHours(23, 59, 59, 999);
 
         if (activeTab === 'internal') {
             return (Array.isArray(transactions) ? transactions : [])
+                .filter(t => t.type === 'เบิกใช้' && t.relatedRepairOrder ? repairPartSourceMap.get(t.relatedRepairOrder)?.get(t.stockItemId) !== 'ร้านค้า' : true)
+                .map(t => ({ ...t, displayDate: (t.type === 'เบิกใช้' && t.relatedRepairOrder && repairMap.get(t.relatedRepairOrder)?.repairStartDate) || t.transactionDate, category: stockMap.get(t.stockItemId)?.category || 'อื่นๆ' }))
                 .filter(t => {
-                    if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
-                        const partSource = repairPartSourceMap.get(t.relatedRepairOrder)?.get(t.stockItemId);
-                        if (partSource === 'ร้านค้า') return false;
-                    }
-                    return true;
-                })
-                .map(t => {
-                    let displayDate = t.transactionDate;
-                    if (t.type === 'เบิกใช้' && t.relatedRepairOrder) {
-                        const repair = repairMap.get(t.relatedRepairOrder);
-                        if (repair && repair.repairStartDate) displayDate = repair.repairStartDate;
-                    }
-                    return { ...t, displayDate, category: stockMap.get(t.stockItemId)?.category || 'ไม่พบหมวดหมู่' };
-                })
-                .filter(t => {
-                    const transactionDate = new Date(t.displayDate);
-                    const isDateInRange = (!start || transactionDate >= start) && (!end || transactionDate <= end);
-                    const isCategoryMatch = categoryFilter === 'all' || t.category === categoryFilter;
-                    const isSearchMatch = searchTerm === '' ||
-                        t.stockItemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        t.actor.toLowerCase().includes(searchTerm.toLowerCase());
-                    return isDateInRange && isCategoryMatch && isSearchMatch;
-                })
-                .sort((a, b) => new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime());
-        } else { // External
-            return flattenedParts
-                .filter(p => p.source === 'ร้านค้า')
-                .filter(p => {
-                    const transactionDate = new Date(p.dateUsed);
-                    const isDateInRange = (!start || transactionDate >= start) && (!end || transactionDate <= end);
-                    const isCategoryMatch = categoryFilter === 'all' || p.category === categoryFilter;
-                    const isSearchMatch = searchTerm === '' ||
-                        p.partName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        p.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase());
-                    return isDateInRange && isCategoryMatch && isSearchMatch;
-                })
+                    const isDate = (!start || new Date(t.displayDate) >= start) && (!end || new Date(t.displayDate) <= end);
+                    const isCat = categoryFilter === 'all' || t.category === categoryFilter;
+                    const isSearch = searchTerm === '' || t.stockItemName.toLowerCase().includes(searchTerm.toLowerCase()) || (t.relatedRepairOrder && t.relatedRepairOrder.toLowerCase().includes(searchTerm.toLowerCase()));
+                    return isDate && isCat && isSearch;
+                }).sort((a, b) => new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime());
+        } else {
+            return flattenedParts.filter(p => p.source === 'ร้านค้า' && (!start || new Date(p.dateUsed) >= start) && (!end || new Date(p.dateUsed) <= end) && (categoryFilter === 'all' || p.category === categoryFilter) && (searchTerm === '' || p.partName.toLowerCase().includes(searchTerm.toLowerCase()) || p.repairOrderNo.toLowerCase().includes(searchTerm.toLowerCase())))
                 .sort((a, b) => new Date(b.dateUsed).getTime() - new Date(a.dateUsed).getTime());
         }
     }, [transactions, flattenedParts, activeTab, searchTerm, startDate, endDate, categoryFilter, stockMap, repairMap, repairPartSourceMap]);
 
-    // Analytics Calculation
     const analytics = useMemo(() => {
-        // 1. Stock Value Distribution (Current Stock)
-        const stockValueByCategory = (Array.isArray(stock) ? stock : []).reduce((acc, item) => {
-            const cat = item.category || 'อื่นๆ';
-            acc[cat] = (acc[cat] || 0) + (Number(item.quantity) * Number(item.price));
+        const stockVal = (Array.isArray(stock) ? stock : []).reduce((acc, item) => {
+            acc[item.category || 'อื่นๆ'] = (acc[item.category || 'อื่นๆ'] || 0) + (Number(item.quantity) * Number(item.price));
             return acc;
         }, {} as Record<string, number>);
-
-        const pieData = Object.entries(stockValueByCategory)
-            .map(([name, value]: [string, number]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value);
-
-        // 2. Grand Total Usage (All Time)
-        const totalInternalUsage = (Array.isArray(transactions) ? transactions : [])
-            .filter(t => t.type === 'เบิกใช้')
-            .reduce((sum, t) => sum + (Number(t.quantity) * Number(t.pricePerUnit || 0)), 0);
-
-        const totalExternalUsage = (Array.isArray(repairs) ? repairs : [])
-            .flatMap(r => r.parts || [])
-            .filter(p => p.source === 'ร้านค้า')
-            .reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice || 0)), 0);
-
-        return { pieData, totalInternalUsage, totalExternalUsage };
+        const pieData = Object.entries(stockVal).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+        const intUse = (Array.isArray(transactions) ? transactions : []).filter(t => t.type === 'เบิกใช้').reduce((s, t) => s + (Number(t.quantity) * Number(t.pricePerUnit || 0)), 0);
+        const extUse = (Array.isArray(repairs) ? repairs : []).flatMap(r => r.parts || []).filter(p => p.source === 'ร้านค้า').reduce((s, p) => s + (Number(p.quantity) * Number(p.unitPrice || 0)), 0);
+        return { pieData, intUse, extUse };
     }, [stock, transactions, repairs]);
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    const paginatedData = useMemo(() => {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        return filteredData.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredData, currentPage, itemsPerPage]);
+    const paginatedData = useMemo(() => filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredData, currentPage, itemsPerPage]);
 
     return (
-        <div className="space-y-8 animate-fade-in-up">
-            {/* Page Header */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8">
-                <div>
-                    <h2 className="text-3xl font-bold text-slate-800">
-                        ประวัติการเบิกจ่าย
+        <div className="space-y-12 animate-fade-in-up pb-12">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/5 via-transparent to-blue-600/5 pointer-events-none"></div>
+                <div className="relative z-10 text-center lg:text-left">
+                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-900 via-blue-900 to-slate-900 leading-none">
+                        Inventory Log
                     </h2>
-                    <p className="text-gray-500 mt-1">ตรวจสอบการเคลื่อนไหวของสต็อกอะไหล่ทั้งหมด</p>
+                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
+                        <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse shadow-glow"></span>
+                        ประวัติการเบิกจ่ายและเคลื่อนไหวสต็อก (Stock Movement Intelligence)
+                    </p>
                 </div>
             </div>
 
-            {/* Header & Analytics Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left Card: Inventory Intelligence */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-[#4f46e5] to-[#3b82f6] rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden flex flex-col justify-between h-[450px]">
-                    <div className="relative z-10 flex justify-between items-start">
-                        <div>
-                            <h2 className="text-4xl font-extrabold mb-3 tracking-tight">Inventory Intelligence</h2>
-                            <p className="text-lg opacity-80 font-medium">ติดตามการเคลื่อนไหวและการเบิกจ่ายอะไหล่</p>
-                        </div>
-                    </div>
+            {/* Analytics Stats */}
+            <div className="bento-grid h-auto lg:h-auto gap-10">
+                <ModernStatCard delay="delay-100" theme="blue" title="มูลค่าสต็อกคงเหลือ" value={`฿${formatCurrency((Array.isArray(stock) ? stock : []).reduce((s, i) => s + (Number(i.quantity) * Number(i.price)), 0)).replace('฿', '')}`} subtext="Current Asset Value" icon={<Package size={150} />} />
+                <ModernStatCard delay="delay-200" theme="orange" title="รายการต้องเติม" value={`${(Array.isArray(stock) ? stock : []).filter(s => s.quantity <= s.minStock).length} ชิ้น`} subtext="Under Min Stock Level" icon={<AlertCircle size={150} />} />
+                <ModernStatCard delay="delay-300" theme="green" title="ยอดเบิกใช้สะสม" value={`฿${formatCurrency(analytics.intUse).replace('฿', '')}`} subtext="Internal Utilization" icon={<TrendingUp size={150} />} />
+                <ModernStatCard delay="delay-400" theme="purple" title="ยอดจัดซื้อสะสม" value={`฿${formatCurrency(analytics.extUse).replace('฿', '')}`} subtext="External Procurement" icon={<ShoppingCart size={150} />} />
 
-                    {/* Stats Grid */}
-                    <div className="relative z-10 grid grid-cols-2 gap-y-10 gap-x-12 mt-auto">
-                        <div>
-                            <p className="text-sm text-blue-100 font-bold uppercase tracking-wider mb-1">มูลค่าสต็อกปัจจุบัน (Asset)</p>
-                            <p className="text-4xl font-extrabold tracking-tight">
-                                {formatCurrency((Array.isArray(stock) ? stock : []).reduce((sum, s) => sum + (Number(s.quantity) * Number(s.price)), 0)).replace('฿', '')}
-                                <span className="text-lg font-medium opacity-60 ml-2">THB</span>
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-blue-100 font-bold uppercase tracking-wider mb-1">รายการต่ำกว่าเกณฑ์ (Alert)</p>
-                            <p className="text-4xl font-extrabold text-yellow-300 tracking-tight">
-                                {(Array.isArray(stock) ? stock : []).filter(s => s.quantity <= s.minStock).length}
-                                <span className="text-lg font-medium opacity-60 ml-2 text-white">Items</span>
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-blue-100 font-bold uppercase tracking-wider mb-1">ยอดเบิกใช้สะสม (Internal Usage)</p>
-                            <p className="text-4xl font-extrabold tracking-tight">
-                                {formatCurrency(analytics.totalInternalUsage).replace('฿', '')}
-                                <span className="text-lg font-medium opacity-60 ml-2">THB</span>
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-blue-100 font-bold uppercase tracking-wider mb-1">ยอดซื้อภายนอกสะสม (External Buy)</p>
-                            <p className="text-4xl font-extrabold tracking-tight">
-                                {formatCurrency(analytics.totalExternalUsage).replace('฿', '')}
-                                <span className="text-lg font-medium opacity-60 ml-2">THB</span>
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Decorative Elements */}
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                    <div className="absolute bottom-0 right-10 w-64 h-64 bg-indigo-500 opacity-20 rounded-full blur-3xl"></div>
-                </div>
-
-                {/* Right Card: Category Distribution */}
-                <div className="bg-white rounded-[2rem] shadow-sm p-8 border border-slate-100 flex flex-col h-[450px]">
-                    <h3 className="text-lg font-bold text-slate-600 mb-6">มูลค่าสต็อกแยกตามหมวดหมู่</h3>
-
-                    <div className="relative flex-1 flex items-center justify-center">
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
-                            <span className="text-xs text-gray-400 font-bold tracking-wider uppercase mb-1">Total</span>
-                            <span className="text-3xl font-extrabold text-slate-800">
-                                {((Array.isArray(stock) ? stock : []).filter(i => Number(i.quantity) > 0 && Number(i.price) > 0).length)}
-                            </span>
-                            <span className="text-xs text-gray-400 font-medium">Items</span>
-                        </div>
-                        <ResponsiveContainer width="100%" height={240}>
+                {/* Categories Breakdown */}
+                <Card title="การกระจายตัวของสต็อก (Category Map)" className="col-span-1 lg:col-span-1 min-h-[450px]" delay="delay-500">
+                    <div className="h-full relative flex flex-col items-center">
+                        <ResponsiveContainer width="100%" height={250}>
                             <PieChart>
-                                <Pie
-                                    data={analytics.pieData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={75}
-                                    outerRadius={95}
-                                    paddingAngle={4}
-                                    dataKey="value"
-                                >
-                                    {analytics.pieData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
-                                    ))}
+                                <Pie data={analytics.pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value">
+                                    {analytics.pieData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                                 </Pie>
-                                <Tooltip
-                                    formatter={(value) => formatCurrency(value as number)}
-                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '12px 16px' }}
-                                    itemStyle={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}
-                                />
+                                <Tooltip content={<CustomTooltip unit="บาท" />} />
                             </PieChart>
                         </ResponsiveContainer>
-                    </div>
-
-                    {/* Simplified Legend List */}
-                    <div className="mt-6 flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3 max-h-[140px]">
-                        {analytics.pieData.map((entry, index) => (
-                            <div key={index} className="flex items-center justify-between text-sm group cursor-default">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div
-                                        className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-white shadow-sm"
-                                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                                    ></div>
-                                    <span className="text-slate-600 font-medium truncate group-hover:text-slate-900 transition-colors" title={entry.name}>
-                                        {entry.name}
-                                    </span>
+                        <div className="w-full mt-6 space-y-3 overflow-y-auto max-h-[150px] custom-scrollbar px-4">
+                            {analytics.pieData.map((entry, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full ${getCategoryColorClass(idx)}`}></div>
+                                        <span>{entry.name}</span>
+                                    </div>
+                                    <span className="text-slate-900">{((entry.value / (analytics.pieData.reduce((a, b) => a + b.value, 0) || 1)) * 100).toFixed(1)}%</span>
                                 </div>
-                                <span className="font-bold text-slate-700 ml-2 bg-slate-50 px-2 py-0.5 rounded-md min-w-[3rem] text-center">
-                                    {((entry.value / (analytics.pieData.reduce((a, b) => a + b.value, 0) || 1)) * 100).toFixed(1)}%
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Controls */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-6 justify-between items-center">
-                <div className="flex bg-slate-100 p-1.5 rounded-xl">
-                    <button
-                        onClick={() => setActiveTab('internal')}
-                        className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'internal' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Internal Stock
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('external')}
-                        className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'external' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        External Purchase
-                    </button>
-                </div>
-
-                <div className="flex flex-wrap gap-4 w-full md:w-auto">
-                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-100 outline-none">
-                        <option value="all">All Categories</option>
-                        {STOCK_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
-                    <div className="relative flex-1 md:w-64">
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none transition-all"
-                        />
-                        <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    </div>
-                </div>
-            </div>
-
-            {/* Data Table */}
-            <div className="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-100">
-                        <thead className="bg-slate-50/80">
-                            <tr>
-                                <th className="px-8 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
-                                <th className="px-8 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Item Details</th>
-                                <th className="px-8 py-5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Reference</th>
-                                <th className="px-8 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Quantity</th>
-                                <th className="px-8 py-5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Cost</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-100">
-                            {paginatedData.map((item: any, idx: number) => {
-                                const isInternal = activeTab === 'internal';
-                                const date = isInternal ? item.displayDate : item.dateUsed;
-                                const name = isInternal ? item.stockItemName : item.partName;
-                                const ref = isInternal ? (item.documentNumber || item.relatedRepairOrder) : `${item.repairOrderNo} (${item.licensePlate})`;
-                                const qty = item.quantity;
-                                const price = isInternal ? (item.pricePerUnit * qty) : (item.unitPrice * qty);
-
-                                return (
-                                    <tr key={idx} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="px-8 py-5 text-sm font-semibold text-slate-600">
-                                            {new Date(date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}
-                                        </td>
-                                        <td className="px-8 py-5">
-                                            <div className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{name}</div>
-                                            <div className="text-xs font-medium text-slate-400 mt-0.5">{item.category}</div>
-                                        </td>
-                                        <td className="px-8 py-5 text-sm font-mono text-slate-500 bg-slate-50/50 rounded-lg w-fit">
-                                            {ref || '-'}
-                                        </td>
-                                        <td className={`px-8 py-5 text-right text-sm font-bold ${qty < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
-                                            {qty > 0 ? '+' : ''}{qty} <span className="text-xs font-normal text-slate-400 ml-1">{isInternal ? stockMap.get(item.stockItemId)?.unit : item.unit}</span>
-                                        </td>
-                                        <td className="px-8 py-5 text-right text-sm font-bold text-slate-700">
-                                            {formatCurrency(Math.abs(price))}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                    {paginatedData.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                            <svg className="w-16 h-16 mb-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <p className="font-medium">No results found.</p>
+                            ))}
                         </div>
-                    )}
-                </div>
-                {/* Pagination */}
-                <div className="px-8 py-5 border-t border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <button
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-white hover:shadow-md rounded-xl transition-all disabled:opacity-50 disabled:hover:shadow-none"
-                    >
-                        Previous
-                    </button>
-                    <span className="text-sm font-medium text-slate-500">Page {currentPage} of {totalPages || 1}</span>
-                    <button
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage >= totalPages}
-                        className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-white hover:shadow-md rounded-xl transition-all disabled:opacity-50 disabled:hover:shadow-none"
-                    >
-                        Next
-                    </button>
-                </div>
+                    </div>
+                </Card>
+
+                {/* Filters & Data Grid */}
+                <Card title="บันทึกการทำรายการ (Transaction Feed)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-600">
+                    <div className="flex flex-col h-full">
+                        <div className="flex flex-wrap gap-4 mb-8">
+                            <div className="flex bg-slate-100 p-1.5 rounded-[1.5rem] w-fit">
+                                <button onClick={() => setActiveTab('internal')} className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'internal' ? 'bg-white text-indigo-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>สต็อกอู่</button>
+                                <button onClick={() => setActiveTab('external')} className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'external' ? 'bg-white text-indigo-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}>ซื้อภายนอก</button>
+                            </div>
+                            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} title="กรองหมวดหมู่" className="bg-slate-50 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 border border-slate-100 outline-none">
+                                <option value="all">ทุกหมวดหมู่</option>
+                                {STOCK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <input
+                                type="text"
+                                placeholder="ค้นหาข้อมูล..."
+                                title="ค้นหาประวัติสต็อก"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="bg-slate-50 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 border border-slate-100 outline-none flex-1 min-w-[200px]"
+                            />
+                        </div>
+
+                        <div className="overflow-x-auto custom-scrollbar flex-1">
+                            <table className="w-full text-left">
+                                <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10">
+                                    <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                        <th className="py-4 px-4 w-24">วันที่</th>
+                                        <th className="py-4 px-4">รายการ</th>
+                                        <th className="py-4 px-4 text-center">อ้างอิง RO</th>
+                                        <th className="py-4 px-4 text-center">จำนวน</th>
+                                        <th className="py-4 px-4 text-right">รวมสุทธิ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {paginatedData.map((item: any, idx) => {
+                                        const isInt = activeTab === 'internal';
+                                        const date = isInt ? item.displayDate : item.dateUsed;
+                                        const name = isInt ? item.stockItemName : item.partName;
+                                        const ref = isInt ? (item.documentNumber || item.relatedRepairOrder) : item.repairOrderNo;
+                                        const qty = item.quantity;
+                                        const total = Math.abs(qty * (isInt ? (item.pricePerUnit || 0) : (item.unitPrice || 0)));
+
+                                        return (
+                                            <tr key={idx} className="hover:bg-slate-50 group border-b border-slate-50 last:border-0">
+                                                <td className="py-4 px-4 text-[11px] font-black text-slate-400">
+                                                    {new Date(date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}
+                                                </td>
+                                                <td className="py-4 px-4">
+                                                    <div className="text-[12px] font-black text-slate-800">{name}</div>
+                                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.category}</div>
+                                                </td>
+                                                <td className="py-4 px-4 text-center">
+                                                    <span className="bg-slate-100 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 border border-slate-200">{ref || '-'}</span>
+                                                </td>
+                                                <td className="py-4 px-4 text-center">
+                                                    <span className={`text-[12px] font-black ${qty < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                        {qty > 0 ? '+' : ''}{qty}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-4 text-right font-black text-slate-800 text-[12px]">
+                                                    ฿{formatCurrency(total)}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination Area */}
+                        <div className="mt-8 flex justify-between items-center bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 px-6 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 disabled:opacity-30 shadow-sm transition-all active:scale-95">ย้อนกลับ</button>
+                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">หน้า {currentPage} / {totalPages || 1}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="p-2 px-6 bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 disabled:opacity-30 shadow-sm transition-all active:scale-95">ถัดไป</button>
+                        </div>
+                    </div>
+                </Card>
             </div>
         </div>
     );

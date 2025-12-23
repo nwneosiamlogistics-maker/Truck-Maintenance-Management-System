@@ -1,16 +1,7 @@
 import React, { useMemo } from 'react';
 import type { Repair, StockItem, Tab, MaintenancePlan, Vehicle } from '../types';
-import StatCard from './StatCard';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { AlertCircle, Clock, Package, Calendar, ArrowRight, CheckCircle2 } from 'lucide-react';
-
-interface DashboardProps {
-  repairs: Repair[];
-  stock: StockItem[];
-  maintenancePlans: MaintenancePlan[];
-  vehicles: Vehicle[];
-  setActiveTab: (tab: Tab) => void;
-}
+import { AlertCircle, Clock, Package, Calendar, ArrowRight, CheckCircle2, Activity, PieChart as PieChartIcon } from 'lucide-react';
 
 const isToday = (dateString: string | null | undefined): boolean => {
   if (!dateString) return false;
@@ -24,6 +15,61 @@ const isToday = (dateString: string | null | undefined): boolean => {
     return false;
   }
 };
+
+interface DashboardProps {
+  repairs: Repair[];
+  stock: StockItem[];
+  maintenancePlans: MaintenancePlan[];
+  vehicles: Vehicle[];
+  setActiveTab: (tab: Tab) => void;
+}
+
+// --- Premium Styled Local Components ---
+
+const ModernStatCard = ({ title, value, subtext, theme, icon, delay = '' }: any) => {
+  let gradient = '';
+  switch (theme) {
+    case 'blue': gradient = 'from-blue-600 to-indigo-700'; break;
+    case 'green': gradient = 'from-emerald-500 to-teal-700'; break;
+    case 'yellow': gradient = 'from-amber-500 to-orange-700'; break;
+    case 'red': gradient = 'from-rose-500 to-red-700'; break;
+    case 'purple': gradient = 'from-violet-500 to-purple-700'; break;
+    default: gradient = 'from-slate-700 to-slate-900';
+  }
+
+  return (
+    <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-8 rounded-[3rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
+      <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700">
+        {icon}
+      </div>
+      <div className="relative z-10">
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70 mb-3">{title}</p>
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-4xl font-black tracking-tighter">{value}</h3>
+        </div>
+        {subtext && <div className="mt-4 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 py-1.5 rounded-full text-[9px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+      </div>
+    </div>
+  );
+};
+
+const PremiumCard = ({ title, children, className = '', icon, delay = '', subTitle = '' }: any) => (
+  <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+    <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center gap-4">
+        <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600/50 to-indigo-600/50 rounded-full shadow-lg shadow-blue-500/10"></div>
+        <div>
+          <h3 className="text-2xl font-black text-slate-800 tracking-tighter">{title}</h3>
+          {subTitle && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{subTitle}</p>}
+        </div>
+      </div>
+      {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+    </div>
+    <div className="h-[calc(100%-80px)]">
+      {children}
+    </div>
+  </div>
+);
 
 const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans, vehicles, setActiveTab }) => {
   const safeRepairs = useMemo(() => Array.isArray(repairs) ? repairs : [], [repairs]);
@@ -59,7 +105,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
     const alerts: any[] = [];
 
     // 1. Critical Low Stock Alerts
-    const criticalItems = safeStock.filter(s => s.quantity <= s.minStock * 0.5 && !s.isFungibleUsedItem).slice(0, 2);
+    const criticalItems = safeStock.filter(s => s.quantity <= s.minStock * 0.5 && !s.isFungibleUsedItem).slice(0, 3);
     criticalItems.forEach(item => {
       alerts.push({
         id: `stock-${item.id}`,
@@ -68,7 +114,8 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
         title: item.quantity <= 0 ? `อะไหล่หมดสต็อก: ${item.name}` : `อะไหล่ใกล้หมด: ${item.name}`,
         description: `จำนวนคงเหลือ ${item.quantity} ${item.unit} (ขั้นต่ำ ${item.minStock})`,
         tab: 'stock',
-        action: 'จัดการสต็อก'
+        action: 'จัดการสต็อก',
+        enLabel: 'STOCK CRITICAL'
       });
     });
 
@@ -84,15 +131,15 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
     }).slice(0, 2);
 
     pmSoon.forEach(plan => {
-      const vehicle = (vehicles || []).find(v => v.id === plan.vehicleId);
       alerts.push({
         id: `pm-${plan.id}`,
         type: 'warning',
         icon: <Calendar className="w-6 h-6" />,
-        title: `ใกล้กำหนด PM: ${vehicle ? vehicle.licensePlate : 'ไม่ทราบทะเบียน'}`,
-        description: `รายการ: ${plan.serviceName} ภายใน 7 วันนี้`,
+        title: `ใกล้กำหนด PM: ${plan.vehicleLicensePlate}`,
+        description: `รายการ: ${plan.planName} ภายใน 7 วันนี้`,
         tab: 'preventive-maintenance',
-        action: 'บันทึก PM'
+        action: 'บันทึก PM',
+        enLabel: 'PM REMINDER'
       });
     });
 
@@ -112,7 +159,8 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
         title: `งานซ่อมใช้เวลานานผิดปกติ: ${r.repairOrderNo}`,
         description: `คัน: ${r.licensePlate} เริ่มซ่อมมาแล้วกว่า 2 วัน`,
         tab: 'list',
-        action: 'ตรวจสอบช่าง'
+        action: 'ตรวจสอบช่าง',
+        enLabel: 'EFFICIENCY ALERT'
       });
     });
 
@@ -120,41 +168,31 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
   }, [safeStock, safePlans, safeRepairs, vehicles]);
 
   return (
-    <div className="space-y-8 animate-fade-in-up pb-10">
-      {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-        <StatCard title="แจ้งซ่อมวันนี้" value={stats.reportedToday} theme="blue" icon={<Clock size={20} />} />
-        <StatCard title="ซ่อมเสร็จวันนี้" value={stats.completedToday} theme="green" icon={<CheckCircle2 size={20} />} />
-        <StatCard title="กำลังซ่อม" value={stats.inProgress} theme="yellow" icon={<Clock size={20} />} />
-        <StatCard title="รอซ่อม" value={stats.waitingForRepair} theme="red" icon={<AlertCircle size={20} />} />
-        <StatCard title="อะไหล่ใกล้หมด" value={stats.lowStockCount} theme="yellow" icon={<Package size={20} />} />
-        <StatCard title="อะไหล่หมดสต็อก" value={stats.outOfStockCount} theme="red" icon={<Package size={20} />} />
-        <div className="md:col-span-2 xl:col-span-2">
-          <StatCard
-            title="มูลค่าสต็อกคงเหลือ"
-            value={`${stats.totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} บาท`}
-            theme="purple"
-            icon={<ArrowRight size={20} />}
-          />
-        </div>
-      </div>
+    <div className="space-y-12 animate-fade-in-up pb-12">
+      {/* Row 1: Key Stats Bento Grid */}
+      <div className="bento-grid h-auto lg:h-auto gap-8">
+        <ModernStatCard delay="delay-100" theme="blue" title="แจ้งซ่อมวันนี้" value={stats.reportedToday} subtext="Reported Repairs" icon={<Clock size={150} />} />
+        <ModernStatCard delay="delay-150" theme="green" title="ซ่อมเสร็จวันนี้" value={stats.completedToday} subtext="Completed Tasks" icon={<CheckCircle2 size={150} />} />
+        <ModernStatCard delay="delay-200" theme="yellow" title="กำลังซ่อม" value={stats.inProgress} subtext="Currently Active" icon={<Activity size={150} />} />
+        <ModernStatCard delay="delay-250" theme="red" title="รอซ่อม" value={stats.waitingForRepair} subtext="Pending Queue" icon={<AlertCircle size={150} />} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
-        {/* Status Distribution Chart */}
-        <div className="lg:col-span-4 bg-white p-6 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col min-h-[350px]">
-          <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <PieChart size={20} className="text-blue-500" />
-            สถานะงานซ่อมปัจจุบัน
-          </h3>
-          <div className="flex-1 w-full relative">
+        {/* Analysis & Alerts Intelligence Grid */}
+        <PremiumCard
+          title="สถานะงานซ่อมปัจจุบัน"
+          subTitle="Real-time Repair Distribution"
+          className="lg:col-span-2 lg:row-span-2 min-h-[450px]"
+          delay="delay-300"
+          icon={<PieChartIcon size={24} />}
+        >
+          <div className="flex-1 w-full h-full relative">
             {stats.statusDistData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={stats.statusDistData}
-                    innerRadius={65}
-                    outerRadius={85}
-                    paddingAngle={8}
+                    innerRadius={85}
+                    outerRadius={120}
+                    paddingAngle={12}
                     dataKey="value"
                     stroke="none"
                   >
@@ -163,99 +201,132 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', backdropFilter: 'blur(20px)', backgroundColor: 'rgba(255,255,255,0.8)' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                  <Legend verticalAlign="bottom" height={40} iconType="circle" wrapperStyle={{ paddingTop: '30px', fontWeight: '900', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-400 italic">ยังไม่มีงานซ่อมวันนี้</div>
+              <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-4">
+                <Activity size={64} className="opacity-20" />
+                <p className="italic font-black text-sm uppercase tracking-widest text-slate-400">ยังไม่มีงานซ่อมวันนี้ (No Data Today)</p>
+              </div>
             )}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-              <span className="block text-3xl font-bold text-slate-700">{safeRepairs.filter(r => r.status !== 'ซ่อมเสร็จ').length}</span>
-              <span className="text-xs text-slate-400 font-medium">งานค้าง</span>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -mt-5 text-center pointer-events-none">
+              <span className="block text-6xl font-black text-slate-900 leading-none">{safeRepairs.filter(r => r.status !== 'ซ่อมเสร็จ').length}</span>
+              <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2 block">งานค้างสะสม</span>
             </div>
           </div>
-        </div>
+        </PremiumCard>
 
-        {/* Alerts Section (Proactive) */}
-        <div className="lg:col-span-8 bg-white p-6 sm:p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-              <span className="flex items-center justify-center w-10 h-10 bg-red-100 text-red-600 rounded-xl">
-                <AlertCircle size={24} />
-              </span>
-              อินไซต์ที่ต้องดำเนินการ
-            </h3>
-            <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-bold rounded-full">
-              {dynamicAlerts.length} รายการเร่งด่วน
-            </span>
-          </div>
-
-          <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+        {/* Insights Section */}
+        <PremiumCard
+          title="อินไซต์เร่งด่วน"
+          subTitle="Urgent Operational Insights"
+          className="lg:col-span-2 lg:row-span-2 min-h-[450px]"
+          delay="delay-400"
+          icon={<AlertCircle size={24} />}
+        >
+          <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar h-full">
             {dynamicAlerts.length > 0 ? (
               dynamicAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`group flex flex-col sm:flex-row items-start sm:items-center p-5 rounded-2xl border-2 transition-all hover:bg-slate-50 ${alert.type === 'danger' ? 'border-red-100 bg-red-50/10' :
-                    alert.type === 'warning' ? 'border-yellow-100 bg-yellow-50/10' :
-                      'border-blue-100 bg-blue-50/10'
+                  className={`group flex flex-col xl:flex-row items-center p-6 rounded-[2.5rem] border border-white/40 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${alert.type === 'danger' ? 'bg-red-50/40 text-red-900 border-red-100' :
+                    alert.type === 'warning' ? 'bg-amber-50/40 text-amber-900 border-amber-100' :
+                      'bg-blue-50/40 text-blue-900 border-blue-100'
                     }`}
                 >
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-xl shrink-0 mb-4 sm:mb-0 sm:mr-5 ${alert.type === 'danger' ? 'bg-red-500 text-white' :
-                    alert.type === 'warning' ? 'bg-yellow-500 text-white' :
-                      'bg-blue-500 text-white'
+                  <div className={`flex items-center justify-center w-16 h-16 rounded-[1.5rem] shrink-0 xl:mr-6 shadow-2xl transition-transform group-hover:rotate-6 ${alert.type === 'danger' ? 'bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/20' :
+                    alert.type === 'warning' ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/20' :
+                      'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/20'
                     }`}>
                     {alert.icon}
                   </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-slate-800 text-lg mb-1">{alert.title}</h4>
-                    <p className="text-slate-500 text-sm font-medium">{alert.description}</p>
+                  <div className="flex-1 text-center xl:text-left mt-4 xl:mt-0">
+                    <div className="flex items-center gap-2 mb-1 justify-center xl:justify-start">
+                      <span className="text-[9px] font-black uppercase tracking-widest opacity-50 italic">{alert.enLabel}</span>
+                    </div>
+                    <h4 className="font-black text-slate-800 text-base leading-tight">{alert.title}</h4>
+                    <p className="text-slate-500 text-xs font-bold opacity-80 mt-1">{alert.description}</p>
                   </div>
                   <button
                     onClick={() => setActiveTab(alert.tab as Tab)}
-                    className="mt-4 sm:mt-0 sm:ml-4 flex items-center gap-2 py-2.5 px-5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-800 hover:text-white hover:border-slate-800 transition-all group-hover:shadow-md"
+                    title={alert.action}
+                    className="mt-6 xl:mt-0 xl:ml-6 flex items-center gap-3 py-4 px-8 bg-slate-950 text-white text-[10px] font-black rounded-2xl shadow-2xl hover:bg-slate-800 transition-all active:scale-95 uppercase tracking-widest whitespace-nowrap"
                   >
                     {alert.action}
-                    <ArrowRight size={16} />
+                    <ArrowRight size={14} />
                   </button>
                 </div>
               ))
             ) : (
-              <div className="py-12 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 text-green-600 rounded-full mb-4">
-                  <CheckCircle2 size={32} />
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mb-6 animate-pulse border-2 border-emerald-100 shadow-xl shadow-emerald-500/10">
+                  <CheckCircle2 size={48} />
                 </div>
-                <p className="text-slate-500 font-bold">ยอดเยี่ยม! ยังไม่มีรายการเร่งด่วนในขณะนี้</p>
+                <p className="text-slate-800 font-black text-2xl mb-2 italic">Operation Perfect!</p>
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">ยังไม่มีรายการเร่งด่วนในขณะนี้</p>
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </PremiumCard>
 
-      {/* Quick Actions */}
-      <div className="bg-slate-900 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full -mr-32 -mt-32 opacity-20"></div>
-        <div className="relative z-10">
-          <h3 className="text-2xl font-bold mb-6">🎯 ทางลัดการจัดการ</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { id: 'form', icon: '📝', label: 'แจ้งซ่อมใหม่', color: 'bg-blue-500' },
-              { id: 'stock', icon: '📦', label: 'เช็คสต็อก', color: 'bg-indigo-500' },
-              { id: 'preventive-maintenance', icon: '📅', label: 'ตาราง PM', color: 'bg-emerald-500' },
-              { id: 'technician-view', icon: '👨‍🔧', label: 'ห้องพักช่าง', color: 'bg-amber-500' }
-            ].map(action => (
-              <button
-                key={action.id}
-                onClick={() => setActiveTab(action.id as Tab)}
-                className="flex items-center gap-4 p-4 rounded-2xl bg-white/10 hover:bg-white/20 transition-all border border-white/10"
-              >
-                <span className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center text-2xl shadow-lg`}>
-                  {action.icon}
-                </span>
-                <span className="font-bold">{action.label}</span>
-              </button>
-            ))}
+        {/* Stock Value Card - Premium Glass-Dark */}
+        <div className="lg:col-span-2 bg-slate-900 p-10 rounded-[4rem] text-white shadow-3xl flex flex-col md:flex-row items-center justify-between group overflow-hidden relative animate-scale-in delay-500 border border-white/10">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
+          <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left">
+            <span className="text-blue-400 font-black uppercase tracking-[0.4em] text-[10px] mb-4 flex items-center gap-2 italic">
+              <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
+              Total Inventory Value Asset
+            </span>
+            <div className="flex items-baseline gap-4">
+              <span className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-slate-400">
+                {stats.totalStockValue.toLocaleString()}
+              </span>
+              <span className="text-xl font-black text-slate-500 uppercase tracking-widest">บาท (THB)</span>
+            </div>
+          </div>
+          <div className="w-24 h-24 bg-white/5 rounded-3xl flex items-center justify-center text-5xl group-hover:rotate-12 transition-all duration-500 shadow-2xl border border-white/10 mt-8 md:mt-0 backdrop-blur-xl">
+            💰
+          </div>
+        </div>
+
+        <ModernStatCard delay="delay-550" theme="purple" title="รายการต้องสั่งเพิ่ม" value={`${stats.lowStockCount} ชิ้น`} subtext="Replenishment Alert" icon={<Package size={150} />} />
+        <ModernStatCard delay="delay-600" theme="red" title="รายการหมดสต็อก" value={`${stats.outOfStockCount} ชิ้น`} subtext="Critical Out of Stock" icon={<Activity size={150} />} />
+
+        {/* Quick Actions Navigator - High Contrast */}
+        <div className="lg:col-span-4 bg-slate-50 p-12 rounded-[4rem] border-2 border-dashed border-slate-200 animate-scale-in delay-700 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
+          <div className="relative z-10">
+            <h3 className="text-2xl font-black text-slate-800 mb-10 flex items-center gap-5 justify-center">
+              <span className="w-4 h-4 bg-amber-400 rounded-full animate-bounce"></span>
+              ทางลัดการจัดการคลังความรู้ (Intelligence Navigator)
+              <span className="w-4 h-4 bg-amber-400 rounded-full animate-bounce delay-75"></span>
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+              {[
+                { id: 'form', icon: '📝', label: 'แจ้งซ่อมใหม่', en: 'Maint Request', color: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-500/20' },
+                { id: 'stock', icon: '📦', label: 'เช็คสต็อก', en: 'Inv Intel', color: 'from-slate-800 to-slate-950', shadow: 'shadow-slate-950/20' },
+                { id: 'preventive-maintenance', icon: '📅', label: 'ตาราง PM', en: 'PM Schedule', color: 'from-emerald-600 to-teal-800', shadow: 'shadow-emerald-500/20' },
+                { id: 'technician-view', icon: '👨‍🔧', label: 'ห้องพักช่าง', en: 'Tech Hub', color: 'from-amber-500 to-orange-700', shadow: 'shadow-amber-500/20' }
+              ].map(action => (
+                <button
+                  key={action.id}
+                  onClick={() => setActiveTab(action.id as Tab)}
+                  className="group flex flex-col items-center gap-6 transition-all"
+                >
+                  <div className={`w-24 h-24 bg-gradient-to-br ${action.color} rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl ${action.shadow} group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500 relative overflow-hidden`}>
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    {action.icon}
+                  </div>
+                  <div className="text-center group-hover:scale-105 transition-transform">
+                    <span className="block font-black text-slate-900 text-sm tracking-tight">{action.label}</span>
+                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-60">{action.en}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

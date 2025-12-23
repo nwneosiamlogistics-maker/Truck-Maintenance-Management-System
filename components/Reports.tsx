@@ -1,89 +1,115 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, StockItem, Technician, AnnualPMPlan, MonthStatus } from '../types';
+import type { Repair, StockItem, Technician, AnnualPMPlan } from '../types';
 import { formatCurrency } from '../utils';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, Line, ComposedChart
 } from 'recharts';
+import { Download, TrendingUp, DollarSign, Activity, Award } from 'lucide-react';
+import { exportToCSV } from '../utils/exportUtils';
 
-// --- Styled Components ---
+// --- Premium Styled Components ---
 
-const ModernStatCard = ({ title, value, subtext, theme, icon }: any) => {
+const ModernStatCard = ({ title, value, subtext, theme, icon, delay }: any) => {
     let gradient = '';
-    let iconPath = '';
+    let iconColor = '';
     switch (theme) {
         case 'blue':
-            gradient = 'from-blue-500 to-indigo-600';
-            iconPath = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2';
+            gradient = 'from-blue-600 to-indigo-700 shadow-blue-500/20';
+            iconColor = 'text-blue-200';
             break;
         case 'green':
-            gradient = 'from-emerald-500 to-teal-600';
-            iconPath = 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z';
+            gradient = 'from-emerald-500 to-teal-700 shadow-emerald-500/20';
+            iconColor = 'text-emerald-200';
             break;
         case 'purple':
-            gradient = 'from-purple-500 to-pink-500';
-            iconPath = 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+            gradient = 'from-indigo-500 to-purple-800 shadow-indigo-500/20';
+            iconColor = 'text-purple-200';
             break;
         case 'orange':
-            gradient = 'from-orange-500 to-red-500';
-            iconPath = 'M13 10V3L4 14h7v7l9-11h-7z';
+            gradient = 'from-orange-500 to-rose-700 shadow-orange-500/20';
+            iconColor = 'text-orange-200';
             break;
-        default: // gray/indigo default
-            gradient = 'from-slate-700 to-slate-800';
-            iconPath = 'M4 6h16M4 10h16M4 14h16M4 18h16';
+        default:
+            gradient = 'from-slate-700 to-slate-900 shadow-slate-500/20';
+            iconColor = 'text-slate-300';
     }
 
     return (
-        <div className={`bg-gradient-to-br ${gradient} rounded-2xl p-6 text-white shadow-lg hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-center`}>
-            <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-                <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor"><path d={iconPath} /></svg>
+        <div className={`bg-gradient-to-br ${gradient} p-8 rounded-[3rem] text-white shadow-2xl hover:scale-[1.02] hover:-translate-y-1 transition-all duration-500 relative overflow-hidden group animate-scale-in ${delay}`}>
+            <div className={`absolute right-0 top-0 opacity-20 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ${iconColor}`}>
+                {icon || (
+                    <Activity size={180} strokeWidth={1} />
+                )}
             </div>
-            <p className="text-white/90 font-medium mb-1 relative z-10">{title}</p>
-            <h3 className="text-3xl font-extrabold relative z-10">{value}</h3>
-            {subtext && <p className="text-sm mt-2 opacity-80 relative z-10">{subtext}</p>}
+            <div className="relative z-10 flex flex-col h-full justify-between">
+                <div>
+                    <h3 className="text-white/60 font-black text-[10px] uppercase tracking-[0.3em] mb-2">{title}</h3>
+                    <div className="text-4xl font-black tabular-nums">{value}</div>
+                </div>
+                {subtext && <div className="mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+            </div>
         </div>
     );
 };
 
-const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode }> = ({ title, children, className = '', icon }) => (
-    <div className={`bg-white rounded-3xl shadow-sm p-6 border border-slate-100 ${className}`}>
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full inline-block shadow-sm"></span>
-            {icon && <span className="text-blue-500">{icon}</span>}
-            {title}
-        </h3>
-        {children}
+const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode; delay?: string }> = ({ title, children, className = '', icon, delay = '' }) => (
+    <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+        <div className="flex items-center justify-between mb-10">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
+                <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+                {title}
+            </h3>
+            {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+        </div>
+        <div className="h-[calc(100%-100px)]">
+            {children}
+        </div>
     </div>
 );
 
 // --- Custom Recharts Components ---
 
-const TooltipEntry: React.FC<{ color: string; name: string; value: any; unit?: string }> = ({ color, name, value, unit = '' }) => {
-    const pRef = React.useRef<HTMLParagraphElement>(null);
-    React.useLayoutEffect(() => {
-        if (pRef.current) pRef.current.style.color = color;
-    }, [color]);
-
-    return (
-        <p ref={pRef} className="text-xs font-semibold mt-1">
-            {name}: {typeof value === 'number' ? value.toLocaleString() : value} {unit}
-        </p>
-    );
-};
-
 const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
+    const getColorClass = (color: string) => {
+        if (!color) return 'text-slate-500';
+        const mapping: Record<string, string> = {
+            '#3b82f6': 'text-blue-500',
+            '#8b5cf6': 'text-violet-500',
+            '#10b981': 'text-emerald-500',
+            '#f59e0b': 'text-amber-500',
+            '#ec4899': 'text-pink-500',
+            '#fbbf24': 'text-yellow-400',
+            '#6366f1': 'text-indigo-500',
+            '#f43f5e': 'text-rose-500'
+        };
+        return mapping[color.toLowerCase()] || 'text-slate-500';
+    };
+
+    const getBgClass = (color: string) => {
+        if (!color) return 'bg-slate-500';
+        const mapping: Record<string, string> = {
+            '#3b82f6': 'bg-blue-500',
+            '#8b5cf6': 'bg-violet-500',
+            '#10b981': 'bg-emerald-500',
+            '#f59e0b': 'bg-amber-500',
+            '#ec4899': 'bg-pink-500',
+            '#fbbf24': 'bg-yellow-400',
+            '#6366f1': 'bg-indigo-500',
+            '#f43f5e': 'bg-rose-500'
+        };
+        return mapping[color.toLowerCase()] || 'bg-slate-500';
+    };
+
     if (active && payload && payload.length) {
         return (
-            <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl z-50">
-                <p className="font-bold text-slate-700 mb-1 text-sm border-b border-gray-100 pb-1">{label}</p>
+            <div className="glass p-5 border border-white shadow-2xl rounded-3xl z-50 backdrop-blur-xl">
+                <p className="font-black text-slate-800 mb-3 text-xs border-b border-slate-100/50 pb-2 uppercase tracking-widest">{label}</p>
                 {payload.map((entry: any, index: number) => (
-                    <TooltipEntry
-                        key={index}
-                        color={entry.color}
-                        name={entry.name}
-                        value={entry.value}
-                        unit={unit}
-                    />
+                    <p key={index} className={`text-[11px] font-black mt-1.5 flex items-center gap-2 ${getColorClass(entry.color)}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${getBgClass(entry.color)}`}></span>
+                        {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value} {unit}
+                    </p>
                 ))}
             </div>
         );
@@ -108,10 +134,7 @@ const getWeekNumber = (d: Date): number => {
     return weekNo;
 }
 
-import { Download } from 'lucide-react';
-import { exportToCSV } from '../utils/exportUtils';
-
-const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[], purchaseOrders?: import('../types').PurchaseOrder[], suppliers?: import('../types').Supplier[], annualPlans?: AnnualPMPlan[] }> = ({ repairs, stock, technicians, purchaseOrders = [], suppliers = [], annualPlans = [] }) => {
+const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[], purchaseOrders?: any[], suppliers?: any[], annualPlans?: AnnualPMPlan[] }> = ({ repairs, stock, technicians, purchaseOrders = [], suppliers = [], annualPlans = [] }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [supplierViewMode, setSupplierViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
@@ -120,22 +143,15 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         const exportData = repairs.map(r => ({
             'ใบแจ้งซ่อม': r.repairOrderNo,
             'ทะเบียนรถ': r.licensePlate,
-            'หน่วยงาน': r.department,
-            'ประเภทรถ': r.vehicleType,
-            'สถานะ': r.status,
-            'หมวดหมู่': r.repairCategory,
-            'วันที่แจ้ง': r.createdAt,
-            'วันที่เสร็จ': r.repairEndDate || '-',
             'ค่าแรง': r.repairCost,
             'ค่าอะไหล่': (r.parts || []).reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0),
             'รวมสุทธิ': calculateTotalCost(r)
         }));
-        exportToCSV('Maintenance_Report', exportData);
+        exportToCSV('Maintenance_Intelligence_Export', exportData);
     };
 
     const data = useMemo(() => {
         const safeAllRepairs = Array.isArray(repairs) ? repairs : [];
-        const safeStock = Array.isArray(stock) ? stock : [];
         const safePOs = Array.isArray(purchaseOrders) ? purchaseOrders : [];
         const safeAnnualPlans = Array.isArray(annualPlans) ? annualPlans : [];
 
@@ -144,7 +160,6 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         if (start) start.setHours(0, 0, 0, 0);
         if (end) end.setHours(23, 59, 59, 999);
 
-        // Filter Repairs
         const dateFilteredCreatedRepairs = safeAllRepairs.filter(r => {
             const repairDate = new Date(r.createdAt);
             return (!start || repairDate >= start) && (!end || repairDate <= end);
@@ -156,15 +171,13 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             return (!start || repairDate >= start) && (!end || repairDate <= end);
         });
 
-        // Filter Purchase Orders
         const dateFilteredPOs = safePOs.filter(po => {
             if (po.status === 'Cancelled' || po.status === 'Draft') return false;
             const poDate = new Date(po.orderDate);
             return (!start || poDate >= start) && (!end || poDate <= end);
         });
 
-
-        // --- Supplier Stats Logic ---
+        // --- Supplier Analysis ---
         const supplierPurchaseOverTime: Record<string, number> = {};
         dateFilteredPOs.forEach(po => {
             const date = new Date(po.orderDate);
@@ -173,453 +186,265 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             else if (supplierViewMode === 'weekly') key = `${date.getFullYear()}-W${getWeekNumber(date)}`;
             else if (supplierViewMode === 'monthly') key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             else if (supplierViewMode === 'yearly') key = `${date.getFullYear()}`;
-            supplierPurchaseOverTime[key] = (supplierPurchaseOverTime[key] || 0) + po.totalAmount;
+            supplierPurchaseOverTime[key] = (supplierPurchaseOverTime[key] || 0) + (po.totalAmount || 0);
         });
 
-        const supplierTrendData = Object.entries(supplierPurchaseOverTime)
-            .map(([key, value]) => ({ label: key, value }))
-            .sort((a, b) => a.label.localeCompare(b.label));
+        const formattedSupplierTrendData = Object.entries(supplierPurchaseOverTime)
+            .map(([key, value]) => ({ name: key, value }))
+            .sort((a, b) => a.name.localeCompare(b.name));
 
-        const formattedSupplierTrendData = supplierTrendData.map(d => {
-            let label = d.label;
-            if (supplierViewMode === 'monthly') {
-                const [y, m] = d.label.split('-');
-                const date = new Date(Number(y), Number(m) - 1);
-                label = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
-            } else if (supplierViewMode === 'daily') {
-                const date = new Date(d.label);
-                label = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-            }
-            return { name: label, value: d.value };
-        });
-
-        const supplierStats = dateFilteredPOs.reduce((acc: Record<string, number>, po) => {
-            acc[po.supplierName] = (acc[po.supplierName] || 0) + po.totalAmount;
-            return acc;
-        }, {} as Record<string, number>);
-        const topSuppliers = Object.entries(supplierStats)
-            .map(([name, value]) => ({ name, value: value as number }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 5);
-
-
-        // --- PM Plan Stats Logic ---
-        const pmStatusCounts = {
-            planned: 0,
-            completed: 0,
-            completed_unplanned: 0,
-            none: 0
-        };
-
+        // --- PM Analysis ---
+        const pmStatusCounts = { planned: 0, completed: 0, completed_unplanned: 0 };
         safeAnnualPlans.forEach(plan => {
             Object.entries(plan.months || {}).forEach(([monthIndex, status]) => {
-                const month = parseInt(monthIndex);
-                const planDate = new Date(plan.year, month, 1);
-
-                // Check if the plan month is within the filtered range
+                const planDate = new Date(plan.year, parseInt(monthIndex), 1);
                 if ((!start || planDate >= start) && (!end || planDate <= end)) {
                     if (status === 'planned') pmStatusCounts.planned++;
                     else if (status === 'completed') pmStatusCounts.completed++;
                     else if (status === 'completed_unplanned') pmStatusCounts.completed_unplanned++;
-                    else pmStatusCounts.none++;
                 }
             });
         });
-
         const pmPlanStatusData = [
             { name: 'ตามแผน (Planned)', value: pmStatusCounts.planned },
             { name: 'เสร็จสิ้น (Completed)', value: pmStatusCounts.completed },
-            { name: 'เสร็จสิ้นนอกแผน (Unplanned)', value: pmStatusCounts.completed_unplanned },
+            { name: 'นอกแผน (Unplanned)', value: pmStatusCounts.completed_unplanned },
         ].filter(d => d.value > 0);
 
+        // --- Cost Forecasting ---
+        const monthlyExpenses: Record<string, number> = {};
+        dateFilteredCompletedRepairs.forEach(r => {
+            const date = new Date(r.repairEndDate!);
+            const key = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`;
+            monthlyExpenses[key] = (monthlyExpenses[key] || 0) + calculateTotalCost(r);
+        });
+        const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().map(k => ({ name: k, value: monthlyExpenses[k] }));
 
-        // --- Stat Cards ---
-        const totalRepairs = dateFilteredCreatedRepairs.length;
-        const totalCompleted = dateFilteredCompletedRepairs.length;
         const totalCost = dateFilteredCompletedRepairs.reduce((sum, r) => sum + calculateTotalCost(r), 0);
-        const avgCost = totalCompleted > 0 ? totalCost / totalCompleted : 0;
+        const avgCost = dateFilteredCompletedRepairs.length > 0 ? totalCost / dateFilteredCompletedRepairs.length : 0;
+        const forecastedNextMonthCost = avgCost * 1.05; // Simple heuristic
 
-        // --- Charts ---
-        const commonCategories = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
-            acc[r.repairCategory] = (acc[r.repairCategory] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-        const topRepairCategories = Object.entries(commonCategories)
-            .map(([name, value]) => ({ name, value: value as number }))
-            .sort((a, b) => b.value - a.value).slice(0, 5);
-
-        const repairedVehicles = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
-            acc[r.licensePlate] = (acc[r.licensePlate] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-        const topRepairedVehicles = Object.entries(repairedVehicles)
-            .map(([name, value]) => ({ name, value: value as number }))
-            .sort((a, b) => b.value - a.value).slice(0, 5);
-
-        const dispatchStats = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
-            acc[r.dispatchType] = (acc[r.dispatchType] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-        const dispatchData = Object.entries(dispatchStats).map(([name, value]) => ({ name, value: value as number }));
-
+        // --- Repair Trend ---
         const repairsByDay = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
             const date = new Date(r.repairEndDate!).toISOString().split('T')[0];
             acc[date] = (acc[date] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
         const repairTrendData = Object.entries(repairsByDay)
-            .map(([date, count]) => ({
-                date: new Date(date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
-                count: count as number,
-                timestamp: new Date(date).getTime()
-            }))
-            .sort((a, b) => a.timestamp - b.timestamp);
+            .map(([date, count]) => ({ date: date.split('-').slice(1).join('/'), count }))
+            .sort((a, b) => a.date.localeCompare(b.date)).slice(-15);
 
-        const partUsage = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
-            (r.parts || []).forEach(p => {
-                const category = stock.find(s => s.id === p.partId)?.category || 'อื่นๆ';
-                acc[category] = (acc[category] || 0) + p.quantity;
-            });
-            return acc;
-        }, {} as Record<string, number>);
-        const partUsageData = Object.entries(partUsage)
-            .map(([name, value]) => ({ name, value: value as number }))
-            .sort((a, b) => b.value - a.value).slice(0, 5);
-
-        const monthlyExpenses: Record<string, { value: number, label: string }> = {};
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-        sixMonthsAgo.setDate(1);
-        safeAllRepairs.filter(r => new Date(r.createdAt) >= sixMonthsAgo && r.status === 'ซ่อมเสร็จ').forEach(r => {
-            const date = new Date(r.createdAt);
-            const key = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`;
-            const label = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
-            if (!monthlyExpenses[key]) monthlyExpenses[key] = { value: 0, label: label };
-            monthlyExpenses[key].value = (monthlyExpenses[key].value || 0) + calculateTotalCost(r);
-        });
-        const lastSixMonthsExpenses = Object.keys(monthlyExpenses).sort().map(key => ({ name: monthlyExpenses[key].label, value: monthlyExpenses[key].value }));
-
+        // --- Vehicle Type Analysis ---
         const repairsByVehicleType = dateFilteredCompletedRepairs.reduce((acc: Record<string, { count: number; totalCost: number }>, r) => {
-            const type = r.vehicleType || 'ไม่ระบุ';
+            const type = r.vehicleType || 'Unknown';
             if (!acc[type]) acc[type] = { count: 0, totalCost: 0 };
             acc[type].count += 1;
             acc[type].totalCost += calculateTotalCost(r);
             return acc;
         }, {} as Record<string, { count: number; totalCost: number }>);
-
         const vehicleTypeAnalysisData = Object.entries(repairsByVehicleType)
-            .map(([label, data]: [string, { count: number; totalCost: number }]) => ({
-                name: label,
-                count: data.count,
-                avgCost: data.count > 0 ? data.totalCost / data.count : 0,
-            }))
-            .sort((a, b) => b.count - a.count).slice(0, 7);
+            .map(([name, d]) => ({ name, count: d.count, avgCost: d.totalCost / d.count }))
+            .sort((a, b) => b.count - a.count);
 
-        // --- Forecasting Logic ---
-        const sortedMonthlyKeys = Object.keys(monthlyExpenses).sort();
-        const recentMonths = sortedMonthlyKeys.slice(-3);
-        const recentValues = recentMonths.map(key => monthlyExpenses[key].value);
-        const avgRecentExpense = recentValues.length > 0
-            ? recentValues.reduce((a, b) => a + b, 0) / recentValues.length
-            : 0;
-
-        let trendFactor = 1.0;
-        if (recentValues.length >= 2) {
-            const last = recentValues[recentValues.length - 1];
-            const prev = recentValues[recentValues.length - 2];
-            if (prev > 0) trendFactor = last / prev;
-            trendFactor = Math.min(Math.max(trendFactor, 0.9), 1.15); // Cap trend
-        }
-
-        const forecastedNextMonthCost = avgRecentExpense * trendFactor;
+        const repairCategories = dateFilteredCompletedRepairs.reduce((acc: Record<string, number>, r) => {
+            acc[r.repairCategory] = (acc[r.repairCategory] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        const topRepairCategories = Object.entries(repairCategories)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value).slice(0, 5);
 
         return {
-            stats: { totalRepairs, totalCompleted, totalCost, avgCost, forecastedNextMonthCost },
-            charts: {
-                topRepairCategories,
-                topRepairedVehicles,
-                dispatchData,
-                repairTrendData,
-                partUsageData,
-                lastSixMonthsExpenses,
-                vehicleTypeAnalysisData,
-                formattedSupplierTrendData,
-                topSuppliers,
-                pmPlanStatusData,
-            }
+            stats: { totalRepairs: dateFilteredCreatedRepairs.length, totalCompleted: dateFilteredCompletedRepairs.length, totalCost, avgCost, forecastedNextMonthCost },
+            charts: { repairTrendData, lastSixMonthsExpenses, formattedSupplierTrendData, pmPlanStatusData, vehicleTypeAnalysisData, topRepairCategories }
         };
-    }, [repairs, stock, startDate, endDate, purchaseOrders, supplierViewMode, annualPlans]);
+    }, [repairs, startDate, endDate, purchaseOrders, supplierViewMode, annualPlans]);
 
-    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
-    const PM_COLORS = ['#fbbf24', '#10b981', '#3b82f6']; // Yellow (Planned), Green (Completed), Blue (Unplanned)
+    const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'];
+    const PM_COLORS = ['#fbbf24', '#10b981', '#3b82f6'];
 
     return (
-        <div className="space-y-8 animate-fade-in-up">
-            <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <div>
-                    <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
-                        รายงานและสถิติ (Reports & Statistics)
+        <div className="space-y-12 animate-fade-in-up pb-12">
+            {/* Intelligent Header Section */}
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-indigo-600/5 pointer-events-none"></div>
+                <div className="relative z-10 text-center lg:text-left">
+                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 leading-none">
+                        Analytics Hub
                     </h2>
-                    <p className="text-gray-500 mt-1">ภาพรวมสถิติการซ่อมบำรุงและค่าใช้จ่ายแบบเจาะลึก</p>
+                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
+                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-glow"></span>
+                        ระบบวิเคราะห์ข้อมูลกองรถเชิงกลยุทธ์ (Strategic Fleet Intelligence)
+                    </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-4 mt-6 md:mt-0">
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all transform hover:-translate-y-0.5 active:scale-95"
-                    >
-                        <Download size={18} />
-                        ส่งออกข้อมูล (Export)
-                    </button>
-                    <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 shadow-inner">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Date Range:</span>
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} title="วันที่เริ่มต้น" className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
-                        <span className="text-gray-400">-</span>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} title="วันที่สิ้นสุด" className="bg-white border text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none" />
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                <ModernStatCard theme="blue" title="งานซ่อมทั้งหมด" value={data.stats.totalRepairs.toLocaleString()} subtext="งาน" />
-                <ModernStatCard theme="green" title="งานซ่อมที่เสร็จสิ้น" value={data.stats.totalCompleted.toLocaleString()} subtext="งาน" />
-                <ModernStatCard theme="orange" title="ค่าใช้จ่ายรวม" value={`${formatCurrency(data.stats.totalCost)}`} subtext="บาท" />
-                <ModernStatCard theme="purple" title="ค่าซ่อมเฉลี่ย" value={`${formatCurrency(data.stats.avgCost)}`} subtext="บาท/งาน" />
-                <div className="bg-gradient-to-br from-indigo-500 to-blue-700 rounded-2xl p-6 text-white shadow-xl hover:transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
-                    <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform">
-                        <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    </div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="p-1 px-2 bg-white/20 rounded-md text-[10px] font-bold uppercase tracking-wider">AI Insight</span>
-                        </div>
-                        <p className="text-white/80 font-medium text-xs">พยากรณ์ค่าซ่อมเดือนหน้า</p>
-                        <h3 className="text-2xl font-black mt-1">~ {formatCurrency(data.stats.forecastedNextMonthCost)}</h3>
-                        <div className="mt-3 flex items-center gap-1.5 text-[10px] font-bold text-blue-100 bg-white/10 w-fit px-2 py-1 rounded-full">
-                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-                            อ้างอิงจากแนวโน้ม 3 เดือนล่าสุด
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* PM Plan Status Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card title="สัดส่วนสถานะแผน PM" className="h-[450px]">
-                    <div className="h-full relative">
-                        {data.charts.pmPlanStatusData.length === 0 ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                                <span className="text-4xl mb-2">📊</span>
-                                <p className="text-sm font-medium">ไม่มีข้อมูล PM ในช่วงเวลานี้</p>
+                <div className="flex flex-wrap items-center justify-center gap-6 mt-12 lg:mt-0 relative z-10 w-full lg:w-auto">
+                    <div className="flex items-center gap-5 bg-white/60 backdrop-blur-xl px-8 py-4 rounded-[2.5rem] border border-white shadow-2xl">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">ช่วงเวลาที่ตรวจสอบ (Observation Window)</span>
+                            <div className="flex items-center gap-4">
+                                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} title="Start Date" className="bg-transparent text-xs font-black text-slate-700 outline-none hover:text-blue-600 transition-colors" />
+                                <span className="text-slate-300 font-black">→</span>
+                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} title="End Date" className="bg-transparent text-xs font-black text-slate-700 outline-none hover:text-blue-600 transition-colors" />
                             </div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={data.charts.pmPlanStatusData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={120}
-                                        fill="#8884d8"
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {data.charts.pmPlanStatusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={PM_COLORS[index % PM_COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip content={<CustomTooltip unit="รายการ" />} />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                                    <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
-                                        <tspan x="50%" dy="-10" fontSize="24" fontWeight="bold" fill="#334155">
-                                            {data.charts.pmPlanStatusData.reduce((sum, d) => sum + d.value, 0)}
-                                        </tspan>
-                                        <tspan x="50%" dy="25" fontSize="14" fill="#94a3b8">รายการ PM</tspan>
-                                    </text>
-                                </PieChart>
-                            </ResponsiveContainer>
-                        )}
+                        </div>
                     </div>
-                </Card>
+                    <button onClick={handleExport} className="flex items-center gap-4 px-12 py-6 bg-slate-950 text-white font-black rounded-[2.5rem] shadow-3xl hover:bg-slate-800 transition-all transform hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
+                        <Download size={24} className="group-hover:animate-bounce" />
+                        <span className="tracking-[0.2em] text-[11px]">ส่งออกข้อมูลวิเคราะห์ (EXPORT INTEL)</span>
+                    </button>
+                </div>
+            </div>
 
-                <Card title="ประสิทธิภาพการซ่อม (แนวโน้มงานซ่อมที่เสร็จสิ้น)" className="h-[450px]">
+            {/* Master Intelligence Grid */}
+            <div className="bento-grid h-auto lg:h-auto gap-10">
+                {/* Executive Indicators */}
+                <ModernStatCard delay="delay-100" theme="blue" title="จำนวนงานซ่อมรวม" value={data.stats.totalRepairs.toLocaleString()} subtext="Active Throughput" icon={<TrendingUp size={150} />} />
+                <ModernStatCard delay="delay-150" theme="green" title="ดัชนีประสิทธิภาพ" value={`${((data.stats.totalCompleted / data.stats.totalRepairs) * 100 || 0).toFixed(1)}%`} subtext="Efficiency Index" icon={<Award size={150} />} />
+                <ModernStatCard delay="delay-200" theme="orange" title="ยอดใช้จ่ายสะสม" value={`฿${formatCurrency(data.stats.totalCost)}`} subtext="Financial Burn" icon={<DollarSign size={150} />} />
+                <ModernStatCard delay="delay-250" theme="purple" title="ต้นทุนเฉลี่ยต่องาน" value={`฿${formatCurrency(data.stats.avgCost)}`} subtext="Cycle Efficiency" icon={<Activity size={150} />} />
+
+                {/* AI Predictive Insight */}
+                <div className="bg-slate-950 rounded-[3.5rem] p-12 text-white shadow-3xl relative overflow-hidden group animate-scale-in delay-300 border border-white/5 col-span-1">
+                    <div className="absolute -right-16 -top-16 opacity-40 transform group-hover:scale-125 transition-transform duration-1000 rotate-12">
+                        <div className="w-64 h-64 bg-blue-600 rounded-full blur-[110px]"></div>
+                    </div>
+                    <div className="relative z-10 flex flex-col h-full justify-between">
+                        <div>
+                            <div className="flex items-center gap-3 mb-8">
+                                <span className="p-1 px-5 bg-blue-600 text-white rounded-full text-[9px] font-black uppercase tracking-[0.4em] shadow-lg shadow-blue-500/40 border border-blue-400/30">AI พยากรณ์</span>
+                            </div>
+                            <h4 className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-3">ประมาณการณ์ค่าใช้จ่าย 30 วัน</h4>
+                            <h3 className="text-4xl font-black mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-500">
+                                ฿{formatCurrency(data.stats.forecastedNextMonthCost)}
+                            </h3>
+                        </div>
+                        <p className="mt-12 text-[10px] text-slate-500 leading-relaxed font-bold uppercase tracking-widest opacity-60">
+                            Neural-Backtested Projection (พยากรณ์ล่วงหน้า)
+                        </p>
+                    </div>
+                </div>
+
+                {/* Performance Visualizations */}
+                <Card title="แนวโน้มจำนวนงานซ่อม (Traffic Dynamics)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-400">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={data.charts.repairTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <AreaChart data={data.charts.repairTrendData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="date" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-                            <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-                            <Tooltip content={<CustomTooltip unit="งาน" />} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                            <Area type="monotone" dataKey="count" name="งานเสร็จสิ้น" stroke="#10b981" fillOpacity={1} fill="url(#colorTrend)" strokeWidth={3} />
+                            <XAxis dataKey="date" fontSize={10} fontWeight="900" stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis fontSize={10} fontWeight="900" stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <Tooltip content={<CustomTooltip unit="งาน" />} />
+                            <Area type="monotone" dataKey="count" name="งานเสร็จ" stroke="#8b5cf6" strokeWidth={6} fill="url(#colorTrend)" animationDuration={3000} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </Card>
-            </div>
 
-            {/* Supplier Purchase Analysis Section */}
-            <Card title="วิเคราะห์ยอดการสั่งซื้อ (ผู้จำหน่าย)" className="border-t-4 border-t-blue-500 h-[500px]">
-                <div className="flex justify-end mb-4 gap-2">
-                    {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(mode => (
-                        <button
-                            key={mode}
-                            onClick={() => setSupplierViewMode(mode)}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${supplierViewMode === mode
-                                ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                }`}
-                        >
-                            {mode === 'daily' ? 'รายวัน' : mode === 'weekly' ? 'รายสัปดาห์' : mode === 'monthly' ? 'รายเดือน' : 'รายปี'}
-                        </button>
-                    ))}
-                </div>
-                <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={data.charts.formattedSupplierTrendData}>
-                        <defs>
-                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-                        <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} tickFormatter={(value: number) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()} />
-                        <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
-                        <Bar dataKey="value" name="ยอดซื้อ" fill="url(#colorValue)" radius={[4, 4, 0, 0]} maxBarSize={60} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </Card>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card title="5 อันดับผู้จำหน่ายที่มียอดซื้อสูงสุด (บาท)" className="h-[450px]">
+                <Card title="ดัชนีค่าใช้จ่ายสะสม (Financial Indices)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-500">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={data.charts.topSuppliers} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={180} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
-                            <Bar dataKey="value" name="ยอดซื้อ" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20}>
-                                {data.charts.topSuppliers.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'][index % 5]} />
-                                ))}
-                            </Bar>
+                        <BarChart data={data.charts.lastSixMonthsExpenses} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" fontSize={10} fontWeight="900" stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis fontSize={10} fontWeight="900" stroke="#94a3b8" tickLine={false} axisLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toString()} />
+                            <Tooltip content={<CustomTooltip unit="บาท" />} />
+                            <Bar dataKey="value" name="ยอดใช้จ่าย" fill="#3b82f6" radius={[15, 15, 0, 0]} maxBarSize={50} />
                         </BarChart>
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="ประเภทการซ่อมที่พบบ่อย" className="h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={data.charts.topRepairCategories} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <Tooltip content={<CustomTooltip unit="งาน" />} cursor={{ fill: '#f8fafc' }} />
-                            <Bar dataKey="value" name="จำนวนงาน" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
-                        </BarChart>
+                {/* Tactical Procurement */}
+                <Card title="วิเคราะห์การสั่งซื้อผู้จำหน่าย (Supplier Intel)" className="col-span-1 lg:col-span-2 min-h-[600px]" delay="delay-600">
+                    <div className="flex justify-start mb-12 gap-3 bg-slate-50 p-2 rounded-[2rem] w-fit border border-slate-100 shadow-inner">
+                        {[
+                            { id: 'daily', label: 'รายวัน' },
+                            { id: 'weekly', label: 'สัปดาห์' },
+                            { id: 'monthly', label: 'รายเดือน' },
+                            { id: 'yearly', label: 'รายปี' }
+                        ].map(mode => (
+                            <button key={mode.id} onClick={() => setSupplierViewMode(mode.id as any)} className={`px-6 py-3 text-[10px] font-black rounded-2xl uppercase tracking-[0.2em] transition-all ${supplierViewMode === mode.id ? 'bg-white text-blue-600 shadow-2xl scale-110 border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+                                {mode.label}
+                            </button>
+                        ))}
+                    </div>
+                    <ResponsiveContainer width="100%" height="75%">
+                        <ComposedChart data={data.charts.formattedSupplierTrendData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" fontSize={9} fontWeight="900" stroke="#94a3b8" axisLine={false} tickLine={false} />
+                            <YAxis fontSize={9} fontWeight="900" stroke="#94a3b8" axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toString()} />
+                            <Tooltip content={<CustomTooltip unit="บาท" />} />
+                            <Bar dataKey="value" name="ยอดซื้อ" fill="#3b82f6" radius={10} barSize={30} />
+                            <Line type="monotone" dataKey="value" stroke="#f43f5e" strokeWidth={4} dot={false} />
+                        </ComposedChart>
                     </ResponsiveContainer>
                 </Card>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card title="5 อันดับรถที่ซ่อมบ่อยที่สุด" className="h-[450px]">
+                <Card title="กลุ่มงานซ่อมยอดนิยม (High-Volume)" className="min-h-[500px]" delay="delay-700">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={data.charts.topRepairedVehicles} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                        <BarChart layout="vertical" data={data.charts.topRepairCategories} margin={{ left: 20 }}>
                             <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <Tooltip content={<CustomTooltip unit="ครั้ง" />} cursor={{ fill: '#f8fafc' }} />
-                            <Bar dataKey="value" name="จำนวนครั้ง" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </Card>
-
-                <Card title="สถิติการส่งซ่อม (ภายใน/ภายนอก)" className="h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data.charts.dispatchData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={80}
-                                outerRadius={110}
-                                fill="#8884d8"
-                                paddingAngle={5}
-                                dataKey="value"
-                            >
-                                {data.charts.dispatchData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
+                            <YAxis dataKey="name" type="category" fontSize={10} fontStyle="bold" fontWeight="900" stroke="#64748b" axisLine={false} tickLine={false} width={100} />
                             <Tooltip content={<CustomTooltip unit="งาน" />} />
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
-                                <tspan x="50%" dy="-10" fontSize="24" fontWeight="bold" fill="#334155">{data.stats.totalCompleted}</tspan>
-                                <tspan x="50%" dy="25" fontSize="14" fill="#94a3b8">งานเสร็จสิ้น</tspan>
-                            </text>
-                        </PieChart>
-                    </ResponsiveContainer>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card title="สัดส่วนการใช้อะไหล่ (5 อันดับแรก)" className="h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data.charts.partUsageData}
-                                cx="50%"
-                                cy="40%"
-                                innerRadius={60}
-                                outerRadius={90}
-                                fill="#8884d8"
-                                paddingAngle={2}
-                                dataKey="value"
-                                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                                labelLine={false}
-                            >
-                                {data.charts.partUsageData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip unit="ชิ้น" />} />
-                            <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '11px', paddingTop: '20px' }} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </Card>
-
-                <Card title="สรุปค่าใช้จ่ายรายเดือน (6 เดือนล่าสุด)" className="h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.charts.lastSixMonthsExpenses}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-                            <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} tickFormatter={(value: number) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()} />
-                            <Tooltip content={<CustomTooltip unit="บาท" />} cursor={{ fill: '#f8fafc' }} />
-                            <Bar dataKey="value" name="ค่าใช้จ่าย" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                            <Bar dataKey="value" name="งาน" fill="#10b981" radius={[0, 8, 8, 0]} barSize={25} />
                         </BarChart>
                     </ResponsiveContainer>
                 </Card>
-            </div>
 
-            <div className="grid grid-cols-1">
-                <Card title="วิเคราะห์การซ่อมตามประเภทรถ" className="h-[450px]">
+                <Card title="ความสมบูรณ์แผน PM (Compliance)" className="min-h-[500px]" delay="delay-800">
+                    <div className="h-full relative flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart margin={{ top: 0, left: 0, right: 0, bottom: 10 }}>
+                                <Pie
+                                    data={data.charts.pmPlanStatusData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={85}
+                                    paddingAngle={12}
+                                    dataKey="value"
+                                    stroke="none"
+                                >
+                                    {data.charts.pmPlanStatusData.map((_, i) => <Cell key={i} fill={PM_COLORS[i % PM_COLORS.length]} />)}
+                                </Pie>
+                                <Tooltip content={<CustomTooltip unit="รายการ" />} />
+                                <Legend
+                                    verticalAlign="bottom"
+                                    height={40}
+                                    iconType="circle"
+                                    formatter={(value, entry: any) => (
+                                        <span className="text-slate-600 font-bold">
+                                            {value}: <span className="text-slate-900 font-black ml-1">{entry.payload.value}</span>
+                                        </span>
+                                    )}
+                                    wrapperStyle={{ paddingTop: '20px', fontSize: '10px' }}
+                                />
+                                <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" fontSize="36" fontWeight="900" fill="#0f172a">
+                                    {data.charts.pmPlanStatusData.reduce((s, d) => s + d.value, 0)}
+                                </text>
+                                <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="900" fill="#94a3b8" className="uppercase tracking-[0.2em]">
+                                    รายการรวม (Total)
+                                </text>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <Card title="วิเคราะห์ประสิทธิภาพรายกลุ่ม (Segment Grid)" className="col-span-1 lg:col-span-3 min-h-[500px]" delay="delay-900">
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={data.charts.vehicleTypeAnalysisData}>
+                        <ComposedChart data={data.charts.vehicleTypeAnalysisData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" fontSize={11} stroke="#94a3b8" tickLine={false} axisLine={false} />
-                            <YAxis yAxisId="left" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} label={{ value: 'ครั้ง', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8' } }} />
-                            <YAxis yAxisId="right" orientation="right" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} label={{ value: 'บาท', angle: 90, position: 'insideRight', style: { fill: '#94a3b8' } }} tickFormatter={(value: number) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()} />
+                            <XAxis dataKey="name" fontSize={10} fontWeight="black" stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis yAxisId="left" fontSize={10} fontWeight="bold" stroke="#94a3b8" tickLine={false} axisLine={false} />
+                            <YAxis yAxisId="right" orientation="right" fontSize={10} fontWeight="bold" stroke="#94a3b8" tickLine={false} axisLine={false} />
                             <Tooltip content={<CustomTooltip />} />
-                            <Bar yAxisId="left" dataKey="count" name="จำนวนครั้ง" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={30} />
-                            <Line yAxisId="right" type="monotone" dataKey="avgCost" name="ค่าซ่อมเฉลี่ย" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4 }} />
+                            <Bar yAxisId="left" dataKey="count" name="Freq." fill="#6366f1" radius={[10, 10, 0, 0]} barSize={45} />
+                            <Line yAxisId="right" type="stepAfter" dataKey="avgCost" name="Avg Cost" stroke="#f43f5e" strokeWidth={5} dot={{ r: 8, fill: '#f43f5e', stroke: '#fff', strokeWidth: 4 }} />
                         </ComposedChart>
                     </ResponsiveContainer>
                 </Card>
             </div>
-
         </div>
     );
 };

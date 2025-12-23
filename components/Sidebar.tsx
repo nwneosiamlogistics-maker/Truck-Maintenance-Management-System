@@ -26,14 +26,25 @@ const NavItem: React.FC<NavItemProps> = ({ id, icon, label, activeTab, onClick, 
     return (
         <li>
             <button
-                className={`w-full flex items-center p-3 my-1 transition-all duration-200 ease-in-out text-white rounded-lg ${isActive ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg' : 'hover:bg-slate-700'
+                className={`w-full flex items-center p-3 my-1 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] text-slate-200 rounded-xl group relative overflow-hidden active:scale-95 ${isActive
+                    ? 'bg-blue-600/90 text-white shadow-lg shadow-blue-500/40'
+                    : 'hover:bg-slate-700/50 hover:text-white'
                     }`}
                 onClick={() => onClick(id)}
             >
-                <span className="text-2xl w-6 flex justify-center items-center">{icon}</span>
-                {!isCollapsed && <span className="ml-4 font-medium text-base flex-1 text-left">{label}</span>}
+                {isActive && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r-full shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                )}
+                <span className={`text-2xl w-6 flex justify-center items-center transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                    {icon}
+                </span>
+                {!isCollapsed && (
+                    <span className={`ml-4 font-bold text-sm flex-1 text-left transition-all duration-300 ${isActive ? 'opacity-100 translate-x-0' : 'opacity-100 group-hover:translate-x-1'}`}>
+                        {label}
+                    </span>
+                )}
                 {!isCollapsed && badgeCount && badgeCount > 0 ? (
-                    <span className={`text-sm font-bold text-white ${badgeBg} rounded-full px-2 py-0.5`}>
+                    <span className={`text-[10px] font-black text-white ${badgeBg} rounded-full px-1.5 py-0.5 shadow-lg shadow-black/20 animate-pulse`}>
                         {badgeCount}
                     </span>
                 ) : null}
@@ -134,24 +145,26 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 className={`fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden transition-opacity ${isMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setMobileOpen(false)}
             ></div>
-            <aside className={`fixed top-0 left-0 h-full bg-slate-800 text-slate-100 flex flex-col z-40 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-[70px]' : 'w-72'} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-                <div className={`flex items-center p-4 border-b border-slate-700 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+            <aside className={`fixed top-0 left-0 h-full glass-dark text-slate-100 flex flex-col z-40 transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${isCollapsed ? 'w-[76px]' : 'w-72'} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 shadow-2xl`}>
+                <div className={`flex items-center p-6 border-b border-white/5 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
                     <div className="flex items-center space-x-3 overflow-hidden">
-                        <span className="text-3xl">🚛</span>
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0 overflow-hidden">
+                            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-1" />
+                        </div>
                         {!isCollapsed && (
-                            <div>
-                                <h1 className="font-bold text-lg leading-tight">ระบบซ่อมบำรุง</h1>
-                                <p className="text-sm text-slate-400">NEOSIAM LOGISTICS & TRANSPORT</p>
+                            <div className="animate-fade-in-up">
+                                <h1 className="font-black text-sm tracking-tight leading-none text-white">ระบบซ่อมบำรุง</h1>
+                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Neosiam Logistics</p>
                             </div>
                         )}
                     </div>
                 </div>
 
-                <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
-                    {navItems.map(section => (
-                        <div key={section.section}>
-                            {!isCollapsed && <h2 className="px-3 pt-2 pb-1 text-xs font-bold text-slate-400 uppercase tracking-wider">{section.section}</h2>}
-                            <ul>
+                <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto custom-scrollbar">
+                    {navItems.map((section, idx) => (
+                        <div key={section.section} className={`animate-fade-in-up delay-${idx * 100}`}>
+                            {!isCollapsed && <h2 className="px-3 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{section.section}</h2>}
+                            <ul className="space-y-1">
                                 {section.items.map(item => (
                                     <NavItem
                                         key={item.id}
@@ -170,13 +183,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                     ))}
                 </nav>
 
-                <div className="p-3 border-t border-slate-700">
+                <div className="p-4 border-t border-white/5 bg-black/20">
                     <button
                         onClick={() => setCollapsed(!isCollapsed)}
-                        className="w-full hidden lg:flex items-center p-3 hover:bg-slate-700 rounded-lg"
+                        className="w-full hidden lg:flex items-center justify-center h-12 hover:bg-white/5 rounded-2xl transition-all active:scale-95 group"
                     >
-                        <span className="text-xl w-6 text-center transform transition-transform duration-300">{isCollapsed ? '➡️' : '⬅️'}</span>
-                        {!isCollapsed && <span className="ml-4 font-medium text-base">ย่อเมนู</span>}
+                        <div className={`p-2 rounded-xl bg-slate-800 border border-white/5 shadow-inner transition-transform duration-500 ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}>
+                            <ChevronLeft size={20} className="text-slate-400 group-hover:text-white" />
+                        </div>
+                        {!isCollapsed && <span className="ml-3 font-bold text-xs text-slate-300 group-hover:text-white transition-colors">ซ่อนเมนูจัดการ</span>}
                     </button>
                 </div>
             </aside>

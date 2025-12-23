@@ -71,14 +71,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="w-full max-w-md">
                     <div className="text-center mb-10">
                         <img
-                            src="https://pic.in.th/image/logo-neo.EpVBlW"
+                            src="/logo.png"
                             alt="Company Logo"
                             className="h-20 mx-auto mb-6 object-contain"
-                            // Adding onError to handle potential broken link if it's not a direct image
-                            onError={(e) => {
-                                e.currentTarget.src = "https://via.placeholder.com/150?text=NEO+Logo";
-                                e.currentTarget.onerror = null;
-                            }}
                         />
                         <h3 className="text-2xl font-bold text-slate-800">เข้าสู่ระบบ (Sign In)</h3>
                         <p className="text-slate-500 mt-2">กรุณากรอกข้อมูลเพื่อเข้าใช้งาน</p>

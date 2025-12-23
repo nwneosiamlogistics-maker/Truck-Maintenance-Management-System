@@ -32,51 +32,55 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'fleet':
-                return <FleetKPIDashboard {...props} />;
-            case 'reports':
-                return <Reports {...props} />;
-            case 'kpi':
-                return <KPIDashboard {...props} />;
-            case 'stock-history':
-                return <StockHistory {...props} />;
-            case 'used-parts':
-                return <UsedPartReport usedParts={props.usedParts} deleteUsedPartDisposition={props.deleteUsedPartDisposition} />;
-            case 'technician-kpi':
-                return <TechnicianPerformance {...props} />;
-            case 'driver-leave':
-                return <DriverLeaveReport drivers={props.drivers} />;
-            default:
-                return <FleetKPIDashboard {...props} />;
+            case 'fleet': return <FleetKPIDashboard {...props} />;
+            case 'reports': return <Reports {...props} />;
+            case 'kpi': return <KPIDashboard {...props} />;
+            case 'stock-history': return <StockHistory {...props} />;
+            case 'used-parts': return <UsedPartReport usedParts={props.usedParts} deleteUsedPartDisposition={props.deleteUsedPartDisposition} />;
+            case 'technician-kpi': return <TechnicianPerformance {...props} />;
+            case 'driver-leave': return <DriverLeaveReport drivers={props.drivers} />;
+            default: return <FleetKPIDashboard {...props} />;
         }
     };
 
-    const TabButton: React.FC<{ tabId: AnalyticsTab, label: string }> = ({ tabId, label }) => (
-        <button
-            onClick={() => setActiveTab(tabId)}
-            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === tabId
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-        >
-            {label}
-        </button>
-    );
+    const tabs: { id: AnalyticsTab, label: string, sub: string }[] = [
+        { id: 'fleet', label: 'Fleet Performance', sub: 'ประสิทธิภาพกลุ่มรถ' },
+        { id: 'reports', label: 'Analysis Hub', sub: 'รายงานและสถิติ' },
+        { id: 'kpi', label: 'Repair KPI', sub: 'ภาพรวมดัชนีการซ่อม' },
+        { id: 'technician-kpi', label: 'Technician Hub', sub: 'ประสิทธิภาพงานช่าง' },
+        { id: 'stock-history', label: 'Inventory Log', sub: 'ประวัติเบิกจ่าย' },
+        { id: 'used-parts', label: 'Parts Lifecycle', sub: 'รายงานอะไหล่เก่า' },
+        { id: 'driver-leave', label: 'HR Analytics', sub: 'ประวัติการลา' },
+    ];
 
     return (
-        <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm">
-                <div className="border-b flex items-center gap-2 overflow-x-auto">
-                    <TabButton tabId="fleet" label="ประสิทธิภาพกลุ่มรถ" />
-                    <TabButton tabId="reports" label="รายงานและสถิติ" />
-                    <TabButton tabId="kpi" label="ภาพรวม KPI การซ่อม" />
-                    <TabButton tabId="technician-kpi" label="ประสิทธิภาพช่าง" />
-                    <TabButton tabId="stock-history" label="ประวัติเบิกจ่าย" />
-                    <TabButton tabId="used-parts" label="รายงานอะไหล่เก่า" />
-                    <TabButton tabId="driver-leave" label="ประวัติการลา" />
+        <div className="space-y-10">
+            {/* Premium Tab Navigation */}
+            <div className="glass p-2 rounded-[2.5rem] border border-white/50 shadow-2xl overflow-x-auto no-scrollbar backdrop-blur-3xl">
+                <div className="flex items-center gap-2 min-w-max p-2">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`flex flex-col items-center justify-center px-8 py-4 rounded-[2rem] transition-all duration-500 relative group ${activeTab === tab.id
+                                    ? 'bg-slate-950 text-white shadow-2xl scale-105'
+                                    : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                                }`}
+                        >
+                            <span className="text-[10px] font-black uppercase tracking-widest mb-1">{tab.label}</span>
+                            <span className={`text-[9px] font-black ${activeTab === tab.id ? 'text-slate-400' : 'text-slate-400 opacity-60'}`}>
+                                {tab.sub}
+                            </span>
+                            {activeTab === tab.id && (
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full shadow-glow"></div>
+                            )}
+                        </button>
+                    ))}
                 </div>
             </div>
-            <div className="analytics-content">
+
+            {/* Content Area */}
+            <div className="analytics-content min-h-[800px]">
                 {renderContent()}
             </div>
         </div>
