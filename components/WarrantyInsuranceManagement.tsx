@@ -14,6 +14,7 @@ import AddIncidentInvestigationModal from './AddIncidentInvestigationModal';
 import ReactDOMServer from 'react-dom/server';
 import IncidentInvestigationPrintLayout from './IncidentInvestigationPrintLayout';
 import VehicleManagement from './VehicleManagement';
+import Swal from 'sweetalert2';
 
 interface WarrantyInsuranceManagementProps {
     partWarranties: PartWarranty[];
@@ -713,14 +714,40 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                         setPolicyToEdit(undefined);
                         setIsAddCargoPolicyModalOpen(true);
                     }}
-                    onEdit={(policy) => {
-                        const pin = prompt('กรุณาใส่รหัสเพื่อแก้ไข (PIN Code):');
+                    onEdit={async (policy) => {
+                        const { value: pin } = await Swal.fire({
+                            title: 'กรุณาใส่รหัสเพื่อแก้ไข',
+                            input: 'password',
+                            inputAttributes: {
+                                autocapitalize: 'off',
+                                placeholder: 'PIN Code',
+                                maxlength: '10'
+                            },
+                            showCancelButton: true,
+                            confirmButtonText: 'ยืนยัน',
+                            cancelButtonText: 'ยกเลิก',
+                            confirmButtonColor: '#3b82f6',
+                            cancelButtonColor: '#64748b',
+                            showLoaderOnConfirm: true,
+                            preConfirm: (inputPin) => {
+                                if (!inputPin) {
+                                    Swal.showValidationMessage('กรุณาระบุรหัส PIN');
+                                }
+                                return inputPin;
+                            }
+                        });
+
                         if (pin === '1234') {
                             setPolicyToEdit(policy);
                             setPolicyToRenew(undefined);
                             setIsAddCargoPolicyModalOpen(true);
-                        } else {
-                            addToast('รหัสผ่านไม่ถูกต้อง', 'error');
+                        } else if (pin) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'รหัสผ่านไม่ถูกต้อง',
+                                text: 'กรุณาลองใหม่อีกครั้ง',
+                                confirmButtonColor: '#ef4444'
+                            });
                         }
                     }}
                 />
@@ -949,7 +976,13 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                         if (policyToEdit) {
                             // Update existing
                             setCargoPolicies(prev => prev.map(p => p.id === policyToEdit.id ? { ...p, ...policyData } : p));
-                            addToast('แก้ไขกรมธรรม์สำเร็จ', 'success');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'แก้ไขสำเร็จ',
+                                text: 'ปรับปรุงข้อมูลกรมธรรม์เรียบร้อยแล้ว',
+                                confirmButtonText: 'ตกลง',
+                                confirmButtonColor: '#3b82f6'
+                            });
                         } else {
                             // Create new
                             const policyWithId: CargoInsurancePolicy = {
@@ -957,7 +990,15 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                                 ...policyData
                             };
                             setCargoPolicies(prev => [...prev, policyWithId]);
-                            addToast(policyToRenew ? 'ต่ออายุกรมธรรม์สำเร็จ' : 'เพิ่มกรมธรรม์ประกันภัยสินค้าสำเร็จ', 'success');
+                            Swal.fire({
+                                icon: 'success',
+                                title: policyToRenew ? 'ต่ออายุสำเร็จ' : 'บันทึกสำเร็จ',
+                                text: policyToRenew
+                                    ? 'ต่ออายุกรมธรรม์เรียบร้อยแล้ว'
+                                    : 'เพิ่มกรมธรรม์ประกันภัยสินค้าใหม่เรียบร้อยแล้ว',
+                                confirmButtonText: 'ตกลง',
+                                confirmButtonColor: '#10b981'
+                            });
                         }
                         setIsAddCargoPolicyModalOpen(false);
                         setPolicyToRenew(undefined);
