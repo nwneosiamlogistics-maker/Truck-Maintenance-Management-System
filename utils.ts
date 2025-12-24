@@ -321,10 +321,48 @@ export const calculateDateDifference = (startDateStr: string | null | undefined,
 };
 
 // Rounds to 2 decimal places according to Thai Revenue Department rule:
-// If 3rd decimal < 5, truncate. If >= 5, round up 2nd decimal.
+// If 3rd decimal < 5, truncate. If >= 5, round up 2nd decimal. (Standard Round Half Up)
+/**
+ * คำนวณภาษีและปัดเศษตามกฎของกรมสรรพากรไทย (Round Half Up)
+ * เวอร์ชันปรับปรุง: ใช้หลักการคัดแยกเศษส่วนเพื่อความแม่นยำสูงสุด (Accounting Precision)
+ * ป้องกันปัญหา 1.005 -> 1.00 ที่มักเกิดในภาษาคอมพิวเตอร์
+ */
 export const calculateThaiTax = (amount: number): number => {
-    return Math.round((amount + Number.EPSILON) * 100) / 100;
+    if (amount === 0 || isNaN(amount) || !isFinite(amount)) return 0;
+
+    // ใช้ตัวปรับปรุง (Offset) ขนาดเล็กเพื่อช่วยให้เลขที่หมิ่นเหม่ (เช่น .499999) ปัดขึ้นได้ถูกต้อง
+    const offset = 0.0000001;
+    return Math.round((amount + offset) * 100) / 100;
 };
+
+/**
+ * คำนวณยอด VAT จากยอดเงิน (Exclusive VAT)
+ * สูตร: ยอดเงิน * (vatRate / 100)
+ * การปัดเศษ: Round Half Up 2 ตำแหน่ง
+ */
+export function calculateVat(netAmount: number, vatRate: number = 7): number {
+    // ป้องกันกรณีค่า input ไม่ถูกต้อง
+    if (netAmount === 0 || isNaN(netAmount) || !isFinite(netAmount)) return 0;
+
+    // คำนวณยอด VAT ดิบ
+    const rawVat = netAmount * (vatRate / 100);
+
+    // ใช้ calculateThaiTax ที่มีอยู่แล้ว เพื่อปัดเศษตามมาตรฐานสรรพากร
+    return calculateThaiTax(rawVat);
+}
+
+/**
+ * (Optional) คำนวณราคารวม VAT
+ * สูตร: ยอดเงิน + VAT (ที่ปัดเศษแล้ว)
+ */
+export function calculateTotalWithVat(netAmount: number, vatRate: number = 7): number {
+    if (netAmount === 0 || isNaN(netAmount) || !isFinite(netAmount)) return 0;
+
+    const vatAmount = calculateVat(netAmount, vatRate);
+
+    // นำยอดสุทธิมารวมกับ VAT ที่ผ่านการปัดเศษแล้ว เพื่อป้องกันทศนิยมคลาดเคลื่อน
+    return calculateThaiTax(netAmount + vatAmount);
+}
 
 export const formatCurrency = (amount: number | string | null | undefined): string => {
     if (amount === null || amount === undefined || amount === '') {

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { calculateThaiTax } from '../utils';
+import { formatCurrency, calculateThaiTax, calculateVat } from '../utils';
 import type { PurchaseRequisition, PurchaseOrder, PurchaseOrderItem, Supplier } from '../types';
 import { useToast } from '../context/ToastContext';
 
@@ -33,7 +33,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                     quantity: item.quantity,
                     unit: item.unit,
                     unitPrice: item.unitPrice,
-                    totalPrice: item.quantity * item.unitPrice,
+                    totalPrice: calculateThaiTax(item.quantity * item.unitPrice),
                     prId: pr.id,
                     discount: 0
                 });
@@ -68,6 +68,8 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
     const [whtRate, setWhtRate] = useState(3);
     const [whtType, setWhtType] = useState('custom');
     const [customWhtLabel, setCustomWhtLabel] = useState('');
+    const [manualVatAdjustment, setManualVatAdjustment] = useState(0);
+    const [isPriceIncVat, setIsPriceIncVat] = useState(false);
     const [editingCell, setEditingCell] = useState<{ index: number, field: string } | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -106,7 +108,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
             const qty = field === 'quantity' ? value : item.quantity;
             const price = field === 'unitPrice' ? value : item.unitPrice;
             const discount = field === 'discount' ? value : (item.discount || 0);
-            item.totalPrice = (qty * price) - discount;
+            item.totalPrice = calculateThaiTax((qty * price) - discount);
         }
 
         newItems[index] = item;
@@ -121,18 +123,38 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
         setItems(prev => prev.filter((_, i) => i !== index));
     };
 
-    const { subtotal, vatAmount, whtAmount, totalAmount } = useMemo(() => {
-        const sub = items.reduce((sum, item) => sum + item.totalPrice, 0);
-        // Ensure subtotal is also rounded strictly to 2 decimals to be Tax Base
-        const roundedSub = calculateThaiTax(sub);
+    const { subtotal, vatAmount, whtAmount, totalAmount, netAmount } = useMemo(() => {
+        let itemsTotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
+        let roundedItemsTotal = calculateThaiTax(itemsTotal);
 
-        const vat = isVatEnabled ? calculateThaiTax(roundedSub * (vatRate / 100)) : 0;
-        const wht = isWhtEnabled ? calculateThaiTax(roundedSub * (whtRate / 100)) : 0;
-        const total = roundedSub + vat - wht; // Grand Total = Subtotal + VAT - WHT
+        let sub, vat, total;
 
-        // Final total rounded strictly
-        return { subtotal: roundedSub, vatAmount: vat, whtAmount: wht, totalAmount: calculateThaiTax(total) };
-    }, [items, isVatEnabled, vatRate, isWhtEnabled, whtRate]);
+        if (isPriceIncVat) {
+            // If items already include VAT, Total = roundedItemsTotal
+            total = roundedItemsTotal;
+            // Back-calculate subtotal: total / 1.07
+            sub = calculateThaiTax(total / (1 + vatRate / 100));
+            // VAT is the difference
+            vat = calculateThaiTax(total - sub);
+        } else {
+            // Normal calculation
+            sub = roundedItemsTotal;
+            vat = isVatEnabled ? calculateVat(sub, vatRate) : 0;
+            vat = calculateThaiTax(vat + manualVatAdjustment);
+            total = sub + vat;
+        }
+
+        const wht = isWhtEnabled ? calculateVat(sub, whtRate) : 0;
+        const grandTotal = total - wht;
+
+        return {
+            subtotal: sub,
+            vatAmount: vat,
+            whtAmount: wht,
+            totalAmount: calculateThaiTax(grandTotal),
+            netAmount: sub // Net amount for WHT calculation
+        };
+    }, [items, isVatEnabled, vatRate, isWhtEnabled, whtRate, manualVatAdjustment, isPriceIncVat]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -296,7 +318,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                             onClick={() => setEditingCell({ index, field: 'unitPrice' })}
                                                             className="w-full text-right border border-gray-300 rounded p-1 cursor-text bg-white min-h-[32px] flex items-center justify-end"
                                                         >
-                                                            {item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            {formatCurrency(item.unitPrice)}
                                                         </div>
                                                     )}
                                                 </td>
@@ -304,7 +326,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                     <input type="number" value={item.discount || 0} onChange={(e) => handleItemChange(index, 'discount', Number(e.target.value))} className="w-full text-right border rounded p-1" min="0" aria-label="Discount" />
                                                 </td>
                                                 <td className="px-3 py-2 text-right text-sm font-semibold">
-                                                    {item.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    {formatCurrency(item.totalPrice)}
                                                 </td>
                                                 <td className="px-3 py-2 text-center">
                                                     <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-700 font-bold">×</button>
@@ -316,112 +338,147 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                             </div>
                         </div>
 
-                        {/* Totals */}
-                        <div className="flex justify-end">
-                            <div className="w-64 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span>รวมเป็นเงิน</span>
-                                    <span>{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                </div>
-                                {/* Standard VAT */}
+                        {/* Totals Section - Redesigned for Premium Look */}
+                        <div className="flex justify-between items-start pt-4">
+                            <div className="flex items-center gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isPriceIncVat}
+                                        onChange={e => setIsPriceIncVat(e.target.checked)}
+                                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-blue-800">ราคารวมภาษีแล้ว</span>
+                                        <span className="text-[10px] text-blue-600">(Price Includes VAT)</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div className="w-80 space-y-3 bg-gray-50 p-6 rounded-2xl border border-gray-100 relative">
+                                {/* Subtotal */}
                                 <div className="flex justify-between items-center text-sm">
-                                    <label className="flex items-center">
+                                    <span className="text-gray-600 font-medium">รวมเป็นเงิน (Subtotal)</span>
+                                    <span className="font-bold text-gray-800">{formatCurrency(subtotal)}</span>
+                                </div>
+
+                                {/* Standard VAT */}
+                                <div className="flex justify-between items-center text-sm pt-1">
+                                    <div className="flex items-center gap-2">
                                         <input
                                             type="checkbox"
                                             checked={isVatEnabled}
                                             onChange={(e) => setIsVatEnabled(e.target.checked)}
-                                            className="mr-2"
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                             aria-label="Toggle VAT"
                                         />
-                                        <span>ภาษีมูลค่าเพิ่ม (VAT)</span>
+                                        <span className="text-gray-600">ภาษีมูลค่าเพิ่ม (VAT)</span>
                                         {isVatEnabled && (
-                                            <>
+                                            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-2 py-0.5 ml-1">
                                                 <input
                                                     type="number"
                                                     value={vatRate}
                                                     onChange={(e) => setVatRate(Number(e.target.value))}
-                                                    className="w-12 mx-2 border rounded text-center px-1"
+                                                    className="w-8 bg-transparent text-center focus:outline-none font-bold text-blue-600"
                                                     aria-label="VAT Rate"
                                                 />
-                                                <span>%</span>
-                                            </>
+                                                <span className="text-[10px] font-bold text-gray-400">%</span>
+                                            </div>
                                         )}
-                                    </label>
-                                    <span>{isVatEnabled ? vatAmount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}</span>
-                                </div>
-
-                                {/* Withholding Tax (WHT) */}
-                                <div className="mt-2 pt-2 border-t border-dashed">
-                                    <div className="flex justify-between items-start text-sm">
-                                        <div className="flex flex-col w-full">
-                                            <label className="flex items-center mb-1">
+                                    </div>
+                                    <div className="text-right flex flex-col items-end">
+                                        <span className="font-bold text-gray-800">{isVatEnabled ? formatCurrency(vatAmount) : '0.00'}</span>
+                                        {isVatEnabled && (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <span className="text-[10px] text-gray-400">ปรับปรุง:</span>
                                                 <input
-                                                    type="checkbox"
-                                                    checked={isWhtEnabled}
-                                                    onChange={(e) => setIsWhtEnabled(e.target.checked)}
-                                                    className="mr-2"
-                                                    aria-label="Toggle WHT"
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={manualVatAdjustment}
+                                                    onChange={(e) => setManualVatAdjustment(parseFloat(e.target.value) || 0)}
+                                                    className="w-12 text-[10px] border border-gray-200 rounded text-right px-1 bg-white focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                                                    title="Adjustment (+/-)"
                                                 />
-                                                <span className="font-medium">หัก ณ ที่จ่าย (WHT)</span>
-                                            </label>
-
-                                            {isWhtEnabled && (
-                                                <div className="pl-6 space-y-2 mt-1">
-                                                    <select
-                                                        value={whtType}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setWhtType(val);
-                                                            if (val !== 'custom') {
-                                                                setWhtRate(Number(val));
-                                                            }
-                                                        }}
-                                                        className="text-sm border rounded p-1 w-full"
-                                                        aria-label="Select WHT Type"
-                                                    >
-                                                        <option value="custom">กำหนดเอง</option>
-                                                        {TAX_TYPES.map(t => (
-                                                            <option key={t.label} value={t.value}>{t.label}</option>
-                                                        ))}
-                                                    </select>
-
-                                                    <div className="flex items-center">
-                                                        <span className="mr-2 text-sm">อัตรา:</span>
-                                                        <input
-                                                            type="number"
-                                                            value={whtRate}
-                                                            onChange={(e) => {
-                                                                setWhtRate(Number(e.target.value));
-                                                                setWhtType('custom');
-                                                            }}
-                                                            className="w-16 border rounded text-right px-1"
-                                                            step="0.01"
-                                                            aria-label="WHT Rate"
-                                                        />
-                                                        <span className="ml-1 text-sm">%</span>
-                                                    </div>
-
-                                                    {/* Custom WHT Label Input */}
-                                                    {whtType === 'custom' && (
-                                                        <input
-                                                            type="text"
-                                                            placeholder="ระบุชื่อรายการหัก ณ ที่จ่าย"
-                                                            value={customWhtLabel}
-                                                            onChange={e => setCustomWhtLabel(e.target.value)}
-                                                            className="text-sm border rounded p-1 w-full mt-1"
-                                                        />
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                        {isWhtEnabled && (
-                                            <span className="text-red-600 font-medium whitespace-nowrap ml-2">-{whtAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex justify-between font-bold text-lg border-t pt-2">
-                                    <span>ยอดรวมทั้งสิ้น</span>
-                                    <span className="text-blue-600">{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+
+                                {/* Withholding Tax (WHT) */}
+                                <div className="space-y-2 pt-2 border-t border-dashed border-gray-300">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={isWhtEnabled}
+                                                onChange={(e) => setIsWhtEnabled(e.target.checked)}
+                                                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                                                aria-label="Toggle WHT"
+                                            />
+                                            <span className="text-gray-600">หัก ณ ที่จ่าย (WHT)</span>
+                                        </div>
+                                        {isWhtEnabled && (
+                                            <span className="font-bold text-red-600">-{formatCurrency(whtAmount)}</span>
+                                        )}
+                                    </div>
+
+                                    {isWhtEnabled && (
+                                        <div className="pl-6 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={whtType}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setWhtType(val);
+                                                        if (val !== 'custom') {
+                                                            setWhtRate(Number(val));
+                                                        }
+                                                    }}
+                                                    className="text-xs border border-gray-200 rounded p-1.5 flex-1 bg-white"
+                                                    aria-label="Select WHT Type"
+                                                >
+                                                    <option value="custom">กำหนดเอง</option>
+                                                    {TAX_TYPES.map(t => (
+                                                        <option key={t.label} value={t.value}>{t.label}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-2 py-1">
+                                                    <input
+                                                        type="number"
+                                                        value={whtRate}
+                                                        onChange={(e) => {
+                                                            setWhtRate(Number(e.target.value));
+                                                            setWhtType('custom');
+                                                        }}
+                                                        className="w-10 bg-transparent text-center focus:outline-none font-bold text-red-600"
+                                                        step="0.01"
+                                                        aria-label="WHT Rate"
+                                                    />
+                                                    <span className="text-[10px] font-bold text-gray-400">%</span>
+                                                </div>
+                                            </div>
+                                            {whtType === 'custom' && (
+                                                <input
+                                                    type="text"
+                                                    placeholder="ระบุชื่อรายการหัก ณ ที่จ่าย"
+                                                    value={customWhtLabel}
+                                                    onChange={e => setCustomWhtLabel(e.target.value)}
+                                                    className="text-xs border border-gray-200 rounded p-1.5 w-full bg-white ml-2"
+                                                />
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Grand Total */}
+                                <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200 mt-2">
+                                    <span className="text-base font-black text-gray-900">ยอดรวมทั้งสิ้น</span>
+                                    <div className="text-right">
+                                        <div className="text-2xl font-black text-blue-600 tracking-tight leading-none">
+                                            {formatCurrency(totalAmount)}
+                                        </div>
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Baht (บาท)</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -433,7 +490,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                             {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันสร้างใบสั่งซื้อ'}
                         </button>
                     </div>
-                </form>
+                </form >
             </div >
         </div >
     );

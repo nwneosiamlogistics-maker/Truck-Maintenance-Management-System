@@ -111,6 +111,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'บริหารจัดการน้ำมัน',
         subtitle: 'บันทึกการเติมน้ำมันและวิเคราะห์ประสิทธิภาพการใช้เชื้อเพลิง'
     },
+    vehicles: {
+        title: 'จัดการข้อมูลรถ',
+        subtitle: 'ทะเบียนรถ, ยี่ห้อ, และรายละเอียดรถบรรทุก'
+    },
     'driver-management': {
         title: 'จัดการพนักงานขับรถ',
         subtitle: 'ข้อมูลคนขับและประเมินผลการทำงาน'

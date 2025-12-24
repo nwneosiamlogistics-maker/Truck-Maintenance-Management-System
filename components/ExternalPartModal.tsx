@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { PartRequisitionItem, Supplier } from '../types';
 import { useToast } from '../context/ToastContext';
+import { calculateThaiTax, calculateVat, formatCurrency } from '../utils';
 
 type ExternalPart = Omit<PartRequisitionItem, 'partId' | 'source' | 'supplierName' | 'code' | 'purchaseDate'> & { tempId: number };
 
@@ -38,10 +39,17 @@ const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExt
     };
 
     const { subtotal, vatAmount, grandTotal } = useMemo(() => {
-        const sub = parts.reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
-        const vat = isVatEnabled ? sub * (vatRate / 100) : 0;
-        const grand = sub + vat;
-        return { subtotal: sub, vatAmount: vat, grandTotal: grand };
+        // Round each row total to ensure subtotal matches what user sees
+        const sub = parts.reduce((total, part) => {
+            const rowTotal = calculateThaiTax(part.quantity * part.unitPrice);
+            return total + rowTotal;
+        }, 0);
+
+        const roundedSub = calculateThaiTax(sub);
+        const vat = isVatEnabled ? calculateVat(roundedSub, vatRate) : 0;
+        const total = calculateThaiTax(roundedSub + vat);
+
+        return { subtotal: roundedSub, vatAmount: vat, grandTotal: total };
     }, [parts, isVatEnabled, vatRate]);
 
     const handleSubmit = () => {
@@ -146,7 +154,7 @@ const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExt
                                     className="col-span-2 p-2 border rounded-lg text-right"
                                 />
                                 <div className="col-span-1 text-right font-semibold">
-                                    {(part.quantity * part.unitPrice).toLocaleString()}
+                                    {formatCurrency(part.quantity * part.unitPrice)}
                                 </div>
                                 <button onClick={() => handleRemovePart(part.tempId)} aria-label="ลบรายการ" className="col-span-1 text-red-500 text-2xl font-bold hover:text-red-700 text-center">×</button>
                             </div>
@@ -160,7 +168,7 @@ const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExt
                 <div className="p-6 border-t bg-gray-50 space-y-3">
                     <div className="flex justify-between items-center text-lg">
                         <span>ราคารวมอะไหล่</span>
-                        <span className="font-semibold">{subtotal.toLocaleString()} บาท</span>
+                        <span className="font-semibold">{formatCurrency(subtotal)} บาท</span>
                     </div>
                     <div className="flex justify-between items-center text-lg">
                         <div className="flex items-center gap-2">
@@ -176,11 +184,11 @@ const ExternalPartModal: React.FC<ExternalPartModalProps> = ({ onClose, onAddExt
                             />
                             <span>%</span>
                         </div>
-                        <span className="font-semibold">{vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท</span>
+                        <span className="font-semibold">{formatCurrency(vatAmount)} บาท</span>
                     </div>
                     <div className="flex justify-between items-center text-xl font-bold border-t pt-3">
                         <span>ยอดรวมสุทธิ</span>
-                        <span className="text-blue-600">{grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })} บาท</span>
+                        <span className="text-blue-600">{formatCurrency(grandTotal)} บาท</span>
                     </div>
                 </div>
 

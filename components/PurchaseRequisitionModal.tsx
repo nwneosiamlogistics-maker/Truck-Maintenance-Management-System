@@ -4,7 +4,7 @@ import type { PurchaseRequisition, PurchaseRequisitionItem, PurchaseRequisitionS
 import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
 import { useToast } from '../context/ToastContext';
 import ReactDOMServer from 'react-dom/server';
-import { promptForPassword, formatCurrency, calculateThaiTax } from '../utils';
+import { promptForPassword, formatCurrency, calculateThaiTax, calculateVat } from '../utils';
 
 
 // Define temporary item type with a unique rowId for UI management
@@ -216,13 +216,30 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         }
     }, [isOpen, getInitialState, initialRequisition]);
 
+    // ------------------------------------------------------------------
+    // ปรับปรุงส่วนการคำนวณเงิน: ใช้ Helper Function เพื่อความถูกต้องและโค้ดที่สะอาดขึ้น
+    // ------------------------------------------------------------------
     const { subtotal, vatAmount, grandTotal } = useMemo(() => {
         const items = Array.isArray(prData.items) ? prData.items : [];
-        const sub = items.reduce((total: number, item) => total + (item.quantity * item.unitPrice), 0);
-        // Round subtotal to 2 decimals to be a proper Tax Base
+
+        // 1. คำนวณยอดรวมของแต่ละรายการ (Line Item Total) และปัดเศษทันที
+        // เพื่อให้ผลรวมท้ายบิลตรงกับผลรวมในตาราง (Sum of rounded lines)
+        const sub = items.reduce((total: number, item) => {
+            const rawLineTotal = item.quantity * item.unitPrice;
+            const roundedLineTotal = calculateThaiTax(rawLineTotal);
+            return total + roundedLineTotal;
+        }, 0);
+
+        // 2. ยอดรวมก่อนภาษี (Subtotal)
+        // ปัดเศษอีกครั้งเพื่อความมั่นใจ (ป้องกัน Floating Point Drift)
         const roundedSub = calculateThaiTax(sub);
 
-        const vat = isVatEnabled ? calculateThaiTax(roundedSub * (vatRate / 100)) : 0;
+        // 3. คำนวณ VAT (VAT Calculation)
+        // เรียกใช้ฟังก์ชัน calculateVat จาก utils โดยตรง (สะอาดและลดความผิดพลาด)
+        const vat = isVatEnabled ? calculateVat(roundedSub, vatRate) : 0;
+
+        // 4. ยอดรวมสุทธิ (Grand Total)
+        // นำ Subtotal ที่ปัดแล้ว + VAT ที่ปัดแล้ว มารวมกัน
         const grand = calculateThaiTax(roundedSub + vat);
 
         return { subtotal: roundedSub, vatAmount: vat, grandTotal: grand };

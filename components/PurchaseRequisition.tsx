@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTransaction, Supplier } from '../types';
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPasswordAsync, confirmAction, calculateStockStatus } from '../utils';
+import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 
 interface PurchaseRequisitionProps {
     purchaseRequisitions: PurchaseRequisition[];
@@ -329,7 +329,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                     <td className="px-4 py-3"><div className="font-semibold">{pr.prNumber}</div><div className="text-sm text-gray-500">{new Date(pr.createdAt).toLocaleDateString('th-TH')}</div></td>
                                     <td className="px-4 py-3 text-base">{pr.supplier}</td>
                                     <td className="px-4 py-3 text-base">{pr.requesterName}</td>
-                                    <td className="px-4 py-3 text-right text-base font-bold">{pr.totalAmount.toLocaleString()} บาท</td>
+                                    <td className="px-4 py-3 text-right text-base font-bold">{formatCurrency(pr.totalAmount)} บาท</td>
                                     <td className="px-4 py-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(pr.status)}`}>{pr.status}</span></td>
                                     <td className="px-4 py-3 text-center whitespace-nowrap space-x-2">
                                         {renderActions(pr)}
@@ -357,9 +357,9 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                                                 <td className="px-3 py-2 text-sm font-medium">{item.name}</td>
                                                                 <td className="px-3 py-2 text-sm text-right">{item.quantity}</td>
                                                                 <td className="px-3 py-2 text-sm text-center">{item.unit}</td>
-                                                                <td className="px-3 py-2 text-sm text-right">{item.unitPrice.toLocaleString()}</td>
+                                                                <td className="px-3 py-2 text-sm text-right">{formatCurrency(item.unitPrice)}</td>
                                                                 <td className="px-3 py-2 text-sm">{new Date(item.deliveryOrServiceDate).toLocaleDateString('th-TH')}</td>
-                                                                <td className="px-3 py-2 text-sm text-right font-semibold">{(item.quantity * item.unitPrice).toLocaleString()}</td>
+                                                                <td className="px-3 py-2 text-sm text-right font-semibold">{formatCurrency(item.quantity * item.unitPrice)}</td>
                                                             </tr>
                                                         )) : (
                                                             <tr>

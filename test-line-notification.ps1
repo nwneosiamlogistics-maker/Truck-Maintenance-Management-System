@@ -19,7 +19,7 @@ $body = @{
 
 try {
     Write-Host "Sending message..." -ForegroundColor Yellow
-    $response = Invoke-RestMethod -Uri 'http://localhost:3000/line-api/v2/bot/message/broadcast' -Method Post -Headers $headers -Body $body
+    [void](Invoke-RestMethod -Uri 'http://localhost:3000/line-api/v2/bot/message/broadcast' -Method Post -Headers $headers -Body $body)
     
     Write-Host ""
     Write-Host "SUCCESS! Message sent to LINE" -ForegroundColor Green

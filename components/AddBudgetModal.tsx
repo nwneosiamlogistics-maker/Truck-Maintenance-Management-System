@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { MaintenanceBudget, BudgetCategory, BudgetStatus } from '../types';
+import { calculateThaiTax } from '../utils';
 
 interface AddBudgetModalProps {
     onClose: () => void;
@@ -39,9 +40,10 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ onClose, onSave }) => {
         const budget: Omit<MaintenanceBudget, 'id' | 'createdAt' | 'updatedAt'> = {
             ...formData,
             notes: finalNotes,
+            allocatedAmount: calculateThaiTax(formData.allocatedAmount),
             spentAmount: 0,
             committedAmount: 0,
-            availableAmount: formData.allocatedAmount,
+            availableAmount: calculateThaiTax(formData.allocatedAmount),
             status: 'ปกติ' as BudgetStatus
         };
 

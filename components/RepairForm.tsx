@@ -5,7 +5,7 @@ import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
-import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax } from '../utils';
+import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 import TruckModel3D from './TruckModel3D';
 
@@ -282,7 +282,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const laborCost = Number(formData.repairCost) || 0;
         if (formData.isLaborVatEnabled) {
             const rate = Number(formData.laborVatRate) || 0;
-            const calculatedVat = calculateThaiTax(laborCost * (rate / 100));
+            const calculatedVat = calculateVat(laborCost, rate);
             setFormData(prev => ({ ...prev, laborVat: calculatedVat }));
         } else {
             setFormData(prev => ({ ...prev, laborVat: 0 }));
