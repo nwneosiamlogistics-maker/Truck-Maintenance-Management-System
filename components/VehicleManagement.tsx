@@ -223,12 +223,36 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
         return { text: 'ปกติ', className: 'text-green-600' };
     };
 
+    const calculateVehicleAge = (dateString: string | null) => {
+        if (!dateString) return '-';
+        const start = new Date(dateString);
+        const end = new Date();
+
+        let years = end.getFullYear() - start.getFullYear();
+        let months = end.getMonth() - start.getMonth();
+        let days = end.getDate() - start.getDate();
+
+        if (days < 0) {
+            months--;
+        }
+        if (months < 0) {
+            years--;
+            months += 12;
+        }
+
+        if (years < 0) return '-';
+        if (years === 0 && months === 0) return 'น้อยกว่า 1 เดือน';
+
+        return `${years} ปี ${months} เดือน`;
+    };
+
     const handleExportVehicles = () => {
         const exportData = filteredVehicles.map(v => ({
             'ทะเบียน': v.licensePlate,
             'ประเภทรถ': v.vehicleType,
             'ยี่ห้อ': v.make,
             'รุ่น': v.model,
+            'อายุรถ': calculateVehicleAge(v.registrationDate),
             'วันที่จดทะเบียน': v.registrationDate || '-',
             'บริษัทประกัน': v.insuranceCompany || '-',
             'วันหมดอายุประกัน': v.insuranceExpiryDate || '-',
@@ -268,6 +292,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียน</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภท / ยี่ห้อ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อายุรถ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประกันภัย</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">พรบ.</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
@@ -281,6 +306,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                 <tr key={vehicle.id}>
                                     <td className="px-4 py-3 font-semibold">{vehicle.licensePlate}</td>
                                     <td className="px-4 py-3"><div>{vehicle.vehicleType}</div><div className="text-sm text-gray-500">{vehicle.make} {vehicle.model}</div></td>
+                                    <td className="px-4 py-3 text-sm text-gray-700">{calculateVehicleAge(vehicle.registrationDate)}</td>
                                     <td className="px-4 py-3 text-sm">
                                         <div>{vehicle.insuranceCompany || '-'}</div>
                                         <div className={insuranceStatus.className}>{vehicle.insuranceExpiryDate ? new Date(vehicle.insuranceExpiryDate).toLocaleDateString('th-TH') : '-'} ({insuranceStatus.text})</div>
