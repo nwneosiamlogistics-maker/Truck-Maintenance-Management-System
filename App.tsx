@@ -44,6 +44,7 @@ import DriverManagement from './components/DriverManagement';
 import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
 import Login from './components/Login';
 import { sendRepairStatusLineNotification } from './utils/lineService';
+import IncidentLogPage from './components/IncidentLogPage';
 
 
 interface AppContentProps {
@@ -283,6 +284,8 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     cargoClaims={cargoClaims}
                     setCargoClaims={setCargoClaims}
                 />;
+            case 'incident-log':
+                return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:
@@ -315,7 +318,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     vehicles={vehicles}
                     technicians={technicians}
                 />
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 print:p-0">
                     {renderContent()}
                 </main>
             </div>

@@ -49,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="glass sticky top-0 z-20 border-b border-white/20 backdrop-blur-md">
+    <header className="glass sticky top-0 z-20 border-b border-white/20 backdrop-blur-md print:hidden">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
           <div className="flex items-center min-w-0 flex-1">

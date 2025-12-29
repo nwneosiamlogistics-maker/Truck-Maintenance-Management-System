@@ -105,7 +105,7 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
 
             const safetyDeductions = driverIncidents.reduce((sum, i) => {
                 const severityPoints = { low: 5, medium: 15, high: 30, critical: 50 };
-                return sum + (severityPoints[i.severity] || 0);
+                return sum + (i.pointsDeducted ?? severityPoints[i.severity] ?? 0);
             }, 0);
 
             const safetyScore = Math.max(0, 100 - safetyDeductions);
@@ -127,6 +127,9 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
 
             return {
                 ...driver,
+                safetyScore,
+                accidentCount: driverIncidents.filter(i => i.type === 'อุบัติเหตุ').length,
+                violationCount: driverIncidents.filter(i => i.type === 'ฝ่าฝืนกฎจราจร' || i.type === 'การขับขี่เสี่ยง').length,
                 performance: {
                     avgEfficiency,
                     totalDistance,

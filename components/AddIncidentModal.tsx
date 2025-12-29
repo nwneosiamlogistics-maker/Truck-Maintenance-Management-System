@@ -18,11 +18,30 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
         location: '',
         type: 'ฝ่าฝืนกฎจราจร' as DrivingIncident['type'],
         severity: 'medium' as DrivingIncident['severity'],
+        pointsDeducted: 15,
         description: '',
         fineAmount: 0,
-        actionsTaken: ''
+        actionsTaken: '',
+        damageToVehicle: 0,
+        damageToProperty: 0,
+        injuries: ''
     });
     const [customType, setCustomType] = useState('');
+
+    const severityConfig = {
+        low: { label: 'ต่ำ', points: 5, color: 'text-blue-600', bg: 'bg-blue-50' },
+        medium: { label: 'ปานกลาง', points: 15, color: 'text-amber-600', bg: 'bg-amber-50' },
+        high: { label: 'สูง', points: 30, color: 'text-orange-600', bg: 'bg-orange-50' },
+        critical: { label: 'ร้ายแรง', points: 50, color: 'text-red-600', bg: 'bg-red-50' }
+    };
+
+    const handleSeverityChange = (severity: DrivingIncident['severity']) => {
+        setFormData(prev => ({
+            ...prev,
+            severity,
+            pointsDeducted: severityConfig[severity].points
+        }));
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,194 +60,305 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-gray-100 bg-red-50 flex justify-between items-center">
-                    <div>
-                        <h3 className="text-xl font-bold text-slate-800">บันทึกอุบัติเหตุ / การฝ่าฝืน</h3>
-                        <p className="text-sm text-slate-500">บันทึกข้อมูลเพื่อประเมินความปลอดภัย</p>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex justify-center items-center p-4" onClick={onClose}>
+            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-red-100 p-3 rounded-2xl shadow-inner">
+                            <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 14c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black text-slate-800">บันทึกเหตุการณ์ความปลอดภัย</h3>
+                            <p className="text-slate-500 font-medium">ระบุรายละเอียดการฝ่าฝืนหรืออุบัติเหตุ</p>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors text-slate-400 hover:text-slate-600" title="ปิดหน้าต่าง">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button onClick={onClose} className="p-3 hover:bg-white rounded-full transition-all text-slate-400 hover:text-slate-600 hover:rotate-90" title="ปิดหน้าต่าง">
+                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Driver Selection */}
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-2">พนักงานขับรถ *</label>
-                            <select
-                                value={selectedDriverId}
-                                onChange={(e) => {
-                                    setSelectedDriverId(e.target.value);
-                                    // Auto-select primary vehicle if available
-                                    const drv = drivers.find(d => d.id === e.target.value);
-                                    if (drv?.primaryVehicle) {
-                                        const v = vehicles.find(v => v.licensePlate === drv.primaryVehicle);
-                                        if (v) setFormData(prev => ({ ...prev, vehicleId: v.id }));
-                                    }
-                                }}
-                                required
-                                title="เลือกพนักงานขับรถ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
-                                disabled={!!initialDriver}
-                            >
-                                <option value="">เลือกพนักงานขับรถ...</option>
-                                {drivers.map(d => (
-                                    <option key={d.id} value={d.id}>{d.name} ({d.employeeId})</option>
-                                ))}
-                            </select>
+                {/* Form Body - Scrollable */}
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                    {/* Section: Who & When */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-2 text-red-600">
+                            <div className="w-1.5 h-6 bg-red-600 rounded-full"></div>
+                            <h4 className="font-bold uppercase tracking-wider text-sm">ข้อมูลพื้นฐานและเวลา</h4>
                         </div>
 
-                        {/* Incident Details */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">ประเภทเหตุการณ์ *</label>
-                            <select
-                                value={formData.type}
-                                onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                                title="เลือกประเภทเหตุการณ์"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
-                            >
-                                <option value="ฝ่าฝืนกฎจราจร">ฝ่าฝืนกฎจราจร</option>
-                                <option value="อุบัติเหตุ">อุบัติเหตุ</option>
-                                <option value="การขับขี่เสี่ยง">การขับขี่เสี่ยง</option>
-                                <option value="อื่นๆ">อื่นๆ</option>
-                            </select>
-                            {formData.type === 'อื่นๆ' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">พนักงานขับรถ *</label>
+                                <select
+                                    title="พนักงานขับรถ"
+                                    value={selectedDriverId}
+                                    onChange={(e) => {
+                                        setSelectedDriverId(e.target.value);
+                                        const drv = drivers.find(d => d.id === e.target.value);
+                                        if (drv?.primaryVehicle) {
+                                            const v = vehicles.find(v => v.licensePlate === drv.primaryVehicle);
+                                            if (v) setFormData(prev => ({ ...prev, vehicleId: v.id }));
+                                        }
+                                    }}
+                                    required
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all font-medium"
+                                    disabled={!!initialDriver}
+                                >
+                                    <option value="">เลือกพนักงานขับรถ...</option>
+                                    {drivers.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name} ({d.employeeId})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">วันที่เกิดเหตุ *</label>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={formData.date}
+                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                        required
+                                        title="วันที่เกิดเหตุ"
+                                        placeholder="วว/ดด/ปปปป"
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all font-medium"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">เวลาเกิดเหตุ</label>
+                                <input
+                                    type="time"
+                                    title="เวลาที่เกิดเหตุ"
+                                    value={formData.time}
+                                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all font-medium"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Incident Details */}
+                    <div className="space-y-6 pt-6 border-t border-slate-100">
+                        <div className="flex items-center gap-2 text-orange-600">
+                            <div className="w-1.5 h-6 bg-orange-600 rounded-full"></div>
+                            <h4 className="font-bold uppercase tracking-wider text-sm">รายละเอียดเหตุการณ์</h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ประเภทเหตุการณ์ *</label>
+                                <select
+                                    value={formData.type}
+                                    onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                                    title="เลือกประเภทเหตุการณ์"
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none transition-all font-medium"
+                                >
+                                    <option value="ฝ่าฝืนกฎจราจร">🚧 ฝ่าฝืนกฎจราจร</option>
+                                    <option value="อุบัติเหตุ">💥 อุบัติเหตุ</option>
+                                    <option value="การขับขี่เสี่ยง">⚠️ การขับขี่เสี่ยง</option>
+                                    <option value="อื่นๆ">📝 อื่นๆ</option>
+                                </select>
+                                {formData.type === 'อื่นๆ' && (
+                                    <input
+                                        type="text"
+                                        placeholder="ระบุประเภทเหตุการณ์..."
+                                        value={customType}
+                                        onChange={(e) => setCustomType(e.target.value)}
+                                        className="mt-3 w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none transition-all font-medium border-dashed"
+                                        autoFocus
+                                    />
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ระดับความรุนแรง *</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {(Object.keys(severityConfig) as Array<keyof typeof severityConfig>).map((key) => (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            onClick={() => handleSeverityChange(key)}
+                                            className={`py-3 px-2 rounded-xl text-xs font-black transition-all border-2 ${formData.severity === key
+                                                ? `${severityConfig[key].bg} border-slate-800 ${severityConfig[key].color} shadow-md`
+                                                : 'bg-slate-50 border-transparent text-slate-400 grayscale hover:grayscale-0 hover:bg-white hover:border-slate-200'
+                                                }`}
+                                        >
+                                            {severityConfig[key].label}
+                                            <div className="text-[10px] opacity-70 mt-0.5">-{severityConfig[key].points} แต้ม</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ยานพาหนะ</label>
+                                <select
+                                    title="ยานพาหนะ"
+                                    value={formData.vehicleId}
+                                    onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-slate-500/10 outline-none transition-all font-medium"
+                                >
+                                    <option value="">-- ไม่ระบุ / ไม่เกี่ยวข้อง --</option>
+                                    {vehicles.map(v => (
+                                        <option key={v.id} value={v.id}>{v.licensePlate} - {v.vehicleType} ({v.make})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">สถานที่เกิดเหตุ</label>
                                 <input
                                     type="text"
-                                    placeholder="ระบุประเภทเหตุการณ์..."
-                                    value={customType}
-                                    onChange={(e) => setCustomType(e.target.value)}
-                                    className="mt-3 w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                                    title="ระบุประเภทเหตุการณ์เพิ่มเติม"
-                                    autoFocus
+                                    title="สถานที่เกิดเหตุ"
+                                    value={formData.location}
+                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                    placeholder="เช่น ถนนพระราม 2, คลังสินค้า A"
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-slate-500/10 outline-none transition-all font-medium"
                                 />
-                            )}
-                        </div>
+                            </div>
 
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">ระดับความรุนแรง *</label>
-                            <select
-                                value={formData.severity}
-                                onChange={(e) => setFormData({ ...formData, severity: e.target.value as any })}
-                                title="เลือกระดับความรุนแรง"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
-                            >
-                                <option value="low">ต่ำ (ตัด 5 คะแนน)</option>
-                                <option value="medium">ปานกลาง (ตัด 15 คะแนน)</option>
-                                <option value="high">สูง (ตัด 30 คะแนน)</option>
-                                <option value="critical">ร้ายแรง (ตัด 50 คะแนน)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">วันที่ *</label>
-                            <input
-                                type="date"
-                                value={formData.date}
-                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                required
-                                title="วันที่เกิดเหตุ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">เวลา</label>
-                            <input
-                                type="time"
-                                value={formData.time}
-                                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                                title="เวลาที่เกิดเหตุ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                            />
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-2">ยานพาหนะ</label>
-                            <select
-                                value={formData.vehicleId}
-                                onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
-                                title="เลือกยานพาหนะ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                            >
-                                <option value="">ไม่ระบุ / ไม่เกี่ยวข้อง</option>
-                                {vehicles.map(v => (
-                                    <option key={v.id} value={v.id}>{v.licensePlate} - {v.vehicleType}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-2">สถานที่เกิดเหตุ</label>
-                            <input
-                                type="text"
-                                value={formData.location}
-                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                placeholder="ระบุสถานที่..."
-                                title="สถานที่เกิดเหตุ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                            />
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-2">รายละเอียดเหตุการณ์</label>
-                            <textarea
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                required
-                                rows={3}
-                                placeholder="อธิบายสิ่งที่เกิดขึ้น..."
-                                title="รายละเอียดเหตุการณ์"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">ค่าปรับ (บาท)</label>
-                            <input
-                                type="number"
-                                value={formData.fineAmount}
-                                onChange={(e) => setFormData({ ...formData, fineAmount: Number(e.target.value) })}
-                                min="0"
-                                title="จำนวนเงินค่าปรับ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">การดำเนินการลงโทษ</label>
-                            <input
-                                type="text"
-                                value={formData.actionsTaken}
-                                onChange={(e) => setFormData({ ...formData, actionsTaken: e.target.value })}
-                                placeholder="เช่น ตักเตือน, พักงาน"
-                                title="การดำเนินการลงโทษ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                            />
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">รายละเอียดเหตุการณ์ *</label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    required
+                                    rows={4}
+                                    placeholder="อธิบายสิ่งที่เกิดขึ้นโดยละเอียด..."
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-slate-500/10 outline-none transition-all font-medium resize-none"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50"
-                        >
-                            ยกเลิก
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-8 py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-md hover:shadow-lg transition-all"
-                        >
-                            บันทึกข้อมูล
-                        </button>
+                    {/* Section: Consequences & Action */}
+                    <div className="space-y-6 pt-6 border-t border-slate-100">
+                        <div className="flex items-center gap-2 text-blue-600">
+                            <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                            <h4 className="font-bold uppercase tracking-wider text-sm">ผลกระทบและการดำเนินการ</h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ค่าปรับ (บาท)</label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">฿</div>
+                                    <input
+                                        type="number"
+                                        title="จำนวนเงินค่าปรับ"
+                                        value={formData.fineAmount}
+                                        onChange={(e) => setFormData({ ...formData, fineAmount: Number(e.target.value) })}
+                                        min="0"
+                                        className="w-full pl-10 pr-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">คะแนนที่หักจริง</label>
+                                <input
+                                    type="number"
+                                    title="จำนวนคะแนนที่หัก"
+                                    value={formData.pointsDeducted}
+                                    onChange={(e) => setFormData({ ...formData, pointsDeducted: Number(e.target.value) })}
+                                    className="w-full px-5 py-3.5 bg-red-50 border border-red-200 text-red-700 rounded-2xl outline-none font-black text-xl text-center"
+                                    placeholder="0"
+                                />
+                                <p className="text-[10px] text-red-500 mt-1 text-center font-bold">ค่าเริ่มต้นจากระดับความรุนแรง</p>
+                            </div>
+
+                            <div className="md:col-span-1 lg:col-span-1">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">การลงโทษ</label>
+                                <input
+                                    type="text"
+                                    title="การดำเนินการลงโทษ"
+                                    value={formData.actionsTaken}
+                                    onChange={(e) => setFormData({ ...formData, actionsTaken: e.target.value })}
+                                    placeholder="ตักเตือน, พักงาน"
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-medium"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ความเสียหายรถ (บาท)</label>
+                                <input
+                                    type="number"
+                                    title="ความเสียหายต่อตัวรถ"
+                                    value={formData.damageToVehicle}
+                                    onChange={(e) => setFormData({ ...formData, damageToVehicle: Number(e.target.value) })}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-medium"
+                                    placeholder="0"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ความเสียหายทรัพย์สิน</label>
+                                <input
+                                    type="number"
+                                    title="ความเสียหายต่อทรัพย์สิน"
+                                    value={formData.damageToProperty}
+                                    onChange={(e) => setFormData({ ...formData, damageToProperty: Number(e.target.value) })}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-medium"
+                                    placeholder="0"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ผู้บาดเจ็บ</label>
+                                <input
+                                    type="text"
+                                    title="รายละเอียดผู้บาดเจ็บ"
+                                    value={formData.injuries}
+                                    onChange={(e) => setFormData({ ...formData, injuries: e.target.value })}
+                                    placeholder="ถ้ามี"
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-medium"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Evidence Section (Mock) */}
+                    <div className="space-y-4 pt-6 border-t border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-600">
+                            <div className="w-1.5 h-6 bg-slate-600 rounded-full"></div>
+                            <h4 className="font-bold uppercase tracking-wider text-sm">หลักฐานและรูปภาพ</h4>
+                        </div>
+                        <div className="flex flex-wrap gap-4">
+                            <div className="w-32 h-32 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all text-slate-400 hover:text-blue-500 group">
+                                <svg className="w-8 h-8 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span className="text-[10px] font-bold uppercase">เพิ่มรูปภาพ</span>
+                            </div>
+                        </div>
                     </div>
                 </form>
+
+                {/* Footer */}
+                <div className="p-8 border-t border-gray-100 bg-slate-50/50 flex justify-end gap-4 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-8 py-3.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all"
+                    >
+                        ยกเลิก
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={!selectedDriverId}
+                        className="px-12 py-3.5 text-sm font-bold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-2xl hover:from-red-700 hover:to-red-800 shadow-lg shadow-red-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95"
+                    >
+                        บันทึกเหตุการณ์
+                    </button>
+                </div>
             </div>
         </div>
     );

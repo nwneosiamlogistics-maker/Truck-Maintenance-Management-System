@@ -129,6 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         {
             section: 'การจัดการความเสี่ยง', items: [
                 { id: 'warranty-insurance', icon: <Shield size={20} />, label: 'การรับประกันและประกันภัย' },
+                { id: 'incident-log', icon: <AlertTriangle size={20} />, label: 'ประวัติอุบัติเหตุ' },
             ]
         },
         {
@@ -145,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 className={`fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden transition-opacity ${isMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setMobileOpen(false)}
             ></div>
-            <aside className={`fixed top-0 left-0 h-full glass-dark text-slate-100 flex flex-col z-40 transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${isCollapsed ? 'w-[76px]' : 'w-72'} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 shadow-2xl`}>
+            <aside className={`fixed top-0 left-0 h-full glass-dark text-slate-100 flex flex-col z-40 transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${isCollapsed ? 'w-[76px]' : 'w-72'} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 shadow-2xl print:hidden`}>
                 <div className={`flex items-center p-6 border-b border-white/5 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
                     <div className="flex items-center space-x-3 overflow-hidden">
                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0 overflow-hidden">

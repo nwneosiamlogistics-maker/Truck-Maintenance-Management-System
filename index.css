@@ -179,34 +179,6 @@ body {
   animation-delay: 0ms;
 }
 
-.delay-100 {
-  animation-delay: 100ms;
-}
-
-.delay-200 {
-  animation-delay: 200ms;
-}
-
-.delay-300 {
-  animation-delay: 300ms;
-}
-
-.delay-400 {
-  animation-delay: 400ms;
-}
-
-.delay-500 {
-  animation-delay: 500ms;
-}
-
-.delay-600 {
-  animation-delay: 600ms;
-}
-
-.delay-700 {
-  animation-delay: 700ms;
-}
-
 .delay-800 {
   animation-delay: 800ms;
 }
@@ -230,10 +202,29 @@ body {
 }
 
 @media print {
-  .print-page-a4 {
+  @page {
     size: A4;
     margin: 0;
+  }
+
+  .is-printing-detail .print-list-section {
+    display: none !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: white;
+  }
+
+  .print-page-a4 {
+    margin: 0;
+    border: none !important;
+    box-shadow: none !important;
     width: 210mm;
     height: 297mm;
+    overflow: hidden;
+    page-break-after: always;
+    display: flex !important;
   }
 }
