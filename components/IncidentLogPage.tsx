@@ -6,7 +6,7 @@ import {
     Search, Download, FileText, Filter, AlertTriangle,
     TrendingDown, ShieldCheck, DollarSign, Calendar, MapPin,
     User, Truck, Info, Printer, Clock, X, Eye, FileCheck, Camera,
-    Zap
+    Zap, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 interface IncidentLogPageProps {
@@ -21,6 +21,495 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
     const [severityFilter, setSeverityFilter] = useState<'all' | DrivingIncident['severity']>('all');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [selectedIncident, setSelectedIncident] = useState<DrivingIncident | null>(null);
+
+    const handleSelectIncident = (incident: DrivingIncident | null) => {
+        setSelectedIncident(incident);
+    };
+
+    const renderOfficialPage = (pageNumber: number, incident: DrivingIncident) => {
+        const driver = (Array.isArray(drivers) ? drivers : []).find(d => d.id === incident.driverId);
+        const vehicle = (Array.isArray(vehicles) ? vehicles : []).find(v => v.id === incident.vehicleId);
+
+        switch (pageNumber) {
+            case 1:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                                <p className="text-[8px] font-bold text-slate-500">ส่งด่วน ส่งไว แน่นอน</p>
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="text-right italic mb-2 text-[10px]">Report No ................................................................</div>
+                        <div className="text-center mb-8">
+                            <h2 className="text-xl font-bold underline">รายงานการสอบสวนอุบัติเหตุและอุบัติการณ์</h2>
+                            <p className="text-sm">(Incident Investigation Report)</p>
+                        </div>
+                        <div className="space-y-4 mb-8 text-[11px]">
+                            <div className="flex"><span className="w-32 font-bold">ต้นฉบับ (Original) :</span> <span>ผู้จัดการด้านความปลอดภัย (Safety Manager)</span></div>
+                            <div className="flex"><span className="w-32 font-bold">สำเนา (Copy) :</span> <span>หัวหน้าแผนกและหน่วยงานที่เกี่ยวข้อง (Section & Department Heads)</span></div>
+                        </div>
+                        <div className="space-y-6 text-sm">
+                            <div className="flex items-center">
+                                <span className="font-bold">1. วันที่เกิดเหตุ (Date of Incident):</span>
+                                <span className="signature-line text-center">{new Date(incident.date).toLocaleDateString('th-TH')}</span>
+                                <span className="font-bold">เวลา</span>
+                                <span className="signature-line text-center w-24">{incident.time}</span>
+                                <span className="font-bold">น.</span>
+                            </div>
+                            <div className="flex items-center">
+                                <span className="font-bold">หัวข้ออุบัติเหตุ (Incident Title) :</span>
+                                <span className="signature-line flex-[2]">{incident.type}</span>
+                            </div>
+                            <div className="space-y-2">
+                                <p className="font-bold underline uppercase">รายงานเกี่ยวกับ (Report of)</p>
+                                <div className="pl-6 space-y-2">
+                                    <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center"></div> <span>เหตุการณ์เกือบสูญเสีย (Near Miss)</span></div>
+                                    <div className="flex items-center">
+                                        <div className="checkbox-box text-[8px] flex items-center justify-center font-bold">✓</div> <span>อุบัติเหตุ (Accident)</span>
+                                        <div className="flex gap-6 ml-10">
+                                            <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center font-bold">✓</div> ระหว่างการขนส่ง</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="font-bold underline">2. ชื่อผู้ประสบเหตุ (Name of Witness/Person Involved)</p>
+                                <div className="flex">
+                                    <span className="font-bold">พ.ข.ร. ชื่อ:</span>
+                                    <span className="signature-line text-center">{driver?.name || '-'}</span>
+                                    <span className="font-bold">อายุ:</span>
+                                    <span className="signature-line text-center w-20 underline">{(driver as any)?.age || '...'}</span>
+                                    <span className="font-bold">ปี</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 1</span>
+                        </div>
+                    </div>
+                );
+            case 2:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-8">
+                            <div className="space-y-2 text-sm">
+                                <p className="font-bold underline">3. สถานที่เกิดเหตุ (Location)</p>
+                                <p className="signature-line w-full pb-2">{incident.location || 'ไม่ระบุสถานที่ (Location not specified)'}</p>
+                            </div>
+                            <div className="space-y-2">
+                                <p className="font-bold italic text-sm">รูปภาพที่เกิดเหตุ (Site Photos)</p>
+                                <div className="border-2 border-slate-400 aspect-video rounded-3xl overflow-hidden bg-slate-50 flex items-center justify-center">
+                                    {incident.photos && incident.photos[0] ? (
+                                        <img src={incident.photos[0].url} className="w-full h-full object-contain" alt="Site" />
+                                    ) : (
+                                        <div className="text-slate-300 font-bold italic">Photo Area</div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="font-bold underline text-sm">4. รายละเอียดเหตุการณ์ (Description of Incident)</p>
+                                <div className="min-h-[250px] p-6 border-2 border-slate-900 rounded-2xl whitespace-pre-wrap leading-relaxed text-[11pt]">
+                                    {incident.description || 'ไม่มีรายละเอียดเหตุการณ์ระบุไว้ (No incident description provided)'}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 2</span>
+                        </div>
+                    </div>
+                );
+            case 3:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-10 text-sm">
+                            <div className="space-y-4">
+                                <p className="font-bold underline">5. การแก้ไขเบื้องต้น (Immediate Actions Taken)</p>
+                                <div className="p-6 border-2 border-slate-900 rounded-2xl min-h-[150px] whitespace-pre-wrap">
+                                    {incident.actionsTaken}
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <p className="font-bold underline">5.1 การติดต่อผู้เกี่ยวข้อง (Notification Log)</p>
+                                <div className="pl-6 space-y-3">
+                                    <div className="flex items-center"><div className="checkbox-box font-bold">✓</div> ผู้บังคับบัญชา (Line Management)</div>
+                                    <div className="flex items-center"><div className="checkbox-box font-bold">✓</div> ประกันภัย (Insurance): {incident.insuranceProvider || '-'}</div>
+                                    <div className="flex items-center"><div className="checkbox-box"></div> อื่นๆ (Others) ................................................................</div>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <p className="font-bold underline">5.2 หลักฐาน (Evidences)</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {incident.photos?.slice(1, 3).map((p: any, idx: number) => (
+                                        <div key={idx} className="border border-slate-300 aspect-square rounded-xl overflow-hidden bg-slate-100">
+                                            <img src={p.url} className="w-full h-full object-cover" alt="Evidence" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 3</span>
+                        </div>
+                    </div>
+                );
+            case 4:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-8 text-sm">
+                            <div className="space-y-4">
+                                <p className="font-bold underline">6. ตรวจหาการใช้ยาเสพติด (Drug & Alcohol Test)</p>
+                                <div className="pl-6 space-y-4">
+                                    <div className="flex items-center gap-10">
+                                        <div className="flex items-center"><div className="checkbox-box font-bold text-xs">✓</div> ตรวจแอลกอฮอล์ (Alcohol Test)</div>
+                                        <div className="flex items-center">ผล: <div className="checkbox-box ml-4"></div> พบ <div className="checkbox-box ml-4 font-bold text-xs">✓</div> ไม่พบ</div>
+                                    </div>
+                                    <div className="flex items-center gap-10">
+                                        <div className="flex items-center"><div className="checkbox-box font-bold text-xs">✓</div> ตรวจสารเสพติด (Drug Test)</div>
+                                        <div className="flex items-center">ผล: <div className="checkbox-box ml-4"></div> พบ <div className="checkbox-box ml-4 font-bold text-xs">✓</div> ไม่พบ</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-4 pt-4">
+                                <p className="font-bold underline">7. รายการบาดเจ็บพนักงาน (Injured Service Personnel)</p>
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-100">
+                                            <th className="p-2 border">ลำดับ</th>
+                                            <th className="p-2 border">ชื่อ - นามสกุล</th>
+                                            <th className="p-2 border">อายุ</th>
+                                            <th className="p-2 border">ตำแหน่ง</th>
+                                            <th className="p-2 border">อาการบาดเจ็บ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr className="h-10">
+                                            <td className="text-center border">1</td>
+                                            <td className="px-2 border">{driver?.name || '-'}</td>
+                                            <td className="text-center border underline underline-offset-4">{(driver as any)?.age || '-'}</td>
+                                            <td className="text-center border">พนักงานขับรถ</td>
+                                            <td className="px-2 border">{incident.injuries || 'ไม่มี'}</td>
+                                        </tr>
+                                        {[2, 3, 4, 5].map(n => (
+                                            <tr key={n} className="h-10">
+                                                <td className="text-center border">{n}</td><td className="border"></td><td className="border"></td><td className="border"></td><td className="border"></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 4</span>
+                        </div>
+                    </div>
+                );
+            case 5:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-12 text-sm">
+                            <div className="space-y-4">
+                                <p className="font-bold underline">8. ทรัพย์สินเสียหาย (Damages Summary)</p>
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-slate-50">
+                                            <th className="p-4 border">รายการความเสียหาย</th>
+                                            <th className="p-4 border">เจ้าของ</th>
+                                            <th className="p-4 border">มูลค่าประเมิน (บาท)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td className="p-4 border">ความเสียหายยานพาหนะบริษัท</td>
+                                            <td className="p-4 text-center border">บริษัทฯ</td>
+                                            <td className="p-4 text-right border">฿{(incident.damageToVehicle || 0).toLocaleString()}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-4 border">ความเสียหายทรัพย์สินบุคคลที่ 3</td>
+                                            <td className="p-4 text-center border">คู่กรณี</td>
+                                            <td className="p-4 text-right border">฿{(incident.damageToProperty || 0).toLocaleString()}</td>
+                                        </tr>
+                                        <tr className="font-black bg-slate-50">
+                                            <td className="p-4 border" colSpan={2}>ยอดประเมินความเสียหายรวม</td>
+                                            <td className="p-4 text-right border underline underline-offset-4">฿{((incident.damageToVehicle || 0) + (incident.damageToProperty || 0)).toLocaleString()}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="space-y-4 pt-6">
+                                <p className="font-bold underline">📍 ผลตรวจสอบบทลงโทษ (Disciplinary Action Outcome)</p>
+                                <div className="p-8 border-2 border-red-600 rounded-3xl bg-red-50/50 space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-lg font-bold">หักคะแนนพฤติกรรม (Driver Deductions):</span>
+                                        <span className="text-3xl font-black text-red-600">-{incident.pointsDeducted} แต้ม</span>
+                                    </div>
+                                    <p className="text-sm text-slate-500 italic">* อ้างอิงตามระเบียบบริษัท หมวดความปลอดภัยในการใช้รถและถนน</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 5</span>
+                        </div>
+                    </div>
+                );
+            case 6:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <h2 className="text-base font-bold">14. การวิเคราะห์สาเหตุเชิงลึก (Root Cause Analysis - RCA)</h2>
+                            <div className="grid grid-cols-1 gap-4 text-[9pt] font-black">
+                                <div className="border border-black p-4 space-y-1">
+                                    <p className="underline mb-2">14.1 ปัจจัยด้านบุคลากร (Personal Factors)</p>
+                                    <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center font-bold">✓</div> ขาดทักษะ/ความรู้ไม่เพียงพอ (Lack of Skill/Knowledge)</div>
+                                    <div className="flex items-center"><div className="checkbox-box"></div> ฝ่าฝืนกฎ (Violation of Policy)</div>
+                                    <div className="flex items-center"><div className="checkbox-box"></div> ความล้า (Fatigue)</div>
+                                </div>
+                                <div className="border border-black p-4 space-y-1">
+                                    <p className="underline mb-2">14.2 ปัจจัยด้านเส้นทาง (Route/Road Conditions)</p>
+                                    <div className="flex items-center"><div className="checkbox-box font-bold">✓</div> ขาดการประเมินความเสี่ยงเส้นทาง (Lack of Risk Assessment)</div>
+                                    <div className="flex items-center"><div className="checkbox-box"></div> จุดเสี่ยงไม่ได้รับการแจ้งเตือน (Hazard not communicated)</div>
+                                </div>
+                                <div className="border border-black p-4 space-y-1">
+                                    <p className="underline mb-2">14.3 ปัจจัยด้านยานพาหนะ (Vehicle Factors)</p>
+                                    <div className="flex items-center"><div className="checkbox-box"></div> ขาดการตรวจความสม่ำเสมอ (Lack of maintenance)</div>
+                                    <div className="flex items-center"><div className="checkbox-box"></div> อุปกรณ์ขัดข้อง (Mechanical failure)</div>
+                                </div>
+                                <div className="border border-black p-4 space-y-1">
+                                    <p className="underline mb-2">14.4 ปัจจัยด้านสภาพแวดล้อม (Environmental Factors)</p>
+                                    <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center font-bold">✓</div> ทัศนวิสัยไม่ดี/ฝนตก (Bad visibility/Rain)</div>
+                                    <div className="flex items-center"><div className="checkbox-box"></div> แสงสว่างไม่เพียงพอ (Poor lighting)</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 6</span>
+                        </div>
+                    </div>
+                );
+            case 7:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-6">
+                            <h2 className="text-base font-black underline">15. มาตรการป้องกันการเกิดซ้ำ (Preventive Action Plan)</h2>
+                            <table className="w-full text-[8pt]">
+                                <thead>
+                                    <tr className="bg-slate-100">
+                                        <th className="p-3 w-1/2 border">มาตรการแก้ไขและป้องกัน (Action Item)</th>
+                                        <th className="p-3 border">ผู้รับผิดชอบ</th>
+                                        <th className="p-3 border">กำหนดเสร็จ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className="h-14">
+                                        <td className="p-3 border">อบรมพฤติกรรมการขับขี่อย่างปลอดภัย (Defensive Driving Refresh)</td>
+                                        <td className="p-3 border text-center">Fleet Manager</td>
+                                        <td className="p-3 border text-center">ถัดไป 7 วัน</td>
+                                    </tr>
+                                    {[1, 2, 3, 4].map(i => <tr key={i} className="h-14"><td className="border"></td><td className="border"></td><td className="border"></td></tr>)}
+                                </tbody>
+                            </table>
+                            <h2 className="text-base font-black underline pt-4">17. รายชื่อทีมบุคลากรที่ร่วมสอบสวน (Investigation Team)</h2>
+                            <table className="w-full text-[8pt]">
+                                <thead>
+                                    <tr className="bg-slate-100">
+                                        <th className="p-2 border">ชื่อ</th>
+                                        <th className="p-2 border">ตำแหน่ง</th>
+                                        <th className="p-2 border">ลายเซ็นต์</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className="h-10"><td className="border">1. .....................................</td><td className="border">FLEET MANAGER</td><td className="border"></td></tr>
+                                    <tr className="h-10"><td className="border">2. .....................................</td><td className="border">SAFETY OFFICER</td><td className="border"></td></tr>
+                                    <tr className="h-10"><td className="border">3. .....................................</td><td className="border">DRIVER</td><td className="border"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 7</span>
+                        </div>
+                    </div>
+                );
+            case 8:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-12">
+                            <div className="space-y-4">
+                                <h2 className="text-base font-black underline">18. ความคิดเห็นของผู้บริหาร (Management Review)</h2>
+                                <div className="p-6 border-2 border-slate-900 min-h-[150px] rounded-2xl italic text-slate-400">
+                                    Comment Area...
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-20 pt-10">
+                                <div className="text-center space-y-20">
+                                    <p className="signature-line w-full"></p>
+                                    <p className="font-bold underline uppercase text-xs">Reviewer / Manager</p>
+                                </div>
+                                <div className="text-center space-y-20">
+                                    <p className="signature-line w-full"></p>
+                                    <p className="font-bold underline uppercase text-xs">Safety Manager</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 8</span>
+                        </div>
+                    </div>
+                );
+            case 9:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-8">
+                            <div className="grid grid-cols-3 gap-4 font-black text-[8pt]">
+                                <div className="border border-black p-2"><p className="underline mb-1">สภาพถนน</p><div className="checkbox-box text-[6px] mb-1 font-bold">✓</div> เรียบ<br /><div className="checkbox-box text-[6px] mb-1"></div> ขรุขระ</div>
+                                <div className="border border-black p-2"><p className="underline mb-1">แสงสว่าง</p><div className="checkbox-box text-[6px] mb-1 font-bold">✓</div> กลางวัน<br /><div className="checkbox-box text-[6px] mb-1"></div> กลางคืน</div>
+                                <div className="border border-black p-2"><p className="underline mb-1">ทัศนวิสัย</p><div className="checkbox-box text-[6px] mb-1 font-bold">✓</div> ชัดเจน<br /><div className="checkbox-box text-[6px] mb-1"></div> มีหมอก/ฝน</div>
+                            </div>
+                            <div className="pt-6">
+                                <p className="font-black underline text-center mb-8 uppercase text-sm">การวิเคราะห์หาสาเหตุเชิงลึก (WHY-WHY Analysis)</p>
+                                <div className="why-why-tree">
+                                    <div className="why-header">อุบัติเหตุที่เกิด</div>
+                                    <div className="w-10 border-t-2 border-slate-900"></div>
+                                    <div className="why-box">Why 1</div>
+                                    <div className="w-10 border-t-2 border-slate-900"></div>
+                                    <div className="why-box">Why 2</div>
+                                    <div className="w-10 border-t-2 border-slate-900"></div>
+                                    <div className="why-box">Why 3 (Root)</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 9</span>
+                        </div>
+                    </div>
+                );
+            case 10:
+                return (
+                    <div className="official-report-page shadow-xl mx-auto">
+                        <div className="report-header-grid">
+                            <div className="header-box header-box-l">
+                                <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
+                                <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
+                            </div>
+                            <div className="header-box flex items-center justify-center p-4">
+                                <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
+                            </div>
+                        </div>
+                        <div className="space-y-12">
+                            <p className="font-black text-center underline uppercase text-sm">การสืบสวนตามรูปแบบ SCAT (Systematic Cause Analysis Technique)</p>
+                            <div className="flex justify-between items-center px-4">
+                                {['Loss', 'Incident', 'Immediate Causes', 'Basic Causes', 'Control'].map((lbl, idx) => (
+                                    <div key={idx} className="flex flex-col items-center gap-2">
+                                        <div className="scat-column font-bold">{lbl}</div>
+                                        {idx < 4 && <div className="text-xl font-black">➔</div>}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-2 gap-20 pt-20">
+                                <div className="text-center space-y-16">
+                                    <p className="signature-line w-full"></p>
+                                    <p className="font-black text-[10px] uppercase underline">พนักงานขับรถ (DRIVER)</p>
+                                </div>
+                                <div className="text-center space-y-16">
+                                    <p className="signature-line w-full"></p>
+                                    <p className="font-black text-[10px] uppercase underline">ผู้ตรวจสอบ (FLEET MANAGER)</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-10 left-15 right-15 footer-maroon">
+                            <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
+                            <span>หน้า 10</span>
+                        </div>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
 
     // Filter Logic
     const filteredIncidents = useMemo(() => {
@@ -396,6 +885,7 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         }}
                         className="p-4 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
                         title="Clear Filters"
+                        aria-label="Clear Filters"
                     >
                         <Filter size={20} />
                     </button>
@@ -481,9 +971,10 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                                             <td className="p-6 print:hidden">
                                                 <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
-                                                        onClick={() => setSelectedIncident(incident)}
+                                                        onClick={() => handleSelectIncident(incident)}
                                                         className="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all shadow-sm"
                                                         title="View Details"
+                                                        aria-label="View Details"
                                                     >
                                                         <Eye size={16} />
                                                     </button>
@@ -523,76 +1014,27 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                                 </div>
                                 <h3 className="text-xl font-black text-slate-800">รายละเอียดเหตุการณ์</h3>
                             </div>
-                            <button onClick={() => setSelectedIncident(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="Close">
+                            <button onClick={() => setSelectedIncident(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="Close" aria-label="Close">
                                 <X size={24} className="text-slate-400" />
                             </button>
                         </div>
 
-                        <div className="p-8 space-y-8 bg-slate-100/50 official-report-preview-container">
-                            {/* Page 1 Preview exactly as Print */}
-                            <div className="official-report-page shadow-xl mx-auto">
-                                <div className="report-header-grid">
-                                    <div className="header-box header-box-l">
-                                        <p className="text-[10px] font-black leading-tight mb-2">บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</p>
-                                        <img src="/logo.png" className="h-10 object-contain mb-1" alt="Neo Logo" />
-                                        <p className="text-[8px] font-bold text-slate-500">ส่งด่วน ส่งไว แน่นอน</p>
-                                    </div>
-                                    <div className="header-box flex items-center justify-center p-4">
-                                        <p className="text-[14px] font-black text-blue-900 text-center leading-snug">Incident Report, Investigation And Analysis</p>
-                                    </div>
-                                </div>
-                                <div className="text-right italic mb-2">Report No ................................................................</div>
-                                <div className="text-center mb-10">
-                                    <h2 className="text-xl font-bold underline">รายงานการสอบสวนอุบัติเหตุและอุบัติการณ์</h2>
-                                    <p className="text-sm">(Incident Investigation Report)</p>
-                                </div>
-                                <div className="space-y-4 mb-8 text-[11px]">
-                                    <div className="flex"><span className="w-32 font-bold">ต้นฉบับ (Original) :</span> <span>ผู้จัดการด้านความปลอดภัย (Safety Manager)</span></div>
-                                    <div className="flex"><span className="w-32 font-bold">สำเนา (Copy) :</span> <span>หัวหน้าแผนกและหน่วยงานที่เกี่ยวข้อง (Section & Department Heads)</span></div>
-                                </div>
-                                <div className="space-y-6 text-sm">
-                                    <div className="flex items-center">
-                                        <span className="font-bold">1. วันที่เกิดเหตุ (Date of Incident):</span>
-                                        <span className="signature-line text-center">{new Date(selectedIncident.date).toLocaleDateString('th-TH')}</span>
-                                        <span className="font-bold">เวลา</span>
-                                        <span className="signature-line text-center w-24">{selectedIncident.time}</span>
-                                        <span className="font-bold">น.</span>
-                                    </div>
-                                    <div className="flex items-center">
-                                        <span className="font-bold">หัวข้ออุบัติเหตุ (Incident Title) :</span>
-                                        <span className="signature-line flex-[2]">{selectedIncident.type}</span>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <p className="font-bold underline uppercase">รายงานเกี่ยวกับ (Report of)</p>
-                                        <div className="pl-6 space-y-2">
-                                            <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center"></div> <span>เหตุการณ์เกือบสูญเสีย (Near Miss)</span></div>
-                                            <div className="flex items-center">
-                                                <div className="checkbox-box text-[8px] flex items-center justify-center font-bold">✓</div> <span>อุบัติเหตุ (Accident)</span>
-                                                <div className="flex gap-6 ml-10">
-                                                    <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center"></div> พื้นที่บริษัทฯ</div>
-                                                    <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center"></div> พื้นที่ลูกค้า</div>
-                                                    <div className="flex items-center"><div className="checkbox-box text-[8px] flex items-center justify-center font-bold">✓</div> ระหว่างการขนส่ง</div>
-                                                </div>
-                                            </div>
+                        <div className="p-8 space-y-6 bg-slate-100/50 official-report-preview-container">
+                            {/* Navigation Bar Removed - Now continuous scroll */}
+
+                            {/* Page Preview (All 10 Pages) */}
+                            <div className="space-y-8">
+                                {[...Array(10)].map((_, i) => (
+                                    <div key={i + 1} className="transition-all hover:shadow-2xl duration-300">
+                                        <div className="flex items-center gap-2 mb-2 ml-2">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white/80 backdrop-blur px-2 py-1 rounded-lg">Page {i + 1} of 10</span>
                                         </div>
+                                        {renderOfficialPage(i + 1, selectedIncident)}
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="font-bold underline">2. ชื่อผู้ประสบเหตุ (Name of Witness/Person Involved)</p>
-                                        <div className="flex">
-                                            <span className="font-bold">พ.ข.ร. ชื่อ:</span>
-                                            <span className="signature-line text-center">{(Array.isArray(drivers) ? drivers : []).find(d => d.id === selectedIncident.driverId)?.name || '-'}</span>
-                                            <span className="font-bold">อายุ:</span>
-                                            <span className="signature-line text-center w-20 underline">{(drivers.find(d => d.id === selectedIncident.driverId) as any)?.age || '...'}</span>
-                                            <span className="font-bold">ปี</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="absolute bottom-10 left-15 right-15 footer-maroon">
-                                    <span>บริษัท นีโอสยาม โลจิสติกส์ แอนด์ ทรานสปอร์ต จำกัด</span>
-                                    <span>หน้า 1</span>
-                                </div>
+                                ))}
                             </div>
-                            <p className="text-center text-slate-400 text-xs mt-4 italic">* นี่คือตัวอย่างรูปแบบรายงานทางการ คุณสามารถกดพิมพ์เพื่อดูทั้ง 10 หน้าได้</p>
+
+                            <p className="text-center text-slate-400 text-[10px] sm:text-xs italic">* คุณสามารถเลื่อนดูได้ทั้ง 10 หน้า เพื่อตรวจสอบความถูกต้องก่อนสั่งพิมพ์เป็น PDF</p>
                         </div>
 
                         <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 print:hidden">
