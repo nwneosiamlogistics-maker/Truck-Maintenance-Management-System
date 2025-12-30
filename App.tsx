@@ -87,17 +87,12 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
 
     // Daily Maintenance Check
     React.useEffect(() => {
-        const checkMaintenance = () => {
+        // Debounce to allow data to load from localStorage first
+        const timer = setTimeout(() => {
             checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
-        };
+        }, 5000);
 
-        // Check immediate on load
-        checkMaintenance();
-
-        // Optional: Check every minute to catch 08:30 if app is left open
-        const interval = setInterval(checkMaintenance, 60000);
-        return () => clearInterval(interval);
-
+        return () => clearTimeout(timer);
     }, [maintenancePlans, repairs, vehicles]);
 
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
