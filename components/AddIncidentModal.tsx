@@ -83,7 +83,7 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
                 </div>
 
                 {/* Form Body - Scrollable */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                <form id="add-incident-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
                     {/* Section: Who & When */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-2 text-red-600">
@@ -353,6 +353,7 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
                     </button>
                     <button
                         type="submit"
+                        form="add-incident-form"
                         disabled={!selectedDriverId}
                         className="px-12 py-3.5 text-sm font-bold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-2xl hover:from-red-700 hover:to-red-800 shadow-lg shadow-red-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95"
                     >

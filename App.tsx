@@ -44,7 +44,7 @@ import DriverManagement from './components/DriverManagement';
 import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
 import Login from './components/Login';
 // import { sendRepairStatusLineNotification } from './utils/lineService';
-import { sendRepairStatusTelegramNotification } from './utils/telegramService';
+import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary } from './utils/telegramService';
 import IncidentLogPage from './components/IncidentLogPage';
 
 
@@ -84,6 +84,21 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
         tools, setTools, toolTransactions, setToolTransactions, cargoPolicies, setCargoPolicies,
         cargoClaims, setCargoClaims, unreadNotificationCount
     } = useAdmin();
+
+    // Daily Maintenance Check
+    React.useEffect(() => {
+        const checkMaintenance = () => {
+            checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
+        };
+
+        // Check immediate on load
+        checkMaintenance();
+
+        // Optional: Check every minute to catch 08:30 if app is left open
+        const interval = setInterval(checkMaintenance, 60000);
+        return () => clearInterval(interval);
+
+    }, [maintenancePlans, repairs, vehicles]);
 
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
         const newRepair = addRepairLogic(newRepairData);
