@@ -44,7 +44,7 @@ import DriverManagement from './components/DriverManagement';
 import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
 import Login from './components/Login';
 // import { sendRepairStatusLineNotification } from './utils/lineService';
-import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary } from './utils/telegramService';
+import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus } from './utils/telegramService';
 import IncidentLogPage from './components/IncidentLogPage';
 
 
@@ -85,11 +85,12 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
         cargoClaims, setCargoClaims, unreadNotificationCount
     } = useAdmin();
 
-    // Daily Maintenance Check
+    // Daily Maintenance & Repair Status Check
     React.useEffect(() => {
         // Debounce to allow data to load from localStorage first
         const timer = setTimeout(() => {
             checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
+            checkAndSendDailyRepairStatus(repairs);
         }, 5000);
 
         return () => clearTimeout(timer);
