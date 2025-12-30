@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
           target: 'https://api.line.me',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/line-api/, '')
+        },
+        '/telegram-api': {
+          target: 'https://api.telegram.org',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/telegram-api/, '')
         }
       },
     },

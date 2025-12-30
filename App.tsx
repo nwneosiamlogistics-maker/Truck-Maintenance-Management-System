@@ -43,7 +43,8 @@ import FuelManagement from './components/FuelManagement';
 import DriverManagement from './components/DriverManagement';
 import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
 import Login from './components/Login';
-import { sendRepairStatusLineNotification } from './utils/lineService';
+// import { sendRepairStatusLineNotification } from './utils/lineService';
+import { sendRepairStatusTelegramNotification } from './utils/telegramService';
 import IncidentLogPage from './components/IncidentLogPage';
 
 
@@ -87,7 +88,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
         const newRepair = addRepairLogic(newRepairData);
         if (newRepair) {
-            sendRepairStatusLineNotification(newRepair, 'สร้างใบแจ้งซ่อม', newRepair.status);
+            sendRepairStatusTelegramNotification(newRepair, 'สร้างใบแจ้งซ่อม', newRepair.status);
         }
         setActiveTab('list');
     };

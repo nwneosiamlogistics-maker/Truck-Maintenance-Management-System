@@ -8,7 +8,8 @@ import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, formatDateTime24h } from '../utils';
 import { Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
-import { sendRepairStatusLineNotification } from '../utils/lineService';
+// // import { sendRepairStatusLineNotification } from '../utils/lineService';
+import { sendRepairStatusTelegramNotification } from '../utils/telegramService';
 
 interface RepairListProps {
     repairs: Repair[];
@@ -181,8 +182,8 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             }
         }
 
-        // Send LINE Notification
-        sendRepairStatusLineNotification(repair, repair.status, newStatus);
+        // Send Telegram Notification
+        sendRepairStatusTelegramNotification(repair, repair.status, newStatus);
     }
 
     const getStatusBadge = (status: RepairStatus) => {
