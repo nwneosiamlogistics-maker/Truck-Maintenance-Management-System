@@ -254,12 +254,20 @@ export const checkBotStatus = async (): Promise<{ ok: boolean; message: string }
         console.log('[Telegram-Check] Checking Bot Token with getMe...');
 
         const botResponse = await fetch(getMeUrl);
-        if (!botResponse.ok) {
-            const err = await botResponse.json();
-            return { ok: false, message: `Bot Token ไม่ถูกต้อง หรือหมดอายุ: ${err.description || 'Unknown Error'}` };
+        const botRawText = await botResponse.text();
+
+        let botData;
+        try {
+            botData = JSON.parse(botRawText);
+        } catch (e) {
+            console.error('[Telegram-Check] Failed to parse getMe JSON. Raw content:', botRawText.substring(0, 500));
+            return { ok: false, message: `Server ตอบกลับมาไม่ใช่ JSON (คาดว่าเป็นหน้าเว็บ Error): ${botRawText.substring(0, 50).replace(/[<]/g, '')}...` };
         }
 
-        const botData = await botResponse.json();
+        if (!botResponse.ok) {
+            return { ok: false, message: `Bot Token ไม่ถูกต้อง หรือหมดอายุ: ${botData.description || 'Unknown Error'}` };
+        }
+
         console.log(`[Telegram-Check] Bot is active: @${botData.result.username}`);
 
         // 2. ตรวจสอบ Chat ID (getChat)
@@ -267,12 +275,20 @@ export const checkBotStatus = async (): Promise<{ ok: boolean; message: string }
         console.log('[Telegram-Check] Checking Chat ID with getChat...');
 
         const chatResponse = await fetch(getChatUrl);
-        if (!chatResponse.ok) {
-            const err = await chatResponse.json();
-            return { ok: false, message: `Chat ID (${TELEGRAM_CHAT_ID}) ไม่ถูกต้อง หรือ Bot ไม่ได้อยู่ในกลุ่มนี้: ${err.description || 'Unknown Error'}` };
+        const chatRawText = await chatResponse.text();
+
+        let chatData;
+        try {
+            chatData = JSON.parse(chatRawText);
+        } catch (e) {
+            console.error('[Telegram-Check] Failed to parse getChat JSON. Raw content:', chatRawText.substring(0, 500));
+            return { ok: false, message: `Server ตอบกลับมาไม่ใช่ JSON ในช่วงตรวจ Chat ID` };
         }
 
-        const chatData = await chatResponse.json();
+        if (!chatResponse.ok) {
+            return { ok: false, message: `Chat ID (${TELEGRAM_CHAT_ID}) ไม่ถูกต้อง หรือ Bot ไม่ได้อยู่ในกลุ่มนี้: ${chatData.description || 'Unknown Error'}` };
+        }
+
         const chatTitle = chatData.result.title || chatData.result.first_name || 'Private Chat';
 
         return {
@@ -282,6 +298,6 @@ export const checkBotStatus = async (): Promise<{ ok: boolean; message: string }
 
     } catch (error) {
         console.error('[Telegram-Check] Connection Error:', error);
-        return { ok: false, message: `ไม่สามารถเชื่อมต่อกับ Telegram API ได้ (Network/Proxy Error): ${error instanceof Error ? error.message : 'Unknown'}` };
+        return { ok: false, message: `ไม่สามารถเชื่อมต่อกับ Proxy Server ได้: ${error instanceof Error ? error.message : 'Unknown'}` };
     }
 };

@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
         '/telegram-api': {
           target: 'https://api.telegram.org',
           changeOrigin: true,
+          secure: false,
           rewrite: (path) => path.replace(/^\/telegram-api/, '')
         }
       },
