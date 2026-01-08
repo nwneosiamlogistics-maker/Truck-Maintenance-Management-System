@@ -82,11 +82,17 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
     }, [statusFilter, searchTerm, itemsPerPage]);
 
     const handleSaveRepair = (updatedRepair: Repair) => {
+        const originalRepair = repairs.find(r => r.id === updatedRepair.id);
+
         setRepairs(prev => prev.map(r => r.id === updatedRepair.id ? { ...updatedRepair, updatedAt: new Date().toISOString() } : r));
         setEditingRepair(null);
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
 
-        const originalRepair = repairs.find(r => r.id === updatedRepair.id);
+        // 🔥 Intensive Update: Send Telegram if status changed via Modal
+        if (originalRepair && originalRepair.status !== updatedRepair.status) {
+            sendRepairStatusTelegramNotification(originalRepair, originalRepair.status, updatedRepair.status);
+        }
+
         if (originalRepair?.status !== 'ซ่อมเสร็จ' && updatedRepair.status === 'ซ่อมเสร็จ') {
             const hasParts = updatedRepair.parts && updatedRepair.parts.length > 0;
             const hasLoggedUsedParts = (Array.isArray(usedParts) ? usedParts : []).some(up => up.fromRepairId === updatedRepair.id);

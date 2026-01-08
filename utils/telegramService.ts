@@ -157,7 +157,7 @@ export const checkAndSendDailyMaintenanceSummary = async (plans: MaintenancePlan
 };
 
 // --- Daily Repair Status Summary Logic (18:30) ---
-export const checkAndSendDailyRepairStatus = async (repairs: Repair[]) => {
+export const checkAndSendDailyRepairStatus = async (repairs: Repair[], technicians: any[]) => {
     const NOW = new Date();
     // 18:30 PM
     if (NOW.getHours() < 18 || (NOW.getHours() === 18 && NOW.getMinutes() < 30)) return;
@@ -171,39 +171,42 @@ export const checkAndSendDailyRepairStatus = async (repairs: Repair[]) => {
         return;
     }
 
-    console.log('[Telegram-Status] Preparing daily repair status summary...');
-
     // Filter relevant statuses
     const activeRepairs = repairs.filter(r => ['กำลังซ่อม', 'รออะไหล่', 'รอซ่อม'].includes(r.status));
 
-    // Group by status
-    const repairing = activeRepairs.filter(r => r.status === 'กำลังซ่อม');
-    const waitingPart = activeRepairs.filter(r => r.status === 'รออะไหล่');
-    const waitingRepair = activeRepairs.filter(r => r.status === 'รอซ่อม');
-
     if (activeRepairs.length === 0) {
-        // Optional: Send "No active repairs" or just skip
         localStorage.setItem('lastRepairStatusNotificationDate', todayStr);
         return;
     }
 
-    let message = `🚧 <b>สรุปสถานะงานซ่อมประจำวัน</b>\n(${new Date().toLocaleDateString('th-TH')} เวลา 18:30 น.)\n`;
-    message += `\n<b>📊 ภาพรวมงานค้าง: ${activeRepairs.length} คัน</b>\n`;
+    console.log('[Telegram-Status] Preparing intensive daily repair status summary...');
+
+    const getTechName = (id: string) => technicians.find(t => t.id === id)?.name || 'ไม่ระบุ';
+
+    let message = `🚧 <b>สรุปสถานะงานซ่อมค้างประจำวัน</b>\n(${new Date().toLocaleDateString('th-TH')} เวลา 18:30 น.)\n`;
+    message += `\n<b>📊 ภาพรวมงานค้าง: ${activeRepairs.length} รายการ</b>\n`;
+
+    // Grouping for clarity
+    const repairing = activeRepairs.filter(r => r.status === 'กำลังซ่อม');
+    const waitingPart = activeRepairs.filter(r => r.status === 'รออะไหล่');
+    const waitingRepair = activeRepairs.filter(r => r.status === 'รอซ่อม');
 
     if (repairing.length > 0) {
-        message += `\n🔧 <b>กำลังซ่อม (${repairing.length} คัน):</b>\n`;
-        repairing.forEach(r => message += `- ${r.licensePlate}: ${r.problemDescription}\n`);
+        message += `\n🔧 <b>กำลังซ่อม (${repairing.length}):</b>\n`;
+        repairing.forEach(r => message += `- ${r.licensePlate}: ${r.problemDescription} (ช่าง: ${getTechName(r.assignedTechnicianId)})\n`);
     }
 
     if (waitingPart.length > 0) {
-        message += `\n📦 <b>รออะไหล่ (${waitingPart.length} คัน):</b>\n`;
+        message += `\n📦 <b>รออะไหล่ (${waitingPart.length}):</b>\n`;
         waitingPart.forEach(r => message += `- ${r.licensePlate}: ${r.problemDescription}\n`);
     }
 
     if (waitingRepair.length > 0) {
-        message += `\n⏳ <b>รอซ่อม (${waitingRepair.length} คัน):</b>\n`;
+        message += `\n⏳ <b>รอซ่อม (${waitingRepair.length}):</b>\n`;
         waitingRepair.forEach(r => message += `- ${r.licensePlate}: ${r.problemDescription}\n`);
     }
+
+    message += `\n✅ ตรวจสอบรายละเอียดเพิ่มเติมในระบบ`;
 
     if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
         localStorage.setItem('lastRepairStatusNotificationDate', todayStr);

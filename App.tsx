@@ -90,7 +90,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
         // Debounce to allow data to load from localStorage first
         const timer = setTimeout(() => {
             checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
-            checkAndSendDailyRepairStatus(repairs);
+            checkAndSendDailyRepairStatus(repairs, technicians);
         }, 5000);
 
         return () => clearTimeout(timer);
