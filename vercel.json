@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+        {
+            "source": "/telegram-api/:path*",
+            "destination": "https://api.telegram.org/:path*"
+        }
+    ]
+}
