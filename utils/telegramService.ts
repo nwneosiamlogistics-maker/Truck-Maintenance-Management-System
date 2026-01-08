@@ -13,6 +13,8 @@ interface TelegramMessage {
 }
 
 export const sendRepairStatusTelegramNotification = async (repair: Repair, oldStatus: string, newStatus: string) => {
+    console.log(`[Telegram] Sending status update for ${repair.repairOrderNo}: ${oldStatus} -> ${newStatus}`);
+
     // 1. สร้างข้อความที่จะส่ง (รองรับ HTML Formatting)
     const statusEmoji = getStatusEmoji(newStatus);
     // 2. คำนวณระยะเวลาดำเนินการ (กรณีงานเสร็จ)
@@ -72,12 +74,20 @@ export const checkAndSendDailyMaintenanceSummary = async (plans: MaintenancePlan
     // 08:30 AM
     if (NOW.getHours() < 8 || (NOW.getHours() === 8 && NOW.getMinutes() < 30)) return;
 
+    // Check if data is actually loaded (Wait until we have plans or we are sure it's not empty)
+    if (!plans || plans.length === 0) {
+        console.log('[Telegram-Summary] Plans array is empty or not loaded yet. Skipping check.');
+        return;
+    }
+
     const lastSentDate = localStorage.getItem('lastMaintenanceNotificationDate');
     const todayStr = NOW.toDateString();
     if (lastSentDate === todayStr) return;
 
+    console.log('[Telegram-Summary] Checking for daily maintenance overdue/upcoming...');
+
     // Use IDENTICAL logic to MaintenancePlanner.tsx
-    const vehicleMap = new Map(vehicles.map(v => [v.licensePlate, v]));
+    const vehicleMap = new Map((vehicles || []).map(v => [v.licensePlate, v]));
     const overduePlans: any[] = [];
     const upcomingPlans: any[] = [];
 
@@ -94,7 +104,7 @@ export const checkAndSendDailyMaintenanceSummary = async (plans: MaintenancePlan
         const targetPlate = normalizePlate(plan.vehicleLicensePlate);
 
         // Copy logic from MaintenancePlanner.tsx
-        const latestRepair = repairs
+        const latestRepair = (repairs || [])
             .filter(r => r.currentMileage && normalizePlate(r.licensePlate) === targetPlate)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
@@ -122,6 +132,8 @@ export const checkAndSendDailyMaintenanceSummary = async (plans: MaintenancePlan
     });
 
     if (overduePlans.length === 0 && upcomingPlans.length === 0) {
+        console.log('[Telegram-Summary] Nothing to notify today.');
+        // Still mark as sent so we don't keep checking every state update
         localStorage.setItem('lastMaintenanceNotificationDate', todayStr);
         return;
     }
@@ -153,6 +165,13 @@ export const checkAndSendDailyRepairStatus = async (repairs: Repair[]) => {
     const lastSentDate = localStorage.getItem('lastRepairStatusNotificationDate');
     const todayStr = NOW.toDateString();
     if (lastSentDate === todayStr) return;
+
+    if (!repairs || repairs.length === 0) {
+        console.log('[Telegram-Status] Repairs array is empty or not loaded yet.');
+        return;
+    }
+
+    console.log('[Telegram-Status] Preparing daily repair status summary...');
 
     // Filter relevant statuses
     const activeRepairs = repairs.filter(r => ['กำลังซ่อม', 'รออะไหล่', 'รอซ่อม'].includes(r.status));
@@ -192,21 +211,77 @@ export const checkAndSendDailyRepairStatus = async (repairs: Repair[]) => {
     }
 };
 
+
 const sendToTelegram = async (payload: TelegramMessage): Promise<boolean> => {
     try {
-        const response = await fetch('/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+        const url = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage';
+        console.log(`[Telegram] Sending message to: ${url}`);
+
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+
         if (!response.ok) {
-            const error = await response.json();
-            console.error('Telegram Error:', error);
+            const errorText = await response.text();
+            console.error('Telegram API Error Response:', errorText);
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.description) {
+                    console.error(`Telegram Error Details: ${errorJson.description} (Code: ${errorJson.error_code})`);
+                }
+            } catch (e) { }
             return false;
         }
+
+        console.log('[Telegram] Message sent successfully');
         return true;
     } catch (error) {
-        console.error('Telegram Network Error:', error);
+        console.error('Telegram Network/CORS/Proxy Error:', error);
         return false;
+    }
+};
+
+/**
+ * ฟังก์ชันตรวจสอบสถานะของ Bot และ Chat ID
+ * ช่วยในการ Debug ว่า Token หรือ Chat ID ถูกต้องหรือไม่
+ */
+export const checkBotStatus = async (): Promise<{ ok: boolean; message: string }> => {
+    try {
+        // 1. ตรวจสอบ Bot Token (getMe)
+        const getMeUrl = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/getMe';
+        console.log('[Telegram-Check] Checking Bot Token with getMe...');
+
+        const botResponse = await fetch(getMeUrl);
+        if (!botResponse.ok) {
+            const err = await botResponse.json();
+            return { ok: false, message: `Bot Token ไม่ถูกต้อง หรือหมดอายุ: ${err.description || 'Unknown Error'}` };
+        }
+
+        const botData = await botResponse.json();
+        console.log(`[Telegram-Check] Bot is active: @${botData.result.username}`);
+
+        // 2. ตรวจสอบ Chat ID (getChat)
+        const getChatUrl = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + `/getChat?chat_id=${TELEGRAM_CHAT_ID}`;
+        console.log('[Telegram-Check] Checking Chat ID with getChat...');
+
+        const chatResponse = await fetch(getChatUrl);
+        if (!chatResponse.ok) {
+            const err = await chatResponse.json();
+            return { ok: false, message: `Chat ID (${TELEGRAM_CHAT_ID}) ไม่ถูกต้อง หรือ Bot ไม่ได้อยู่ในกลุ่มนี้: ${err.description || 'Unknown Error'}` };
+        }
+
+        const chatData = await chatResponse.json();
+        const chatTitle = chatData.result.title || chatData.result.first_name || 'Private Chat';
+
+        return {
+            ok: true,
+            message: `Bot [@${botData.result.username}] พร้อมใช้งาน! และสามารถส่งข้อความไปยัง [${chatTitle}] (ID: ${TELEGRAM_CHAT_ID}) ได้ปกติ`
+        };
+
+    } catch (error) {
+        console.error('[Telegram-Check] Connection Error:', error);
+        return { ok: false, message: `ไม่สามารถเชื่อมต่อกับ Telegram API ได้ (Network/Proxy Error): ${error instanceof Error ? error.message : 'Unknown'}` };
     }
 };

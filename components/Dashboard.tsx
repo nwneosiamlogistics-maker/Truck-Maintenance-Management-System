@@ -1,7 +1,10 @@
 import React, { useMemo } from 'react';
+import Swal from 'sweetalert2';
 import type { Repair, StockItem, Tab, MaintenancePlan, Vehicle } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { AlertCircle, Clock, Package, Calendar, ArrowRight, CheckCircle2, Activity, PieChart as PieChartIcon } from 'lucide-react';
+import { AlertCircle, Clock, Package, Calendar, ArrowRight, CheckCircle2, Activity, PieChart as PieChartIcon, Send, ShieldCheck } from 'lucide-react';
+import { sendRepairStatusTelegramNotification, checkBotStatus } from '../utils/telegramService';
+import { useToast } from '../context/ToastContext';
 
 const isToday = (dateString: string | null | undefined): boolean => {
   if (!dateString) return false;
@@ -72,6 +75,7 @@ const PremiumCard = ({ title, children, className = '', icon, delay = '', subTit
 );
 
 const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans, vehicles, setActiveTab }) => {
+  const { addToast } = useToast();
   const safeRepairs = useMemo(() => Array.isArray(repairs) ? repairs : [], [repairs]);
   const safeStock = useMemo(() => Array.isArray(stock) ? stock : [], [stock]);
   const safePlans = useMemo(() => Array.isArray(maintenancePlans) ? maintenancePlans : [], [maintenancePlans]);
@@ -326,6 +330,69 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
                   </div>
                 </button>
               ))}
+
+              {/* Test Button */}
+              <button
+                onClick={async () => {
+                  addToast('กำลังทดสอบส่ง Telegram...', 'info');
+                  const dummyRepair: any = {
+                    licensePlate: 'กข-1234 (TEST)',
+                    repairOrderNo: 'RO-TEST-001',
+                    problemDescription: 'ทดสอบระบบแจ้งเตือน (Testing Notification System)',
+                    createdAt: new Date().toISOString()
+                  };
+                  const success = await sendRepairStatusTelegramNotification(dummyRepair, 'เริ่มทดสอบ', 'กำลังทดสอบ');
+                  if (success) {
+                    addToast('ส่ง Telegram สำเร็จ! (Check your group)', 'success');
+                  } else {
+                    addToast('ส่ง Telegram ล้มเหลว! ตรวจสอบ Console เพื่อดู Error', 'error');
+                  }
+                }}
+                className="group flex flex-col items-center gap-6 transition-all md:col-start-2 lg:col-start-2"
+              >
+                <div className="w-24 h-24 bg-gradient-to-br from-pink-500 to-rose-600 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl shadow-rose-500/20 group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500">
+                  <Send className="w-12 h-12 text-white" />
+                </div>
+                <div className="text-center group-hover:scale-105 transition-transform">
+                  <span className="block font-black text-slate-900 text-sm tracking-tight">ทดสอบ Bot</span>
+                  <span className="block text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1 opacity-60">Test Notification</span>
+                </div>
+              </button>
+
+              <button
+                onClick={async () => {
+                  addToast('กำลังตรวจสอบสถานะ Bot...', 'info');
+                  const result = await checkBotStatus();
+                  if (result.ok) {
+                    Swal.fire({
+                      title: 'Bot OK!',
+                      text: result.message,
+                      icon: 'success',
+                      confirmButtonText: 'รับทราบ',
+                      confirmButtonColor: '#10b981',
+                      customClass: { popup: 'rounded-[2rem]' }
+                    });
+                  } else {
+                    Swal.fire({
+                      title: 'Bot Error!',
+                      text: result.message,
+                      icon: 'error',
+                      confirmButtonText: 'ลองอีกครั้ง',
+                      confirmButtonColor: '#ef4444',
+                      customClass: { popup: 'rounded-[2rem]' }
+                    });
+                  }
+                }}
+                className="group flex flex-col items-center gap-6 transition-all md:col-start-3 lg:col-start-3"
+              >
+                <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl shadow-emerald-500/20 group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500">
+                  <ShieldCheck className="w-12 h-12 text-white" />
+                </div>
+                <div className="text-center group-hover:scale-105 transition-transform">
+                  <span className="block font-black text-slate-900 text-sm tracking-tight">เช็คสถานะ Bot</span>
+                  <span className="block text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-1 opacity-60">Diagnostic</span>
+                </div>
+              </button>
             </div>
           </div>
         </div>
