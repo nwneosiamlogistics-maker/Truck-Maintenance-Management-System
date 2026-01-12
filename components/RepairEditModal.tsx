@@ -209,6 +209,30 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
 
     const handleSave = async () => {
         if (isSubmitting) return;
+
+        // --- 🛡️ Safety Check 1: Data Integrity Guard ---
+        // If stock exists but transactions are completely empty, it's highly likely data hasn't finished loading.
+        if (stock.length > 5 && (Array.isArray(transactions) ? transactions : []).length === 0) {
+            addToast('ระบบกำลังโหลดข้อมูลประวัติ กรุณารอสักครู่แล้วลองใหม่', 'warning');
+            return;
+        }
+
+        // --- 🛡️ Safety Check 2: Double-Deduction Guard ---
+        // Check if there was a very recent transaction for this specific repair (last 1 minute).
+        const recentTransaction = (Array.isArray(transactions) ? transactions : []).find(t =>
+            t.relatedRepairOrder === formData.repairOrderNo &&
+            (new Date().getTime() - new Date(t.transactionDate).getTime()) < 60000 // 60 seconds
+        );
+
+        if (recentTransaction && formData.status === 'ซ่อมเสร็จ') {
+            const confirmed = window.confirm(
+                '⚠️ คำเตือน: ระบบพบว่ามีการตัดสต็อกสำหรับใบงานนี้เมื่อสักครู่นี้\n\n' +
+                'คุณแน่ใจหรือไม่ว่าต้องการบันทึกซ้ำ? (อาจทำให้สต็อกตัดซ้ำซ้อน)\n' +
+                'กด "ตกลง" เพื่อยืนยัน หรือ "ยกเลิก" เพื่อตรวจสอบก่อน'
+            );
+            if (!confirmed) return;
+        }
+
         setIsSubmitting(true);
 
         try {
