@@ -14,6 +14,7 @@ import { useToast } from '../context/ToastContext';
 import { STOCK_CATEGORIES } from '../data/categories';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 import ProcessUsedPartModal from './ProcessUsedPartModal';
+import StockHistory from './StockHistory';
 
 
 interface StockManagementProps {
@@ -45,7 +46,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     processUsedPartBatch
 }) => {
     // General State
-    const [activeTab, setActiveTab] = useState<'new' | 'revolving' | 'usedFungible' | 'usedItemized'>('new');
+    const [activeTab, setActiveTab] = useState<'new' | 'revolving' | 'usedFungible' | 'usedItemized' | 'history'>('new');
     const { addToast } = useToast();
 
     const handleExportStock = () => {
@@ -156,6 +157,8 @@ const StockManagement: React.FC<StockManagementProps> = ({
         const paginated = filteredUsedParts.slice(startIndex, startIndex + usedPartsItemsPerPage);
         return { paginatedUsedParts: paginated, usedPartsTotalPages: totalPages };
     }, [filteredUsedParts, usedPartsCurrentPage, usedPartsItemsPerPage]);
+
+
 
     // Forecasting Logic (Inventory Insights)
     const stockInsights = useMemo(() => {
@@ -679,8 +682,18 @@ const StockManagement: React.FC<StockManagementProps> = ({
                         </div>
                     </>
                 );
+            case 'history':
+                return (
+                    <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6">
+                        <StockHistory
+                            transactions={transactions}
+                            stock={stock}
+                            repairs={repairs}
+                        />
+                    </div>
+                );
         }
-    }
+    };
 
     return (
         <div className="space-y-6">
@@ -690,13 +703,22 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     <TabButton tabId="revolving" label="คลังอะไหล่หมุนเวียน" count={revolvingStockItems.length} />
                     <TabButton tabId="usedFungible" label="คลังของเก่าแบบรวม" count={fungibleUsedItems.length} />
                     <TabButton tabId="usedItemized" label="คลังอะไหล่เก่า (รายชิ้น)" count={filteredUsedParts.length} />
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'history'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        🕒 ประวัติสต็อก
+                    </button>
                 </div>
             </div>
 
             <div className="bg-white p-4 rounded-b-2xl shadow-sm -mt-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input type="text" placeholder="ค้นหา..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg lg:col-span-2" />
-                    {activeTab !== 'usedItemized' && (
+                    {activeTab !== 'usedItemized' && activeTab !== 'history' && (
                         <>
                             <select
                                 aria-label="Filter by category"

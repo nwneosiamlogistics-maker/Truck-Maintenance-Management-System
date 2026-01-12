@@ -241,58 +241,95 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
             const partsAfterEdit = finalFormData.parts || [];
 
             // 2. Create 'เบิกใช้' transactions and finalize stock if repair is completed
-            if (finalFormData.status === 'ซ่อมเสร็จ') {
+            // 2. Stock Management (Robust Option 1: Deduct/Adjust on Completion)
+            try {
                 const allTechIds = [finalFormData.assignedTechnicianId, ...(finalFormData.assistantTechnicianIds || [])].filter(Boolean);
                 const technicianNames = technicians.filter(t => allTechIds.includes(t.id)).map(t => t.name).join(', ') || finalFormData.reportedBy || 'ไม่ระบุ';
                 const now = new Date().toISOString();
 
-                const existingWithdrawalPartIds = new Set(
-                    (Array.isArray(transactions) ? transactions : [])
-                        .filter(t => t.relatedRepairOrder === finalFormData.repairOrderNo && t.type === 'เบิกใช้')
-                        .map(t => t.stockItemId)
-                );
+                // Find all parts involved: both currently in the form AND previously deducted in transactions
+                const involvedPartIds = new Set<string>();
+                partsAfterEdit.forEach(p => {
+                    if (p.source === 'สต็อกอู่') involvedPartIds.add(p.partId);
+                });
+
+                const relatedTransactions = (Array.isArray(transactions) ? transactions : []).filter(t => t.relatedRepairOrder === finalFormData.repairOrderNo);
+                relatedTransactions.forEach(t => involvedPartIds.add(t.stockItemId));
 
                 const stockToUpdate: Record<string, number> = {};
                 const transactionsToAdd: StockTransaction[] = [];
 
-                partsAfterEdit.forEach(part => {
-                    if (part.source === 'สต็อกอู่') {
-                        // Only create a new withdrawal transaction if one doesn't already exist for this part in this repair order
-                        if (!existingWithdrawalPartIds.has(part.partId)) {
-                            stockToUpdate[part.partId] = (stockToUpdate[part.partId] || 0) + part.quantity;
-
-                            transactionsToAdd.push({
-                                id: `TXN-${now}-${part.partId}`,
-                                stockItemId: part.partId,
-                                stockItemName: part.name,
-                                type: 'เบิกใช้',
-                                quantity: -part.quantity,
-                                transactionDate: now,
-                                actor: technicianNames,
-                                notes: `ใช้สำหรับใบแจ้งซ่อม ${finalFormData.repairOrderNo}`,
-                                relatedRepairOrder: finalFormData.repairOrderNo,
-                                pricePerUnit: part.unitPrice
-                            });
+                involvedPartIds.forEach(partId => {
+                    // 1. Calculate Target Consumption (Qty to be consumed)
+                    // If status is "Completed", we want to consume the quantity listed.
+                    // If status is NOT "Completed" (e.g. reverted), we want to consume 0 (return everything).
+                    let targetConsumption = 0;
+                    if (finalFormData.status === 'ซ่อมเสร็จ') {
+                        const partInList = partsAfterEdit.find(p => p.partId === partId && p.source === 'สต็อกอู่');
+                        if (partInList) {
+                            targetConsumption = partInList.quantity;
                         }
+                    }
+
+                    // 2. Calculate Current Consumption (Already deducted in history)
+                    // Sum of all transactions. 'เบิกใช้' is usually negative quantity. 'คืน' is positive.
+                    // So Net Stock Change = Sum(qty).
+                    // Current Consumption = - (Net Stock Change).
+                    const currentNetStockChange = relatedTransactions
+                        .filter(t => t.stockItemId === partId)
+                        .reduce((sum, t) => sum + t.quantity, 0);
+
+                    // 3. Calculate Needed Adjustment
+                    // Target Stock Change = -targetConsumption
+                    // Needed Adjustment = Target Stock Change - Current Net Stock Change
+                    const neededStockChange = (-targetConsumption) - currentNetStockChange;
+
+                    if (Math.abs(neededStockChange) > 0.0001) { // Float safety
+                        const partName = partsAfterEdit.find(p => p.partId === partId)?.name || relatedTransactions.find(t => t.stockItemId === partId)?.stockItemName || 'Unknown Part';
+                        const unitPrice = partsAfterEdit.find(p => p.partId === partId)?.unitPrice || 0;
+
+                        // Accumulate changes for Stock Item
+                        stockToUpdate[partId] = (stockToUpdate[partId] || 0) + neededStockChange;
+
+                        // Create Transaction Record
+                        transactionsToAdd.push({
+                            id: `TXN-${now}-${partId}-${Math.random().toString(36).substr(2, 9)}`,
+                            stockItemId: partId,
+                            stockItemName: partName,
+                            type: neededStockChange < 0 ? 'เบิกใช้' : 'ปรับสต็อก', // Negative = Deduct, Positive = Return
+                            quantity: neededStockChange,
+                            transactionDate: now,
+                            actor: technicianNames,
+                            notes: neededStockChange < 0
+                                ? `เบิกเพิ่มเติมสำหรับใบแจ้งซ่อม ${finalFormData.repairOrderNo}`
+                                : `ปรับยอดคืนจากใบแจ้งซ่อม ${finalFormData.repairOrderNo}`,
+                            relatedRepairOrder: finalFormData.repairOrderNo,
+                            pricePerUnit: unitPrice
+                        });
                     }
                 });
 
                 if (Object.keys(stockToUpdate).length > 0) {
                     setStock(prevStock => prevStock.map(s => {
-                        if (stockToUpdate[s.id]) {
-                            const quantityChange = stockToUpdate[s.id];
-                            const newQuantity = Number(s.quantity) - Number(quantityChange);
+                        if (stockToUpdate[s.id] !== undefined) {
+                            const change = stockToUpdate[s.id];
+                            const newQuantity = Number(s.quantity) + Number(change);
                             const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
                             return { ...s, quantity: newQuantity, status: newStatus };
                         }
                         return s;
                     }));
-                    addToast(`หักสต็อก ${Object.keys(stockToUpdate).length} รายการ`, 'info');
+                    addToast(`อัปเดตสต็อก ${Object.keys(stockToUpdate).length} รายการ`, 'info');
                 }
+
                 if (transactionsToAdd.length > 0) {
                     setTransactions(prev => [...transactionsToAdd, ...prev]);
-                    addToast(`สร้างประวัติการเบิกจ่ายใหม่ ${transactionsToAdd.length} รายการ`, 'info');
+                    // addToast(`บันทึกประวัติสต็อก ${transactionsToAdd.length} รายการ`, 'info');
                 }
+
+            } catch (error) {
+                console.error("Stock Logic Error:", error);
+                addToast('เกิดข้อผิดพลาดในการคำนวณสต็อก', 'error');
             }
 
             onSave(finalFormData);

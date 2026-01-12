@@ -12,7 +12,6 @@ interface StockHistoryProps {
     transactions: StockTransaction[];
     stock: StockItem[];
     repairs: Repair[];
-    technicians: Technician[];
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
@@ -118,7 +117,7 @@ const getCategoryColorClass = (index: number) => {
     return classes[index % classes.length];
 };
 
-const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repairs, technicians }) => {
+const StockHistory: React.FC<StockHistoryProps> = ({ transactions, stock, repairs }) => {
     const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');

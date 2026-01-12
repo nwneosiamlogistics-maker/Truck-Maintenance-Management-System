@@ -5,7 +5,7 @@ import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
 import { useToast } from '../context/ToastContext';
-import { promptForPasswordAsync, confirmAction, formatDateTime24h } from '../utils';
+import { promptForPasswordAsync, confirmAction, formatDateTime24h, calculateStockStatus } from '../utils';
 import { Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 // // import { sendRepairStatusLineNotification } from '../utils/lineService';
@@ -179,6 +179,91 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
 
             setRepairs(prev => prev.map(r => r.id === repair.id ? updatedRepair : r));
             addToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อยแล้ว`, 'success');
+
+            // ------------------------------------------------------------------
+            // 🛡️ Robust Stock Logic for Quick Update (Same as RepairEditModal)
+            // ------------------------------------------------------------------
+            try {
+                const involvedPartIds = new Set<string>();
+                (repair.parts || []).forEach(p => {
+                    if (p.source === 'สต็อกอู่') involvedPartIds.add(p.partId);
+                });
+
+                // Also verify against history to catch any items that might have been removed (though unlikely in quick update)
+                // But essential for "Reverting" status (returning items)
+                const relatedTransactions = (Array.isArray(transactions) ? transactions : []).filter(t => t.relatedRepairOrder === repair.repairOrderNo);
+                relatedTransactions.forEach(t => involvedPartIds.add(t.stockItemId));
+
+                const stockToUpdate: Record<string, number> = {};
+                const transactionsToAdd: StockTransaction[] = [];
+
+                const allTechIds = [repair.assignedTechnicianId, ...(repair.assistantTechnicianIds || [])].filter(Boolean);
+                const techNames = technicians.filter(t => allTechIds.includes(t.id)).map(t => t.name).join(', ') || repair.reportedBy || 'ไม่ระบุ';
+
+                involvedPartIds.forEach(partId => {
+                    // 1. Calculate Target Consumption
+                    // If status is "Completed", we consume the quantity. If not, we consume 0 (return all).
+                    let targetConsumption = 0;
+                    if (newStatus === 'ซ่อมเสร็จ') {
+                        const part = (repair.parts || []).find(p => p.partId === partId && p.source === 'สต็อกอู่');
+                        if (part) targetConsumption = part.quantity;
+                    }
+
+                    // 2. Calculate Current Consumption (from history)
+                    const currentNetStockChange = relatedTransactions
+                        .filter(t => t.stockItemId === partId)
+                        .reduce((sum, t) => sum + t.quantity, 0);
+
+                    // 3. Needed Change
+                    const neededStockChange = (-targetConsumption) - currentNetStockChange;
+
+                    if (Math.abs(neededStockChange) > 0.0001) {
+                        const partName = (repair.parts || []).find(p => p.partId === partId)?.name || relatedTransactions.find(t => t.stockItemId === partId)?.stockItemName || 'Unknown Part';
+                        const stockInvItem = (Array.isArray(stock) ? stock : []).find(s => s.id === partId);
+                        const unitPrice = stockInvItem?.price || 0;
+
+                        stockToUpdate[partId] = (stockToUpdate[partId] || 0) + neededStockChange;
+
+                        transactionsToAdd.push({
+                            id: `TXN-QUICK-${timestamp}-${partId}-${Math.random().toString(36).substr(2, 5)}`,
+                            stockItemId: partId,
+                            stockItemName: partName,
+                            type: neededStockChange < 0 ? 'เบิกใช้' : 'ปรับสต็อก',
+                            quantity: neededStockChange,
+                            transactionDate: timestamp,
+                            actor: techNames,
+                            notes: neededStockChange < 0 ? `เบิกอัตโนมัติ (จบงาน): ${repair.repairOrderNo}` : `คืนอัตโนมัติ (ย้อนสถานะ): ${repair.repairOrderNo}`,
+                            relatedRepairOrder: repair.repairOrderNo,
+                            pricePerUnit: unitPrice
+                        });
+                    }
+                });
+
+                if (Object.keys(stockToUpdate).length > 0) {
+                    setStock(prev => prev.map(s => {
+                        if (stockToUpdate[s.id] !== undefined) {
+                            const newQ = Number(s.quantity) + Number(stockToUpdate[s.id]);
+                            const newStatus = calculateStockStatus(newQ, s.minStock, s.maxStock);
+                            return { ...s, quantity: newQ, status: newStatus };
+                        }
+                        return s;
+                    }));
+                }
+
+                if (transactionsToAdd.length > 0) {
+                    setTransactions(prev => [...transactionsToAdd, ...prev]);
+                    // Toast for stock feedback
+                    if (transactionsToAdd.some(t => t.quantity < 0)) {
+                        addToast(`ตัดสต็อกอัตโนมัติ ${transactionsToAdd.length} รายการ`, 'info');
+                    } else {
+                        addToast(`คืนสต็อกอัตโนมัติ ${transactionsToAdd.length} รายการ`, 'info');
+                    }
+                }
+
+            } catch (err) {
+                console.error("Quick Status Stock Logic Error:", err);
+                addToast('เกิดข้อผิดพลาดในการคำนวณสต็อก (Quick Update)', 'error');
+            }
 
             const hasParts = updatedRepair.parts && updatedRepair.parts.length > 0;
             const hasLoggedUsedParts = (Array.isArray(usedParts) ? usedParts : []).some(up => up.fromRepairId === updatedRepair.id);
