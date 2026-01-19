@@ -107,11 +107,10 @@ const IncidentInvestigationPrintLayout: React.FC<IncidentInvestigationPrintLayou
             <div className="mb-6 border border-slate-200 rounded-lg p-4">
                 <h2 className="text-lg font-bold text-blue-800 mb-3 border-b border-slate-300 pb-1">5. Site Conditions</h2>
                 <div className="grid grid-cols-3 gap-4 text-xs">
-                    <p><strong>Weather:</strong> {data.siteConditions?.weather}</p>
-                    <p><strong>Road:</strong> {data.siteConditions?.roadSurface}</p>
-                    <p><strong>Light:</strong> {data.siteConditions?.lighting}</p>
-                    <p><strong>Traffic:</strong> {data.siteConditions?.traffic}</p>
-                    <p><strong>Visibility:</strong> {data.siteConditions?.visibility}</p>
+                    <p><strong>Road:</strong> {data.siteConditions?.roadSurface || '-'}</p>
+                    <p><strong>Light:</strong> {data.siteConditions?.lighting || '-'}</p>
+                    <p><strong>Visibility:</strong> {data.siteConditions?.visibility || '-'}</p>
+                    <p><strong>Location Type:</strong> {data.siteConditions?.locationType || '-'}</p>
                 </div>
             </div>
 

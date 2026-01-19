@@ -62,6 +62,16 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
     );
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // 🛡️ Loading Guard: Track if transaction history is properly loaded
+    const isDataReady = useMemo(() => {
+        // Case 1: If stock has items but transactions are empty, data might still be loading
+        if (stock.length > 5 && (Array.isArray(transactions) ? transactions : []).length === 0) {
+            return false;
+        }
+        // Case 2: If both stock and transactions exist, data is ready
+        return true;
+    }, [stock, transactions]);
+
     const { addToast } = useToast();
 
     const { mainTechnicians, assistantTechnicians } = useMemo(() => {
@@ -746,11 +756,28 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                     </div>
 
                     {/* Footer */}
-                    <div className="p-6 border-t flex justify-end space-x-4 bg-gray-50">
-                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50">ยกเลิก</button>
-                        <button type="button" onClick={handleSave} disabled={isSubmitting} className="px-8 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[160px]">
-                            {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
-                        </button>
+                    <div className="p-6 border-t bg-gray-50">
+                        {/* 🛡️ Loading Guard Warning */}
+                        {!isDataReady && (
+                            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+                                <div className="animate-spin h-5 w-5 border-2 border-amber-500 border-t-transparent rounded-full"></div>
+                                <span className="text-amber-800 text-sm font-medium">
+                                    ⏳ ระบบกำลังโหลดข้อมูลประวัติสต๊อก... กรุณารอสักครู่ก่อนบันทึก
+                                </span>
+                            </div>
+                        )}
+                        <div className="flex justify-end space-x-4">
+                            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50">ยกเลิก</button>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={isSubmitting || !isDataReady}
+                                className="px-8 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[180px]"
+                                title={!isDataReady ? 'รอระบบโหลดข้อมูลประวัติให้เสร็จก่อน' : ''}
+                            >
+                                {isSubmitting ? '🔄 กำลังบันทึก...' : !isDataReady ? '⏳ รอโหลดข้อมูล...' : '💾 บันทึกการเปลี่ยนแปลง'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

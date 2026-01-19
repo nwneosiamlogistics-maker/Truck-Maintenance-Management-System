@@ -193,7 +193,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     processUsedPartBatch={processUsedPartBatch}
                 />;
             case 'stock-history':
-                return <StockHistory transactions={transactions} stock={stock} repairs={repairs} technicians={technicians} />;
+                return <StockHistory transactions={transactions} stock={stock} repairs={repairs} />;
             case 'requisitions':
                 return <PurchaseRequisitionComponent
                     purchaseRequisitions={purchaseRequisitions}

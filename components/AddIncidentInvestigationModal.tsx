@@ -30,7 +30,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
             printWindow.document.write(`
                 <html>
                     <head>
-                        <title>Incident Report - ${formData.incidentNo || 'Draft'}</title>
+                        <title>Incident Report - ${formData.reportNo || 'Draft'}</title>
                         <script src="https://cdn.tailwindcss.com"></script>
                         <link rel="preconnect" href="https://fonts.googleapis.com">
                         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -249,7 +249,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
     };
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4" onClick={onClose} style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
@@ -278,7 +278,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                         ))}
                     </div>
 
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors" title="ปิดหน้าต่าง" aria-label="ปิดหน้าต่าง">
                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -298,15 +298,15 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">วันที่ (Date)</label>
-                                            <input type="date" value={formData.incidentDate} onChange={e => setFormData({ ...formData, incidentDate: e.target.value })} className="w-full form-input" required />
+                                            <input type="date" value={formData.incidentDate} onChange={e => setFormData({ ...formData, incidentDate: e.target.value })} className="w-full form-input" required title="วันที่เกิดเหตุ" aria-label="วันที่เกิดเหตุ" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">เวลา (Time)</label>
-                                            <input type="time" value={formData.incidentTime} onChange={e => setFormData({ ...formData, incidentTime: e.target.value })} className="w-full form-input" required />
+                                            <input type="time" value={formData.incidentTime} onChange={e => setFormData({ ...formData, incidentTime: e.target.value })} className="w-full form-input" required title="เวลาที่เกิดเหตุ" aria-label="เวลาที่เกิดเหตุ" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">กะ/ช่วงเวลา (Shift)</label>
-                                            <select value={formData.incidentShift} onChange={e => setFormData({ ...formData, incidentShift: e.target.value as any })} className="w-full form-select">
+                                            <select value={formData.incidentShift} onChange={e => setFormData({ ...formData, incidentShift: e.target.value as any })} className="w-full form-select" title="กะ/ช่วงเวลา" aria-label="กะ/ช่วงเวลา">
                                                 <option value="02:01-06:00">02:01 - 06:00</option>
                                                 <option value="06:01-12:00">06:01 - 12:00</option>
                                                 <option value="12:01-18:00">12:01 - 18:00</option>
@@ -370,21 +370,21 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อพนักงานขับรถ (Driver Name)</label>
-                                            <input type="text" value={formData.driverName} onChange={e => setFormData({ ...formData, driverName: e.target.value })} className="w-full form-input" />
+                                            <input type="text" value={formData.driverName} onChange={e => setFormData({ ...formData, driverName: e.target.value })} className="w-full form-input" placeholder="ชื่อ-นามสกุล" title="ชื่อพนักงานขับรถ" />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-bold text-slate-700 mb-2">อายุ (Age)</label>
-                                                <input type="number" value={formData.driverAge || ''} onChange={e => setFormData({ ...formData, driverAge: parseInt(e.target.value) })} className="w-full form-input" />
+                                                <input type="number" value={formData.driverAge || ''} onChange={e => setFormData({ ...formData, driverAge: parseInt(e.target.value) })} className="w-full form-input" placeholder="ปี" title="อายุ" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-bold text-slate-700 mb-2">ประสบการณ์ (ปี)</label>
-                                                <input type="number" value={formData.driverExperienceYears || ''} onChange={e => setFormData({ ...formData, driverExperienceYears: parseInt(e.target.value) })} className="w-full form-input" />
+                                                <input type="number" value={formData.driverExperienceYears || ''} onChange={e => setFormData({ ...formData, driverExperienceYears: parseInt(e.target.value) })} className="w-full form-input" placeholder="ปี" title="ประสบการณ์ขับรถ" />
                                             </div>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">รถที่เกิดเหตุ (Vehicle)</label>
-                                            <select onChange={handleVehicleSelect} value={formData.vehicleId || ''} className="w-full form-select">
+                                            <select onChange={handleVehicleSelect} value={formData.vehicleId || ''} className="w-full form-select" title="รถที่เกิดเหตุ" aria-label="รถที่เกิดเหตุ">
                                                 <option value="">-- ระบุรถ (ถ้ามี) --</option>
                                                 {vehicles.map(v => (
                                                     <option key={v.id} value={v.id}>{v.licensePlate} ({v.vehicleType})</option>
@@ -536,6 +536,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 value={formData.drugAlcoholTest?.alcoholResult}
                                                 onChange={e => setFormData({ ...formData, drugAlcoholTest: { ...formData.drugAlcoholTest!, alcoholResult: e.target.value as any } })}
                                                 className="w-full form-select"
+                                                title="ผลตรวจแอลกอฮอล์"
+                                                aria-label="ผลตรวจแอลกอฮอล์"
                                             >
                                                 <option value="Not Tested">ไม่ได้ตรวจ (Not Tested)</option>
                                                 <option value="Found">พบ (Found)</option>
@@ -551,6 +553,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 value={formData.drugAlcoholTest?.drugResult}
                                                 onChange={e => setFormData({ ...formData, drugAlcoholTest: { ...formData.drugAlcoholTest!, drugResult: e.target.value as any } })}
                                                 className="w-full form-select"
+                                                title="ผลตรวจสารเสพติด"
+                                                aria-label="ผลตรวจสารเสพติด"
                                             >
                                                 <option value="Not Tested">ไม่ได้ตรวจ (Not Tested)</option>
                                                 <option value="Found">พบ (Found)</option>
@@ -1049,6 +1053,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                         onChange={e => setFormData({ ...formData, rootCauseAnalysis: { ...formData.rootCauseAnalysis!, remarks: e.target.value } })}
                                         className="w-full form-textarea"
                                         rows={3}
+                                        placeholder="ระบุคำอธิบายเพิ่มเติม..."
+                                        title="คำอธิบายเพิ่มเติมสาเหตุ"
                                     />
                                 </div>
                             </div>
@@ -1133,7 +1139,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 <input type="text" placeholder="ชื่อ-นามสกุล (Name)" value={formData.managementReview?.reviewerName} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewerName: e.target.value } })} className="form-input" />
                                                 <input type="text" placeholder="ตำแหน่ง (Position)" value={formData.managementReview?.reviewerPosition || ''} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewerPosition: e.target.value } })} className="form-input" />
                                                 <input type="text" placeholder="บริษัท (Company)" value={formData.managementReview?.reviewerCompany || ''} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewerCompany: e.target.value } })} className="form-input" />
-                                                <input type="date" value={formData.managementReview?.reviewedDate} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewedDate: e.target.value } })} className="form-input" />
+                                                <input type="date" value={formData.managementReview?.reviewedDate} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewedDate: e.target.value } })} className="form-input" title="วันที่อนุมัติ" aria-label="วันที่อนุมัติ" />
                                             </div>
                                         </div>
                                     </div>
@@ -1148,7 +1154,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                             <input type="text" placeholder="ชื่อ-นามสกุล (Name)" value={formData.topManagementAcknowledge?.name || ''} onChange={e => setFormData({ ...formData, topManagementAcknowledge: { ...formData.topManagementAcknowledge!, name: e.target.value } })} className="form-input" />
                                             <input type="text" placeholder="ตำแหน่ง (Position)" value={formData.topManagementAcknowledge?.position || ''} onChange={e => setFormData({ ...formData, topManagementAcknowledge: { ...formData.topManagementAcknowledge!, position: e.target.value } })} className="form-input" />
                                             <input type="text" placeholder="บริษัท (Company)" value={formData.topManagementAcknowledge?.company || ''} onChange={e => setFormData({ ...formData, topManagementAcknowledge: { ...formData.topManagementAcknowledge!, company: e.target.value } })} className="form-input" />
-                                            <input type="date" value={formData.topManagementAcknowledge?.date || ''} onChange={e => setFormData({ ...formData, topManagementAcknowledge: { ...formData.topManagementAcknowledge!, date: e.target.value } })} className="form-input" />
+                                            <input type="date" value={formData.topManagementAcknowledge?.date || ''} onChange={e => setFormData({ ...formData, topManagementAcknowledge: { ...formData.topManagementAcknowledge!, date: e.target.value } })} className="form-input" title="วันที่รับทราบ" aria-label="วันที่รับทราบ" />
                                         </div>
                                     </div>
                                 </div>
@@ -1164,6 +1170,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 className="form-select w-full"
                                                 value={formData.siteConditions?.roadSurface}
                                                 onChange={e => setFormData({ ...formData, siteConditions: { ...formData.siteConditions, roadSurface: e.target.value as any } })}
+                                                title="สภาพผิวถนน"
+                                                aria-label="สภาพผิวถนน"
                                             >
                                                 <option value="">-- ระบุ --</option>
                                                 <option value="Smooth">เรียบ</option>
@@ -1176,6 +1184,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 className="form-select w-full"
                                                 value={formData.siteConditions?.lighting}
                                                 onChange={e => setFormData({ ...formData, siteConditions: { ...formData.siteConditions, lighting: e.target.value as any } })}
+                                                title="แสงสว่าง"
+                                                aria-label="แสงสว่าง"
                                             >
                                                 <option value="">-- ระบุ --</option>
                                                 <option value="Night (Street Lights)">กลางคืนมีไฟถนน</option>
@@ -1189,6 +1199,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 className="form-select w-full"
                                                 value={formData.siteConditions?.visibility}
                                                 onChange={e => setFormData({ ...formData, siteConditions: { ...formData.siteConditions, visibility: e.target.value as any } })}
+                                                title="ทัศนวิสัย"
+                                                aria-label="ทัศนวิสัย"
                                             >
                                                 <option value="">-- ระบุ --</option>
                                                 <option value="Clear">มองชัดเจน</option>
@@ -1206,6 +1218,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                             className="form-select w-full"
                                             value={formData.siteConditions?.locationType}
                                             onChange={e => setFormData({ ...formData, siteConditions: { ...formData.siteConditions, locationType: e.target.value } })}
+                                            title="สถานที่เกิดเหตุ"
+                                            aria-label="สถานที่เกิดเหตุ"
                                         >
                                             <option value="">-- เลือกสถานที่ (1-16) --</option>
                                             <option value="1">1. ลานจอด</option>
@@ -1249,6 +1263,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 value={formData.relatedVehicleClaimId || ''}
                                                 onChange={e => setFormData({ ...formData, relatedVehicleClaimId: e.target.value })}
                                                 className="w-full form-select bg-white"
+                                                title="ใบเคลมประกันรถยนต์"
+                                                aria-label="ใบเคลมประกันรถยนต์"
                                             >
                                                 <option value="">-- ไม่มีการเคลม / ไม่ได้ระบุ --</option>
                                                 {existingVehicleClaims.map(c => (
@@ -1262,6 +1278,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                                 value={formData.relatedCargoClaimId || ''}
                                                 onChange={e => setFormData({ ...formData, relatedCargoClaimId: e.target.value })}
                                                 className="w-full form-select bg-white"
+                                                title="ใบเคลมประกันสินค้า"
+                                                aria-label="ใบเคลมประกันสินค้า"
                                             >
                                                 <option value="">-- ไม่มีการเคลม / ไม่ได้ระบุ --</option>
                                                 {existingCargoClaims.map(c => (
