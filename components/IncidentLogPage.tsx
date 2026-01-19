@@ -6,7 +6,7 @@ import {
     Search, Download, FileText, Filter, AlertTriangle,
     TrendingDown, ShieldCheck, DollarSign, Calendar, MapPin,
     User, Truck, Info, Printer, Clock, X, Eye, FileCheck, Camera,
-    Zap, ChevronLeft, ChevronRight
+    Zap, ChevronLeft, ChevronRight, ChevronDown, Trash2, Activity
 } from 'lucide-react';
 
 interface IncidentLogPageProps {
@@ -805,73 +805,98 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
             </div>
 
             {/* Filter Bar */}
-            <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/60 shadow-lg sticky top-6 z-20 print:hidden">
-                <div className="flex flex-wrap gap-4 items-end">
-                    <div className="flex-1 min-w-[300px]">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Search Incidents</label>
-                        <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <div className="bg-white/90 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/50 shadow-2xl print:hidden group/filter mb-4">
+                <div className="flex flex-wrap gap-6 items-end">
+                    <div className="flex-1 min-w-[350px]">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
+                            <Search size={12} className="text-blue-500" />
+                            Search Incidents
+                        </label>
+                        <div className="relative group/search">
+                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-hover/search:text-blue-500 transition-colors" size={20} />
                             <input
                                 type="text"
                                 placeholder="ค้นหาชื่อพนักงาน, ทะเบียนรถ, สถานที่ หรือรายละเอียด..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                                className="w-full pl-14 pr-6 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-3xl focus:bg-white focus:border-blue-500/50 focus:ring-[12px] focus:ring-blue-500/5 outline-none transition-all font-bold text-slate-700 shadow-inner"
                             />
                         </div>
                     </div>
 
-                    <div className="w-48">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Type</label>
-                        <select
-                            value={typeFilter}
-                            onChange={(e) => setTypeFilter(e.target.value as any)}
-                            title="Filter by Type"
-                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"
-                        >
-                            <option value="all">ทั้งหมด</option>
-                            <option value="ฝ่าฝืนกฎจราจร">🚧 ฝ่าฝืนกฎ</option>
-                            <option value="อุบัติเหตุ">💥 อุบัติเหตุ</option>
-                            <option value="การขับขี่เสี่ยง">⚠️ ความเสี่ยง</option>
-                            <option value="อื่นๆ">📝 อื่นๆ</option>
-                        </select>
+                    <div className="w-56">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
+                            <Activity size={12} className="text-indigo-500" />
+                            Type
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={typeFilter}
+                                onChange={(e) => setTypeFilter(e.target.value as any)}
+                                title="Filter by Type"
+                                className="w-full pl-6 pr-12 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-3xl outline-none font-bold text-slate-700 focus:bg-white focus:border-indigo-500/50 focus:ring-[12px] focus:ring-indigo-500/5 transition-all appearance-none cursor-pointer shadow-inner"
+                            >
+                                <option value="all">ทั้งหมด</option>
+                                <option value="ฝ่าฝืนกฎจราจร">🚧 ฝ่าฝืนกฎ</option>
+                                <option value="อุบัติเหตุ">💥 อุบัติเหตุ</option>
+                                <option value="การขับขี่เสี่ยง">⚠️ ความเสี่ยง</option>
+                                <option value="อื่นๆ">📝 อื่นๆ</option>
+                            </select>
+                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
+                                <ChevronDown size={18} />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="w-48">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Severity</label>
-                        <select
-                            value={severityFilter}
-                            onChange={(e) => setSeverityFilter(e.target.value as any)}
-                            title="Filter by Severity"
-                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"
-                        >
-                            <option value="all">ทุกระดับ</option>
-                            <option value="low">🟡 ต่ำ</option>
-                            <option value="medium">🟠 ปานกลาง</option>
-                            <option value="high">🔴 สูง</option>
-                            <option value="critical">💀 ร้ายแรง</option>
-                        </select>
+                    <div className="w-56">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
+                            <Zap size={12} className="text-amber-500" />
+                            Severity
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={severityFilter}
+                                onChange={(e) => setSeverityFilter(e.target.value as any)}
+                                title="Filter by Severity"
+                                className="w-full pl-6 pr-12 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-3xl outline-none font-bold text-slate-700 focus:bg-white focus:border-amber-500/50 focus:ring-[12px] focus:ring-amber-500/5 transition-all appearance-none cursor-pointer shadow-inner"
+                            >
+                                <option value="all">ทุกระดับ</option>
+                                <option value="low">🟡 ต่ำ</option>
+                                <option value="medium">🟠 ปานกลาง</option>
+                                <option value="high">🔴 สูง</option>
+                                <option value="critical">💀 ร้ายแรง</option>
+                            </select>
+                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
+                                <ChevronDown size={18} />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex gap-2">
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Start Date</label>
+                    <div className="flex gap-4">
+                        <div className="w-44">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
+                                <Calendar size={12} className="text-emerald-500" />
+                                Start Date
+                            </label>
                             <input
                                 type="date"
                                 value={dateRange.start}
                                 title="Start Date Filter"
                                 onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                                className="px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-xs"
+                                className="w-full px-5 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xs text-slate-700 focus:bg-white focus:border-emerald-500/50 transition-all shadow-inner"
                             />
                         </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">End Date</label>
+                        <div className="w-44">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
+                                <Calendar size={12} className="text-emerald-500" />
+                                End Date
+                            </label>
                             <input
                                 type="date"
                                 value={dateRange.end}
                                 title="End Date Filter"
                                 onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                                className="px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-xs"
+                                className="w-full px-5 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xs text-slate-700 focus:bg-white focus:border-emerald-500/50 transition-all shadow-inner"
                             />
                         </div>
                     </div>
@@ -883,11 +908,11 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                             setSeverityFilter('all');
                             setDateRange({ start: '', end: '' });
                         }}
-                        className="p-4 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                        title="Clear Filters"
+                        className="p-5 bg-slate-100 text-slate-400 hover:text-white hover:bg-red-500 rounded-[1.5rem] transition-all duration-300 shadow-sm hover:shadow-red-200 hover:shadow-xl active:scale-95 group/clear"
+                        title="ล้างการกรองข้อมูล"
                         aria-label="Clear Filters"
                     >
-                        <Filter size={20} />
+                        <Trash2 size={22} className="group-hover/clear:rotate-12 transition-transform" />
                     </button>
                 </div>
             </div>

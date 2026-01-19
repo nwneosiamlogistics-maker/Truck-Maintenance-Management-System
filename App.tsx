@@ -46,6 +46,8 @@ import Login from './components/Login';
 // import { sendRepairStatusLineNotification } from './utils/lineService';
 import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus } from './utils/telegramService';
 import IncidentLogPage from './components/IncidentLogPage';
+import OKRManagement from './components/OKRManagement';
+
 
 
 interface AppContentProps {
@@ -244,6 +246,9 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                 />;
             case 'kpi-management':
                 return <KPIManagement kpiData={kpiData} setKpiData={setKpiData} />;
+            case 'okr-management':
+                return <OKRManagement setActiveTab={setActiveTab} />;
+
 
             case 'preventive-maintenance':
                 return <PreventiveMaintenance

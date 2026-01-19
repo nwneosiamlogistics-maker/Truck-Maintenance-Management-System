@@ -5,7 +5,7 @@ import {
     Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
     Shield, Calendar, Clock, ClipboardCheck, Disc, Box, ShoppingCart,
     File, Store, Users, PenTool, UserCog, BookOpen, Wallet, Fuel,
-    Settings, ChevronLeft, ChevronRight, AlertTriangle, User
+    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -70,6 +70,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
     };
 
     const navItems = [
+        {
+            section: 'วิสัยทัศน์และเป้าหมาย', items: [
+                { id: 'okr-management', icon: <Target size={20} />, label: 'OKR Strategy' },
+            ]
+        },
         {
             section: 'ภาพรวม', items: [
                 { id: 'dashboard', icon: <Home size={20} />, label: 'แดชบอร์ด' },

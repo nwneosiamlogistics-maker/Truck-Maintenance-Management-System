@@ -134,10 +134,30 @@ const getWeekNumber = (d: Date): number => {
     return weekNo;
 }
 
+const DynamicProgressBar: React.FC<{ progress: number; color: string }> = ({ progress, color }) => {
+    const barRef = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+        if (barRef.current) {
+            barRef.current.style.width = `${progress}%`;
+            barRef.current.style.backgroundColor = color;
+        }
+    }, [progress, color]);
+
+    return (
+        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div
+                ref={barRef}
+                className="h-full rounded-full transition-all duration-1000"
+            />
+        </div>
+    );
+};
+
 const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Technician[], purchaseOrders?: any[], suppliers?: any[], annualPlans?: AnnualPMPlan[] }> = ({ repairs, stock, technicians, purchaseOrders = [], suppliers = [], annualPlans = [] }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [supplierViewMode, setSupplierViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+    const [expenditureViewMode, setExpenditureViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
 
     const handleExport = () => {
         const exportData = repairs.map(r => ({
@@ -254,11 +274,49 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value).slice(0, 5);
 
+        // --- Expenditure Analysis (Trend by Time & Category) ---
+        const expenditureTrendMap: Record<string, number> = {};
+        dateFilteredPOs.forEach(po => {
+            const date = new Date(po.orderDate);
+            let timeKey = '';
+            if (expenditureViewMode === 'daily') timeKey = date.toISOString().split('T')[0];
+            else if (expenditureViewMode === 'weekly') timeKey = `${date.getFullYear()}-W${getWeekNumber(date)}`;
+            else if (expenditureViewMode === 'monthly') timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            else if (expenditureViewMode === 'yearly') timeKey = `${date.getFullYear()}`;
+
+            expenditureTrendMap[timeKey] = (expenditureTrendMap[timeKey] || 0) + (po.totalAmount || 0);
+        });
+
+        // Continue keeping the branch-wise breakdown for the ranking part
+        const branchBreakdown: Record<string, number> = {};
+        dateFilteredPOs.forEach(po => {
+            let dept = po.department || 'ไม่ระบุแผนก (Unspecified)';
+            if (dept === 'นครสวรรค์' || dept === 'สายนครสวรรค์') dept = 'สาขานครสวรรค์';
+            branchBreakdown[dept] = (branchBreakdown[dept] || 0) + (po.totalAmount || 0);
+        });
+
+        const purchaseCategoryData = Object.entries(expenditureTrendMap)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        const branchRankingData = Object.entries(branchBreakdown)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+
         return {
             stats: { totalRepairs: dateFilteredCreatedRepairs.length, totalCompleted: dateFilteredCompletedRepairs.length, totalCost, avgCost, forecastedNextMonthCost },
-            charts: { repairTrendData, lastSixMonthsExpenses, formattedSupplierTrendData, pmPlanStatusData, vehicleTypeAnalysisData, topRepairCategories }
+            charts: {
+                repairTrendData,
+                lastSixMonthsExpenses,
+                formattedSupplierTrendData,
+                pmPlanStatusData,
+                vehicleTypeAnalysisData,
+                topRepairCategories,
+                purchaseCategoryData,
+                branchRankingData
+            }
         };
-    }, [repairs, startDate, endDate, purchaseOrders, supplierViewMode, annualPlans]);
+    }, [repairs, startDate, endDate, purchaseOrders, supplierViewMode, expenditureViewMode, annualPlans]);
 
     const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'];
     const PM_COLORS = ['#fbbf24', '#10b981', '#3b82f6'];
@@ -282,9 +340,25 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">ช่วงเวลาที่ตรวจสอบ (Observation Window)</span>
                             <div className="flex items-center gap-4">
-                                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} title="Start Date" className="bg-transparent text-xs font-black text-slate-700 outline-none hover:text-blue-600 transition-colors" />
-                                <span className="text-slate-300 font-black">→</span>
-                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} title="End Date" className="bg-transparent text-xs font-black text-slate-700 outline-none hover:text-blue-600 transition-colors" />
+                                <div className="relative group/date">
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={e => setStartDate(e.target.value)}
+                                        title="Start Date"
+                                        className="bg-slate-50/80 border border-slate-200 px-4 py-2.5 rounded-2xl text-[11px] font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
+                                    />
+                                </div>
+                                <span className="text-slate-300 font-black text-lg">→</span>
+                                <div className="relative group/date">
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={e => setEndDate(e.target.value)}
+                                        title="End Date"
+                                        className="bg-slate-50/80 border border-slate-200 px-4 py-2.5 rounded-2xl text-[11px] font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -355,7 +429,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </ResponsiveContainer>
                 </Card>
 
-                {/* Tactical Procurement */}
+                {/* Tactical Procurement & Expenditure Analysis */}
                 <Card title="วิเคราะห์การสั่งซื้อผู้จำหน่าย (Supplier Intel)" className="col-span-1 lg:col-span-2 min-h-[600px]" delay="delay-600">
                     <div className="flex justify-start mb-12 gap-3 bg-slate-50 p-2 rounded-[2rem] w-fit border border-slate-100 shadow-inner">
                         {[
@@ -379,6 +453,77 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                             <Line type="monotone" dataKey="value" stroke="#f43f5e" strokeWidth={4} dot={false} />
                         </ComposedChart>
                     </ResponsiveContainer>
+                </Card>
+
+                <Card title="วิเคราะห์แนวโน้มการใช้จ่าย (Expenditure Trend)" className="col-span-1 lg:col-span-2 min-h-[600px]" delay="delay-650">
+                    <div className="h-full flex flex-col">
+                        <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
+                            <div className="p-4 bg-slate-50/50 rounded-3xl border border-slate-100 shadow-inner">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">ยอดใช้จ่ายรวมสุทธิ</span>
+                                <span className="text-2xl font-black text-slate-950">
+                                    ฿{data.charts.purchaseCategoryData.reduce((s, d) => s + d.value, 0).toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+                                {[
+                                    { id: 'daily', label: 'รายวัน' },
+                                    { id: 'weekly', label: 'รายสัปดาห์' },
+                                    { id: 'monthly', label: 'รายเดือน' },
+                                    { id: 'yearly', label: 'รายปี' }
+                                ].map(mode => (
+                                    <button
+                                        key={mode.id}
+                                        onClick={() => setExpenditureViewMode(mode.id as any)}
+                                        className={`px-5 py-2.5 text-[10px] font-black rounded-xl uppercase tracking-widest transition-all ${expenditureViewMode === mode.id ? 'bg-white text-blue-600 shadow-lg scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        {mode.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex-1">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={data.charts.purchaseCategoryData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" fontSize={9} fontWeight="900" stroke="#94a3b8" axisLine={false} tickLine={false} />
+                                    <YAxis fontSize={9} fontWeight="900" stroke="#94a3b8" axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toString()} />
+                                    <Tooltip content={<CustomTooltip unit="บาท" />} />
+                                    <Bar dataKey="value" name="ยอดใช้จ่าย" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={40} />
+                                    <Line type="monotone" dataKey="value" stroke="#f43f5e" strokeWidth={4} dot={{ r: 6, fill: '#f43f5e', strokeWidth: 2, stroke: '#fff' }} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card title="อันดับการใช้จ่ายรายสาขา (Branch Ranking)" className="min-h-[600px]" delay="delay-660">
+                    <div className="h-full flex flex-col">
+                        <div className="mb-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest block mb-1">สาขาที่ใช้จ่ายสูงสุด</span>
+                            <span className="text-xl font-black text-slate-900 block truncate">
+                                {data.charts.branchRankingData[0]?.name || '-'}
+                            </span>
+                        </div>
+                        <div className="space-y-4 flex-1 overflow-auto pr-2 custom-scrollbar">
+                            {data.charts.branchRankingData.map((branch, i) => (
+                                <div key={branch.name} className="group p-4 bg-white hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all hover:shadow-md">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-[10px] font-black text-white">
+                                                {i + 1}
+                                            </div>
+                                            <span className="text-[12px] font-black text-slate-700">{branch.name}</span>
+                                        </div>
+                                        <span className="text-[12px] font-black text-blue-600">฿{branch.value.toLocaleString()}</span>
+                                    </div>
+                                    <DynamicProgressBar
+                                        progress={(branch.value / (data.charts.branchRankingData[0]?.value || 1)) * 100}
+                                        color={COLORS[i % COLORS.length]}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </Card>
 
                 <Card title="กลุ่มงานซ่อมยอดนิยม (High-Volume)" className="min-h-[500px]" delay="delay-700">

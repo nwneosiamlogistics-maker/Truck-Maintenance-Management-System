@@ -1,6 +1,6 @@
 
 
-export type Tab = 'dashboard' | 'analytics' | 'kpi-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance' | 'vehicles' | 'incident-log';
+export type Tab = 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance' | 'vehicles' | 'incident-log';
 
 
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
@@ -1158,4 +1158,34 @@ export interface IncidentInvestigationReport {
     createdAt: string;
     updatedAt: string;
     createdBy: string;
+}
+
+// ==================== OKR MANAGEMENT SYSTEM ====================
+
+export type OKRStatus = 'On Track' | 'At Risk' | 'Behind' | 'Completed';
+export type OKRCategory = 'Performance' | 'Satisfaction' | 'Business' | 'Human/Safety';
+
+export interface OKRMetric {
+    id: string;
+    code: string; // e.g., P1, S1, B1
+    objective: string;
+    detail: string;
+    target2025: string;
+    targetValue: number;
+    currentValue: number;
+    unit: string;
+    status: OKRStatus;
+    category: OKRCategory;
+    source: string; // e.g., TMS, Accounting, Manual
+    lastUpdated: string;
+    trend: 'up' | 'down' | 'stable';
+    monthlyProgress?: { month: string; value: number }[];
+}
+
+export interface OKRObjective {
+    id: string;
+    title: string;
+    category: OKRCategory;
+    progress: number; // 0-100
+    metrics: OKRMetric[];
 }

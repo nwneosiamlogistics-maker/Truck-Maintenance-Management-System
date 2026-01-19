@@ -56,21 +56,42 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
     };
 
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-lg space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <input
-                    type="text"
-                    aria-label="Search Checklists"
-                    placeholder="ค้นหา (ทะเบียน, ผู้ตรวจ)..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full p-2 border rounded-lg md:col-span-1"
-                />
-                <div className="flex items-center gap-2 md:col-span-2">
-                    <label className="text-sm font-medium">วันที่ตรวจ:</label>
-                    <input type="date" aria-label="Start Date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border rounded-lg" />
-                    <span>-</span>
-                    <input type="date" aria-label="End Date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded-lg" />
+        <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl border border-white/50 space-y-6 animate-scale-in">
+            <div className="flex flex-wrap items-end gap-6">
+                <div className="flex-1 min-w-[300px]">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2">ค้นหาประวัติการตรวจเช็ค</label>
+                    <div className="relative group">
+                        <input
+                            type="text"
+                            aria-label="Search Checklists"
+                            placeholder="พิมพ์ทะเบียนรถ หรือชื่อพนักงาน..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-6 pr-6 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-3xl focus:bg-white focus:border-blue-500/50 focus:ring-[12px] focus:ring-blue-500/5 outline-none transition-all font-bold text-slate-700 shadow-inner"
+                        />
+                    </div>
+                </div>
+                <div className="flex gap-4">
+                    <div className="w-44">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2">ตั้งแต่วันที่</label>
+                        <input
+                            type="date"
+                            aria-label="Start Date"
+                            value={startDate}
+                            onChange={e => setStartDate(e.target.value)}
+                            className="w-full px-5 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xs text-slate-700 focus:bg-white focus:border-blue-500/50 transition-all shadow-inner"
+                        />
+                    </div>
+                    <div className="w-44">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2">ถึงวันที่</label>
+                        <input
+                            type="date"
+                            aria-label="End Date"
+                            value={endDate}
+                            onChange={e => setEndDate(e.target.value)}
+                            className="w-full px-5 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xs text-slate-700 focus:bg-white focus:border-blue-500/50 transition-all shadow-inner"
+                        />
+                    </div>
                 </div>
             </div>
 

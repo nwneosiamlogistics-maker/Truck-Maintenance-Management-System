@@ -188,7 +188,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
           delay="delay-300"
           icon={<PieChartIcon size={24} />}
         >
-          <div className="flex-1 w-full h-full relative">
+          <div className="flex-1 w-full h-full min-h-[400px] relative">
             {stats.statusDistData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>

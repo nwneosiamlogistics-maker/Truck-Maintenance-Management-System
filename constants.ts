@@ -14,6 +14,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'จัดการ KPI',
         subtitle: 'เพิ่ม แก้ไข และลบรายการซ่อมมาตรฐาน (KPI)'
     },
+    'okr-management': {
+        title: 'OKR Strategy',
+        subtitle: 'ติดตามสถานะเป้าหมายกลยุทธ์องค์กร Neosiam Logistics'
+    },
     form: {
         title: 'เพิ่มใบแจ้งซ่อม',
         subtitle: 'สร้างใบแจ้งซ่อมใหม่สำหรับรถบรรทุกทุกประเภท'
