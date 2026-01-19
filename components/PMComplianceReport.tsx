@@ -31,6 +31,14 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
     const [endDate, setEndDate] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const setQuickRange = (months: number) => {
+        const end = new Date();
+        const start = new Date();
+        start.setMonth(start.getMonth() - months);
+        setStartDate(start.toISOString().split('T')[0]);
+        setEndDate(end.toISOString().split('T')[0]);
+    };
+
     const complianceData = useMemo(() => {
         const start = new Date(startDate);
         start.setHours(0, 0, 0, 0);
@@ -45,11 +53,11 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
         const relevantHistory = history.filter(h => {
             const serviceDate = new Date(h.serviceDate);
             const targetDate = h.targetServiceDate ? new Date(h.targetServiceDate) : null;
-            
+
             // Include if service date OR target date is in range
             const serviceInRange = serviceDate >= start && serviceDate <= end;
             const targetInRange = targetDate ? (targetDate >= start && targetDate <= end) : false;
-            
+
             return serviceInRange || targetInRange;
         });
 
@@ -68,7 +76,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
             if (targetDate) {
                 const timeDiff = actualDate.getTime() - targetDate.getTime();
                 dateDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-                
+
                 if (h.targetMileage) {
                     mileageDiff = h.mileage - h.targetMileage;
                 }
@@ -85,13 +93,13 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                 } else {
                     status = 'Late';
                 }
-                
+
                 // Mark this occurrence as processed
                 processedPlanOccurrences.add(`${h.maintenancePlanId}-${targetDate.toISOString().split('T')[0]}`);
 
             } else {
                 // No target recorded (legacy data), assume On Time for reporting purposes
-                status = 'On Time'; 
+                status = 'On Time';
             }
 
             results.push({
@@ -114,7 +122,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
         plans.forEach(plan => {
             const lastDate = new Date(plan.lastServiceDate);
             let nextServiceDate = new Date(lastDate);
-            
+
             // Calculate next theoretical due date based on current plan settings
             if (plan.frequencyUnit === 'days') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
             else if (plan.frequencyUnit === 'weeks') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
@@ -123,7 +131,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
             // If the calculated next due date falls within the report range
             if (nextServiceDate >= start && nextServiceDate <= end) {
                 const dateKey = nextServiceDate.toISOString().split('T')[0];
-                
+
                 // Check if we already have a history record that matches this Plan ID and approx Target Date
                 // This is a heuristic since we don't have unique instance IDs for recurring plans yet
                 // We check if any history record for this plan has a target date matching this calculated date
@@ -148,7 +156,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
         });
 
         return results
-            .filter(r => searchTerm === '' || 
+            .filter(r => searchTerm === '' ||
                 r.vehicleLicensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.planName.toLowerCase().includes(searchTerm.toLowerCase())
             )
@@ -195,8 +203,9 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
             {/* Filters */}
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ค้นหา</label>
+                    <label htmlFor="pm-report-search" className="block text-sm font-medium text-gray-700 mb-1">ค้นหา (ทะเบียน, แผน)</label>
                     <input
+                        id="pm-report-search"
                         type="text"
                         placeholder="ทะเบียน, ชื่อแผน..."
                         value={searchTerm}
@@ -205,22 +214,46 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">จากวันที่ (เป้าหมาย)</label>
+                    <label htmlFor="pm-report-start" className="block text-sm font-medium text-gray-700 mb-1">จากวันที่ (เป้าหมาย)</label>
                     <input
+                        id="pm-report-start"
                         type="date"
+                        aria-label="Start Date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         className="p-2 border border-gray-300 rounded-lg"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ถึงวันที่ (เป้าหมาย)</label>
+                    <label htmlFor="pm-report-end" className="block text-sm font-medium text-gray-700 mb-1">ถึงวันที่ (เป้าหมาย)</label>
                     <input
+                        id="pm-report-end"
                         type="date"
+                        aria-label="End Date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                         className="p-2 border border-gray-300 rounded-lg"
                     />
+                </div>
+                <div className="flex gap-2 pb-1">
+                    <button
+                        onClick={() => setQuickRange(1)}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+                    >
+                        เดือนนี้
+                    </button>
+                    <button
+                        onClick={() => setQuickRange(6)}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+                    >
+                        6 เดือนล่าสุด
+                    </button>
+                    <button
+                        onClick={() => setQuickRange(12)}
+                        className="px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold border border-blue-100 transition-colors"
+                    >
+                        1 ปีล่าสุด
+                    </button>
                 </div>
             </div>
 
@@ -302,8 +335,8 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
 
                 {/* Chart Section */}
                 <div className="lg:col-span-1 space-y-6">
-                    <PieChart 
-                        title="สัดส่วนสถานะ (Compliance Overview)" 
+                    <PieChart
+                        title="สัดส่วนสถานะ (Compliance Overview)"
                         data={[
                             { name: 'On Time', value: stats['On Time'] },
                             { name: 'Early', value: stats['Early'] },
@@ -311,7 +344,7 @@ const PMComplianceReport: React.FC<PMComplianceReportProps> = ({ plans, history,
                             { name: 'Missed', value: stats['Missed'] },
                         ].filter(d => d.value > 0)}
                     />
-                    
+
                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                         <h4 className="font-bold text-blue-900 mb-2 border-b border-blue-200 pb-1">เกณฑ์การวัดผล (Evaluation Criteria)</h4>
                         <ul className="text-sm text-blue-800 space-y-2">

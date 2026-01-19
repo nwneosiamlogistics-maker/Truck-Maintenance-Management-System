@@ -240,6 +240,7 @@ export interface Vehicle {
     actCompany: string | null;
     actExpiryDate: string | null;
     cargoInsuranceCompany: string | null;
+    status: 'Active' | 'Inactive';
 }
 
 export interface Notification {
@@ -739,6 +740,7 @@ export interface DrivingIncident {
     damageToProperty?: number;
     injuries?: string;
     fineAmount?: number;
+    lostWorkDays?: number;
 
     // Insurance
     insuranceClaim?: boolean;

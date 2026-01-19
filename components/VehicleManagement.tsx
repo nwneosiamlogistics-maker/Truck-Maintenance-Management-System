@@ -25,8 +25,8 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
             insuranceType: null,
             actCompany: null,
             actExpiryDate: null,
-
             cargoInsuranceCompany: null,
+            status: 'Active',
         };
     };
 
@@ -107,6 +107,20 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
                             <div className="lg:col-span-2">
                                 <label className="block text-sm font-medium">วันจดทะเบียนรถ</label>
                                 <input type="date" name="registrationDate" aria-label="Registration Date" value={formData.registrationDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                            <div className="lg:col-span-2">
+                                <label htmlFor="vehicle-status-select" className="block text-sm font-medium">สถานะการใช้งาน</label>
+                                <select
+                                    id="vehicle-status-select"
+                                    name="status"
+                                    aria-label="สถานะการใช้งาน"
+                                    value={formData.status}
+                                    onChange={handleInputChange}
+                                    className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="Active">ใช้งานอยู่ (Active)</option>
+                                    <option value="Inactive">เลิกใช้งาน (Inactive)</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -295,6 +309,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อายุรถ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประกันภัย</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">พรบ.</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">สถานะ</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                         </tr>
                     </thead>
@@ -315,7 +330,12 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                         <div>{vehicle.actCompany || '-'}</div>
                                         <div className={actStatus.className}>{vehicle.actExpiryDate ? new Date(vehicle.actExpiryDate).toLocaleDateString('th-TH') : '-'} ({actStatus.text})</div>
                                     </td>
-                                    <td className="px-4 py-3 text-center space-x-2">
+                                    <td className="px-4 py-3 text-center">
+                                        <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${vehicle.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                            {vehicle.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
                                         <button onClick={() => handleOpenModal(vehicle)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
                                         <button onClick={() => handleDeleteVehicle(vehicle)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
                                     </td>

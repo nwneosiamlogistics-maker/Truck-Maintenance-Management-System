@@ -458,6 +458,7 @@ export const getDefaultVehicles = (): Vehicle[] => {
                 actCompany: (parts[8] && parts[8] !== '-') ? parts[8] : null,
                 actExpiryDate: parseThaiShortDate(parts[9]),
                 cargoInsuranceCompany: (parts[10] && parts[10] !== '-') ? parts[10] : null,
+                status: 'Active',
             };
         })
         .filter((v): v is Vehicle => v !== null);

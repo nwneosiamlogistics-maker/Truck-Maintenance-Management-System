@@ -247,7 +247,16 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
             case 'kpi-management':
                 return <KPIManagement kpiData={kpiData} setKpiData={setKpiData} />;
             case 'okr-management':
-                return <OKRManagement setActiveTab={setActiveTab} />;
+                return <OKRManagement
+                    setActiveTab={setActiveTab}
+                    repairs={repairs}
+                    pmHistory={pmHistory}
+                    maintenancePlans={maintenancePlans}
+                    fuelRecords={fuelRecords}
+                    checklists={checklists}
+                    incidents={drivingIncidents}
+                    vehicles={vehicles}
+                />;
 
 
             case 'preventive-maintenance':
