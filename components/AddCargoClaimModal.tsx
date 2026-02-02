@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import type { CargoInsuranceClaim, CargoInsurancePolicy } from '../types';
+import type { CargoInsuranceClaim, CargoInsurancePolicy, Driver } from '../types';
 
 interface AddCargoClaimModalProps {
     onClose: () => void;
     onSave: (claim: Omit<CargoInsuranceClaim, 'id'>) => void;
     policies: CargoInsurancePolicy[];
+    drivers: Driver[];
 }
 
-const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave, policies }) => {
+const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave, policies, drivers }) => {
     const [policyId, setPolicyId] = useState('');
     const [jobId, setJobId] = useState('');
     const [incidentDate, setIncidentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -22,6 +23,9 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
     const [estimatedDamage, setEstimatedDamage] = useState<string>('');
     const [claimedAmount, setClaimedAmount] = useState<string>('');
     const [notes, setNotes] = useState('');
+    const [isDriverSuggestionsOpen, setIsDriverSuggestionsOpen] = useState(false);
+    const [driverSuggestions, setDriverSuggestions] = useState<Driver[]>([]);
+    const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
 
     const selectedPolicy = policies.find(p => p.id === policyId);
 
@@ -51,6 +55,41 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
         if (!selectedPolicy || !licensePlate) return true; // Don't block if not selected or empty
         if (!selectedPolicy.coveredVehicles) return true;
         return selectedPolicy.coveredVehicles.some(v => licensePlate.includes(v.trim()) || v.trim().includes(licensePlate));
+    };
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (driverSuggestionsRef.current && !driverSuggestionsRef.current.contains(event.target as Node)) {
+                setIsDriverSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleDriverInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setDriverName(value);
+
+        if (value) {
+            const filtered = drivers.filter(d =>
+                d.name.toLowerCase().includes(value.toLowerCase()) ||
+                d.employeeId.toLowerCase().includes(value.toLowerCase())
+            );
+            setDriverSuggestions(filtered);
+            setIsDriverSuggestionsOpen(true);
+        } else {
+            setDriverSuggestions(drivers);
+            setIsDriverSuggestionsOpen(true);
+        }
+    };
+
+    const handleDriverSuggestionClick = (driver: Driver) => {
+        setDriverName(driver.name);
+        if (driver.primaryVehicle) {
+            setLicensePlate(driver.primaryVehicle);
+        }
+        setIsDriverSuggestionsOpen(false);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -296,9 +335,45 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
                                     <label htmlFor="license-plate" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ทะเบียนรถ</label>
                                     <input id="license-plate" title="ทะเบียนรถ" type="text" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 py-2 focus:border-indigo-500 outline-none font-bold text-slate-700" placeholder="70-XXXX" />
                                 </div>
-                                <div className="space-y-1">
+                                <div ref={driverSuggestionsRef} className="space-y-1 relative">
                                     <label htmlFor="driver-name" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อพนักงานขับรถ</label>
-                                    <input id="driver-name" title="ชื่อพนักงานขับรถ" type="text" value={driverName} onChange={e => setDriverName(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 py-2 focus:border-indigo-500 outline-none font-bold text-slate-700" placeholder="นาย..." />
+                                    <input
+                                        id="driver-name"
+                                        title="ชื่อพนักงานขับรถ"
+                                        type="text"
+                                        value={driverName}
+                                        onChange={handleDriverInputChange}
+                                        onFocus={() => {
+                                            setDriverSuggestions(drivers.filter(d =>
+                                                d.name.toLowerCase().includes(driverName.toLowerCase()) ||
+                                                d.employeeId.toLowerCase().includes(driverName.toLowerCase())
+                                            ));
+                                            setIsDriverSuggestionsOpen(true);
+                                        }}
+                                        autoComplete="off"
+                                        className="w-full bg-transparent border-b-2 border-slate-200 py-2 focus:border-indigo-500 outline-none font-bold text-slate-700"
+                                        placeholder="พิมพ์ชื่อเพื่อค้นหา..."
+                                    />
+                                    {isDriverSuggestionsOpen && (
+                                        <ul className="absolute z-[10000] w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-40 overflow-y-auto shadow-2xl animate-scale-in">
+                                            {driverSuggestions.length > 0 ? (
+                                                driverSuggestions.map(d => (
+                                                    <li
+                                                        key={d.id}
+                                                        onClick={() => handleDriverSuggestionClick(d)}
+                                                        className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b last:border-0 border-slate-50 transition-colors"
+                                                    >
+                                                        <div>
+                                                            <p className="font-bold text-slate-800 text-xs">{d.name}</p>
+                                                            <p className="text-[9px] text-slate-400">{d.employeeId}</p>
+                                                        </div>
+                                                    </li>
+                                                ))
+                                            ) : (
+                                                <li className="px-4 py-3 text-center text-slate-400 text-[10px] font-medium">ไม่พบข้อมูล</li>
+                                            )}
+                                        </ul>
+                                    )}
                                 </div>
                             </div>
                         </div>

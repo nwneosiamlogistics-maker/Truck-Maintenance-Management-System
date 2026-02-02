@@ -1,6 +1,6 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef, useCallback } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver } from '../types';
-import { MousePointer2, Settings, Truck, Package, Disc, Shield, Maximize2, AlertCircle, Clock, CheckCircle2, User, Wrench, CreditCard, ChevronRight, Edit3 } from 'lucide-react';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver, DailyChecklist } from '../types';
+import { MousePointer2, Settings, Truck, Package, Disc, Shield, Maximize2, AlertCircle, Clock, CheckCircle2, User, Wrench, CreditCard, ChevronRight, Edit3, ClipboardList } from 'lucide-react';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
@@ -8,6 +8,8 @@ import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 import TruckModel3D from './TruckModel3D';
+import DailyChecklistForm from './DailyChecklistForm';
+
 
 interface StepperProps {
     steps: string[];
@@ -85,9 +87,11 @@ interface RepairFormProps {
     kpiData: RepairKPI[];
     holidays: Holiday[];
     drivers: Driver[];
+    checklists: DailyChecklist[];
+    setChecklists: React.Dispatch<React.SetStateAction<DailyChecklist[]>>;
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays, drivers }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays, drivers, checklists, setChecklists }) => {
 
     const getInitialState = () => {
         const getRoundedStartDate = () => {
@@ -163,10 +167,19 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const suggestionsRef = useRef<HTMLDivElement>(null);
 
+    const [driverSearchQuery, setDriverSearchQuery] = useState('');
+    const [isDriverSuggestionsOpen, setIsDriverSuggestionsOpen] = useState(false);
+    const [driverSuggestions, setDriverSuggestions] = useState<Driver[]>([]);
+    const driverSuggestionsRef = useRef<HTMLDivElement>(null);
+
     const [assignmentType, setAssignmentType] = useState<'internal' | 'external'>('internal');
     const [isConfirmed, setIsConfirmed] = useState(false);
     const [isFormGloballyValid, setIsFormGloballyValid] = useState(false);
 
+
+
+    const [isMandatoryChecklistOpen, setIsMandatoryChecklistOpen] = useState(false);
+    const [hasChecklistForToday, setHasChecklistForToday] = useState(false);
 
     const { addToast } = useToast();
 
@@ -218,6 +231,21 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             clearInitialData();
         }
     }, [initialData, clearInitialData, vehicles]);
+
+    useEffect(() => {
+        if (!formData.licensePlate) {
+            setHasChecklistForToday(false);
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const existingChecklist = checklists.find(c =>
+            c.vehicleLicensePlate === formData.licensePlate &&
+            c.inspectionDate.startsWith(today)
+        );
+
+        setHasChecklistForToday(!!existingChecklist);
+    }, [formData.licensePlate, checklists]);
 
     useEffect(() => {
         const validateAll = () => {
@@ -272,6 +300,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const handleClickOutside = (event: MouseEvent) => {
             if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
                 setIsSuggestionsOpen(false);
+            }
+            if (driverSuggestionsRef.current && !driverSuggestionsRef.current.contains(event.target as Node)) {
+                setIsDriverSuggestionsOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -370,6 +401,39 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setOtherVehicleType(newOtherVehicleTypeState);
         setSuggestions([]);
         setIsSuggestionsOpen(false);
+    };
+
+    const handleDriverInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setDriverSearchQuery(value);
+
+        if (value) {
+            const filteredDrivers = drivers.filter(d =>
+                d.name.toLowerCase().includes(value.toLowerCase()) ||
+                d.employeeId.toLowerCase().includes(value.toLowerCase())
+            );
+            setDriverSuggestions(filteredDrivers);
+            setIsDriverSuggestionsOpen(true);
+        } else {
+            setDriverSuggestions([]);
+            setIsDriverSuggestionsOpen(false);
+        }
+
+        // If user clears the input, clear the driverId
+        if (!value) {
+            setFormData(prev => ({ ...prev, driverId: '' }));
+        }
+    };
+
+    const handleDriverSuggestionClick = (driver: Driver) => {
+        setFormData(prev => ({
+            ...prev,
+            driverId: driver.id,
+            reportedBy: driver.name
+        }));
+        setDriverSearchQuery(driver.name);
+        setDriverSuggestions([]);
+        setIsDriverSuggestionsOpen(false);
     };
 
     const handlePartSelect = (part: string) => {
@@ -537,6 +601,11 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                     addToast('กรุณาระบุประเภทรถ', 'warning');
                     return false;
                 }
+                if (!hasChecklistForToday) {
+                    setIsMandatoryChecklistOpen(true);
+                    addToast('กรุณาทำรายการตรวจเช็ค (Checklist) ก่อนดำเนินการต่อ', 'info');
+                    return false;
+                }
                 break;
             case 1:
                 const isInternalAssigned = assignmentType === 'internal' && formData.assignedTechnicianId;
@@ -651,27 +720,46 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <div className="animate-fade-in-up delay-300">
+                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">พนักงานขับรถ (Driver)</label>
-                                <select
-                                    name="driverId"
-                                    value={formData.driverId || ''}
-                                    onChange={(e) => {
-                                        const selectedDriver = drivers.find(d => d.id === e.target.value);
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            driverId: e.target.value,
-                                            reportedBy: selectedDriver ? selectedDriver.name : prev.reportedBy
-                                        }));
-                                    }}
-                                    className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold appearance-none shadow-sm cursor-pointer"
-                                    aria-label="Select Driver"
-                                >
-                                    <option value="">-- เลือกพนักงานขับรถ --</option>
-                                    {drivers && drivers.map(driver => (
-                                        <option key={driver.id} value={driver.id}>{driver.name}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={driverSearchQuery || (formData.driverId ? (drivers.find(d => d.id === formData.driverId)?.name || '') : '')}
+                                        onChange={handleDriverInputChange}
+                                        onFocus={() => {
+                                            if (driverSearchQuery) setIsDriverSuggestionsOpen(true);
+                                            else {
+                                                setDriverSuggestions(drivers);
+                                                setIsDriverSuggestionsOpen(true);
+                                            }
+                                        }}
+                                        className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold placeholder:text-slate-300 shadow-sm"
+                                        placeholder="พิมพ์เพื่อค้นหาพนักงานขับรถ..."
+                                        autoComplete="off"
+                                    />
+                                    <div className="absolute right-5 top-1/2 -translate-y-1/2 text-blue-500 opacity-20 group-focus-within:opacity-100 transition-opacity">
+                                        <User size={20} />
+                                    </div>
+                                </div>
+                                {isDriverSuggestionsOpen && driverSuggestions.length > 0 && (
+                                    <ul className="absolute z-30 w-full glass-light border border-white/60 rounded-3xl mt-2 max-h-64 overflow-y-auto shadow-2xl backdrop-blur-3xl animate-scale-in">
+                                        {driverSuggestions.map(driver => (
+                                            <li key={driver.id} onClick={() => handleDriverSuggestionClick(driver)} className="p-4 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b last:border-0 border-slate-100 transition-colors">
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-slate-800">{driver.name}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold">{driver.employeeId}</span>
+                                                </div>
+                                                {driver.status && (
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${driver.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                                                        }`}>
+                                                        {driver.status}
+                                                    </span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
                             <div className="animate-fade-in-up delay-400">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">เลขไมล์ปัจจุบัน (กม.) (Current Mileage)</label>
@@ -1201,29 +1289,70 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         }
     }
 
+    const handleSaveMandatoryChecklist = (newChecklistData: Omit<DailyChecklist, 'id'>) => {
+        const newChecklist: DailyChecklist = {
+            ...newChecklistData,
+            id: `CHK-${Date.now()}`,
+        };
+        setChecklists(prev => [newChecklist, ...(Array.isArray(prev) ? prev : [])]);
+        setHasChecklistForToday(true);
+        setIsMandatoryChecklistOpen(false);
+        addToast('บันทึก Checklist เรียบร้อยแล้ว สามารถดำเนินการต่อได้', 'success');
+    };
+
     return (
-        <>
-            <div className="pb-20 animate-fade-in-up">
-                <form onSubmit={handleSubmit} className="space-y-10 max-w-5xl mx-auto mt-6">
-                    <Stepper steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />
-
-                    <div className="glass-light p-10 sm:p-14 rounded-[3.5rem] border border-white/60 shadow-2xl relative overflow-hidden backdrop-blur-3xl transition-all duration-500">
-                        <div className="absolute inset-0 bg-white/40 pointer-events-none"></div>
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-100/30 blur-3xl rounded-full -mr-20 -mt-20"></div>
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-100/30 blur-3xl rounded-full -ml-20 -mb-20"></div>
-
-                        <div className="relative z-10">
-                            {renderStepContent()}
-                        </div>
+        <div className="max-w-7xl mx-auto px-4 pb-20">
+            {/* Stepper Header */}
+            <div className="bg-white/40 backdrop-blur-xl border border-white/60 p-10 rounded-[3rem] shadow-2xl shadow-blue-500/5 mb-10 animate-fade-in">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
+                    <div>
+                        <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-4">
+                            <span className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20">
+                                <Edit3 size={24} />
+                            </span>
+                            สร้างใบแจ้งซ่อมใหม่
+                        </h2>
+                        <p className="text-slate-400 font-bold mt-2 ml-1 text-sm tracking-wide uppercase">
+                            ระบบประเมินและบริหารจัดการคิวซ่อมบำรุง
+                        </p>
                     </div>
 
-                    <div className="flex justify-between items-center px-10">
+                    <div className="flex items-center gap-4">
+                        <div className={`px-6 py-3 rounded-2xl border-2 flex items-center gap-3 transition-all duration-500 shadow-sm ${hasChecklistForToday ? 'bg-green-50/80 border-green-200 text-green-700' : 'bg-amber-50/80 border-amber-200 text-amber-700'}`}>
+                            <div className={`w-3 h-3 rounded-full ${hasChecklistForToday ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></div>
+                            <span className="text-xs font-black uppercase tracking-widest">
+                                {hasChecklistForToday ? 'Checklist: ตรวจแล้ว' : 'Checklist: ยังไม่ได้ตรวจ'}
+                            </span>
+                        </div>
+                        <div className="px-6 py-3 bg-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 border border-slate-200">
+                            ID: {formData.repairOrderNo}
+                        </div>
+                    </div>
+                </div>
+
+                <Stepper steps={steps} currentStep={currentStep} onStepClick={(idx) => {
+                    if (idx < currentStep) setCurrentStep(idx);
+                    else if (idx === currentStep + 1) handleNext();
+                }} />
+            </div>
+
+            {/* Form Content */}
+            <form onSubmit={handleSubmit} className="bg-white border-2 border-slate-100 p-10 md:p-14 lg:p-16 rounded-[4rem] shadow-2xl shadow-slate-200/50 relative overflow-hidden min-h-[600px]">
+                {/* Decorative background elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 -z-0"></div>
+                <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 -z-0"></div>
+
+                <div className="relative z-10">
+                    {renderStepContent()}
+
+                    {/* Navigation Buttons */}
+                    <div className="flex justify-between items-center mt-16 pt-10 border-t-2 border-slate-50">
                         <div>
                             {currentStep > 0 && (
                                 <button
                                     type="button"
                                     onClick={handleBack}
-                                    className="px-10 py-5 text-xs font-black uppercase tracking-[0.3em] text-slate-500 bg-white/50 backdrop-blur-md rounded-2xl border border-slate-200 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all duration-300 transform hover:-translate-x-1 active:scale-95 flex items-center gap-3"
+                                    className="px-10 py-5 text-xs font-black uppercase tracking-[0.3em] text-slate-500 bg-white rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-blue-200 hover:text-blue-600 transition-all duration-300 transform hover:-translate-x-1 active:scale-95 flex items-center gap-3"
                                 >
                                     <span className="text-lg">←</span> กลับ (Back)
                                 </button>
@@ -1234,7 +1363,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <button
                                     type="button"
                                     onClick={handleNext}
-                                    className="px-12 py-5 text-xs font-black uppercase tracking-[0.3em] text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/40 transition-all duration-500 transform hover:-translate-y-1 active:scale-95 flex items-center gap-3 hover:pr-14"
+                                    className="px-12 py-5 text-xs font-black uppercase tracking-[0.3em] text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-xl shadow-blue-500/20 hover:shadow-2xl hover:shadow-blue-500/40 transition-all duration-500 transform hover:-translate-y-1 active:scale-95 flex items-center gap-3"
                                 >
                                     ถัดไป (Next) <span className="text-lg">→</span>
                                 </button>
@@ -1256,15 +1385,49 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             )}
                         </div>
                     </div>
-                </form>
-            </div>
+                </div>
+            </form>
 
+            {/* Mandatory Checklist Modal */}
+            {isMandatoryChecklistOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsMandatoryChecklistOpen(false)}></div>
+                    <div className="relative w-full max-w-5xl bg-slate-50 rounded-[4rem] shadow-3xl overflow-hidden animate-scale-in max-h-[90vh] flex flex-col border border-white/20">
+                        <div className="p-10 bg-white border-b-2 border-slate-100 flex justify-between items-center">
+                            <div className="flex items-center gap-6">
+                                <div className="p-4 bg-amber-100 text-amber-600 rounded-3xl">
+                                    <ClipboardList size={32} />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black text-slate-800 tracking-tight">รายการตรวจเช็ค (Daily Checklist)</h3>
+                                    <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-1">ทะเบียนรถ: <span className="text-blue-600">{formData.licensePlate}</span></p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsMandatoryChecklistOpen(false)} className="p-4 hover:bg-slate-100 rounded-2xl transition-colors" aria-label="Close modal">
+                                <Maximize2 size={24} className="text-slate-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-slate-50">
+                            <DailyChecklistForm
+                                vehicles={vehicles}
+                                technicians={technicians}
+                                onSave={handleSaveMandatoryChecklist}
+                                initialVehiclePlate={formData.licensePlate}
+                                initialReporterName={formData.reportedBy}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Existing Modals */}
             {isStockModalOpen && <StockSelectionModal stock={mainStock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
             {isRevolvingStockModalOpen && <StockSelectionModal stock={revolvingStock} onClose={() => setRevolvingStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
             {isExternalPartModalOpen && <ExternalPartModal onClose={() => setExternalPartModalOpen(false)} onAddExternalParts={handleAddExternalParts} suppliers={suppliers} />}
             {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} />}
-        </>
+        </div>
     );
 };
+
 
 export default RepairForm;

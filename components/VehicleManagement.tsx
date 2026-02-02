@@ -301,7 +301,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 hidden md:table">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียน</th>
@@ -344,17 +344,58 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                         })}
                     </tbody>
                 </table>
+
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4 p-4">
+                    {filteredVehicles.map(vehicle => {
+                        const insuranceStatus = getExpiryStatus(vehicle.insuranceExpiryDate);
+                        const actStatus = getExpiryStatus(vehicle.actExpiryDate);
+                        return (
+                            <div key={vehicle.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-bold text-lg text-gray-800">{vehicle.licensePlate}</span>
+                                    <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${vehicle.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                        {vehicle.status}
+                                    </span>
+                                </div>
+                                <div className="text-sm space-y-1 text-gray-600">
+                                    <p>{vehicle.vehicleType} {vehicle.make} {vehicle.model}</p>
+                                    <p>อายุรถ: {calculateVehicleAge(vehicle.registrationDate)}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg">
+                                    <div>
+                                        <span className="block text-xs text-gray-500">ประกัน</span>
+                                        <span className="block font-medium truncate">{vehicle.insuranceCompany || '-'}</span>
+                                        <span className={`text-xs ${insuranceStatus.className}`}>{vehicle.insuranceExpiryDate ? new Date(vehicle.insuranceExpiryDate).toLocaleDateString('th-TH') : '-'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs text-gray-500">พรบ.</span>
+                                        <span className="block font-medium truncate">{vehicle.actCompany || '-'}</span>
+                                        <span className={`text-xs ${actStatus.className}`}>{vehicle.actExpiryDate ? new Date(vehicle.actExpiryDate).toLocaleDateString('th-TH') : '-'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+                                    <button onClick={() => handleOpenModal(vehicle)} className="text-yellow-600 hover:text-yellow-800 font-bold text-sm bg-yellow-50 px-3 py-1.5 rounded-lg border border-yellow-200">แก้ไข</button>
+                                    <button onClick={() => handleDeleteVehicle(vehicle)} className="text-red-600 hover:text-red-800 font-bold text-sm bg-red-50 px-3 py-1.5 rounded-lg border border-red-200">ลบข้อมูล</button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
-            {isModalOpen && (
-                <VehicleModal
-                    vehicle={editingVehicle}
-                    onSave={handleSaveVehicle}
-                    onClose={() => setIsModalOpen(false)}
-                    existingVehicles={safeVehicles}
-                />
-            )}
-        </div>
+            {
+                isModalOpen && (
+                    <VehicleModal
+                        vehicle={editingVehicle}
+                        onSave={handleSaveVehicle}
+                        onClose={() => setIsModalOpen(false)}
+                        existingVehicles={safeVehicles}
+                    />
+                )
+            }
+        </div >
     );
 };
 

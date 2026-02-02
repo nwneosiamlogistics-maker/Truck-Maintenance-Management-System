@@ -480,7 +480,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
 
     const renderStockTable = (items: StockItem[]) => (
         <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh] relative">
-            <table className="min-w-full responsive-table">
+            <table className="min-w-full responsive-table hidden md:table">
                 <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>
                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รหัส / ชื่อ</th>
@@ -536,6 +536,78 @@ const StockManagement: React.FC<StockManagementProps> = ({
                     })}
                 </tbody>
             </table>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4 p-4">
+                {items.map(item => {
+                    const needsPurchase = item.quantity <= item.minStock;
+                    const isRequested = activePRStockIds.has(item.id);
+                    const displayStatus = calculateStockStatus(item.quantity, item.minStock, item.maxStock);
+                    return (
+                        <div key={item.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="font-bold text-gray-800">{item.name}</div>
+                                    <div className="text-xs text-gray-500 font-mono">{item.code}</div>
+                                </div>
+                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusBadge(displayStatus)}`}>
+                                    {displayStatus}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                    <span className="text-gray-500 text-xs block">สต็อกคงเหลือ</span>
+                                    <span className={`font-bold text-lg ${item.quantity <= item.minStock ? 'text-red-600' : 'text-gray-800'}`}>
+                                        {item.quantity} <span className="text-xs font-normal text-gray-500">{item.unit}</span>
+                                    </span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-gray-500 text-xs block">ราคา/หน่วย</span>
+                                    <span className="font-medium">{formatCurrency(item.price)}</span>
+                                </div>
+                                <div className="col-span-2 text-xs text-gray-400">
+                                    หมวดหมู่: {item.category} | ขั้นต่ำ: {item.minStock}
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
+                                {item.isFungibleUsedItem && (
+                                    <button onClick={() => setItemToSell(item)} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-200">
+                                        ♻️ คัดแยก
+                                    </button>
+                                )}
+                                <button onClick={async () => {
+                                    if (await promptForPasswordAsync('แก้ไข')) {
+                                        handleOpenStockModal(item);
+                                    }
+                                }} className="px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg text-xs font-bold border border-yellow-200">
+                                    ✏️ แก้ไข
+                                </button>
+                                {isRequested ? (
+                                    <span className="px-3 py-1.5 bg-gray-50 text-gray-500 rounded-lg text-xs font-bold border border-gray-200 cursor-default">
+                                        🕒
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={() => setItemToRequest(item)}
+                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
+                                        disabled={!needsPurchase || item.isFungibleUsedItem}
+                                    >
+                                        🛒 ขอซื้อ
+                                    </button>
+                                )}
+                                <button onClick={() => { setItemToPrint(item); setPrintModalOpen(true); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold border border-purple-200">
+                                    🖨️
+                                </button>
+                                <button onClick={() => handleDeleteItem(item.id, item.name)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold border border-red-200">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 
@@ -623,7 +695,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
                 return (
                     <>
                         <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh]">
-                            <table className="min-w-full responsive-table">
+                            <table className="min-w-full responsive-table hidden md:table">
                                 <thead className="sticky top-0 z-10 bg-gray-50">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ชื่ออะไหล่ / วันที่ถอด</th>
@@ -656,6 +728,53 @@ const StockManagement: React.FC<StockManagementProps> = ({
                                     )}
                                 </tbody>
                             </table>
+
+                            {/* Mobile Card View for Used Items */}
+                            <div className="md:hidden space-y-4 p-4">
+                                {paginatedUsedParts.map(part => (
+                                    <div key={part.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <div className="font-bold text-gray-800">{part.name}</div>
+                                                <div className="text-xs text-gray-500">ถอดเมื่อ: {new Date(part.dateRemoved).toLocaleDateString('th-TH')}</div>
+                                            </div>
+                                            <span className={`px-2 py-1 text-xs font-bold rounded-full ${getUsedPartStatusBadge(part.status)}`}>
+                                                {part.status}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm space-y-1">
+                                            <p className="text-gray-600"><span className="font-semibold">ที่มา:</span> {part.fromRepairOrderNo}</p>
+                                            <p className="text-gray-600"><span className="font-semibold">ทะเบียน:</span> {part.fromLicensePlate}</p>
+                                            <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg mt-2">
+                                                <div>
+                                                    <span className="text-xs text-gray-500 block">จำนวนเริ่มต้น</span>
+                                                    <span className="font-bold">{part.initialQuantity}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-xs text-gray-500 block text-right">คงเหลือ</span>
+                                                    <span className="font-bold text-blue-600">{getUsedPartRemaining(part)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="pt-2 border-t border-gray-100 flex gap-2 justify-end">
+                                            <button onClick={() => { setPartToProcess(part); setProcessUsedPartModalOpen(true); }} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-200">
+                                                จัดการ
+                                            </button>
+                                            <button onClick={async () => { if (await promptForPasswordAsync('แก้ไข')) { setPartToEdit(part); setEditUsedPartModalOpen(true); } }} className="px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg text-xs font-bold border border-yellow-200">
+                                                แก้ไข
+                                            </button>
+                                            <button onClick={() => handleDeleteUsedPart(part.id)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold border border-red-200">
+                                                ลบ
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {paginatedUsedParts.length === 0 && (
+                                    <div className="text-center py-10 text-gray-500 bg-white rounded-xl border border-gray-100">
+                                        ไม่พบรายการอะไหล่เก่า
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
                             <div className="flex items-center gap-2">

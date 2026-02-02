@@ -334,7 +334,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 hidden md:table">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เลขที่ / ทะเบียน</th>
@@ -392,13 +392,74 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                                 </td>
                             </tr>
                         ))}
-                        {paginatedRepairs.length === 0 && (
-                            <tr>
-                                <td colSpan={6} className="text-center py-10 text-gray-500">ไม่พบใบแจ้งซ่อม</td>
-                            </tr>
-                        )}
                     </tbody>
                 </table>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4 p-4">
+                    {paginatedRepairs.map(repair => (
+                        <div key={repair.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="font-bold text-lg text-gray-800">{repair.licensePlate}</div>
+                                    <div className="text-xs text-gray-500 font-mono">{repair.repairOrderNo}</div>
+                                </div>
+                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusBadge(repair.status)}`}>
+                                    {repair.status}
+                                </span>
+                            </div>
+
+                            <div className="space-y-1">
+                                <p className="text-sm text-gray-700 line-clamp-2"><span className="font-semibold text-gray-500">อาการ:</span> {repair.problemDescription}</p>
+                                <p className="text-sm text-gray-700"><span className="font-semibold text-gray-500">ช่าง:</span> {getTechnicianDisplay(repair, technicians)}</p>
+                                <div className="text-xs text-gray-400 flex flex-wrap gap-2 pt-1">
+                                    <span>📅 แจ้ง: {formatDateTime24h(repair.createdAt)}</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
+                                <div className="flex flex-wrap gap-2 justify-center">
+                                    {repair.status === 'รอซ่อม' && (
+                                        !(repair.assignedTechnicianId || repair.externalTechnicianName) ? (
+                                            <button onClick={() => setEditingRepair(repair)} className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 border border-gray-300">
+                                                👤 มอบหมายช่าง
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => handleQuickStatusUpdate(repair, 'กำลังซ่อม')} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all active:scale-95">
+                                                🛠️ เริ่มเข้าซ่อม
+                                            </button>
+                                        )
+                                    )}
+                                    {repair.status === 'กำลังซ่อม' && (
+                                        <>
+                                            <button onClick={() => handleQuickStatusUpdate(repair, 'รออะไหล่')} className="flex-1 px-3 py-2 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 shadow-sm transition-all active:scale-95">
+                                                📦 รออะไหล่
+                                            </button>
+                                            <button onClick={() => handleQuickStatusUpdate(repair, 'ซ่อมเสร็จ')} className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm transition-all active:scale-95">
+                                                ✅ ซ่อมเสร็จ
+                                            </button>
+                                        </>
+                                    )}
+                                    {repair.status === 'รออะไหล่' && (
+                                        <button onClick={() => handleQuickStatusUpdate(repair, 'กำลังซ่อม')} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all active:scale-95">
+                                            ⚙️ กลับมาซ่อมต่อ
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex justify-between items-center pt-1 px-1">
+                                    <button onClick={() => setEditingRepair(repair)} className="text-gray-500 hover:text-yellow-600 text-xs font-medium underline px-2 py-1">แก้ไข</button>
+                                    <button onClick={() => setViewingRepair(repair)} className="text-gray-500 hover:text-blue-600 text-xs font-medium underline px-2 py-1">ดูรายละเอียด</button>
+                                    <button onClick={() => handleDeleteRepair(repair.id, repair.repairOrderNo)} className="text-gray-400 hover:text-red-500 text-xs font-medium underline px-2 py-1">ลบใบงาน</button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {paginatedRepairs.length === 0 && (
+                        <div className="text-center py-10 text-gray-500 bg-white rounded-xl border border-gray-100">
+                            ไม่พบใบแจ้งซ่อม
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">

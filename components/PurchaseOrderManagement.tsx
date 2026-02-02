@@ -714,7 +714,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                         className="p-2 border rounded-lg w-full md:w-80"
                     />
                     <div className="overflow-auto max-h-[65vh] border rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200 hidden md:table">
                             <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                                 <tr>
                                     <th className="w-10 bg-gray-50"></th>
@@ -804,6 +804,76 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                                 )}
                             </tbody>
                         </table>
+
+                        {/* Mobile Card View for Purchase Orders */}
+                        <div className="md:hidden space-y-4 p-4">
+                            {paginatedPOs.map(po => (
+                                <div key={po.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="font-bold text-blue-600 text-lg">{po.poNumber}</div>
+                                            <div className="text-xs text-gray-500">{new Date(po.orderDate).toLocaleDateString('th-TH')}</div>
+                                        </div>
+                                        <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getStatusBadge(po.status)}`}>
+                                            {po.status}
+                                        </span>
+                                    </div>
+                                    <div className="text-sm space-y-1">
+                                        <p className="text-gray-700 font-medium">{po.supplierName}</p>
+                                        <div className="flex justify-between text-gray-600 text-xs">
+                                            <span>ผู้ขอ: {po.requesterName || '-'}</span>
+                                            <span>แผนก: {po.department || '-'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-gray-50 p-2 rounded mt-2">
+                                            <span className="text-xs text-gray-500">ยอดสุทธิ</span>
+                                            <span className="font-bold text-gray-800">{formatTotalCurrency(po.totalAmount)}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Expandable Items Section for Mobile */}
+                                    <div className="pt-2 border-t border-gray-100">
+                                        <button
+                                            onClick={() => toggleExpandPO(po.id)}
+                                            className="w-full text-left text-xs font-semibold text-gray-500 flex justify-between items-center py-1"
+                                        >
+                                            รายการสินค้า ({po.items.length})
+                                            <span>{expandedPOIds.has(po.id) ? '▲' : '▼'}</span>
+                                        </button>
+                                        {expandedPOIds.has(po.id) && (
+                                            <div className="bg-gray-50 rounded p-2 mt-1 space-y-2 text-xs">
+                                                {po.items.map((item, idx) => (
+                                                    <div key={idx} className="flex justify-between border-b border-gray-200 pb-1 last:border-0 last:pb-0">
+                                                        <span className="truncate flex-1 pr-2">{item.name}</span>
+                                                        <span className="text-gray-600 whitespace-nowrap">x{item.quantity} {item.unit}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-2 border-t border-gray-100 flex gap-2 justify-end flex-wrap">
+                                        {po.status === 'Ordered' && (
+                                            <button onClick={() => handleReceivePO(po)} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-200 flex-1 text-center">
+                                                รับของ
+                                            </button>
+                                        )}
+                                        <button onClick={() => handlePrintPO(po)} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold border border-gray-200 flex-1 text-center">
+                                            พิมพ์
+                                        </button>
+                                        {po.status === 'Ordered' && (
+                                            <button onClick={() => handleCancelPO(po.id)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold border border-red-200 flex-1 text-center">
+                                                ยกเลิก
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            {sortedPOs.length === 0 && (
+                                <div className="text-center py-10 text-gray-500 bg-white rounded-xl border border-gray-100">
+                                    ไม่พบรายการใบสั่งซื้อ
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex justify-between items-center flex-wrap gap-4">

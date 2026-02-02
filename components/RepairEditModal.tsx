@@ -684,7 +684,7 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                 <div className="p-6 space-y-4">
                                     <div className="space-y-3">
                                         {(formData.parts && formData.parts.length > 0) && (
-                                            <div className="grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
+                                            <div className="hidden md:grid grid-cols-12 gap-3 px-3 pb-2 border-b font-medium text-sm text-gray-600">
                                                 <div className="col-span-1">ที่มา</div>
                                                 <div className="col-span-4">ชื่ออะไหล่</div>
                                                 <div className="col-span-2 text-right">จำนวน</div>
@@ -694,21 +694,44 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                             </div>
                                         )}
                                         {(formData.parts || []).map((part) => (
-                                            <div key={part.partId} className="grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
-                                                <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
-                                                <div className="col-span-4"><p className="font-medium">{part.name}</p></div>
-                                                <div className="col-span-2 text-right font-semibold">
-                                                    {part.quantity}
+                                            <div key={part.partId}>
+                                                {/* Desktop View */}
+                                                <div className="hidden md:grid grid-cols-12 gap-3 items-center p-2 rounded-lg hover:bg-gray-50">
+                                                    <div className="col-span-1 text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</div>
+                                                    <div className="col-span-4"><p className="font-medium">{part.name}</p></div>
+                                                    <div className="col-span-2 text-right font-semibold">
+                                                        {part.quantity}
+                                                    </div>
+                                                    <div className="col-span-1 text-center">{part.unit}</div>
+                                                    <div className="col-span-2 text-right">
+                                                        {formatCurrency(part.unitPrice)}
+                                                    </div>
+                                                    <div className="col-span-1 font-semibold text-right">
+                                                        {formatCurrency(part.quantity * part.unitPrice)}
+                                                    </div>
+                                                    <div className="col-span-1 text-center">
+                                                        <button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold" title="ลบรายการอะไหล่">×</button>
+                                                    </div>
                                                 </div>
-                                                <div className="col-span-1 text-center">{part.unit}</div>
-                                                <div className="col-span-2 text-right">
-                                                    {formatCurrency(part.unitPrice)}
-                                                </div>
-                                                <div className="col-span-1 font-semibold text-right">
-                                                    {formatCurrency(part.quantity * part.unitPrice)}
-                                                </div>
-                                                <div className="col-span-1 text-center">
-                                                    <button type="button" onClick={() => removePart(part.partId)} className="text-red-500 hover:text-red-700 font-bold" title="ลบรายการอะไหล่">×</button>
+
+                                                {/* Mobile View */}
+                                                <div className="md:hidden bg-gray-50 p-3 rounded-lg border space-y-2 mb-2 relative">
+                                                    <button type="button" onClick={() => removePart(part.partId)} className="absolute top-2 right-2 text-red-500 font-bold p-1">×</button>
+                                                    <div className="flex items-start gap-2 pr-8">
+                                                        <span className="text-xl">{part.source === 'สต็อกอู่' ? '📦' : '🏪'}</span>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800 text-sm">{part.name}</p>
+                                                            <p className="text-xs text-gray-500">{part.source}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-sm border-t pt-2 border-gray-200">
+                                                        <div className="text-gray-600">
+                                                            {part.quantity} {part.unit} x {formatCurrency(part.unitPrice)}
+                                                        </div>
+                                                        <div className="font-bold text-gray-800">
+                                                            {formatCurrency(part.quantity * part.unitPrice)}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}

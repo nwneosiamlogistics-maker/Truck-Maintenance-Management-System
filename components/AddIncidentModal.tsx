@@ -11,6 +11,11 @@ interface AddIncidentModalProps {
 
 const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriver, drivers, vehicles, onClose, onSave }) => {
     const [selectedDriverId, setSelectedDriverId] = useState(initialDriver?.id || '');
+    const [driverSearchQuery, setDriverSearchQuery] = useState(initialDriver?.name || '');
+    const [isDriverSuggestionsOpen, setIsDriverSuggestionsOpen] = useState(false);
+    const [driverSuggestions, setDriverSuggestions] = useState<Driver[]>([]);
+    const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
+
     const [formData, setFormData] = useState({
         vehicleId: initialDriver?.primaryVehicle ? vehicles.find(v => v.licensePlate === initialDriver.primaryVehicle)?.id || '' : '',
         date: new Date().toISOString().split('T')[0],
@@ -41,6 +46,48 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
             severity,
             pointsDeducted: severityConfig[severity].points
         }));
+    };
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (driverSuggestionsRef.current && !driverSuggestionsRef.current.contains(event.target as Node)) {
+                setIsDriverSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleDriverInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setDriverSearchQuery(value);
+
+        if (value) {
+            const filteredDrivers = drivers.filter(d =>
+                d.name.toLowerCase().includes(value.toLowerCase()) ||
+                d.employeeId.toLowerCase().includes(value.toLowerCase())
+            );
+            setDriverSuggestions(filteredDrivers);
+            setIsDriverSuggestionsOpen(true);
+        } else {
+            setDriverSuggestions(drivers);
+            setIsDriverSuggestionsOpen(true);
+        }
+
+        if (!value) {
+            setSelectedDriverId('');
+        }
+    };
+
+    const handleDriverSuggestionClick = (driver: Driver) => {
+        setSelectedDriverId(driver.id);
+        setDriverSearchQuery(driver.name);
+        setIsDriverSuggestionsOpen(false);
+
+        if (driver.primaryVehicle) {
+            const v = vehicles.find(v => v.licensePlate === driver.primaryVehicle);
+            if (v) setFormData(prev => ({ ...prev, vehicleId: v.id }));
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -92,28 +139,52 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="md:col-span-2">
+                            <div ref={driverSuggestionsRef} className="md:col-span-2 relative">
                                 <label className="block text-sm font-bold text-slate-700 mb-2">พนักงานขับรถ *</label>
-                                <select
-                                    title="พนักงานขับรถ"
-                                    value={selectedDriverId}
-                                    onChange={(e) => {
-                                        setSelectedDriverId(e.target.value);
-                                        const drv = drivers.find(d => d.id === e.target.value);
-                                        if (drv?.primaryVehicle) {
-                                            const v = vehicles.find(v => v.licensePlate === drv.primaryVehicle);
-                                            if (v) setFormData(prev => ({ ...prev, vehicleId: v.id }));
-                                        }
-                                    }}
-                                    required
-                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all font-medium"
-                                    disabled={!!initialDriver}
-                                >
-                                    <option value="">เลือกพนักงานขับรถ...</option>
-                                    {drivers.map(d => (
-                                        <option key={d.id} value={d.id}>{d.name} ({d.employeeId})</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={driverSearchQuery}
+                                        onChange={handleDriverInputChange}
+                                        onFocus={() => {
+                                            setDriverSuggestions(drivers.filter(d =>
+                                                d.name.toLowerCase().includes(driverSearchQuery.toLowerCase()) ||
+                                                d.employeeId.toLowerCase().includes(driverSearchQuery.toLowerCase())
+                                            ));
+                                            setIsDriverSuggestionsOpen(true);
+                                        }}
+                                        disabled={!!initialDriver}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all font-medium"
+                                        placeholder="พิมพ์ชื่อหรือรหัสพนักงานเพื่อค้นหา..."
+                                        autoComplete="off"
+                                    />
+                                    <div className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                {isDriverSuggestionsOpen && !initialDriver && (
+                                    <ul className="absolute z-[60] w-full bg-white border border-slate-200 rounded-2xl mt-2 max-h-60 overflow-y-auto shadow-xl animate-scale-in">
+                                        {driverSuggestions.length > 0 ? (
+                                            driverSuggestions.map(d => (
+                                                <li
+                                                    key={d.id}
+                                                    onClick={() => handleDriverSuggestionClick(d)}
+                                                    className="px-5 py-3 hover:bg-red-50 cursor-pointer flex justify-between items-center border-b last:border-0 border-slate-50 transition-colors"
+                                                >
+                                                    <div>
+                                                        <p className="font-bold text-slate-800">{d.name}</p>
+                                                        <p className="text-xs text-slate-500">{d.employeeId}</p>
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{d.status}</span>
+                                                </li>
+                                            ))
+                                        ) : (
+                                            <li className="px-5 py-4 text-center text-slate-400 text-sm font-medium">ไม่พบข้อมูลพนักงานขับรถ</li>
+                                        )}
+                                    </ul>
+                                )}
                             </div>
 
                             <div className="group">

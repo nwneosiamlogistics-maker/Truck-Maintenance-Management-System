@@ -305,7 +305,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 hidden md:table">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
                             <th className="px-4 py-3 w-12 text-center"></th>
@@ -376,7 +376,65 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                         ))}
                         {paginatedRequisitions.length === 0 && (<tr><td colSpan={7} className="text-center py-10 text-gray-500">ไม่พบข้อมูลใบขอซื้อ</td></tr>)}
                     </tbody>
+
                 </table>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4 p-4">
+                    {paginatedRequisitions.map(pr => (
+                        <div key={pr.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="font-bold text-lg text-blue-800">{pr.prNumber}</div>
+                                    <div className="text-xs text-gray-500">{new Date(pr.createdAt).toLocaleDateString('th-TH')}</div>
+                                </div>
+                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusBadge(pr.status)}`}>
+                                    {pr.status}
+                                </span>
+                            </div>
+
+                            <div className="text-sm space-y-1">
+                                <p className="text-gray-700"><span className="font-semibold text-gray-500">ผู้จำหน่าย:</span> {pr.supplier}</p>
+                                <p className="text-gray-700"><span className="font-semibold text-gray-500">ผู้ขอซื้อ:</span> {pr.requesterName}</p>
+                                <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg mt-2">
+                                    <span className="text-xs text-gray-500">ราคารวม</span>
+                                    <span className="font-bold text-blue-600 text-lg">{formatCurrency(pr.totalAmount)} บาท</span>
+                                </div>
+                            </div>
+
+                            {/* Expandable Items Section for Mobile */}
+                            <div className="pt-2 border-t border-gray-100">
+                                <button
+                                    onClick={() => toggleExpand(pr.id)}
+                                    className="w-full text-left text-xs font-semibold text-gray-500 flex justify-between items-center py-1"
+                                >
+                                    รายการในใบขอซื้อ ({pr.items?.length || 0})
+                                    <span>{expandedPrIds.has(pr.id) ? '▲' : '▼'}</span>
+                                </button>
+                                {expandedPrIds.has(pr.id) && (
+                                    <div className="bg-gray-50 rounded p-2 mt-1 space-y-2 text-xs">
+                                        {pr.items?.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between border-b border-gray-200 pb-1 last:border-0 last:pb-0">
+                                                <span className="truncate flex-1 pr-2">{item.name}</span>
+                                                <span className="text-gray-600 whitespace-nowrap">x{item.quantity} {item.unit}</span>
+                                                <span className="text-gray-600 font-medium ml-2">{formatCurrency(item.quantity * item.unitPrice)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-2 border-t border-gray-100 flex gap-2 justify-end flex-wrap">
+                                {renderActions(pr)}
+                            </div>
+                        </div>
+                    ))}
+                    {paginatedRequisitions.length === 0 && (
+                        <div className="text-center py-10 text-gray-500 bg-white rounded-xl border border-gray-100">
+                            ไม่พบข้อมูลใบขอซื้อ
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center flex-wrap gap-4">
@@ -404,17 +462,19 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                 </div>
             </div>
 
-            {isModalOpen && (
-                <PurchaseRequisitionModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    onSave={handleSaveRequisition}
-                    stockItems={stock}
-                    initialRequisition={editingRequisition}
-                    suppliers={suppliers}
-                />
-            )}
-        </div>
+            {
+                isModalOpen && (
+                    <PurchaseRequisitionModal
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        onSave={handleSaveRequisition}
+                        stockItems={stock}
+                        initialRequisition={editingRequisition}
+                        suppliers={suppliers}
+                    />
+                )
+            }
+        </div >
     );
 };
 

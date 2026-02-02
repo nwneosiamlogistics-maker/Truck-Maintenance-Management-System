@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import type { Tab } from './types';
 import { TABS } from './constants';
 import { useRepairs } from './hooks/useRepairs';
@@ -7,46 +7,47 @@ import { useFleet } from './hooks/useFleet';
 import { useAdmin } from './hooks/useAdmin';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import RepairForm from './components/RepairForm';
-import RepairList from './components/RepairList';
-import RepairHistory from './components/RepairHistory';
-import StockManagement from './components/StockManagement';
-import TechnicianManagement from './components/TechnicianManagement';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
-import Reports from './components/Reports';
-import MaintenancePlanner from './components/MaintenancePlanner';
-import Estimation from './components/Estimation';
-import TechnicianPerformance from './components/TechnicianPerformance';
-import TechnicianWorkLog from './components/TechnicianWorkLog';
-import VehicleRepairHistory from './components/VehicleRepairHistory';
-import StockHistory from './components/StockHistory';
-import PurchaseRequisitionComponent from './components/PurchaseRequisition';
-import VehicleManagement from './components/VehicleManagement';
-import SupplierManagement from './components/SupplierManagement';
-import UsedPartBuyerManagement from './components/UsedPartBuyerManagement';
-import UsedPartReport from './components/UsedPartReport';
-import TechnicianView from './components/TechnicianView';
-import PreventiveMaintenance from './components/PreventiveMaintenance';
-import DailyChecklistPage from './components/DailyChecklistPage';
-import TireCheckPage from './components/TireCheckPage';
-import ToolManagement from './components/ToolManagement';
-import KPIDashboard from './components/KPIDashboard';
-import KPIManagement from './components/KPIManagement';
-import Settings from './components/Settings';
-import FleetKPIDashboard from './components/FleetKPIDashboard';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
-import PurchaseOrderManagement from './components/PurchaseOrderManagement';
-import BudgetManagement from './components/BudgetManagement';
-import FuelManagement from './components/FuelManagement';
-import DriverManagement from './components/DriverManagement';
-import WarrantyInsuranceManagement from './components/WarrantyInsuranceManagement';
 import Login from './components/Login';
-// import { sendRepairStatusLineNotification } from './utils/lineService';
 import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus } from './utils/telegramService';
-import IncidentLogPage from './components/IncidentLogPage';
-import OKRManagement from './components/OKRManagement';
+
+// Lazy Load Pages
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const RepairForm = lazy(() => import('./components/RepairForm'));
+const RepairList = lazy(() => import('./components/RepairList'));
+const RepairHistory = lazy(() => import('./components/RepairHistory'));
+const StockManagement = lazy(() => import('./components/StockManagement'));
+const TechnicianManagement = lazy(() => import('./components/TechnicianManagement'));
+const Reports = lazy(() => import('./components/Reports'));
+const MaintenancePlanner = lazy(() => import('./components/MaintenancePlanner'));
+const Estimation = lazy(() => import('./components/Estimation'));
+const TechnicianPerformance = lazy(() => import('./components/TechnicianPerformance'));
+const TechnicianWorkLog = lazy(() => import('./components/TechnicianWorkLog'));
+const VehicleRepairHistory = lazy(() => import('./components/VehicleRepairHistory'));
+const StockHistory = lazy(() => import('./components/StockHistory'));
+const PurchaseRequisitionComponent = lazy(() => import('./components/PurchaseRequisition'));
+const VehicleManagement = lazy(() => import('./components/VehicleManagement'));
+const SupplierManagement = lazy(() => import('./components/SupplierManagement'));
+const UsedPartBuyerManagement = lazy(() => import('./components/UsedPartBuyerManagement'));
+const UsedPartReport = lazy(() => import('./components/UsedPartReport'));
+const TechnicianView = lazy(() => import('./components/TechnicianView'));
+const PreventiveMaintenance = lazy(() => import('./components/PreventiveMaintenance'));
+const DailyChecklistPage = lazy(() => import('./components/DailyChecklistPage'));
+const TireCheckPage = lazy(() => import('./components/TireCheckPage'));
+const ToolManagement = lazy(() => import('./components/ToolManagement'));
+const KPIDashboard = lazy(() => import('./components/KPIDashboard'));
+const KPIManagement = lazy(() => import('./components/KPIManagement'));
+const Settings = lazy(() => import('./components/Settings'));
+const FleetKPIDashboard = lazy(() => import('./components/FleetKPIDashboard'));
+const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
+const PurchaseOrderManagement = lazy(() => import('./components/PurchaseOrderManagement'));
+const BudgetManagement = lazy(() => import('./components/BudgetManagement'));
+const FuelManagement = lazy(() => import('./components/FuelManagement'));
+const DriverManagement = lazy(() => import('./components/DriverManagement'));
+const WarrantyInsuranceManagement = lazy(() => import('./components/WarrantyInsuranceManagement'));
+const IncidentLogPage = lazy(() => import('./components/IncidentLogPage'));
+const OKRManagement = lazy(() => import('./components/OKRManagement'));
 
 
 
@@ -146,6 +147,8 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     kpiData={kpiData}
                     holidays={holidays}
                     drivers={drivers}
+                    checklists={checklists}
+                    setChecklists={setChecklists}
                 />;
             case 'list':
                 return <RepairList
@@ -292,7 +295,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
             case 'budget-management':
                 return <BudgetManagement budgets={budgets} setBudgets={setBudgets} repairs={repairs} purchaseOrders={purchaseOrders} fuelRecords={fuelRecords} vehicles={vehicles} />;
             case 'fuel-management':
-                return <FuelManagement fuelRecords={fuelRecords} setFuelRecords={setFuelRecords} vehicles={vehicles} />;
+                return <FuelManagement fuelRecords={fuelRecords} setFuelRecords={setFuelRecords} vehicles={vehicles} drivers={drivers} />;
             case 'driver-management':
                 return <DriverManagement drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} fuelRecords={fuelRecords} incidents={drivingIncidents} repairs={repairs} setIncidents={setDrivingIncidents} />;
             case 'warranty-insurance':
@@ -309,6 +312,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     setCargoPolicies={setCargoPolicies}
                     cargoClaims={cargoClaims}
                     setCargoClaims={setCargoClaims}
+                    drivers={drivers}
                 />;
             case 'incident-log':
                 return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} />;
@@ -345,7 +349,9 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     technicians={technicians}
                 />
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 print:p-0">
-                    {renderContent()}
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+                        {renderContent()}
+                    </Suspense>
                 </main>
             </div>
         </div>

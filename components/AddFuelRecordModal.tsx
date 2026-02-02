@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import type { FuelRecord, FuelType, Vehicle } from '../types';
+import type { FuelRecord, FuelType, Vehicle, Driver } from '../types';
 import { calculateThaiTax } from '../utils';
 
 interface AddFuelRecordModalProps {
     onClose: () => void;
     onSave: (record: Omit<FuelRecord, 'id' | 'createdAt' | 'createdBy'>) => void;
     vehicles: Vehicle[];
+    drivers: Driver[];
 }
 
 const FUEL_TYPES: FuelType[] = ['ดีเซล', 'เบนซิน 91', 'เบนซิน 95', 'แก๊สโซฮอล์ E20', 'แก๊สโซฮอล์ E85', 'NGV'];
 const PAYMENT_METHODS = ['เงินสด', 'บัตรเครดิต', 'บัตรน้ำมัน', 'โอน'] as const;
 
-const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave, vehicles }) => {
+const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave, vehicles, drivers }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         vehicleId: '',
@@ -29,6 +30,9 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
         paymentMethod: 'เงินสด' as typeof PAYMENT_METHODS[number],
         notes: ''
     });
+    const [isDriverSuggestionsOpen, setIsDriverSuggestionsOpen] = useState(false);
+    const [driverSuggestions, setDriverSuggestions] = useState<Driver[]>([]);
+    const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
 
     const selectedVehicle = vehicles.find(v => v.id === formData.vehicleId);
     const distanceTraveled = formData.odometerAfter - formData.odometerBefore;
@@ -68,6 +72,43 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                 ? Number(value)
                 : value
         }));
+    };
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (driverSuggestionsRef.current && !driverSuggestionsRef.current.contains(event.target as Node)) {
+                setIsDriverSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleDriverInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setFormData(prev => ({ ...prev, driverName: value }));
+
+        if (value) {
+            const filtered = drivers.filter(d =>
+                d.name.toLowerCase().includes(value.toLowerCase()) ||
+                d.employeeId.toLowerCase().includes(value.toLowerCase())
+            );
+            setDriverSuggestions(filtered);
+            setIsDriverSuggestionsOpen(true);
+        } else {
+            setDriverSuggestions(drivers);
+            setIsDriverSuggestionsOpen(true);
+        }
+    };
+
+    const handleDriverSuggestionClick = (driver: Driver) => {
+        setFormData(prev => ({
+            ...prev,
+            driverName: driver.name,
+            // If the vehicle isn't selected yet and driver has a primary vehicle, pre-select it
+            vehicleId: prev.vehicleId || (driver.primaryVehicle ? (vehicles.find(v => v.licensePlate === driver.primaryVehicle)?.id || prev.vehicleId) : prev.vehicleId)
+        }));
+        setIsDriverSuggestionsOpen(false);
     };
 
     return (
@@ -115,17 +156,52 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                         </div>
 
                         {/* Driver Name */}
-                        <div>
+                        <div ref={driverSuggestionsRef} className="relative">
                             <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อคนขับ *</label>
-                            <input
-                                type="text"
-                                name="driverName"
-                                value={formData.driverName}
-                                onChange={handleInputChange}
-                                required
-                                placeholder="ระบุชื่อคนขับ"
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
-                            />
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    name="driverName"
+                                    value={formData.driverName}
+                                    onChange={handleDriverInputChange}
+                                    onFocus={() => {
+                                        setDriverSuggestions(drivers.filter(d =>
+                                            d.name.toLowerCase().includes(formData.driverName.toLowerCase()) ||
+                                            d.employeeId.toLowerCase().includes(formData.driverName.toLowerCase())
+                                        ));
+                                        setIsDriverSuggestionsOpen(true);
+                                    }}
+                                    required
+                                    placeholder="พิมพ์ชื่อหรือรหัสเพื่อค้นหา..."
+                                    autoComplete="off"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-100 focus:border-amber-500 outline-none"
+                                />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            {isDriverSuggestionsOpen && (
+                                <ul className="absolute z-[60] w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-52 overflow-y-auto shadow-xl animate-scale-in">
+                                    {driverSuggestions.length > 0 ? (
+                                        driverSuggestions.map(d => (
+                                            <li
+                                                key={d.id}
+                                                onClick={() => handleDriverSuggestionClick(d)}
+                                                className="px-4 py-2.5 hover:bg-amber-50 cursor-pointer flex justify-between items-center border-b last:border-0 border-slate-50 transition-colors"
+                                            >
+                                                <div>
+                                                    <p className="font-bold text-slate-800 text-sm">{d.name}</p>
+                                                    <p className="text-[10px] text-slate-500">{d.employeeId}</p>
+                                                </div>
+                                            </li>
+                                        ))
+                                    ) : (
+                                        <li className="px-4 py-4 text-center text-slate-400 text-xs font-medium">ไม่พบข้อมูลพนักงานขับรถ</li>
+                                    )}
+                                </ul>
+                            )}
                         </div>
 
                         {/* Date */}

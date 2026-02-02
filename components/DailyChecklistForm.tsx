@@ -7,9 +7,11 @@ interface DailyChecklistFormProps {
     onSave: (checklist: Omit<DailyChecklist, 'id'>) => void;
     vehicles: Vehicle[];
     technicians: Technician[];
+    initialVehiclePlate?: string;
+    initialReporterName?: string;
 }
 
-const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicles, technicians }) => {
+const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicles, technicians, initialVehiclePlate, initialReporterName }) => {
     const { addToast } = useToast();
     const definition = checklistDefinitions['FM-MN-13'];
 
@@ -18,12 +20,15 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
         definition.sections.flatMap(s => s.items).forEach(item => {
             initialItems[item.id] = { status: item.options[0].label, notes: '' };
         });
+        const plate = initialVehiclePlate || '';
+        const vehicle = vehicles.find(v => v.licensePlate === plate);
+
         return {
             checklistId: 'FM-MN-13',
-            vehicleLicensePlate: '',
-            vehicleType: '',
+            vehicleLicensePlate: plate,
+            vehicleType: vehicle?.vehicleType || '',
             inspectionDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format for date input
-            reporterName: '',
+            reporterName: initialReporterName || '',
             items: initialItems,
         };
     };
@@ -47,7 +52,7 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
             },
         }));
     };
-    
+
     const handleVehicleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const plate = e.target.value;
         const vehicle = vehicles.find(v => v.licensePlate === plate);
@@ -64,7 +69,7 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
             addToast('กรุณากรอกทะเบียนรถและชื่อช่าง', 'warning');
             return;
         }
-        
+
         // Convert date back to full ISO string before saving
         const dataToSave = {
             ...formData,
@@ -123,28 +128,28 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow-lg space-y-4 max-w-5xl mx-auto border font-sans">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">ทะเบียน *</label>
-                    <select name="vehicleLicensePlate" value={formData.vehicleLicensePlate} onChange={handleVehicleSelect} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required>
+                    <label htmlFor="vehicleLicensePlate" className="block text-sm font-medium text-gray-700">ทะเบียน *</label>
+                    <select id="vehicleLicensePlate" name="vehicleLicensePlate" value={formData.vehicleLicensePlate} onChange={handleVehicleSelect} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required>
                         <option value="">-- เลือกทะเบียน --</option>
                         {vehicles.map(v => <option key={v.id} value={v.licensePlate}>{v.licensePlate}</option>)}
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">ประเภทรถยนต์</label>
-                    <input type="text" name="vehicleType" value={formData.vehicleType} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100" readOnly />
+                    <label htmlFor="vehicleType" className="block text-sm font-medium text-gray-700">ประเภทรถยนต์</label>
+                    <input id="vehicleType" type="text" name="vehicleType" value={formData.vehicleType} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100" readOnly />
                 </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700">ช่าง *</label>
-                    <select name="reporterName" value={formData.reporterName} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required>
+                <div>
+                    <label htmlFor="reporterName" className="block text-sm font-medium text-gray-700">ช่าง *</label>
+                    <select id="reporterName" name="reporterName" value={formData.reporterName} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required>
                         <option value="">-- เลือกช่าง --</option>
                         {technicians.map(tech => (
                             <option key={tech.id} value={tech.name}>{tech.name}</option>
                         ))}
                     </select>
                 </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700">วันที่ตรวจ</label>
-                    <input type="date" name="inspectionDate" value={formData.inspectionDate} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                <div>
+                    <label htmlFor="inspectionDate" className="block text-sm font-medium text-gray-700">วันที่ตรวจ</label>
+                    <input id="inspectionDate" type="date" name="inspectionDate" value={formData.inspectionDate} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                 </div>
             </div>
 
@@ -186,8 +191,8 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
                     {column2Items.map(renderChecklistItem)}
                 </div>
             </main>
-            
-             <div className="flex justify-end border-t pt-4">
+
+            <div className="flex justify-end border-t pt-4">
                 <button type="submit" className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
                     บันทึกใบตรวจเช็ค
                 </button>

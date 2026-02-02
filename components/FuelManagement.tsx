@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { FuelRecord, FuelAnalytics, FuelAlert, Vehicle } from '../types';
+import type { FuelRecord, FuelAnalytics, FuelAlert, Vehicle, Driver } from '../types';
 import { formatCurrency } from '../utils';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import AddFuelRecordModal from './AddFuelRecordModal';
@@ -11,11 +11,12 @@ interface FuelManagementProps {
     fuelRecords: FuelRecord[];
     setFuelRecords: React.Dispatch<React.SetStateAction<FuelRecord[]>>;
     vehicles: Vehicle[];
+    drivers: Driver[];
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-const FuelManagement: React.FC<FuelManagementProps> = ({ fuelRecords, setFuelRecords, vehicles }) => {
+const FuelManagement: React.FC<FuelManagementProps> = ({ fuelRecords, setFuelRecords, vehicles, drivers }) => {
     const [selectedVehicle, setSelectedVehicle] = useState<string>('all');
     const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -381,6 +382,7 @@ const FuelManagement: React.FC<FuelManagementProps> = ({ fuelRecords, setFuelRec
                     onClose={() => setIsAddModalOpen(false)}
                     onSave={handleAddFuelRecord}
                     vehicles={vehicles}
+                    drivers={drivers}
                 />
             )}
         </div>

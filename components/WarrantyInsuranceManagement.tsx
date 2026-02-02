@@ -9,7 +9,7 @@ import AddInsuranceClaimModal from './AddInsuranceClaimModal';
 import CargoInsuranceView from './CargoInsuranceView';
 import AddCargoPolicyModal from './AddCargoPolicyModal';
 import AddCargoClaimModal from './AddCargoClaimModal';
-import type { CargoInsurancePolicy, CargoInsuranceClaim, IncidentInvestigationReport } from '../types';
+import type { CargoInsurancePolicy, CargoInsuranceClaim, IncidentInvestigationReport, Driver } from '../types';
 import AddIncidentInvestigationModal from './AddIncidentInvestigationModal';
 import ReactDOMServer from 'react-dom/server';
 import IncidentInvestigationPrintLayout from './IncidentInvestigationPrintLayout';
@@ -29,6 +29,7 @@ interface WarrantyInsuranceManagementProps {
     setCargoPolicies: React.Dispatch<React.SetStateAction<CargoInsurancePolicy[]>>;
     cargoClaims: CargoInsuranceClaim[];
     setCargoClaims: React.Dispatch<React.SetStateAction<CargoInsuranceClaim[]>>;
+    drivers: Driver[];
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -45,7 +46,8 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
     cargoPolicies,
     setCargoPolicies,
     cargoClaims,
-    setCargoClaims
+    setCargoClaims,
+    drivers
 }) => {
     const [activeTab, setActiveTab] = useState<'warranty' | 'insurance' | 'cargo' | 'investigation' | 'vehicles'>('vehicles');
     const [isAddWarrantyModalOpen, setIsAddWarrantyModalOpen] = useState(false);
@@ -1011,6 +1013,7 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                 <AddCargoClaimModal
                     onClose={() => setIsAddCargoClaimModalOpen(false)}
                     policies={cargoPolicies}
+                    drivers={drivers}
                     onSave={(newClaim) => {
                         const claimWithId: CargoInsuranceClaim = {
                             id: `CC-${Date.now()}`,
@@ -1025,6 +1028,7 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                 <AddIncidentInvestigationModal
                     onClose={() => setIsAddInvestigationModalOpen(false)}
                     vehicles={vehicles}
+                    drivers={drivers}
                     existingVehicleClaims={insuranceClaims}
                     existingCargoClaims={cargoClaims}
                     onSave={(newReport) => {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import ReactDOMServer from 'react-dom/server';
-import type { IncidentInvestigationReport, Vehicle, InsuranceClaim, CargoInsuranceClaim } from '../types';
+import type { IncidentInvestigationReport, Vehicle, InsuranceClaim, CargoInsuranceClaim, Driver } from '../types';
 import { formatCurrency } from '../utils';
 import IncidentInvestigationPrintLayout from './IncidentInvestigationPrintLayout';
 
@@ -9,6 +9,7 @@ interface AddIncidentInvestigationModalProps {
     onClose: () => void;
     onSave: (report: Omit<IncidentInvestigationReport, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>) => void;
     vehicles: Vehicle[];
+    drivers: Driver[];
     existingVehicleClaims: InsuranceClaim[];
     existingCargoClaims: CargoInsuranceClaim[];
 }
@@ -17,6 +18,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
     onClose,
     onSave,
     vehicles,
+    drivers,
     existingVehicleClaims,
     existingCargoClaims
 }) => {
@@ -154,6 +156,9 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
     });
 
     const [activeTab, setActiveTab] = useState<'General' | 'Details' | 'Analysis' | 'Outcome'>('General');
+    const [isDriverSuggestionsOpen, setIsDriverSuggestionsOpen] = useState(false);
+    const [driverSuggestions, setDriverSuggestions] = useState<Driver[]>([]);
+    const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
 
     const handleVehicleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const vehicleId = e.target.value;
@@ -164,6 +169,44 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
             vehicleId: vehicleId,
             vehicleLicensePlate: vehicle ? vehicle.licensePlate : ''
         }));
+    };
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (driverSuggestionsRef.current && !driverSuggestionsRef.current.contains(event.target as Node)) {
+                setIsDriverSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleDriverInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setFormData(prev => ({ ...prev, driverName: value }));
+
+        if (value) {
+            const filtered = drivers.filter(d =>
+                d.name.toLowerCase().includes(value.toLowerCase()) ||
+                d.employeeId.toLowerCase().includes(value.toLowerCase())
+            );
+            setDriverSuggestions(filtered);
+            setIsDriverSuggestionsOpen(true);
+        } else {
+            setDriverSuggestions(drivers);
+            setIsDriverSuggestionsOpen(true);
+        }
+    };
+
+    const handleDriverSuggestionClick = (driver: Driver) => {
+        const vehicle = driver.primaryVehicle ? vehicles.find(v => v.licensePlate === driver.primaryVehicle) : null;
+        setFormData(prev => ({
+            ...prev,
+            driverName: driver.name,
+            vehicleId: vehicle ? vehicle.id : prev.vehicleId,
+            vehicleLicensePlate: vehicle ? vehicle.licensePlate : prev.vehicleLicensePlate
+        }));
+        setIsDriverSuggestionsOpen(false);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -368,9 +411,50 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">3. ผู้ประสบเหตุ / พนักงานขับรถ & ยานพาหนะ</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
+                                        <div ref={driverSuggestionsRef} className="relative">
                                             <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อพนักงานขับรถ (Driver Name)</label>
-                                            <input type="text" value={formData.driverName} onChange={e => setFormData({ ...formData, driverName: e.target.value })} className="w-full form-input" placeholder="ชื่อ-นามสกุล" title="ชื่อพนักงานขับรถ" />
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={formData.driverName}
+                                                    onChange={handleDriverInputChange}
+                                                    onFocus={() => {
+                                                        setDriverSuggestions(drivers.filter(d =>
+                                                            d.name.toLowerCase().includes((formData.driverName || '').toLowerCase()) ||
+                                                            d.employeeId.toLowerCase().includes((formData.driverName || '').toLowerCase())
+                                                        ));
+                                                        setIsDriverSuggestionsOpen(true);
+                                                    }}
+                                                    className="w-full form-input"
+                                                    placeholder="พิมพ์ชื่อเพื่อค้นหา..."
+                                                    autoComplete="off"
+                                                />
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            {isDriverSuggestionsOpen && (
+                                                <ul className="absolute z-[10000] w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-48 overflow-y-auto shadow-2xl animate-scale-in">
+                                                    {driverSuggestions.length > 0 ? (
+                                                        driverSuggestions.map(d => (
+                                                            <li
+                                                                key={d.id}
+                                                                onClick={() => handleDriverSuggestionClick(d)}
+                                                                className="px-4 py-2.5 hover:bg-red-50 cursor-pointer flex justify-between items-center border-b last:border-0 border-slate-50 transition-colors text-sm"
+                                                            >
+                                                                <div>
+                                                                    <p className="font-bold text-slate-800">{d.name}</p>
+                                                                    <p className="text-[10px] text-slate-500">{d.employeeId}</p>
+                                                                </div>
+                                                            </li>
+                                                        ))
+                                                    ) : (
+                                                        <li className="px-4 py-4 text-center text-slate-400 text-xs font-medium">ไม่พบข้อมูล</li>
+                                                    )}
+                                                </ul>
+                                            )}
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
