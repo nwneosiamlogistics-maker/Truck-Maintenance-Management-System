@@ -10,15 +10,17 @@ interface DailyChecklistPageProps {
     technicians: Technician[];
     setRepairFormSeed: (seed: RepairFormSeed | null) => void;
     setActiveTab: (tab: Tab) => void;
+    userRole: string;
 }
 
-const DailyChecklistPage: React.FC<DailyChecklistPageProps> = ({ checklists, setChecklists, vehicles, technicians, setRepairFormSeed, setActiveTab }) => {
+const DailyChecklistPage: React.FC<DailyChecklistPageProps> = ({ checklists, setChecklists, vehicles, technicians, setRepairFormSeed, setActiveTab, userRole }) => {
     const [view, setView] = useState<'form' | 'history'>('form');
 
-    const handleSaveChecklist = (newChecklistData: Omit<DailyChecklist, 'id'>) => {
+    const handleSaveChecklist = (newChecklistData: Omit<DailyChecklist, 'id' | 'createdAt'>) => {
         const newChecklist: DailyChecklist = {
             ...newChecklistData,
             id: `CHK-${Date.now()}`,
+            createdAt: new Date().toISOString(),
         };
         setChecklists(prev => [newChecklist, ...(Array.isArray(prev) ? prev : [])]);
         setView('history'); // Switch to history view after saving
@@ -44,9 +46,10 @@ const DailyChecklistPage: React.FC<DailyChecklistPageProps> = ({ checklists, set
             {view === 'form' ? (
                 <DailyChecklistForm onSave={handleSaveChecklist} vehicles={vehicles} technicians={technicians} />
             ) : (
-                <DailyChecklistHistory 
-                    checklists={checklists} 
+                <DailyChecklistHistory
+                    checklists={checklists}
                     setChecklists={setChecklists}
+                    userRole={userRole}
                     onNavigateAndCreateRepair={(seedData) => {
                         setRepairFormSeed(seedData);
                         setActiveTab('form');

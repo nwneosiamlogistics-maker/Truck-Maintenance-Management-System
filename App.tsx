@@ -11,6 +11,7 @@ import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import Login from './components/Login';
 import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus } from './utils/telegramService';
+import { checkAndGenerateSystemNotifications } from './utils/notificationEngine';
 
 // Lazy Load Pages
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -51,14 +52,23 @@ const OKRManagement = lazy(() => import('./components/OKRManagement'));
 
 
 
+const Home = lazy(() => import('./components/Home'));
+
 interface AppContentProps {
     activeTab: Tab;
     setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
+    isLoggedIn: boolean;
+    setIsLoggedIn: (val: boolean) => void;
+    userRole: string;
+    setUserRole: (val: string) => void;
 }
 
-const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
+const AppContent: React.FC<AppContentProps> = ({
+    activeTab, setActiveTab, isLoggedIn, setIsLoggedIn, userRole, setUserRole
+}) => {
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    const [isLoginModalOpen, setLoginModalOpen] = useState(false);
 
     // Using refactored hooks
     const {
@@ -90,14 +100,53 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
 
     // Daily Maintenance & Repair Status Check
     React.useEffect(() => {
-        // Debounce to allow data to load from localStorage first
         const timer = setTimeout(() => {
             checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
             checkAndSendDailyRepairStatus(repairs, technicians);
         }, 5000);
 
         return () => clearTimeout(timer);
-    }, [maintenancePlans, repairs, vehicles]);
+    }, [maintenancePlans, repairs, vehicles, technicians]);
+
+    // System Auto-Notifications Engine
+    React.useEffect(() => {
+        // Run check every 30 seconds or when critical data changes
+        const checkNotifications = () => {
+            const updated = checkAndGenerateSystemNotifications(notifications, stock, maintenancePlans, repairs);
+            if (updated !== notifications) {
+                setNotifications(updated);
+            }
+        };
+
+        const timer = setTimeout(checkNotifications, 3000); // Initial check after 3s
+        const interval = setInterval(checkNotifications, 30000); // Repeat every 30s
+
+        return () => {
+            clearTimeout(timer);
+            clearInterval(interval);
+        };
+    }, [stock, maintenancePlans, repairs]); // Only re-run if these change, but internal interval keeps it fresh
+
+    const handleLogin = (role: string) => {
+        setUserRole(role);
+        setIsLoggedIn(true);
+        setLoginModalOpen(false);
+        if (role === 'technician') {
+            setActiveTab('technician-view');
+        } else if (role === 'inspector') {
+            setActiveTab('daily-checklist');
+        } else if (role === 'driver') {
+            setActiveTab('form');
+        } else {
+            setActiveTab('dashboard');
+        }
+    };
+
+    const handleLogout = () => {
+        setIsLoggedIn(false);
+        setUserRole('');
+        setActiveTab('home');
+    };
 
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
         const newRepair = addRepairLogic(newRepairData);
@@ -114,6 +163,17 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
     }), [pendingRepairsCount, lowStockCount, dueMaintenanceCount]);
 
     const renderContent = () => {
+        // Layer 1: Public-First Priority
+        if (activeTab === 'home') {
+            return <Home user={isLoggedIn ? { role: userRole } : null} onLoginClick={() => setLoginModalOpen(true)} onNavigate={setActiveTab} />;
+        }
+
+        // Layer 2: Routing Hierarchy (Auth Guard)
+        if (!isLoggedIn) {
+            // If trying to access protected content while guest, redirect or stay on home
+            return <Home user={null} onLoginClick={() => setLoginModalOpen(true)} onNavigate={setActiveTab} />;
+        }
+
         switch (activeTab) {
             case 'dashboard':
                 return <Dashboard repairs={repairs} stock={stock} maintenancePlans={maintenancePlans} vehicles={vehicles} setActiveTab={setActiveTab} />;
@@ -260,8 +320,6 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     incidents={drivingIncidents}
                     vehicles={vehicles}
                 />;
-
-
             case 'preventive-maintenance':
                 return <PreventiveMaintenance
                     plans={maintenancePlans}
@@ -281,6 +339,7 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     technicians={technicians}
                     setRepairFormSeed={setRepairFormSeed}
                     setActiveTab={setActiveTab}
+                    userRole={userRole}
                 />;
             case 'tire-check':
                 return <TireCheckPage inspections={tireInspections} setInspections={setTireInspections} vehicles={vehicles} repairs={repairs} technicians={technicians} />;
@@ -325,19 +384,23 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
 
     return (
         <div className="flex h-screen bg-slate-100">
-            <Sidebar
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                isCollapsed={isSidebarCollapsed}
-                setCollapsed={setSidebarCollapsed}
-                isMobileOpen={isMobileSidebarOpen}
-                setMobileOpen={setMobileSidebarOpen}
-                stats={stats}
-            />
-            <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:ml-[70px]' : 'lg:ml-72'}`}>
+            {/* Layer 5: UI Restrictive - Hide Sidebar for Guests or on Home Page */}
+            {isLoggedIn && activeTab !== 'home' && (
+                <Sidebar
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    isCollapsed={isSidebarCollapsed}
+                    setCollapsed={setSidebarCollapsed}
+                    isMobileOpen={isMobileSidebarOpen}
+                    setMobileOpen={setMobileSidebarOpen}
+                    stats={stats}
+                    userRole={userRole}
+                />
+            )}
+            <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isLoggedIn && activeTab !== 'home' ? (isSidebarCollapsed ? 'lg:ml-[70px]' : 'lg:ml-72') : 'ml-0'}`}>
                 <Header
-                    pageTitle={TABS[activeTab].title}
-                    pageSubtitle={TABS[activeTab].subtitle}
+                    pageTitle={activeTab === 'home' ? 'Smart Truck Maintenance' : TABS[activeTab].title}
+                    pageSubtitle={activeTab === 'home' ? 'ยินดีต้อนรับสู่ระบบจัดการซ่อมบำรุง' : TABS[activeTab].subtitle}
                     toggleMobileSidebar={() => setMobileSidebarOpen(!isMobileSidebarOpen)}
                     notifications={notifications}
                     setNotifications={setNotifications}
@@ -347,44 +410,57 @@ const AppContent: React.FC<AppContentProps> = ({ activeTab, setActiveTab }) => {
                     stock={stock}
                     vehicles={vehicles}
                     technicians={technicians}
+                    isLoggedIn={isLoggedIn}
+                    onLoginClick={() => setLoginModalOpen(true)}
+                    onLogout={handleLogout}
                 />
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 print:p-0">
+                <main className={`flex-1 overflow-y-auto print:p-0 ${activeTab === 'home' ? 'p-0' : 'p-4 sm:p-6 lg:p-8'}`}>
                     <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
                         {renderContent()}
                     </Suspense>
                 </main>
             </div>
+
+            {/* Layer 4: Seamless Entry (Login Modal) */}
+            {isLoginModalOpen && (
+                <Login
+                    onLogin={handleLogin}
+                    onClose={() => setLoginModalOpen(false)}
+                />
+            )}
         </div>
     );
 };
 
 const App: React.FC = () => {
-    // Determine initial login state (e.g., check localStorage in a real app)
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userRole, setUserRole] = useState<string>('');
-    const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+    const [isLoggedIn, setIsLoggedIn] = useState(() => {
+        return localStorage.getItem('isLoggedIn') === 'true';
+    });
+    const [userRole, setUserRole] = useState<string>(() => {
+        return localStorage.getItem('userRole') || '';
+    });
+    const [activeTab, setActiveTab] = useState<Tab>('home');
 
-    const handleLogin = (role: string) => {
-        setUserRole(role);
-        setIsLoggedIn(true);
-        if (role === 'technician') {
-            setActiveTab('technician-view');
-        } else if (role === 'driver') {
-            setActiveTab('form');
-        } else {
-            setActiveTab('dashboard');
-        }
+    const handleSetIsLoggedIn = (val: boolean) => {
+        setIsLoggedIn(val);
+        localStorage.setItem('isLoggedIn', val.toString());
+    };
+
+    const handleSetUserRole = (val: string) => {
+        setUserRole(val);
+        localStorage.setItem('userRole', val);
     };
 
     return (
         <ToastProvider>
-            {isLoggedIn ? (
-                <div role-key={userRole}>
-                    <AppContent activeTab={activeTab} setActiveTab={setActiveTab} />
-                </div>
-            ) : (
-                <Login onLogin={handleLogin} />
-            )}
+            <AppContent
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                isLoggedIn={isLoggedIn}
+                setIsLoggedIn={handleSetIsLoggedIn}
+                userRole={userRole}
+                setUserRole={handleSetUserRole}
+            />
             <ToastContainer />
         </ToastProvider>
     );

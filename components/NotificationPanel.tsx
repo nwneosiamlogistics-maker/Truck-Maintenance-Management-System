@@ -13,7 +13,7 @@ const NotificationItem: React.FC<{
     notification: Notification;
     onClick: () => void;
 }> = ({ notification, onClick }) => {
-    
+
     const getIcon = (type: Notification['type']) => {
         switch (type) {
             case 'danger': return '🔴';
@@ -42,23 +42,41 @@ const NotificationItem: React.FC<{
     return (
         <li
             onClick={onClick}
-            className={`p-3 flex items-start gap-3 cursor-pointer transition-colors ${
-                !notification.isRead ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-100'
-            }`}
+            className={`p-5 flex items-start gap-4 cursor-pointer transition-all duration-300 border-l-4 ${!notification.isRead
+                ? 'bg-blue-50/50 border-blue-500 hover:bg-blue-100/50 shadow-sm'
+                : 'bg-white border-transparent hover:bg-slate-50'
+                }`}
         >
-            <span className="text-xl mt-1">{getIcon(notification.type)}</span>
-            <div>
-                <p className="text-sm text-gray-800">{notification.message}</p>
-                <p className="text-xs text-gray-500 mt-1">{timeSince(notification.createdAt)}</p>
+            <div className={`text-2xl mt-0.5 p-2 rounded-xl shrink-0 ${notification.type === 'danger' ? 'bg-red-50' :
+                notification.type === 'warning' ? 'bg-amber-50' : 'bg-blue-50'
+                }`}>
+                {getIcon(notification.type)}
             </div>
-            {!notification.isRead && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full flex-shrink-0 mt-1.5 ml-auto"></div>}
+            <div className="flex-1 min-w-0">
+                <p className={`text-sm leading-relaxed ${!notification.isRead ? 'font-black text-slate-800' : 'text-slate-600 font-medium'}`}>
+                    {notification.message}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{timeSince(notification.createdAt)}</span>
+                    {!notification.isRead && (
+                        <span className="flex h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                    )}
+                </div>
+            </div>
+            {notification.linkTo && (
+                <div className="mt-1 transition-transform group-hover:translate-x-1">
+                    <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+            )}
         </li>
     );
 };
 
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, setNotifications, onClose, onNavigate }) => {
-    
+
     const safeNotifications = Array.isArray(notifications) ? notifications : [];
     const unreadCount = safeNotifications.filter(n => !n.isRead).length;
 
@@ -77,35 +95,56 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, se
         if (notification.linkTo) {
             onNavigate(notification.linkTo);
         }
-        onClose();
     };
 
     return (
-        <div className="bg-white rounded-lg shadow-2xl w-96 border">
-            <div className="p-4 flex justify-between items-center border-b">
-                <h3 className="text-lg font-bold text-gray-800">การแจ้งเตือน</h3>
+        <div className="bg-white rounded-[2.5rem] shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] w-[400px] border border-slate-100 overflow-hidden flex flex-col max-h-[600px] animate-scale-in">
+            {/* Header */}
+            <div className="p-6 flex justify-between items-center border-b border-slate-50 bg-slate-50/30 backdrop-blur-xl">
+                <div>
+                    <h3 className="text-xl font-black text-slate-800 tracking-tight">การแจ้งเตือน</h3>
+                    {unreadCount > 0 && <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-0.5">คุณมี {unreadCount} รายการใหม่</p>}
+                </div>
                 {unreadCount > 0 && (
                     <button
                         onClick={handleMarkAllAsRead}
-                        className="text-sm text-blue-600 font-semibold hover:underline"
+                        className="px-4 py-2 text-[10px] font-black text-white bg-blue-600 rounded-full shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all uppercase tracking-widest"
                     >
                         อ่านทั้งหมด
                     </button>
                 )}
             </div>
-            <ul className="max-h-96 overflow-y-auto divide-y">
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {safeNotifications.length > 0 ? (
-                    safeNotifications.map(notification => (
-                        <NotificationItem 
-                            key={notification.id}
-                            notification={notification}
-                            onClick={() => handleNotificationClick(notification)}
-                        />
-                    ))
+                    <ul className="divide-y divide-slate-50">
+                        {safeNotifications.map(notification => (
+                            <NotificationItem
+                                key={notification.id}
+                                notification={notification}
+                                onClick={() => handleNotificationClick(notification)}
+                            />
+                        ))}
+                    </ul>
                 ) : (
-                    <li className="p-6 text-center text-gray-500">ไม่มีการแจ้งเตือน</li>
+                    <div className="py-20 flex flex-col items-center justify-center text-slate-300">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                            <svg className="w-8 h-8 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                        </div>
+                        <p className="text-sm font-black italic">ไม่มีการแจ้งเตือนใหม่ในขณะนี้</p>
+                    </div>
                 )}
-            </ul>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-50 text-center">
+                <button onClick={onClose} className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-[0.2em] transition-colors">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
         </div>
     );
 };

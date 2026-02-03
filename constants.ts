@@ -2,6 +2,10 @@
 import type { Tab } from './types';
 
 export const TABS: Record<Tab, { title: string; subtitle: string }> = {
+    home: {
+        title: 'หน้าแรก',
+        subtitle: 'ยินดีต้อนรับสู่ระบบจัดการซ่อมบำรุงรถบรรทุก'
+    },
     dashboard: {
         title: 'แดชบอร์ด',
         subtitle: 'ภาพรวมระบบจัดการซ่อมบำรุงรถบรรทุก'

@@ -35,6 +35,17 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
 
     const [formData, setFormData] = useState(getInitialState());
 
+    // New State for Searchable Dropdown
+    const [vehicleSearchTerm, setVehicleSearchTerm] = useState(initialVehiclePlate || '');
+    const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
+
+    const filteredVehicles = useMemo(() => {
+        return vehicles.filter(v =>
+            v.licensePlate.toLowerCase().includes(vehicleSearchTerm.toLowerCase()) ||
+            v.vehicleType.toLowerCase().includes(vehicleSearchTerm.toLowerCase())
+        );
+    }, [vehicles, vehicleSearchTerm]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -53,14 +64,14 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
         }));
     };
 
-    const handleVehicleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const plate = e.target.value;
-        const vehicle = vehicles.find(v => v.licensePlate === plate);
+    const handleVehicleSelectCustom = (vehicle: Vehicle) => {
         setFormData(prev => ({
             ...prev,
-            vehicleLicensePlate: plate,
-            vehicleType: vehicle?.vehicleType || '',
+            vehicleLicensePlate: vehicle.licensePlate,
+            vehicleType: vehicle.vehicleType,
         }));
+        setVehicleSearchTerm(vehicle.licensePlate);
+        setIsVehicleDropdownOpen(false);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -127,16 +138,54 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
     return (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow-lg space-y-4 max-w-5xl mx-auto border font-sans">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label htmlFor="vehicleLicensePlate" className="block text-sm font-medium text-gray-700">ทะเบียน *</label>
-                    <select id="vehicleLicensePlate" name="vehicleLicensePlate" value={formData.vehicleLicensePlate} onChange={handleVehicleSelect} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required>
-                        <option value="">-- เลือกทะเบียน --</option>
-                        {vehicles.map(v => <option key={v.id} value={v.licensePlate}>{v.licensePlate}</option>)}
-                    </select>
+                <div className="relative">
+                    <label htmlFor="vehicleLicensePlate" className="block text-sm font-medium text-gray-700 mb-1">ทะเบียน *</label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="ค้นหาหรือเลือกทะเบียน..."
+                            value={vehicleSearchTerm}
+                            onChange={(e) => {
+                                setVehicleSearchTerm(e.target.value);
+                                setIsVehicleDropdownOpen(true);
+                                // Reset selected vehicle if user clears input or changes it manually without selecting
+                                if (e.target.value !== formData.vehicleLicensePlate) {
+                                    // Optional: keep the plate if it matches exactly, otherwise clear? 
+                                    // For now, let's just update search term. Validation happens on submit.
+                                }
+                            }}
+                            onFocus={() => setIsVehicleDropdownOpen(true)}
+                            onBlur={() => setTimeout(() => setIsVehicleDropdownOpen(false), 200)} // Delay to allow click event
+                            className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="m6 9 6 6 6-6" />
+                            </svg>
+                        </div>
+                    </div>
+                    {isVehicleDropdownOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-fade-in-up">
+                            {filteredVehicles.length > 0 ? (
+                                filteredVehicles.map(v => (
+                                    <div
+                                        key={v.id}
+                                        onClick={() => handleVehicleSelectCustom(v)}
+                                        className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-none transition-colors"
+                                    >
+                                        <div className="font-bold text-gray-800">{v.licensePlate}</div>
+                                        <div className="text-xs text-gray-500">{v.vehicleType}</div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="px-4 py-3 text-gray-400 text-center text-sm">ไม่พบทะเบียนรถที่ค้นหา</div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <div>
-                    <label htmlFor="vehicleType" className="block text-sm font-medium text-gray-700">ประเภทรถยนต์</label>
-                    <input id="vehicleType" type="text" name="vehicleType" value={formData.vehicleType} className="mt-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-100" readOnly />
+                    <label htmlFor="vehicleType" className="block text-sm font-medium text-gray-700 mb-1">ประเภทรถยนต์</label>
+                    <input id="vehicleType" type="text" name="vehicleType" value={formData.vehicleType} className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500" readOnly />
                 </div>
                 <div>
                     <label htmlFor="reporterName" className="block text-sm font-medium text-gray-700">ช่าง *</label>

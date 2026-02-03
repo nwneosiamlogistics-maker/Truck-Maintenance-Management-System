@@ -61,9 +61,10 @@ interface SidebarProps {
     isMobileOpen: boolean;
     setMobileOpen: (open: boolean) => void;
     stats: { pendingRepairs: number, lowStock: number, dueMaintenance: number };
+    userRole: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed, setCollapsed, isMobileOpen, setMobileOpen, stats }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed, setCollapsed, isMobileOpen, setMobileOpen, stats, userRole }) => {
     const handleTabClick = (tab: Tab) => {
         setActiveTab(tab);
         setMobileOpen(false);
@@ -145,6 +146,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         },
     ];
 
+    // Filter items based on user role
+    const filteredNavItems = userRole === 'inspector'
+        ? navItems.filter(section => section.section === 'การจัดการยานพาหนะ').map(section => ({
+            ...section,
+            items: section.items.filter(item => item.id === 'daily-checklist')
+        }))
+        : navItems;
+
     return (
         <>
             <div
@@ -167,7 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 </div>
 
                 <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto custom-scrollbar">
-                    {navItems.map((section, idx) => (
+                    {filteredNavItems.map((section, idx) => (
                         <div key={section.section} className={`animate-fade-in-up delay-${idx * 100}`}>
                             {!isCollapsed && <h2 className="px-3 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{section.section}</h2>}
                             <ul className="space-y-1">

@@ -8,17 +8,18 @@ interface ChecklistDetailModalProps {
     checklist: DailyChecklist;
     onClose: () => void;
     onNavigateAndCreateRepair: (seedData: RepairFormSeed) => void;
+    userRole: string;
 }
 
-const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, onClose, onNavigateAndCreateRepair }) => {
+const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, onClose, onNavigateAndCreateRepair, userRole }) => {
     const definition = checklistDefinitions[checklist.checklistId];
     if (!definition) return null;
 
     const abnormalItems = Object.entries(checklist.items)
-        .filter(([, result]: [string, ChecklistItemResult]) => 
-            result.status.includes('ไม่ปกติ') || 
-            result.status.includes('ชำรุด') || 
-            result.status.includes('ไม่ดัง') || 
+        .filter(([, result]: [string, ChecklistItemResult]) =>
+            result.status.includes('ไม่ปกติ') ||
+            result.status.includes('ชำรุด') ||
+            result.status.includes('ไม่ดัง') ||
             result.status.includes('ไม่ติด') ||
             result.status.includes('เติมบ่อย') ||
             result.status.includes('ขาดบ่อย') ||
@@ -75,7 +76,7 @@ const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, 
             }, 500);
         }
     };
-    
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -84,7 +85,7 @@ const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, 
                         <h3 className="text-2xl font-bold text-gray-800">รายละเอียดใบตรวจเช็ค</h3>
                         <p className="text-base text-gray-500">{checklist.vehicleLicensePlate} - {new Date(checklist.inspectionDate).toLocaleDateString('th-TH')}</p>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                    <button onClick={onClose} title="Close" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
@@ -93,7 +94,7 @@ const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, 
                 </div>
                 <div className="p-6 border-t flex justify-between items-center bg-gray-50 no-print">
                     <div>
-                        {abnormalItems.length > 0 && (
+                        {abnormalItems.length > 0 && userRole !== 'inspector' && userRole !== 'driver' && (
                             <button onClick={handleCreateRepair} className="px-6 py-2 text-base font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">
                                 สร้างใบแจ้งซ่อม ({abnormalItems.length} รายการ)
                             </button>

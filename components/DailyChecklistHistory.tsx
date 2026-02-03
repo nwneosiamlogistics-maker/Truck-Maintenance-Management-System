@@ -8,9 +8,10 @@ interface DailyChecklistHistoryProps {
     checklists: DailyChecklist[];
     setChecklists: React.Dispatch<React.SetStateAction<DailyChecklist[]>>;
     onNavigateAndCreateRepair: (seedData: RepairFormSeed) => void;
+    userRole: string;
 }
 
-const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklists, setChecklists, onNavigateAndCreateRepair }) => {
+const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklists, setChecklists, onNavigateAndCreateRepair, userRole }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -33,7 +34,11 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
 
                 return isDateInRange && isSearchMatch;
             })
-            .sort((a, b) => new Date(b.inspectionDate).getTime() - new Date(a.inspectionDate).getTime());
+            .sort((a, b) => {
+                const timeA = a.createdAt ? new Date(a.createdAt).getTime() : new Date(a.inspectionDate).getTime();
+                const timeB = b.createdAt ? new Date(b.createdAt).getTime() : new Date(b.inspectionDate).getTime();
+                return timeB - timeA;
+            });
     }, [checklists, searchTerm, startDate, endDate]);
 
     const getOverallStatus = (checklist: DailyChecklist) => {
@@ -121,7 +126,9 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
                                     </td>
                                     <td className="px-4 py-3 text-center space-x-2">
                                         <button onClick={() => setViewingChecklist(c)} className="text-blue-600 hover:text-blue-800 font-medium">ดูรายละเอียด</button>
-                                        <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                                        {userRole !== 'inspector' && userRole !== 'driver' && (
+                                            <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                                        )}
                                     </td>
                                 </tr>
                             )
@@ -140,6 +147,7 @@ const DailyChecklistHistory: React.FC<DailyChecklistHistoryProps> = ({ checklist
                     checklist={viewingChecklist}
                     onClose={() => setViewingChecklist(null)}
                     onNavigateAndCreateRepair={onNavigateAndCreateRepair}
+                    userRole={userRole}
                 />
             )}
         </div>
