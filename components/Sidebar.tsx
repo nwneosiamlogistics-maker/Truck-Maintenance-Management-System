@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import type { Tab } from '../types';
 import {
     Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
@@ -19,39 +19,42 @@ interface NavItemProps {
     badgeColor?: 'red' | 'yellow';
 }
 
-const NavItem: React.FC<NavItemProps> = ({ id, icon, label, activeTab, onClick, isCollapsed, badgeCount, badgeColor }) => {
+const NavItem: React.FC<NavItemProps> = memo(({ id, icon, label, activeTab, onClick, isCollapsed, badgeCount, badgeColor }) => {
     const isActive = activeTab === id;
     const badgeBg = badgeColor === 'red' ? 'bg-red-500' : 'bg-yellow-500';
+
+    const handleClick = useCallback(() => onClick(id), [onClick, id]);
 
     return (
         <li>
             <button
-                className={`w-full flex items-center p-3 my-1 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] text-slate-200 rounded-xl group relative overflow-hidden active:scale-95 ${isActive
+                className={`w-full flex items-center p-3 my-1 transition-all duration-200 ease-out text-slate-200 rounded-xl group relative overflow-hidden active:scale-95 ${isActive
                     ? 'bg-blue-600/90 text-white shadow-lg shadow-blue-500/40'
                     : 'hover:bg-slate-700/50 hover:text-white'
                     }`}
-                onClick={() => onClick(id)}
+                onClick={handleClick}
+                aria-current={isActive ? 'page' : undefined}
             >
                 {isActive && (
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r-full shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
                 )}
-                <span className={`text-2xl w-6 flex justify-center items-center transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                <span className={`text-2xl w-6 flex justify-center items-center transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
                     {icon}
                 </span>
                 {!isCollapsed && (
-                    <span className={`ml-4 font-bold text-sm flex-1 text-left transition-all duration-300 ${isActive ? 'opacity-100 translate-x-0' : 'opacity-100 group-hover:translate-x-1'}`}>
+                    <span className={`ml-4 font-bold text-sm flex-1 text-left transition-all duration-200 ${isActive ? 'opacity-100 translate-x-0' : 'opacity-100 group-hover:translate-x-1'}`}>
                         {label}
                     </span>
                 )}
                 {!isCollapsed && badgeCount && badgeCount > 0 ? (
-                    <span className={`text-[10px] font-black text-white ${badgeBg} rounded-full px-1.5 py-0.5 shadow-lg shadow-black/20 animate-pulse`}>
+                    <span className={`text-xs font-black text-white ${badgeBg} rounded-full px-1.5 py-0.5 shadow-lg shadow-black/20 animate-pulse`}>
                         {badgeCount}
                     </span>
                 ) : null}
             </button>
         </li>
     );
-};
+});
 
 interface SidebarProps {
     activeTab: Tab;
@@ -169,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                         {!isCollapsed && (
                             <div className="animate-fade-in-up">
                                 <h1 className="font-black text-sm tracking-tight leading-none text-white">ระบบซ่อมบำรุง</h1>
-                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Neosiam Logistics</p>
+                                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">Neosiam Logistics</p>
                             </div>
                         )}
                     </div>
@@ -178,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto custom-scrollbar">
                     {filteredNavItems.map((section, idx) => (
                         <div key={section.section} className={`animate-fade-in-up delay-${idx * 100}`}>
-                            {!isCollapsed && <h2 className="px-3 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{section.section}</h2>}
+                            {!isCollapsed && <h2 className="px-3 mb-2 text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{section.section}</h2>}
                             <ul className="space-y-1">
                                 {section.items.map(item => (
                                     <NavItem

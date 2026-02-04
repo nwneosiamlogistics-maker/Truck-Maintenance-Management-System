@@ -46,11 +46,11 @@ const ModernStatCard = ({ title, value, subtext, theme, icon, delay = '' }: any)
         {icon}
       </div>
       <div className="relative z-10">
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70 mb-3">{title}</p>
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-white/70 mb-3">{title}</p>
         <div className="flex items-baseline gap-2">
           <h3 className="text-4xl font-black tracking-tighter">{value}</h3>
         </div>
-        {subtext && <div className="mt-4 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 py-1.5 rounded-full text-[9px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+        {subtext && <div className="mt-4 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 py-1.5 rounded-full text-xs font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
       </div>
     </div>
   );
@@ -63,7 +63,7 @@ const PremiumCard = ({ title, children, className = '', icon, delay = '', subTit
         <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600/50 to-indigo-600/50 rounded-full shadow-lg shadow-blue-500/10"></div>
         <div>
           <h3 className="text-2xl font-black text-slate-800 tracking-tighter">{title}</h3>
-          {subTitle && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{subTitle}</p>}
+          {subTitle && <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{subTitle}</p>}
         </div>
       </div>
       {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}

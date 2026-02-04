@@ -165,7 +165,7 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
                         </div>
                     </div>
                     {isVehicleDropdownOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-fade-in-up">
+                        <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-fade-in-up">
                             {filteredVehicles.length > 0 ? (
                                 filteredVehicles.map(v => (
                                     <div

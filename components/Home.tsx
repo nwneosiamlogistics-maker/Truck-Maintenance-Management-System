@@ -26,7 +26,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
 
                 <div className="container mx-auto px-6 relative z-30">
                     <div className="max-w-3xl animate-fade-in-up pt-10 lg:pt-0">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-sm">
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-sm">
                             <Shield size={14} />
                             ระบบบริหารจัดการงานซ่อมบำรุงระดับมืออาชีพ
                         </div>
@@ -89,7 +89,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
 
                         <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
                             <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Trucks</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Trucks</p>
                                 {user ? (
                                     <p className="text-2xl font-black text-slate-800">42 รายการ</p>
                                 ) : (
@@ -113,7 +113,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
 
                         <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
                             <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Repairs</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pending Repairs</p>
                                 {user ? (
                                     <p className="text-2xl font-black text-slate-800">12 รายการ</p>
                                 ) : (
@@ -137,7 +137,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
 
                         <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
                             <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fuel Efficiency</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fuel Efficiency</p>
                                 {user ? (
                                     <p className="text-2xl font-black text-slate-800">3.8 กม./ลิตร</p>
                                 ) : (

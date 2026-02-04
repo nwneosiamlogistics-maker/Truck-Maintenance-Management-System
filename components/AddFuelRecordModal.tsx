@@ -183,7 +183,7 @@ const AddFuelRecordModal: React.FC<AddFuelRecordModalProps> = ({ onClose, onSave
                                 </div>
                             </div>
                             {isDriverSuggestionsOpen && (
-                                <ul className="absolute z-[60] w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-52 overflow-y-auto shadow-xl animate-scale-in">
+                                <ul className="absolute z-[100] w-full bg-white border border-slate-200 rounded-xl mt-1 max-h-52 overflow-y-auto shadow-xl animate-scale-in">
                                     {driverSuggestions.length > 0 ? (
                                         driverSuggestions.map(d => (
                                             <li

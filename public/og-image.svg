@@ -1,0 +1,64 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e3a5f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#10b981"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  
+  <!-- Decorative circles -->
+  <circle cx="1100" cy="100" r="200" fill="#3b82f6" opacity="0.1"/>
+  <circle cx="100" cy="530" r="150" fill="#10b981" opacity="0.1"/>
+  
+  <!-- Truck Icon -->
+  <g transform="translate(100, 200)">
+    <rect x="0" y="60" width="120" height="80" rx="8" fill="#3b82f6"/>
+    <rect x="120" y="40" width="80" height="100" rx="8" fill="#3b82f6"/>
+    <rect x="130" y="50" width="60" height="40" rx="4" fill="#60a5fa"/>
+    <circle cx="40" cy="150" r="20" fill="#1e293b" stroke="#64748b" stroke-width="4"/>
+    <circle cx="160" cy="150" r="20" fill="#1e293b" stroke="#64748b" stroke-width="4"/>
+  </g>
+  
+  <!-- Main Title -->
+  <text x="320" y="280" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="white">
+    Smart Truck
+  </text>
+  <text x="320" y="370" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="url(#accent)">
+    Maintenance
+  </text>
+  
+  <!-- Subtitle -->
+  <text x="320" y="440" font-family="Arial, sans-serif" font-size="28" fill="#94a3b8">
+    ระบบจัดการซ่อมบำรุงรถบรรทุกอัจฉริยะ
+  </text>
+  
+  <!-- Features -->
+  <g transform="translate(320, 480)">
+    <rect x="0" y="0" width="160" height="36" rx="18" fill="#3b82f6" opacity="0.2"/>
+    <text x="80" y="24" font-family="Arial, sans-serif" font-size="14" fill="#60a5fa" text-anchor="middle">Fleet Monitoring</text>
+    
+    <rect x="180" y="0" width="140" height="36" rx="18" fill="#10b981" opacity="0.2"/>
+    <text x="250" y="24" font-family="Arial, sans-serif" font-size="14" fill="#34d399" text-anchor="middle">PM Planning</text>
+    
+    <rect x="340" y="0" width="160" height="36" rx="18" fill="#8b5cf6" opacity="0.2"/>
+    <text x="420" y="24" font-family="Arial, sans-serif" font-size="14" fill="#a78bfa" text-anchor="middle">Real-time Tracking</text>
+  </g>
+  
+  <!-- Company -->
+  <text x="100" y="580" font-family="Arial, sans-serif" font-size="18" fill="#64748b">
+    Neosiam Logistics
+  </text>
+  
+  <!-- URL -->
+  <text x="1100" y="580" font-family="Arial, sans-serif" font-size="16" fill="#64748b" text-anchor="end">
+    truck-maintenance.neosiamlogistics.com
+  </text>
+</svg>

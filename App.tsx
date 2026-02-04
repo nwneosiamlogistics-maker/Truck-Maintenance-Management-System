@@ -1,4 +1,4 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useMemo, lazy, Suspense, useCallback, useRef } from 'react';
 import type { Tab } from './types';
 import { TABS } from './constants';
 import { useRepairs } from './hooks/useRepairs';
@@ -108,24 +108,41 @@ const AppContent: React.FC<AppContentProps> = ({
         return () => clearTimeout(timer);
     }, [maintenancePlans, repairs, vehicles, technicians]);
 
-    // System Auto-Notifications Engine
+    // System Auto-Notifications Engine - use refs to avoid stale closures
+    const stockRef = useRef(stock);
+    const plansRef = useRef(maintenancePlans);
+    const repairsRef = useRef(repairs);
+    const notificationsRef = useRef(notifications);
+    
+    // Keep refs updated
     React.useEffect(() => {
-        // Run check every 30 seconds or when critical data changes
+        stockRef.current = stock;
+        plansRef.current = maintenancePlans;
+        repairsRef.current = repairs;
+        notificationsRef.current = notifications;
+    }, [stock, maintenancePlans, repairs, notifications]);
+
+    React.useEffect(() => {
         const checkNotifications = () => {
-            const updated = checkAndGenerateSystemNotifications(notifications, stock, maintenancePlans, repairs);
-            if (updated !== notifications) {
+            const updated = checkAndGenerateSystemNotifications(
+                notificationsRef.current, 
+                stockRef.current, 
+                plansRef.current, 
+                repairsRef.current
+            );
+            if (updated !== notificationsRef.current) {
                 setNotifications(updated);
             }
         };
 
-        const timer = setTimeout(checkNotifications, 3000); // Initial check after 3s
-        const interval = setInterval(checkNotifications, 30000); // Repeat every 30s
+        const timer = setTimeout(checkNotifications, 3000);
+        const interval = setInterval(checkNotifications, 30000);
 
         return () => {
             clearTimeout(timer);
             clearInterval(interval);
         };
-    }, [stock, maintenancePlans, repairs]); // Only re-run if these change, but internal interval keeps it fresh
+    }, []); // Empty deps - uses refs for latest values
 
     const handleLogin = (role: string) => {
         setUserRole(role);

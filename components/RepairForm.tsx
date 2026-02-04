@@ -684,8 +684,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             case 0: // ข้อมูลรถและปัญหา
                 return (
                     <div className="space-y-10 animate-fade-in-up">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
+                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100" style={{ zIndex: 60 }}>
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ทะเบียนรถ (License Plate) *</label>
                                 <div className="relative">
                                     <input
@@ -703,7 +703,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     </div>
                                 </div>
                                 {isSuggestionsOpen && suggestions.length > 0 && (
-                                    <ul className="absolute z-30 w-full glass-light border border-white/60 rounded-3xl mt-2 max-h-64 overflow-y-auto shadow-2xl backdrop-blur-3xl animate-scale-in">
+                                    <ul className="absolute z-[100] w-full bg-white border border-slate-200 rounded-2xl mt-2 max-h-64 overflow-y-auto shadow-2xl animate-scale-in">
                                         {suggestions.map(vehicle => (
                                             <li key={vehicle.id} onClick={() => handleSuggestionClick(vehicle)} className="p-4 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b last:border-0 border-slate-100 transition-colors">
                                                 <span className="font-black text-slate-800">{vehicle.licensePlate}</span>
@@ -719,8 +719,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
+                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300" style={{ zIndex: 50 }}>
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">พนักงานขับรถ (Driver)</label>
                                 <div className="relative">
                                     <input
@@ -743,7 +743,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     </div>
                                 </div>
                                 {isDriverSuggestionsOpen && driverSuggestions.length > 0 && (
-                                    <ul className="absolute z-30 w-full glass-light border border-white/60 rounded-3xl mt-2 max-h-64 overflow-y-auto shadow-2xl backdrop-blur-3xl animate-scale-in">
+                                    <ul className="absolute z-[90] w-full bg-white border border-slate-200 rounded-2xl mt-2 max-h-64 overflow-y-auto shadow-2xl animate-scale-in">
                                         {driverSuggestions.map(driver => (
                                             <li key={driver.id} onClick={() => handleDriverSuggestionClick(driver)} className="p-4 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b last:border-0 border-slate-100 transition-colors">
                                                 <div className="flex flex-col">

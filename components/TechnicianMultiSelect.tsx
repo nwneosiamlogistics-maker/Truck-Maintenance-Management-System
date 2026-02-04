@@ -66,7 +66,7 @@ const TechnicianMultiSelect: React.FC<TechnicianMultiSelectProps> = ({ allTechni
             </div>
 
             {isOpen && (
-                <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl z-[100] max-h-60 overflow-y-auto">
                     <ul>
                         {allTechnicians.map(tech => (
                             <li 

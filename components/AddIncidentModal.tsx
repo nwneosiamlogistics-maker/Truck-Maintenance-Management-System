@@ -165,7 +165,7 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
                                     </div>
                                 </div>
                                 {isDriverSuggestionsOpen && !initialDriver && (
-                                    <ul className="absolute z-[60] w-full bg-white border border-slate-200 rounded-2xl mt-2 max-h-60 overflow-y-auto shadow-xl animate-scale-in">
+                                    <ul className="absolute z-[100] w-full bg-white border border-slate-200 rounded-2xl mt-2 max-h-60 overflow-y-auto shadow-xl animate-scale-in">
                                         {driverSuggestions.length > 0 ? (
                                             driverSuggestions.map(d => (
                                                 <li

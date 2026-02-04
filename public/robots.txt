@@ -1,0 +1,16 @@
+# Robots.txt for Smart Truck Maintenance System
+# https://truck-maintenance.neosiamlogistics.com
+
+User-agent: *
+Allow: /
+
+# Disallow admin/protected routes (if any static paths exist)
+Disallow: /api/
+Disallow: /_next/
+Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://truck-maintenance.neosiamlogistics.com/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1
