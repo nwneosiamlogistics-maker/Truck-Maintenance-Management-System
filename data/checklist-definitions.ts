@@ -24,7 +24,7 @@ interface ChecklistDefinition {
 
 export const checklistDefinitions: Record<string, ChecklistDefinition> = {
     'FM-MN-13': {
-        title: 'รายการตรวจอบรถบรรทุก (Checklist รถบรรทุก)',
+        title: 'รายการตรวจสอบรถบรรทุก (Checklist รถบรรทุก)',
         subtitle: 'ครอบคลุมหลายด้าน ทั้งการตรวจสอบก่อนใช้งาน (Pre-trip inspection), การตรวจสอบประจำวัน ประจำเดือน, และการตรวจสภาพเพื่อต่อภาษี',
         sections: [
             {

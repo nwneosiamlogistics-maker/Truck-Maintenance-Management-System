@@ -58,10 +58,25 @@ const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, 
                         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
                         <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
                         <style>
-                            body { font-family: 'Sarabun', sans-serif; }
+                            * { margin: 0; padding: 0; box-sizing: border-box; }
+                            body { 
+                                font-family: 'Sarabun', sans-serif; 
+                                width: 210mm;
+                                min-height: 297mm;
+                                margin: 0 auto;
+                                padding: 8mm;
+                            }
                             @media print {
-                                @page { size: A4; margin: 0.5in; }
+                                @page { size: A4 portrait; margin: 8mm; }
+                                body { padding: 0; width: 194mm; }
                                 .no-print { display: none; }
+                            }
+                            @media screen {
+                                body { 
+                                    background: white;
+                                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                                    margin: 20px auto;
+                                }
                             }
                         </style>
                     </head>
@@ -78,31 +93,33 @@ const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, 
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b flex justify-between items-center no-print">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-2 sm:p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-4 sm:p-6 border-b flex justify-between items-center no-print">
                     <div>
-                        <h3 className="text-2xl font-bold text-gray-800">รายละเอียดใบตรวจเช็ค</h3>
-                        <p className="text-base text-gray-500">{checklist.vehicleLicensePlate} - {new Date(checklist.inspectionDate).toLocaleDateString('th-TH')}</p>
+                        <h3 className="text-lg sm:text-2xl font-bold text-gray-800">รายละเอียดใบตรวจเช็ค</h3>
+                        <p className="text-sm sm:text-base text-gray-500">{checklist.vehicleLicensePlate} - {new Date(checklist.inspectionDate).toLocaleDateString('th-TH')}</p>
                     </div>
                     <button onClick={onClose} title="Close" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
-                <div className="p-6 overflow-y-auto">
-                    <ChecklistPrintLayout checklist={checklist} />
+                <div className="p-3 sm:p-6 overflow-y-auto overflow-x-auto">
+                    <div className="min-w-[320px]">
+                        <ChecklistPrintLayout checklist={checklist} />
+                    </div>
                 </div>
-                <div className="p-6 border-t flex justify-between items-center bg-gray-50 no-print">
+                <div className="p-4 sm:p-6 border-t flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50 no-print">
                     <div>
                         {abnormalItems.length > 0 && userRole !== 'inspector' && userRole !== 'driver' && (
-                            <button onClick={handleCreateRepair} className="px-6 py-2 text-base font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600">
+                            <button onClick={handleCreateRepair} className="px-4 sm:px-6 py-2 text-sm sm:text-base font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 w-full sm:w-auto">
                                 สร้างใบแจ้งซ่อม ({abnormalItems.length} รายการ)
                             </button>
                         )}
                     </div>
-                    <div className="space-x-4">
-                        <button onClick={handlePrint} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">พิมพ์</button>
-                        <button onClick={onClose} className="px-8 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">ปิด</button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <button onClick={handlePrint} className="px-4 sm:px-6 py-2 text-sm sm:text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 flex-1 sm:flex-none">พิมพ์</button>
+                        <button onClick={onClose} className="px-4 sm:px-8 py-2 text-sm sm:text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none">ปิด</button>
                     </div>
                 </div>
             </div>
