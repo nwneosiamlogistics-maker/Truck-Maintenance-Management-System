@@ -111,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({
                     )}
                   </button>
                   {isPanelOpen && (
-                    <div ref={panelRef} className="absolute top-full right-0 mt-4 z-50 animate-scale-in">
+                    <div ref={panelRef} className="fixed sm:absolute inset-x-4 sm:inset-x-auto top-20 sm:top-full sm:right-0 sm:mt-4 z-50 animate-scale-in">
                       <NotificationPanel
                         notifications={notifications}
                         setNotifications={setNotifications}

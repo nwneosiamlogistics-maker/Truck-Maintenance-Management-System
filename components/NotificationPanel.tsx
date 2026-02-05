@@ -98,7 +98,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, se
     };
 
     return (
-        <div className="bg-white rounded-[2.5rem] shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] w-[400px] border border-slate-100 overflow-hidden flex flex-col max-h-[600px] animate-scale-in">
+        <div className="bg-white rounded-[2.5rem] shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] w-full max-w-[400px] border border-slate-100 overflow-hidden flex flex-col max-h-[80vh] sm:max-h-[600px] animate-scale-in">
             {/* Header */}
             <div className="p-6 flex justify-between items-center border-b border-slate-50 bg-slate-50/30 backdrop-blur-xl">
                 <div>
