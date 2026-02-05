@@ -105,6 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             section: 'การจัดการยานพาหนะ', items: [
 
                 { id: 'daily-checklist', icon: <ClipboardCheck size={20} />, label: 'รายการตรวจเช็ค' },
+                { id: 'trailer-checklist', icon: <Truck size={20} />, label: 'Checklist หางลาก' },
                 { id: 'tire-check', icon: <Disc size={20} />, label: 'ตรวจเช็คยาง' },
             ]
         },
@@ -151,10 +152,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
 
     // Filter items based on user role
     const filteredNavItems = userRole === 'inspector'
-        ? navItems.filter(section => section.section === 'การจัดการยานพาหนะ').map(section => ({
-            ...section,
-            items: section.items.filter(item => item.id === 'daily-checklist')
-        }))
+        ? [
+            {
+                section: 'การจัดการยานพาหนะ',
+                items: [
+                    { id: 'trailer-checklist', icon: <Truck size={20} />, label: 'Checklist หางลาก' },
+                    { id: 'daily-checklist', icon: <ClipboardCheck size={20} />, label: 'รายการตรวจเช็ค' }
+                ]
+            }
+        ]
         : navItems;
 
     return (

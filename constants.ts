@@ -103,6 +103,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'รายการตรวจเช็ค (Checklist)',
         subtitle: 'รายการตรวจสอบรถบรรทุก (Checklist รถบรรทุก) ครอบคลุมหลายด้าน ทั้งการตรวจสอบก่อนใช้งาน (Pre-trip inspection), การตรวจสอบประจำวัน ประจำเดือน, และการตรวจสภาพเพื่อต่อภาษี'
     },
+    'trailer-checklist': {
+        title: 'Checklist หางลาก/พ่วง',
+        subtitle: 'รายการตรวจสอบหางลากและหางพ่วง เน้นระบบเบรกลม โครงสร้าง และอุปกรณ์ความปลอดภัย'
+    },
     'tire-check': {
         title: 'ตรวจเช็คยาง',
         subtitle: 'บันทึกและตรวจสอบสภาพยางรถบรรทุก'

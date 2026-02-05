@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
 import type { DailyChecklist, Vehicle, ChecklistItemResult, Technician } from '../types';
-import { checklistDefinitions, checklistWarnings } from '../data/checklist-definitions';
+import { checklistDefinitions, trailerWarnings } from '../data/checklist-definitions';
 import { useToast } from '../context/ToastContext';
-import { CheckCircle2, Circle, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 
 // Memoized checklist item component for performance
 interface ChecklistItemProps {
@@ -89,7 +89,7 @@ const ChecklistItem = memo(({ item, result, onChange, index }: ChecklistItemProp
     );
 });
 
-interface DailyChecklistFormProps {
+interface TrailerChecklistFormProps {
     onSave: (checklist: Omit<DailyChecklist, 'id'>) => void;
     vehicles: Vehicle[];
     technicians: Technician[];
@@ -97,10 +97,9 @@ interface DailyChecklistFormProps {
     initialReporterName?: string;
 }
 
-const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicles, technicians, initialVehiclePlate, initialReporterName }) => {
+const TrailerChecklistForm: React.FC<TrailerChecklistFormProps> = ({ onSave, vehicles, technicians, initialVehiclePlate, initialReporterName }) => {
     const { addToast } = useToast();
-    const definition = checklistDefinitions['FM-MN-13'];
-    const [expandedSection, setExpandedSection] = useState<number | null>(null);
+    const definition = checklistDefinitions['FM-MN-TRAILER'];
 
     const getInitialState = useCallback(() => {
         const initialItems: Record<string, ChecklistItemResult> = {};
@@ -111,7 +110,7 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
         const vehicle = vehicles.find(v => v.licensePlate === plate);
 
         return {
-            checklistId: 'FM-MN-13',
+            checklistId: 'FM-MN-TRAILER',
             vehicleLicensePlate: plate,
             vehicleType: vehicle?.vehicleType || '',
             inspectionDate: new Date().toISOString().split('T')[0],
@@ -175,10 +174,15 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
         setIsVehicleDropdownOpen(false);
     }, []);
 
+    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
+
     const handleSubmit = useCallback((e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.vehicleLicensePlate || !formData.reporterName) {
-            addToast('กรุณากรอกทะเบียนรถและชื่อช่าง', 'warning');
+            addToast('กรุณากรอกทะเบียนรถและชื่อผู้ตรวจ', 'warning');
             return;
         }
 
@@ -188,25 +192,16 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
         };
 
         onSave(dataToSave as Omit<DailyChecklist, 'id'>);
-        addToast('บันทึกใบตรวจเช็คสำเร็จ', 'success');
+        addToast('บันทึกใบตรวจเช็คหางสำเร็จ', 'success');
         setFormData(getInitialState());
         setVehicleSearchTerm(initialVehiclePlate || '');
     }, [formData, onSave, addToast, getInitialState, initialVehiclePlate]);
 
-    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    }, []);
-
     const allItems = definition.sections.flatMap(s => s.items);
-    // Split first 8 items evenly between two columns (4 each)
-    const firstColumnItems = allItems.slice(0, 4);
-    const secondColumnItems = allItems.slice(4, 8);
-    // Remaining items after item 8
-    const remainingItems = allItems.slice(8);
-    const midRemaining = Math.ceil(remainingItems.length / 2);
-    const thirdColumnItems = remainingItems.slice(0, midRemaining);
-    const fourthColumnItems = remainingItems.slice(midRemaining);
+    // Split items evenly between columns (no special logic for 8 items as trailer doesn't start engine)
+    const midPoint = Math.ceil(allItems.length / 2);
+    const column1Items = allItems.slice(0, midPoint);
+    const column2Items = allItems.slice(midPoint);
 
     return (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow-lg space-y-4 max-w-5xl mx-auto border font-sans">
@@ -240,23 +235,18 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="relative">
-                    <label htmlFor="vehicleLicensePlate" className="block text-sm font-medium text-gray-700 mb-1">ทะเบียน *</label>
+                    <label htmlFor="vehicleLicensePlate" className="block text-sm font-medium text-gray-700 mb-1">ทะเบียนหาง *</label>
                     <div className="relative">
                         <input
                             type="text"
-                            placeholder="ค้นหาหรือเลือกทะเบียน..."
+                            placeholder="ค้นหาหรือเลือกทะเบียนหาง..."
                             value={vehicleSearchTerm}
                             onChange={(e) => {
                                 setVehicleSearchTerm(e.target.value);
                                 setIsVehicleDropdownOpen(true);
-                                // Reset selected vehicle if user clears input or changes it manually without selecting
-                                if (e.target.value !== formData.vehicleLicensePlate) {
-                                    // Optional: keep the plate if it matches exactly, otherwise clear? 
-                                    // For now, let's just update search term. Validation happens on submit.
-                                }
                             }}
                             onFocus={() => setIsVehicleDropdownOpen(true)}
-                            onBlur={() => setTimeout(() => setIsVehicleDropdownOpen(false), 200)} // Delay to allow click event
+                            onBlur={() => setTimeout(() => setIsVehicleDropdownOpen(false), 200)}
                             className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
@@ -279,19 +269,19 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
                                     </div>
                                 ))
                             ) : (
-                                <div className="px-4 py-3 text-gray-400 text-center text-sm">ไม่พบทะเบียนรถที่ค้นหา</div>
+                                <div className="px-4 py-3 text-gray-400 text-center text-sm">ไม่พบทะเบียนหางที่ค้นหา</div>
                             )}
                         </div>
                     )}
                 </div>
                 <div>
-                    <label htmlFor="vehicleType" className="block text-sm font-medium text-gray-700 mb-1">ประเภทรถยนต์</label>
+                    <label htmlFor="vehicleType" className="block text-sm font-medium text-gray-700 mb-1">ประเภทหาง</label>
                     <input id="vehicleType" type="text" name="vehicleType" value={formData.vehicleType} className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500" readOnly />
                 </div>
                 <div>
-                    <label htmlFor="reporterName" className="block text-sm font-medium text-gray-700">ช่าง / เจ้าหน้าที่ตรวจเช็ค *</label>
+                    <label htmlFor="reporterName" className="block text-sm font-medium text-gray-700">ผู้ตรวจเช็ค *</label>
                     <select id="reporterName" name="reporterName" value={formData.reporterName} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" required>
-                        <option value="">-- เลือกช่าง หรือ เจ้าหน้าที่ --</option>
+                        <option value="">-- เลือกผู้ตรวจ --</option>
                         <optgroup label="เจ้าหน้าที่ตรวจเช็ค">
                             <option value="เจ้าหน้าที่ตรวจเช็ค">เจ้าหน้าที่ตรวจเช็ค</option>
                         </optgroup>
@@ -308,25 +298,25 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
                 </div>
             </div>
 
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-900">
+            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-orange-900">
                 <div className="flex items-center gap-3">
-                    <span className="text-2xl">ℹ️</span>
-                    <h3 className="text-lg font-bold">เกี่ยวกับการตรวจเช็คประจำวัน</h3>
+                    <span className="text-2xl">🚛</span>
+                    <h3 className="text-lg font-bold">เกี่ยวกับการตรวจเช็คหางลาก/หางพ่วง</h3>
                 </div>
                 <div className="mt-2 pl-10 text-base space-y-1">
-                    <p>ใบตรวจเช็คนี้ครอบคลุมการตรวจสอบที่สำคัญในหลายด้าน เพื่อความปลอดภัยและประสิทธิภาพสูงสุด:</p>
+                    <p>ใบตรวจเช็คนี้สำหรับหางลากและหางพ่วงที่ไม่มีเครื่องยนต์ เน้นการตรวจสอบ:</p>
                     <ul className="list-disc list-inside space-y-1 pl-2">
-                        <li><strong>การตรวจสอบก่อนใช้งาน (Pre-trip Inspection):</strong> เช็คความพร้อมพื้นฐานก่อนออกเดินทาง</li>
-                        <li><strong>การตรวจสอบประจำวัน/เดือน:</strong> การบำรุงรักษาตามรอบปกติ</li>
-                        <li><strong>การตรวจสภาพเพื่อต่อภาษี:</strong> เตรียมความพร้อมสำหรับข้อบังคับทางกฎหมาย</li>
+                        <li><strong>ระบบเบรกลม:</strong> ถังลม สายลม วาล์วควบคุม</li>
+                        <li><strong>ข้อต่อและโครงสร้าง:</strong> Kingpin Fifth Wheel ขาตั้งหาง</li>
+                        <li><strong>อุปกรณ์ความปลอดภัย:</strong> ไฟสัญญาณ ป้ายสะท้อนแสง</li>
                     </ul>
                 </div>
             </div>
 
             <main className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                {/* Row 1: Items 1-4 (Left) and 5-8 (Right) */}
+                {/* Column 1 */}
                 <div className="space-y-2">
-                    {firstColumnItems.map((item, index) => (
+                    {column1Items.map((item, index) => (
                         <ChecklistItem
                             key={item.id}
                             item={item}
@@ -336,67 +326,41 @@ const DailyChecklistForm: React.FC<DailyChecklistFormProps> = ({ onSave, vehicle
                         />
                     ))}
                 </div>
+                {/* Column 2 */}
                 <div className="space-y-2">
-                    {secondColumnItems.map((item, index) => (
+                    {column2Items.map((item, index) => (
                         <ChecklistItem
                             key={item.id}
                             item={item}
                             result={formData.items[item.id]}
                             onChange={handleItemChange}
-                            index={index + 4}
-                        />
-                    ))}
-                </div>
-                
-                {/* Warning Box - Full Width spanning both columns */}
-                <div className="col-span-1 md:col-span-2 my-4">
-                    <div className="border-2 border-amber-300 bg-amber-50 p-4 rounded-lg text-amber-900 space-y-3 text-base">
-                        <p className="text-center font-bold text-lg border-b border-amber-200 pb-2 mb-2">
-                            เมื่อตรวจครบ 8 ข้อแล้ว จึงติดเครื่องยนต์
-                        </p>
-                        <div>
-                            <h4 className="font-bold text-base underline mb-2">ข้อเตือนใจ</h4>
-                            <ol className="list-decimal list-inside space-y-2 text-sm pl-2">
-                                {checklistWarnings.map((warning, i) =>
-                                    <li key={i}>{warning.substring(3)}</li>
-                                )}
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-                
-                {/* Row 2: Remaining items split between two columns */}
-                <div className="space-y-2">
-                    {thirdColumnItems.map((item, index) => (
-                        <ChecklistItem
-                            key={item.id}
-                            item={item}
-                            result={formData.items[item.id]}
-                            onChange={handleItemChange}
-                            index={index + 8}
-                        />
-                    ))}
-                </div>
-                <div className="space-y-2">
-                    {fourthColumnItems.map((item, index) => (
-                        <ChecklistItem
-                            key={item.id}
-                            item={item}
-                            result={formData.items[item.id]}
-                            onChange={handleItemChange}
-                            index={index + 8 + thirdColumnItems.length}
+                            index={index + midPoint}
                         />
                     ))}
                 </div>
             </main>
 
+            {/* Warning Box - Full Width at bottom */}
+            <div className="border-2 border-amber-300 bg-amber-50 p-4 rounded-lg text-amber-900 space-y-3 text-base">
+                <p className="text-center font-bold text-lg border-b border-amber-200 pb-2 mb-2">
+                    ⚠️ ข้อเตือนใจสำหรับหางลาก/หางพ่วง
+                </p>
+                <div>
+                    <ol className="list-decimal list-inside space-y-2 text-sm pl-2">
+                        {trailerWarnings.map((warning, i) =>
+                            <li key={i}>{warning.substring(3)}</li>
+                        )}
+                    </ol>
+                </div>
+            </div>
+
             <div className="flex justify-end border-t pt-4">
                 <button type="submit" className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
-                    บันทึกใบตรวจเช็ค
+                    บันทึกใบตรวจเช็คหาง
                 </button>
             </div>
         </form>
     );
 };
 
-export default DailyChecklistForm;
+export default TrailerChecklistForm;

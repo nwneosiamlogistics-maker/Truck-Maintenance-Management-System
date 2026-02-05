@@ -35,6 +35,7 @@ const UsedPartReport = lazy(() => import('./components/UsedPartReport'));
 const TechnicianView = lazy(() => import('./components/TechnicianView'));
 const PreventiveMaintenance = lazy(() => import('./components/PreventiveMaintenance'));
 const DailyChecklistPage = lazy(() => import('./components/DailyChecklistPage'));
+const TrailerChecklistPage = lazy(() => import('./components/TrailerChecklistPage'));
 const TireCheckPage = lazy(() => import('./components/TireCheckPage'));
 const ToolManagement = lazy(() => import('./components/ToolManagement'));
 const KPIDashboard = lazy(() => import('./components/KPIDashboard'));
@@ -151,7 +152,7 @@ const AppContent: React.FC<AppContentProps> = ({
         if (role === 'technician') {
             setActiveTab('technician-view');
         } else if (role === 'inspector') {
-            setActiveTab('daily-checklist');
+            setActiveTab('trailer-checklist');
         } else if (role === 'driver') {
             setActiveTab('form');
         } else {
@@ -339,14 +340,17 @@ const AppContent: React.FC<AppContentProps> = ({
                 />;
             case 'preventive-maintenance':
                 return <PreventiveMaintenance
-                    plans={maintenancePlans}
-                    annualPlans={annualPlans}
-                    setAnnualPlans={setAnnualPlans}
-                    history={pmHistory}
-                    setHistory={setPmHistory}
-                    repairs={repairs}
+                    userRole={userRole}
+                />;
+            case 'trailer-checklist':
+                return <TrailerChecklistPage
+                    checklists={checklists}
+                    setChecklists={setChecklists}
                     vehicles={vehicles}
                     technicians={technicians}
+                    setRepairFormSeed={setRepairFormSeed}
+                    setActiveTab={setActiveTab}
+                    userRole={userRole}
                 />;
             case 'daily-checklist':
                 return <DailyChecklistPage

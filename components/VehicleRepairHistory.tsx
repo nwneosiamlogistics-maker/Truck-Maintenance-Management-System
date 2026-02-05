@@ -23,8 +23,8 @@ const PartsListModal: React.FC<{ parts: PartRequisitionItem[], onClose: () => vo
                     <span className="text-xl">📦</span>
                     รายการอะไหล่ที่ใช้
                 </h3>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full" aria-label="ปิด">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             <div className="p-0 max-h-[60vh] overflow-y-auto custom-scrollbar">
@@ -125,7 +125,7 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
         return (
             <div className="space-y-6 animate-fade-in-up">
                 <div className="flex items-center gap-4 mb-2">
-                    <button onClick={() => setSelectedVehiclePlate(null)} className="p-3 text-gray-500 hover:text-blue-600 bg-white shadow-md hover:shadow-lg rounded-xl border border-gray-100 transition-all transform hover:scale-105 active:scale-95">
+                    <button onClick={() => setSelectedVehiclePlate(null)} className="p-3 text-gray-500 hover:text-blue-600 bg-white shadow-md hover:shadow-lg rounded-xl border border-gray-100 transition-all transform hover:scale-105 active:scale-95" aria-label="กลับ">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     </button>
                     <div>

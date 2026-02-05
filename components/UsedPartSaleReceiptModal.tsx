@@ -40,7 +40,7 @@ const UsedPartSaleReceiptModal: React.FC<UsedPartSaleReceiptModalProps> = ({ par
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center no-print">
                     <h3 className="text-xl font-bold text-gray-800">ตัวอย่างใบขายอะไหล่เก่า</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full" aria-label="ปิด">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
