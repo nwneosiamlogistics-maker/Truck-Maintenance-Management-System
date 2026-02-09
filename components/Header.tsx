@@ -111,14 +111,17 @@ const Header: React.FC<HeaderProps> = ({
                     )}
                   </button>
                   {isPanelOpen && (
-                    <div ref={panelRef} className="fixed sm:absolute inset-x-4 sm:inset-x-auto top-20 sm:top-full sm:right-0 sm:mt-4 z-50 animate-scale-in">
-                      <NotificationPanel
-                        notifications={notifications}
-                        setNotifications={setNotifications}
-                        onClose={() => setPanelOpen(false)}
-                        onNavigate={handleNavigate}
-                      />
-                    </div>
+                    <>
+                      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 sm:hidden" onClick={() => setPanelOpen(false)} />
+                      <div ref={panelRef} className="fixed sm:absolute inset-x-0 sm:inset-x-auto top-16 sm:top-full sm:right-0 sm:mt-4 z-50 animate-scale-in px-2 sm:px-0">
+                        <NotificationPanel
+                          notifications={notifications}
+                          setNotifications={setNotifications}
+                          onClose={() => setPanelOpen(false)}
+                          onNavigate={handleNavigate}
+                        />
+                      </div>
+                    </>
                   )}
                 </div>
 

@@ -42,7 +42,7 @@ const NotificationItem: React.FC<{
     return (
         <li
             onClick={onClick}
-            className={`p-5 flex items-start gap-4 cursor-pointer transition-all duration-300 border-l-4 ${!notification.isRead
+            className={`p-3 sm:p-5 flex items-start gap-3 sm:gap-4 cursor-pointer transition-all duration-300 border-l-4 ${!notification.isRead
                 ? 'bg-blue-50/50 border-blue-500 hover:bg-blue-100/50 shadow-sm'
                 : 'bg-white border-transparent hover:bg-slate-50'
                 }`}
@@ -53,7 +53,7 @@ const NotificationItem: React.FC<{
                 {getIcon(notification.type)}
             </div>
             <div className="flex-1 min-w-0">
-                <p className={`text-sm leading-relaxed ${!notification.isRead ? 'font-black text-slate-800' : 'text-slate-600 font-medium'}`}>
+                <p className={`text-xs sm:text-sm leading-relaxed break-words ${!notification.isRead ? 'font-black text-slate-800' : 'text-slate-600 font-medium'}`}>
                     {notification.message}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
@@ -98,9 +98,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, se
     };
 
     return (
-        <div className="bg-white rounded-[2.5rem] shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] w-full max-w-[400px] border border-slate-100 overflow-hidden flex flex-col max-h-[80vh] sm:max-h-[600px] animate-scale-in">
+        <div className="bg-white rounded-2xl sm:rounded-[2.5rem] shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] w-full sm:max-w-[400px] border border-slate-100 overflow-hidden flex flex-col max-h-[75vh] sm:max-h-[600px]">
             {/* Header */}
-            <div className="p-6 flex justify-between items-center border-b border-slate-50 bg-slate-50/30 backdrop-blur-xl">
+            <div className="p-4 sm:p-6 flex justify-between items-center border-b border-slate-50 bg-slate-50/30 backdrop-blur-xl">
                 <div>
                     <h3 className="text-xl font-black text-slate-800 tracking-tight">การแจ้งเตือน</h3>
                     {unreadCount > 0 && <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-0.5">คุณมี {unreadCount} รายการใหม่</p>}

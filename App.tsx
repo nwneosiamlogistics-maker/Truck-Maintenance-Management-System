@@ -340,7 +340,14 @@ const AppContent: React.FC<AppContentProps> = ({
                 />;
             case 'preventive-maintenance':
                 return <PreventiveMaintenance
-                    userRole={userRole}
+                    plans={maintenancePlans}
+                    annualPlans={annualPlans}
+                    setAnnualPlans={setAnnualPlans}
+                    history={pmHistory}
+                    setHistory={setPmHistory}
+                    repairs={repairs}
+                    vehicles={vehicles}
+                    technicians={technicians}
                 />;
             case 'trailer-checklist':
                 return <TrailerChecklistPage

@@ -15,7 +15,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
                 <div className="absolute inset-0 z-0">
                     <div className="absolute inset-0 bg-gradient-to-b lg:bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900/40 z-10" />
                     <img
-                        src="/artifacts/modern_truck_workshop_service_v2.png"
+                        src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=2070"
                         alt="Truck Workshop"
                         className="w-full h-full object-cover animate-slow-zoom"
                         onError={(e) => {
@@ -193,7 +193,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
                         <div className="relative">
                             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-[3rem] p-2 border border-slate-700 shadow-2xl relative z-10">
                                 <img
-                                    src="/artifacts/fleet_management_dashboard_preview.png"
+                                    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070"
                                     className="rounded-[2.5rem] w-full shadow-inner opacity-60 grayscale hover:grayscale-0 transition-all duration-700 hover:opacity-100"
                                     alt="Dashboard Preview"
                                     onError={(e) => {
