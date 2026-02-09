@@ -1165,7 +1165,7 @@ export interface IncidentInvestigationReport {
 
 // ==================== OKR MANAGEMENT SYSTEM ====================
 
-export type OKRStatus = 'On Track' | 'At Risk' | 'Behind' | 'Completed';
+export type OKRStatus = 'On Track' | 'At Risk' | 'Behind' | 'Completed' | 'Not Started';
 export type OKRCategory = 'Performance' | 'Satisfaction' | 'Business' | 'Human/Safety';
 
 export interface OKRMetric {

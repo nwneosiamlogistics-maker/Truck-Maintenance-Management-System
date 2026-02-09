@@ -204,7 +204,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
             });
 
             const totalPMOpportunities = mPM.length + missedPMs;
-            const hs4 = totalPMOpportunities > 0 ? Math.round((compliantPMs / totalPMOpportunities) * 100) : 100;
+            const hs4 = totalPMOpportunities > 0 ? Math.round((compliantPMs / totalPMOpportunities) * 100) : 0;
 
             // OP1: Fuel Efficiency
             const totalDist = mFuel.reduce((sum, f) => sum + (f.distanceTraveled || 0), 0);
@@ -275,6 +275,13 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
                 vMileage[f.licensePlate] = f.odometerAfter;
             }
         });
+        // Fallback: use repair mileage if no fuel records available
+        repairs.forEach(r => {
+            const mileage = typeof r.currentMileage === 'string' ? parseFloat(r.currentMileage) : (r.currentMileage || 0);
+            if (mileage > 0 && (!vMileage[r.licensePlate] || mileage > vMileage[r.licensePlate])) {
+                vMileage[r.licensePlate] = mileage;
+            }
+        });
 
         const activePlans = maintenancePlans.filter(plan =>
             activeFleet.some(v => v.licensePlate === plan.vehicleLicensePlate)
@@ -298,7 +305,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
 
             return isMileageOverdue || isDateOverdue;
         }).length;
-        const hs4 = activePlans.length > 0 ? Math.max(0, Math.round(((activePlans.length - overduePMCount) / activePlans.length) * 100)) : 100;
+        const hs4 = activePlans.length > 0 ? Math.max(0, Math.round(((activePlans.length - overduePMCount) / activePlans.length) * 100)) : 0;
 
         const totalDist = fuelRecords.reduce((sum, f) => sum + (f.distanceTraveled || 0), 0);
         const totalFuel = fuelRecords.reduce((sum, f) => sum + (f.liters || 0), 0);
@@ -317,10 +324,17 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
         return { hs2: ytdInc, hs6: hs6, hs3, hs4, op1: parseFloat(op1.toFixed(2)), lastUpdatedDate };
     }, [incidents, repairs, checklists, vehicles, maintenancePlans, fuelRecords]);
 
+    // Data availability flags
+    const hasChecklistData = checklists.length > 0;
+    const hasPMData = pmHistory.length > 0 || maintenancePlans.length > 0;
+    const hasRepairData = repairs.length > 0;
+    const hasIncidentData = incidents.length > 0;
+    const hasFuelData = fuelRecords.length > 0;
+
     const okrData: OKRObjective[] = useMemo(() => {
         const avg12 = {
-            hs3: Math.round(monthlyHistory.reduce((s, h) => s + h.hs3, 0) / 12),
-            hs4: Math.round(monthlyHistory.reduce((s, h) => s + h.hs4, 0) / 12),
+            hs3: Math.round(monthlyHistory.reduce((s, h) => s + h.hs3, 0) / (monthlyHistory.filter(h => h.hs3 > 0).length || 1)),
+            hs4: Math.round(monthlyHistory.reduce((s, h) => s + h.hs4, 0) / (monthlyHistory.filter(h => h.hs4 > 0).length || 1)),
             hs6: monthlyHistory.reduce((s, h) => s + h.hs6, 0),
             hs2: monthlyHistory.reduce((s, h) => s + h.hs2, 0),
             op1: parseFloat((monthlyHistory.reduce((s, h) => s + h.op1, 0) / (monthlyHistory.filter(h => h.op1 > 0).length || 1)).toFixed(2))
@@ -328,32 +342,53 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
 
         const getVal = (current: number, avg: number) => viewMode === 'current' ? current : avg;
 
+        // Calculate Human/Safety progress based on available data only
+        const hsScores: number[] = [];
+        if (hasChecklistData) hsScores.push(Math.min(100, getVal(realTimeStats.hs3, avg12.hs3)));
+        if (hasPMData) hsScores.push(Math.min(100, getVal(realTimeStats.hs4, avg12.hs4)));
+        if (hasRepairData) hsScores.push(getVal(realTimeStats.hs6, avg12.hs6) <= 10 ? 100 : Math.max(0, 100 - (getVal(realTimeStats.hs6, avg12.hs6) - 10) * 5));
+        if (hasIncidentData || incidents.length === 0) hsScores.push(getVal(realTimeStats.hs2, avg12.hs2) <= 2 ? 100 : 0);
+        const hsProgress = hsScores.length > 0 ? Math.round(hsScores.reduce((a, b) => a + b, 0) / hsScores.length) : 0;
+
+        const getStatus = (value: number, target: number, isLowerBetter: boolean, hasData: boolean): 'On Track' | 'At Risk' | 'Behind' | 'Completed' | 'Not Started' => {
+            if (!hasData) return 'Not Started';
+            if (isLowerBetter) return value <= target ? 'On Track' : 'Behind';
+            if (value >= target) return 'Completed';
+            if (value >= target * 0.9) return 'On Track';
+            if (value >= target * 0.7) return 'At Risk';
+            return 'Behind';
+        };
+
         return [
             {
                 id: 'obj-4', title: 'พัฒนาศักยภาพและความปลอดภัย (Human / Safety)', category: 'Human/Safety',
-                progress: Math.round((Math.min(100, getVal(realTimeStats.hs3, avg12.hs3)) + Math.min(100, getVal(realTimeStats.hs4, avg12.hs4)) + (getVal(realTimeStats.hs6, avg12.hs6) <= 10 ? 100 : 50) + (getVal(realTimeStats.hs2, avg12.hs2) < 2 ? 100 : 0)) / 4),
+                progress: hsProgress,
                 metrics: [
                     {
                         id: 'hs3', code: 'HS3', objective: 'Vehicle Inspection (BeWagon)', detail: 'การตรวจความพร้อมรถก่อนงาน (สุ่มตรวจจริง ≥ 2 ครั้ง/เดือน)',
-                        target2025: '100%', targetValue: 100, currentValue: getVal(realTimeStats.hs3, avg12.hs3), unit: '%', status: getVal(realTimeStats.hs3, avg12.hs3) >= 90 ? 'On Track' : 'Behind',
+                        target2025: '100%', targetValue: 100, currentValue: getVal(realTimeStats.hs3, avg12.hs3), unit: '%',
+                        status: getStatus(getVal(realTimeStats.hs3, avg12.hs3), 90, false, hasChecklistData) as OKRStatus,
                         category: 'Human/Safety', source: 'Daily Checklist', lastUpdated: realTimeStats.lastUpdatedDate, trend: 'stable',
                         monthlyProgress: monthlyHistory.map(h => ({ month: h.month, value: h.hs3 }))
                     },
                     {
                         id: 'hs4', code: 'HS4', objective: 'PM Compliance', detail: 'การนำรถเข้าซ่อมบำรุงตามระยะที่กำหนด (Target vs Actual: ±7 วัน หรือ ±2,000 กม.)',
-                        target2025: '100% (± 7 วัน หรือ ± 2,000 กม.)', targetValue: 100, currentValue: getVal(realTimeStats.hs4, avg12.hs4), unit: '%', status: getVal(realTimeStats.hs4, avg12.hs4) >= 95 ? 'Completed' : 'At Risk',
+                        target2025: '100% (± 7 วัน หรือ ± 2,000 กม.)', targetValue: 100, currentValue: getVal(realTimeStats.hs4, avg12.hs4), unit: '%',
+                        status: getStatus(getVal(realTimeStats.hs4, avg12.hs4), 95, false, hasPMData) as OKRStatus,
                         category: 'Human/Safety', source: 'Maintenance Planner', lastUpdated: realTimeStats.lastUpdatedDate, trend: 'up',
                         monthlyProgress: monthlyHistory.map(h => ({ month: h.month, value: h.hs4 }))
                     },
                     {
                         id: 'hs6', code: 'HS6', objective: 'Repeat Repair Rate', detail: 'ผลรวมรถทุกคันในบริษัทที่มีการซ่อมซ้ำอาการเดิมภายใน 1 ปี (เกณฑ์วัดคุณภาพงานช่าง)',
-                        target2025: '≤ 10 ครั้ง/ปี', targetValue: 10, currentValue: getVal(realTimeStats.hs6, avg12.hs6), unit: 'ครั้ง', status: getVal(realTimeStats.hs6, avg12.hs6) <= 10 ? 'On Track' : 'Behind',
+                        target2025: '≤ 10 ครั้ง/ปี', targetValue: 10, currentValue: getVal(realTimeStats.hs6, avg12.hs6), unit: 'ครั้ง',
+                        status: getStatus(getVal(realTimeStats.hs6, avg12.hs6), 10, true, hasRepairData) as OKRStatus,
                         category: 'Human/Safety', source: 'Repair History', lastUpdated: realTimeStats.lastUpdatedDate, trend: 'stable',
                         monthlyProgress: monthlyHistory.map(h => ({ month: h.month, value: h.hs6 }))
                     },
                     {
                         id: 'hs2', code: 'HS2', objective: 'Lost Time Injury Frequency (LTIF)', detail: 'อุบัติเหตุถึงขั้นหยุดงานเกิน 2 วัน',
-                        target2025: '≤ 2 ครั้ง/ปี', targetValue: 2, currentValue: getVal(realTimeStats.hs2, avg12.hs2), unit: 'ครั้ง', status: getVal(realTimeStats.hs2, avg12.hs2) <= 2 ? 'On Track' : 'Behind',
+                        target2025: '≤ 2 ครั้ง/ปี', targetValue: 2, currentValue: getVal(realTimeStats.hs2, avg12.hs2), unit: 'ครั้ง',
+                        status: getStatus(getVal(realTimeStats.hs2, avg12.hs2), 2, true, hasIncidentData) as OKRStatus,
                         category: 'Human/Safety', source: 'Incident Log', lastUpdated: realTimeStats.lastUpdatedDate, trend: 'stable',
                         monthlyProgress: monthlyHistory.map(h => ({ month: h.month, value: h.hs2 }))
                     }
@@ -361,18 +396,19 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
             },
             {
                 id: 'obj-1', title: 'ยกระดับประสิทธิภาพการขนส่ง (Operations)', category: 'Performance',
-                progress: Math.round(Math.min(100, (getVal(realTimeStats.op1, avg12.op1) / 4.5) * 100)),
+                progress: hasFuelData ? Math.round(Math.min(100, (getVal(realTimeStats.op1, avg12.op1) / 4.5) * 100)) : 0,
                 metrics: [
                     {
                         id: 'op1', code: 'OP1', objective: 'อัตราสิ้นเปลืองน้ำมัน (Fuel Efficiency)', detail: 'ควบคุมการใช้พลังงานให้เกิดประสิทธิภาพสูงสุดตามมาตรฐานกลุ่มรถ',
-                        target2025: '4.50 km/L', targetValue: 4.5, currentValue: getVal(realTimeStats.op1, avg12.op1), unit: 'km/L', status: getVal(realTimeStats.op1, avg12.op1) >= 4.2 ? 'On Track' : 'At Risk',
+                        target2025: '4.50 km/L', targetValue: 4.5, currentValue: getVal(realTimeStats.op1, avg12.op1), unit: 'km/L',
+                        status: getStatus(getVal(realTimeStats.op1, avg12.op1), 4.2, false, hasFuelData) as OKRStatus,
                         category: 'Performance', source: 'Fuel Management', lastUpdated: realTimeStats.lastUpdatedDate, trend: 'up',
                         monthlyProgress: monthlyHistory.map(h => ({ month: h.month, value: h.op1 }))
                     }
                 ]
             }
         ];
-    }, [realTimeStats, monthlyHistory, viewMode, maintenancePlans.length]);
+    }, [realTimeStats, monthlyHistory, viewMode, maintenancePlans.length, hasChecklistData, hasPMData, hasRepairData, hasIncidentData, hasFuelData]);
 
     const statsSummary = useMemo(() => {
         const all = okrData.flatMap(o => o.metrics);
@@ -390,6 +426,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
             case 'At Risk': return 'bg-amber-500 shadow-amber-200';
             case 'Behind': return 'bg-rose-500 shadow-rose-200';
             case 'Completed': return 'bg-indigo-600 shadow-indigo-200';
+            case 'Not Started': return 'bg-slate-400 shadow-slate-200';
             default: return 'bg-slate-400 shadow-slate-200';
         }
     };
@@ -506,15 +543,15 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
                                         </div>
                                     </div>
 
-                                    {(viewMode === 'monthly' || metric.monthlyProgress.length > 0) && (
-                                        <div className="h-[220px] bg-white rounded-[3rem] p-8 border border-slate-50 shadow-inner mt-auto overflow-hidden">
+                                    {(viewMode === 'monthly' || metric.monthlyProgress.length > 0) && metric.monthlyProgress.some(p => p.value > 0) && (
+                                        <div className="bg-white rounded-[3rem] p-8 border border-slate-50 shadow-inner mt-auto overflow-hidden" style={{ minHeight: 220 }}>
                                             <div className="flex justify-between items-center mb-6">
                                                 <span className="text-[11px] font-black text-slate-500 uppercase flex items-center gap-2">
                                                     <TrendingUp className="w-4 h-4 text-emerald-500" /> Historical Trend
                                                 </span>
                                                 <Gauge className="w-5 h-5 text-blue-200" />
                                             </div>
-                                            <ResponsiveContainer width="100%" height="80%">
+                                            <ResponsiveContainer width="100%" height={130}>
                                                 <AreaChart data={metric.monthlyProgress}>
                                                     <defs>
                                                         <linearGradient id={`grad-${metric.id}`} x1="0" y1="0" x2="0" y2="1">
