@@ -1,5 +1,5 @@
 
-import { MaintenancePlan, Repair, Vehicle } from "../types";
+import { MaintenancePlan, Repair, Vehicle, PartWarranty, CargoInsurancePolicy } from "../types";
 
 // Telegram Configuration
 // ในการใช้งานจริง ควรย้ายไปเก็บใน .env
@@ -243,6 +243,150 @@ const sendToTelegram = async (payload: TelegramMessage): Promise<boolean> => {
     } catch (error) {
         console.error('Telegram Network/CORS/Proxy Error:', error);
         return false;
+    }
+};
+
+// --- Daily Warranty & Insurance Expiry Alert (09:00) ---
+export const checkAndSendWarrantyInsuranceAlerts = async (
+    partWarranties: PartWarranty[],
+    vehicles: Vehicle[],
+    cargoPolicies: CargoInsurancePolicy[]
+) => {
+    const NOW = new Date();
+    if (NOW.getHours() < 9) return;
+
+    const lastSentDate = localStorage.getItem('lastWarrantyInsuranceAlertDate');
+    const todayStr = NOW.toDateString();
+    if (lastSentDate === todayStr) return;
+
+    if ((!partWarranties || partWarranties.length === 0) && (!vehicles || vehicles.length === 0) && (!cargoPolicies || cargoPolicies.length === 0)) {
+        console.log('[Telegram-WarrantyInsurance] No data loaded yet. Skipping.');
+        return;
+    }
+
+    console.log('[Telegram-WarrantyInsurance] Checking warranty & insurance expiry...');
+
+    const calcDays = (dateStr: string) => Math.ceil((new Date(dateStr).getTime() - NOW.getTime()) / (1000 * 60 * 60 * 24));
+
+    // === 1. Part Warranty (การรับประกันอะไหล่) ===
+    const warrantyExpired: { name: string; plate: string; days: number; supplier: string }[] = [];
+    const warrantyExpiring: { name: string; plate: string; days: number; supplier: string }[] = [];
+
+    (partWarranties || []).forEach(w => {
+        if (!w.isActive) return;
+        const days = calcDays(w.warrantyExpiry);
+        const item = { name: w.partName, plate: w.vehicleLicensePlate || '-', days, supplier: w.supplier };
+        if (days < 0) warrantyExpired.push(item);
+        else if (days <= 30) warrantyExpiring.push(item);
+    });
+
+    // === 2. Vehicle Insurance (ประกันภัยรถ + พ.ร.บ.) ===
+    const insuranceExpired: { plate: string; type: string; company: string; days: number }[] = [];
+    const insuranceExpiring: { plate: string; type: string; company: string; days: number }[] = [];
+
+    (vehicles || []).filter(v => v.status === 'Active').forEach(v => {
+        // ประกันภัยรถ
+        if (v.insuranceExpiryDate) {
+            const days = calcDays(v.insuranceExpiryDate);
+            const item = { plate: v.licensePlate, type: 'ประกันภัย', company: v.insuranceCompany || '-', days };
+            if (days < 0) insuranceExpired.push(item);
+            else if (days <= 30) insuranceExpiring.push(item);
+        }
+        // พ.ร.บ.
+        if (v.actExpiryDate) {
+            const days = calcDays(v.actExpiryDate);
+            const item = { plate: v.licensePlate, type: 'พ.ร.บ.', company: v.actCompany || '-', days };
+            if (days < 0) insuranceExpired.push(item);
+            else if (days <= 30) insuranceExpiring.push(item);
+        }
+    });
+
+    // === 3. Cargo Insurance Policy (ประกันสินค้า) ===
+    const cargoExpired: { policy: string; insurer: string; days: number }[] = [];
+    const cargoExpiring: { policy: string; insurer: string; days: number }[] = [];
+
+    (cargoPolicies || []).filter(p => p.status === 'Active').forEach(p => {
+        const days = calcDays(p.expiryDate);
+        const item = { policy: p.policyNumber, insurer: p.insurer, days };
+        if (days < 0) cargoExpired.push(item);
+        else if (days <= 30) cargoExpiring.push(item);
+    });
+
+    // === Build Message ===
+    const totalExpired = warrantyExpired.length + insuranceExpired.length + cargoExpired.length;
+    const totalExpiring = warrantyExpiring.length + insuranceExpiring.length + cargoExpiring.length;
+
+    if (totalExpired === 0 && totalExpiring === 0) {
+        console.log('[Telegram-WarrantyInsurance] Nothing to notify today.');
+        localStorage.setItem('lastWarrantyInsuranceAlertDate', todayStr);
+        return;
+    }
+
+    let message = `🛡 <b>แจ้งเตือนการรับประกัน & ประกันภัย</b>\n(${NOW.toLocaleDateString('th-TH')})\n`;
+
+    // --- หมดอายุแล้ว ---
+    if (totalExpired > 0) {
+        message += `\n🔴 <b>หมดอายุแล้ว (${totalExpired} รายการ):</b>\n`;
+
+        if (warrantyExpired.length > 0) {
+            message += `\n<b>📦 การรับประกันอะไหล่:</b>\n`;
+            warrantyExpired.slice(0, 5).forEach(w =>
+                message += `- ${w.name} [${w.plate}] (หมด ${Math.abs(w.days)} วัน | ${w.supplier})\n`
+            );
+            if (warrantyExpired.length > 5) message += `  ...และอีก ${warrantyExpired.length - 5} รายการ\n`;
+        }
+
+        if (insuranceExpired.length > 0) {
+            message += `\n<b>🚗 ประกันภัยรถ/พ.ร.บ.:</b>\n`;
+            insuranceExpired.slice(0, 5).forEach(i =>
+                message += `- ${i.plate}: ${i.type} (หมด ${Math.abs(i.days)} วัน | ${i.company})\n`
+            );
+            if (insuranceExpired.length > 5) message += `  ...และอีก ${insuranceExpired.length - 5} รายการ\n`;
+        }
+
+        if (cargoExpired.length > 0) {
+            message += `\n<b>📋 ประกันสินค้า:</b>\n`;
+            cargoExpired.slice(0, 3).forEach(c =>
+                message += `- กรมธรรม์ ${c.policy} (หมด ${Math.abs(c.days)} วัน | ${c.insurer})\n`
+            );
+            if (cargoExpired.length > 3) message += `  ...และอีก ${cargoExpired.length - 3} รายการ\n`;
+        }
+    }
+
+    // --- ใกล้หมดอายุ ---
+    if (totalExpiring > 0) {
+        message += `\n🟡 <b>ใกล้หมดอายุ ≤ 30 วัน (${totalExpiring} รายการ):</b>\n`;
+
+        if (warrantyExpiring.length > 0) {
+            message += `\n<b>📦 การรับประกันอะไหล่:</b>\n`;
+            warrantyExpiring.slice(0, 5).forEach(w =>
+                message += `- ${w.name} [${w.plate}] (เหลือ ${w.days} วัน | ${w.supplier})\n`
+            );
+            if (warrantyExpiring.length > 5) message += `  ...และอีก ${warrantyExpiring.length - 5} รายการ\n`;
+        }
+
+        if (insuranceExpiring.length > 0) {
+            message += `\n<b>🚗 ประกันภัยรถ/พ.ร.บ.:</b>\n`;
+            insuranceExpiring.slice(0, 5).forEach(i =>
+                message += `- ${i.plate}: ${i.type} (เหลือ ${i.days} วัน | ${i.company})\n`
+            );
+            if (insuranceExpiring.length > 5) message += `  ...และอีก ${insuranceExpiring.length - 5} รายการ\n`;
+        }
+
+        if (cargoExpiring.length > 0) {
+            message += `\n<b>📋 ประกันสินค้า:</b>\n`;
+            cargoExpiring.slice(0, 3).forEach(c =>
+                message += `- กรมธรรม์ ${c.policy} (เหลือ ${c.days} วัน | ${c.insurer})\n`
+            );
+            if (cargoExpiring.length > 3) message += `  ...และอีก ${cargoExpiring.length - 3} รายการ\n`;
+        }
+    }
+
+    message += `\n📋 กรุณาตรวจสอบในระบบจัดการการรับประกันและประกันภัย`;
+
+    if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
+        localStorage.setItem('lastWarrantyInsuranceAlertDate', todayStr);
+        console.log('[Telegram-WarrantyInsurance] Alert sent successfully.');
     }
 };
 
