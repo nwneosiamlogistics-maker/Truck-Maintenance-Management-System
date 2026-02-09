@@ -807,7 +807,7 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
             {/* Filter Bar */}
             <div className="bg-white/90 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/50 shadow-2xl print:hidden group/filter mb-4">
                 <div className="flex flex-wrap gap-6 items-end">
-                    <div className="flex-1 min-w-[350px]">
+                    <div className="flex-1 min-w-0 w-full lg:min-w-[350px]">
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
                             <Search size={12} className="text-blue-500" />
                             Search Incidents
@@ -824,7 +824,7 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         </div>
                     </div>
 
-                    <div className="w-56">
+                    <div className="w-full sm:w-56">
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
                             <Activity size={12} className="text-indigo-500" />
                             Type
@@ -848,7 +848,7 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         </div>
                     </div>
 
-                    <div className="w-56">
+                    <div className="w-full sm:w-56">
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
                             <Zap size={12} className="text-amber-500" />
                             Severity
@@ -872,8 +872,8 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <div className="w-44">
+                    <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                        <div className="w-full sm:w-44">
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
                                 <Calendar size={12} className="text-emerald-500" />
                                 Start Date
@@ -886,7 +886,7 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                                 className="w-full px-5 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-3xl outline-none font-black text-xs text-slate-700 focus:bg-white focus:border-emerald-500/50 transition-all shadow-inner"
                             />
                         </div>
-                        <div className="w-44">
+                        <div className="w-full sm:w-44">
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 px-2 flex items-center gap-2">
                                 <Calendar size={12} className="text-emerald-500" />
                                 End Date

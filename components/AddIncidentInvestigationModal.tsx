@@ -296,40 +296,41 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 flex-shrink-0 flex justify-between items-center">
-                    <div>
-                        <h3 className="text-2xl font-bold text-slate-800">📄 รายงานการสอบสวนอุบัติเหตุ (Incident Investigation Report)</h3>
-                        <p className="text-sm text-slate-500 mt-1">Report No: <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">{formData.reportNo || 'Running Number (Auto-generated on Save)'}</span></p>
+                <div className="p-4 sm:p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 flex-shrink-0 space-y-3">
+                    <div className="flex justify-between items-start">
+                        <div className="min-w-0 flex-1">
+                            <h3 className="text-lg sm:text-2xl font-bold text-slate-800 truncate">📄 รายงานการสอบสวนอุบัติเหตุ</h3>
+                            <p className="text-xs sm:text-sm text-slate-500 mt-1">Report No: <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">{formData.reportNo || 'Auto-generated'}</span></p>
+                        </div>
+                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors shrink-0 ml-2" title="ปิดหน้าต่าง" aria-label="ปิดหน้าต่าง">
+                            <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex bg-white/50 p-1 rounded-xl backdrop-blur-sm border border-slate-200">
+                    <div className="flex overflow-x-auto bg-white/50 p-1 rounded-xl backdrop-blur-sm border border-slate-200 -mx-1 sm:mx-0">
                         {['General', 'Details', 'Analysis', 'Outcome'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
-                                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab
+                                className={`px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab
                                     ? 'bg-white shadow text-orange-600'
                                     : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 {tab === 'General' && '1. ข้อมูลทั่วไป'}
-                                {tab === 'Details' && '2. รายละเอียด & ความเสียหาย'}
-                                {tab === 'Analysis' && '3. วิเคราะห์สาเหตุ'}
-                                {tab === 'Outcome' && '4. การแก้ไข & ป้องกัน'}
+                                {tab === 'Details' && '2. รายละเอียด'}
+                                {tab === 'Analysis' && '3. วิเคราะห์'}
+                                {tab === 'Outcome' && '4. แก้ไข'}
                             </button>
                         ))}
                     </div>
-
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors" title="ปิดหน้าต่าง" aria-label="ปิดหน้าต่าง">
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
                 </div>
 
                 {/* Body - Scrollable */}
-                <form onSubmit={handleSubmit} className="p-8 overflow-y-auto flex-1 custom-scrollbar space-y-8 bg-slate-50/50">
+                <form onSubmit={handleSubmit} className="p-4 sm:p-8 overflow-y-auto flex-1 custom-scrollbar space-y-6 sm:space-y-8 bg-slate-50/50">
 
                     {/* TAB 1: GENERAL INFORMATION */}
                     {
@@ -590,7 +591,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Evidences (Mock Uploads) */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">5.2 หลักฐาน (Evidences)</h4>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                                         <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
                                             <span className="text-2xl">📸</span>
                                             <span className="text-xs mt-2">รูปที่เกิดเหตุ</span>
@@ -1154,7 +1155,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                     <h4 className="font-bold text-slate-800 border-b pb-2 mb-4">15. มาตรการแก้ไข (Preventive Action)</h4>
                                     <textarea className="w-full form-textarea mb-4" placeholder="ระบุมาตรการ..." rows={3} />
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         <input type="text" placeholder="ผู้รับผิดชอบ" className="form-input" />
                                         <input type="date" placeholder="กำหนดเสร็จ" className="form-input" />
                                         <input type="date" placeholder="เสร็จจริง" className="form-input" />
@@ -1165,19 +1166,19 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                     <h4 className="font-bold text-slate-800 border-b pb-2 mb-4">17. ทีมสอบสวน (Investigation Team)</h4>
                                     <div className="space-y-2">
-                                        <div className="grid grid-cols-3 gap-4 text-sm font-bold text-slate-500 mb-2">
+                                        <div className="hidden sm:grid grid-cols-3 gap-4 text-sm font-bold text-slate-500 mb-2">
                                             <div>ชื่อ-นามสกุล</div>
                                             <div>ตำแหน่ง</div>
                                             <div>บริษัท</div>
                                         </div>
                                         {/* Mock row 1 */}
-                                        <div className="grid grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <input type="text" placeholder="Name" className="form-input" />
                                             <input type="text" placeholder="Position" className="form-input" />
                                             <input type="text" placeholder="Company" className="form-input" />
                                         </div>
                                         {/* Mock row 2 */}
-                                        <div className="grid grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <input type="text" placeholder="Name" className="form-input" />
                                             <input type="text" placeholder="Position" className="form-input" />
                                             <input type="text" placeholder="Company" className="form-input" />
@@ -1381,7 +1382,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                 </form>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-gray-100 bg-slate-50 flex-shrink-0 flex justify-end gap-3 rounded-b-[2rem]">
+                <div className="p-4 sm:p-6 border-t border-gray-100 bg-slate-50 flex-shrink-0 flex flex-col sm:flex-row justify-end gap-3 rounded-b-[2rem]">
                     <button onClick={handlePrint} className="px-6 py-2.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2">
                         🖨️ พิมพ์ / Export PDF
                     </button>
