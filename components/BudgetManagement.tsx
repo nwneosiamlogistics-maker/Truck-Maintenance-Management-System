@@ -220,13 +220,38 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
     const planningData = useMemo(() => {
         const prevYear = selectedYear - 1;
         const categories: BudgetCategory[] = ['ซ่อมบำรุงรถ', 'อะไหล่', 'น้ำมันเชื้อเฟลิง', 'ค่าแรงช่าง', 'ค่าภาษีและประกันภัย', 'อื่นๆ'];
+
+        const calcRealSpent = (year: number) => {
+            const result: Record<string, number> = { 'ซ่อมบำรุงรถ': 0, 'อะไหล่': 0, 'น้ำมันเชื้อเฟลิง': 0, 'ค่าแรงช่าง': 0, 'ค่าภาษีและประกันภัย': 0, 'อื่นๆ': 0 };
+            repairs.filter(r => {
+                const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
+                return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === year;
+            }).forEach(r => {
+                result['ซ่อมบำรุงรถ'] += Number(r.repairCost) || 0;
+                const partsCost = (r.parts || []).reduce((s, p) => s + ((Number(p.unitPrice) || 0) * (Number(p.quantity) || 0)), 0);
+                result['อะไหล่'] += partsCost;
+                const labor = Math.max(0, (Number(r.repairCost) || 0) - partsCost);
+                if (r.dispatchType === 'ภายนอก') { result['อื่นๆ'] += labor; } else { result['ค่าแรงช่าง'] += labor; }
+            });
+            purchaseOrders.filter(po => {
+                const d = new Date(po.deliveryDate || po.createdAt);
+                return po.status === 'Received' && d.getFullYear() === year;
+            }).forEach(po => { result['อะไหล่'] += Number(po.totalAmount) || 0; });
+            fuelRecords.filter(f => new Date(f.date).getFullYear() === year)
+                .forEach(f => { result['น้ำมันเชื้อเฟลิง'] += Number(f.totalCost) || 0; });
+            return result;
+        };
+
+        const prevReal = calcRealSpent(prevYear);
+        const currReal = calcRealSpent(selectedYear);
+
         return categories.map(cat => {
             const prevB = budgets.filter(b => b.year === prevYear && b.category === cat);
             const currB = budgets.filter(b => b.year === selectedYear && b.category === cat);
-            const prevSpent = prevB.reduce((s, b) => s + b.spentAmount, 0);
             const prevAllocated = prevB.reduce((s, b) => s + b.allocatedAmount, 0);
             const currAllocated = currB.reduce((s, b) => s + b.allocatedAmount, 0);
-            const currSpent = currB.reduce((s, b) => s + b.spentAmount, 0);
+            const prevSpent = prevReal[cat] || 0;
+            const currSpent = currReal[cat] || 0;
             const baseSpent = Math.max(prevSpent, currSpent);
             const projected = Math.round(baseSpent * 1.05);
             return {
@@ -236,7 +261,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                 variance: currAllocated > 0 ? Math.round(((currSpent - currAllocated) / currAllocated) * 100) : 0
             };
         });
-    }, [budgets, selectedYear]);
+    }, [budgets, repairs, purchaseOrders, fuelRecords, selectedYear]);
 
     // ================= COST FORECAST (Weighted Moving Average — ไม่ใช้ random) =================
 
