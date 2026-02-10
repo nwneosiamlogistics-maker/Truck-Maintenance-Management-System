@@ -229,7 +229,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
     // ================= COST FORECAST (Weighted Moving Average — ไม่ใช้ random) =================
 
     const forecastData = useMemo(() => {
-        const monthlyCosts: { month: number; repair: number; fuel: number; parts: number; total: number }[] = [];
+        const monthlyCosts: { month: number; repair: number; fuel: number; parts: number; total: number; isForecast: boolean }[] = [];
         for (let m = 1; m <= 12; m++) {
             const repair = repairs.filter(r => {
                 const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
@@ -243,27 +243,57 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                 const d = new Date(po.deliveryDate || po.createdAt);
                 return po.status === 'Received' && d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
             }).reduce((s, po) => s + (Number(po.totalAmount) || 0), 0);
-            monthlyCosts.push({ month: m, repair, fuel, parts, total: repair + fuel + parts });
+            monthlyCosts.push({ month: m, repair, fuel, parts, total: repair + fuel + parts, isForecast: false });
         }
-        const projected = [...monthlyCosts];
         const past = monthlyCosts.filter(m => m.month <= currentMonth && m.total > 0);
-        if (past.length >= 2) {
+        let fAvgRepair = 0, fAvgFuel = 0, fAvgParts = 0;
+        if (past.length >= 1) {
             const wts = past.map((_, i) => i + 1);
-            const totalW = wts.reduce((a, b) => a + b, 0);
-            const wAvg = past.reduce((s, m, i) => s + m.total * wts[i], 0) / totalW;
-            for (let i = 1; i <= 3; i++) {
-                projected.push({ month: currentMonth + i, repair: 0, fuel: 0, parts: 0, total: Math.round(wAvg) });
-            }
+            const tw = wts.reduce((a, b) => a + b, 0);
+            fAvgRepair = Math.round(past.reduce((s, m, i) => s + m.repair * wts[i], 0) / tw);
+            fAvgFuel = Math.round(past.reduce((s, m, i) => s + m.fuel * wts[i], 0) / tw);
+            fAvgParts = Math.round(past.reduce((s, m, i) => s + m.parts * wts[i], 0) / tw);
         }
-        return projected.map(d => ({
-            name: d.month <= 12
-                ? new Date(selectedYear, d.month - 1).toLocaleDateString('th-TH', { month: 'short' })
-                : new Date(selectedYear + 1, d.month - 13).toLocaleDateString('th-TH', { month: 'short' }) + '*',
+        const fAvgTotal = fAvgRepair + fAvgFuel + fAvgParts;
+        for (let m = currentMonth + 1; m <= 12; m++) {
+            monthlyCosts[m - 1] = { month: m, repair: fAvgRepair, fuel: fAvgFuel, parts: fAvgParts, total: fAvgTotal, isForecast: true };
+        }
+        return monthlyCosts.map(d => ({
+            name: new Date(selectedYear, d.month - 1).toLocaleDateString('th-TH', { month: 'short' }),
             repair: d.repair, fuel: d.fuel, parts: d.parts, total: d.total,
-            type: d.month > currentMonth ? 'forecast' : 'actual'
+            type: d.isForecast ? 'forecast' : 'actual'
         }));
     }, [repairs, fuelRecords, purchaseOrders, selectedYear, currentMonth]);
 
+    // ================= FORECAST SUMMARY (เดือนถัดไป / ไตรมาส / ปี) =================
+
+    const forecastSummary = useMemo(() => {
+        if (currentMonth === 0) return { monthlyAvg: 0, nextMonth: 0, nextQuarter: 0, remainingYear: 0, fullYear: 0, nextYear: 0, ytd: 0, avgRepair: 0, avgFuel: 0, avgParts: 0 };
+        let ytdRepair = 0, ytdFuel = 0, ytdParts = 0;
+        repairs.filter(r => {
+            const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
+            return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === selectedYear && d.getMonth() + 1 <= currentMonth;
+        }).forEach(r => { ytdRepair += Number(r.repairCost) || 0; });
+        fuelRecords.filter(f => {
+            const d = new Date(f.date);
+            return d.getFullYear() === selectedYear && d.getMonth() + 1 <= currentMonth;
+        }).forEach(f => { ytdFuel += Number(f.totalCost) || 0; });
+        purchaseOrders.filter(po => {
+            const d = new Date(po.deliveryDate || po.createdAt);
+            return po.status === 'Received' && d.getFullYear() === selectedYear && d.getMonth() + 1 <= currentMonth;
+        }).forEach(po => { ytdParts += Number(po.totalAmount) || 0; });
+        const ytd = ytdRepair + ytdFuel + ytdParts;
+        const monthlyAvg = Math.round(ytd / currentMonth);
+        const avgRepair = Math.round(ytdRepair / currentMonth);
+        const avgFuel = Math.round(ytdFuel / currentMonth);
+        const avgParts = Math.round(ytdParts / currentMonth);
+        const remainingMonths = 12 - currentMonth;
+        const remainingYear = monthlyAvg * remainingMonths;
+        const fullYear = ytd + remainingYear;
+        const nextQuarter = monthlyAvg * 3;
+        const nextYear = Math.round(fullYear * 1.05);
+        return { monthlyAvg, nextMonth: monthlyAvg, nextQuarter, remainingYear, fullYear, nextYear, ytd, avgRepair, avgFuel, avgParts };
+    }, [repairs, fuelRecords, purchaseOrders, selectedYear, currentMonth]);
 
     const handleAddBudget = (newBudget: Omit<MaintenanceBudget, 'id' | 'createdAt' | 'updatedAt'>) => {
         const budget: MaintenanceBudget = {
@@ -700,10 +730,38 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             {/* TAB CONTENT: FORECAST */}
             {activeTab === 'forecast' && (
                 <div className="space-y-6">
+                    {/* Forecast Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg">
+                            <p className="text-xs text-blue-100 font-bold uppercase tracking-wider">เดือนถัดไป (ประมาณการ)</p>
+                            <h3 className="text-2xl font-extrabold mt-2">{formatCurrency(forecastSummary.nextMonth)}</h3>
+                            <div className="mt-2 text-xs text-blue-100 space-y-0.5">
+                                <p>ค่าซ่อม: {formatCurrency(forecastSummary.avgRepair)}</p>
+                                <p>น้ำมัน: {formatCurrency(forecastSummary.avgFuel)}</p>
+                                <p>อะไหล่: {formatCurrency(forecastSummary.avgParts)}</p>
+                            </div>
+                        </div>
+                        <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+                            <p className="text-xs text-violet-100 font-bold uppercase tracking-wider">ไตรมาสถัดไป (3 เดือน)</p>
+                            <h3 className="text-2xl font-extrabold mt-2">{formatCurrency(forecastSummary.nextQuarter)}</h3>
+                            <p className="text-xs text-violet-100 mt-2">= {formatCurrency(forecastSummary.nextMonth)} × 3 เดือน</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg">
+                            <p className="text-xs text-emerald-100 font-bold uppercase tracking-wider">ปีนี้ทั้งปี (ประมาณการ)</p>
+                            <h3 className="text-2xl font-extrabold mt-2">{formatCurrency(forecastSummary.fullYear)}</h3>
+                            <p className="text-xs text-emerald-100 mt-2">YTD: {formatCurrency(forecastSummary.ytd)} + เหลือ: {formatCurrency(forecastSummary.remainingYear)}</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white shadow-lg">
+                            <p className="text-xs text-amber-100 font-bold uppercase tracking-wider">ปีถัดไป (+5% inflation)</p>
+                            <h3 className="text-2xl font-extrabold mt-2">{formatCurrency(forecastSummary.nextYear)}</h3>
+                            <p className="text-xs text-amber-100 mt-2">เฉลี่ย/เดือน: {formatCurrency(Math.round(forecastSummary.nextYear / 12))}</p>
+                        </div>
+                    </div>
+
                     {/* Forecast Chart */}
                     <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] p-8 text-white shadow-lg">
                         <h3 className="text-2xl font-bold mb-2">คาดการณ์ค่าใช้จ่าย (Weighted Moving Average)</h3>
-                        <p className="text-indigo-100 mb-8">คำนวณจากข้อมูลจริงย้อนหลัง — คาดการณ์ 3 เดือนข้างหน้า</p>
+                        <p className="text-indigo-100 mb-8">คำนวณจากข้อมูลจริง {currentMonth} เดือน — เติมค่าคาดการณ์ถึงสิ้นปี</p>
 
                         <div className="h-[350px] w-full bg-white/10 rounded-xl p-4 backdrop-blur-sm">
                             <ResponsiveContainer width="100%" height="100%">
@@ -734,7 +792,72 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-400"></div><span>น้ำมัน</span></div>
                             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400"></div><span>อะไหล่</span></div>
                             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400"></div><span>รวม (เส้น)</span></div>
-                            <div className="flex items-center gap-2"><span className="text-purple-300 italic">* = คาดการณ์</span></div>
+                            <div className="flex items-center gap-2"><span className="text-purple-300 italic">แท่งจาง = คาดการณ์</span></div>
+                        </div>
+                    </div>
+
+                    {/* Forecast Breakdown Table */}
+                    <div className="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100">
+                        <div className="p-6">
+                            <h3 className="text-lg font-bold text-slate-800">สรุปประมาณการค่าใช้จ่าย (ปี {selectedYear + 543})</h3>
+                            <p className="text-xs text-slate-400 mt-1">คำนวณจากค่าเฉลี่ยถ่วงน้ำหนัก (Weighted Moving Average) ของ {currentMonth} เดือนที่ผ่านมา</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-100">
+                                <thead className="bg-slate-50/80">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase">ช่วงเวลา</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-red-400 uppercase">ค่าซ่อม</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-amber-500 uppercase">น้ำมัน</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-emerald-500 uppercase">อะไหล่ (PO)</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-purple-500 uppercase">รวมทั้งหมด</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-100">
+                                    <tr className="hover:bg-slate-50">
+                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">เฉลี่ย/เดือน</td>
+                                        <td className="px-6 py-4 text-right text-sm text-red-600">{formatCurrency(forecastSummary.avgRepair)}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-amber-600">{formatCurrency(forecastSummary.avgFuel)}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-emerald-600">{formatCurrency(forecastSummary.avgParts)}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-purple-600">{formatCurrency(forecastSummary.monthlyAvg)}</td>
+                                    </tr>
+                                    <tr className="hover:bg-blue-50/50 bg-blue-50/30">
+                                        <td className="px-6 py-4 text-sm font-bold text-blue-700">เดือนถัดไป</td>
+                                        <td className="px-6 py-4 text-right text-sm text-red-600">{formatCurrency(forecastSummary.avgRepair)}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-amber-600">{formatCurrency(forecastSummary.avgFuel)}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-emerald-600">{formatCurrency(forecastSummary.avgParts)}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-blue-700">{formatCurrency(forecastSummary.nextMonth)}</td>
+                                    </tr>
+                                    <tr className="hover:bg-violet-50/50 bg-violet-50/30">
+                                        <td className="px-6 py-4 text-sm font-bold text-violet-700">ไตรมาสถัดไป (3 เดือน)</td>
+                                        <td className="px-6 py-4 text-right text-sm text-red-600">{formatCurrency(forecastSummary.avgRepair * 3)}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-amber-600">{formatCurrency(forecastSummary.avgFuel * 3)}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-emerald-600">{formatCurrency(forecastSummary.avgParts * 3)}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-violet-700">{formatCurrency(forecastSummary.nextQuarter)}</td>
+                                    </tr>
+                                    <tr className="hover:bg-slate-50">
+                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">ที่เหลือของปีนี้ ({12 - currentMonth} เดือน)</td>
+                                        <td className="px-6 py-4 text-right text-sm text-red-600">{formatCurrency(forecastSummary.avgRepair * (12 - currentMonth))}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-amber-600">{formatCurrency(forecastSummary.avgFuel * (12 - currentMonth))}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-emerald-600">{formatCurrency(forecastSummary.avgParts * (12 - currentMonth))}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-800">{formatCurrency(forecastSummary.remainingYear)}</td>
+                                    </tr>
+                                    <tr className="bg-emerald-50/50 hover:bg-emerald-50 font-bold">
+                                        <td className="px-6 py-4 text-sm text-emerald-800">ปีนี้ทั้งปี (YTD + คาดการณ์)</td>
+                                        <td className="px-6 py-4 text-right text-sm text-red-600">-</td>
+                                        <td className="px-6 py-4 text-right text-sm text-amber-600">-</td>
+                                        <td className="px-6 py-4 text-right text-sm text-emerald-600">-</td>
+                                        <td className="px-6 py-4 text-right text-sm font-extrabold text-emerald-700">{formatCurrency(forecastSummary.fullYear)}</td>
+                                    </tr>
+                                    <tr className="bg-amber-50/50 hover:bg-amber-50 font-bold">
+                                        <td className="px-6 py-4 text-sm text-amber-800">ปีถัดไป (+5% inflation)</td>
+                                        <td className="px-6 py-4 text-right text-sm text-red-600">-</td>
+                                        <td className="px-6 py-4 text-right text-sm text-amber-600">-</td>
+                                        <td className="px-6 py-4 text-right text-sm text-emerald-600">-</td>
+                                        <td className="px-6 py-4 text-right text-sm font-extrabold text-amber-700">{formatCurrency(forecastSummary.nextYear)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
