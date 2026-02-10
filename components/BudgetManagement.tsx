@@ -150,9 +150,17 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
         });
         const yearFuel = fuelRecords.filter(f => new Date(f.date).getFullYear() === selectedYear);
 
-        return vehicles.filter(v => v.status === 'Active').map(v => {
-            const vR = doneRepairs.filter(r => r.licensePlate === v.licensePlate);
-            const vF = yearFuel.filter(f => f.licensePlate === v.licensePlate);
+        const plateSet = new Set<string>();
+        doneRepairs.forEach(r => { if (r.licensePlate) plateSet.add(r.licensePlate); });
+        yearFuel.forEach(f => { if (f.licensePlate) plateSet.add(f.licensePlate); });
+        (vehicles || []).filter(v => v.status === 'Active').forEach(v => plateSet.add(v.licensePlate));
+
+        const allPlates = Array.from(plateSet);
+
+        return allPlates.map(plate => {
+            const v = (vehicles || []).find(vh => vh.licensePlate === plate);
+            const vR = doneRepairs.filter(r => r.licensePlate === plate);
+            const vF = yearFuel.filter(f => f.licensePlate === plate);
             const partsCost = vR.reduce((s, r) =>
                 s + (r.parts || []).reduce((ps, p) => ps + ((Number(p.unitPrice) || 0) * (Number(p.quantity) || 0)), 0), 0);
             const totalRepair = vR.reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
@@ -161,14 +169,15 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             const fuelCost = vF.reduce((s, f) => s + (Number(f.totalCost) || 0), 0);
             const totalKm = vF.reduce((s, f) => s + (Number(f.distanceTraveled) || 0), 0) || 1;
             const totalCost = totalRepair + fuelCost;
-            const regDate = v.registrationDate ? new Date(v.registrationDate) : null;
+            const regDate = v?.registrationDate ? new Date(v.registrationDate) : null;
             const vehicleAge = regDate ? Math.round((Date.now() - regDate.getTime()) / (365.25 * 24 * 3600000) * 10) / 10 : 0;
             return {
-                vehicleId: v.id, licensePlate: v.licensePlate, vehicleType: v.vehicleType,
+                vehicleId: v?.id || plate, licensePlate: plate, vehicleType: v?.vehicleType || '—',
                 laborCost, partsCost, fuelCost, externalCost, totalCost,
                 costPerKm: totalCost / totalKm, repairCount: vR.length, vehicleAge, totalKm
             };
-        }).sort((a, b) => b.totalCost - a.totalCost)
+        }).filter(d => d.totalCost > 0)
+            .sort((a, b) => b.totalCost - a.totalCost)
             .filter(d => selectedVehicleId === 'all' || d.vehicleId === selectedVehicleId);
     }, [repairs, fuelRecords, vehicles, selectedYear, selectedVehicleId]);
 
