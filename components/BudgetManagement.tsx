@@ -96,8 +96,8 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             const d = new Date(r.repairEndDate || r.updatedAt);
             return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === selectedYear && d.getMonth() + 1 === selectedMonth;
         }).forEach(r => {
-            const totalCost = r.repairCost || 0;
-            const partsCost = (r.parts || []).reduce((sum, p) => sum + ((p.unitPrice || 0) * (p.quantity || 0)), 0);
+            const totalCost = Number(r.repairCost) || 0;
+            const partsCost = (r.parts || []).reduce((sum, p) => sum + ((Number(p.unitPrice) || 0) * (Number(p.quantity) || 0)), 0);
             const laborCost = Math.max(0, totalCost - partsCost);
             if (r.dispatchType === 'ภายนอก') {
                 result['ซ่อมบำรุงรถ'] += totalCost;
@@ -109,11 +109,11 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
         purchaseOrders.filter(po => {
             const d = new Date(po.deliveryDate || po.createdAt);
             return po.status === 'Received' && d.getFullYear() === selectedYear && d.getMonth() + 1 === selectedMonth;
-        }).forEach(po => { result['อะไหล่'] += po.totalAmount; });
+        }).forEach(po => { result['อะไหล่'] += Number(po.totalAmount) || 0; });
         fuelRecords.filter(f => {
             const d = new Date(f.date);
             return d.getFullYear() === selectedYear && d.getMonth() + 1 === selectedMonth;
-        }).forEach(f => { result['น้ำมันเชื้อเฟลิง'] += f.totalCost; });
+        }).forEach(f => { result['น้ำมันเชื้อเฟลิง'] += Number(f.totalCost) || 0; });
         return result;
     }, [repairs, purchaseOrders, fuelRecords, selectedYear, selectedMonth]);
 
@@ -142,12 +142,12 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             const vR = doneRepairs.filter(r => r.licensePlate === v.licensePlate);
             const vF = yearFuel.filter(f => f.licensePlate === v.licensePlate);
             const partsCost = vR.reduce((s, r) =>
-                s + (r.parts || []).reduce((ps, p) => ps + ((p.unitPrice || 0) * (p.quantity || 0)), 0), 0);
-            const totalRepair = vR.reduce((s, r) => s + (r.repairCost || 0), 0);
+                s + (r.parts || []).reduce((ps, p) => ps + ((Number(p.unitPrice) || 0) * (Number(p.quantity) || 0)), 0), 0);
+            const totalRepair = vR.reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
             const laborCost = Math.max(0, totalRepair - partsCost);
-            const externalCost = vR.filter(r => r.dispatchType === 'ภายนอก').reduce((s, r) => s + (r.repairCost || 0), 0);
-            const fuelCost = vF.reduce((s, f) => s + f.totalCost, 0);
-            const totalKm = vF.reduce((s, f) => s + (f.distanceTraveled || 0), 0) || 1;
+            const externalCost = vR.filter(r => r.dispatchType === 'ภายนอก').reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
+            const fuelCost = vF.reduce((s, f) => s + (Number(f.totalCost) || 0), 0);
+            const totalKm = vF.reduce((s, f) => s + (Number(f.distanceTraveled) || 0), 0) || 1;
             const totalCost = totalRepair + fuelCost;
             const regDate = v.registrationDate ? new Date(v.registrationDate) : null;
             const vehicleAge = regDate ? Math.round((Date.now() - regDate.getTime()) / (365.25 * 24 * 3600000) * 10) / 10 : 0;
@@ -173,10 +173,10 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             (r.parts || []).forEach(p => {
                 const key = (p.name || '').trim().toLowerCase();
                 if (!key) return;
-                const cost = (p.unitPrice || 0) * (p.quantity || 0);
+                const cost = (Number(p.unitPrice) || 0) * (Number(p.quantity) || 0);
                 if (!itemMap[key]) itemMap[key] = { name: p.name, totalCost: 0, totalQty: 0, unit: p.unit || 'ชิ้น', months: new Set() };
                 itemMap[key].totalCost += cost;
-                itemMap[key].totalQty += p.quantity || 0;
+                itemMap[key].totalQty += Number(p.quantity) || 0;
                 itemMap[key].months.add(month);
             });
         });
@@ -185,8 +185,8 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             const key = `fuel_${f.fuelType}`;
             const month = new Date(f.date).getMonth() + 1;
             if (!itemMap[key]) itemMap[key] = { name: `น้ำมัน${f.fuelType}`, totalCost: 0, totalQty: 0, unit: 'ลิตร', months: new Set() };
-            itemMap[key].totalCost += f.totalCost;
-            itemMap[key].totalQty += f.liters;
+            itemMap[key].totalCost += Number(f.totalCost) || 0;
+            itemMap[key].totalQty += Number(f.liters) || 0;
             itemMap[key].months.add(month);
         });
 
@@ -234,15 +234,15 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             const repair = repairs.filter(r => {
                 const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
                 return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
-            }).reduce((s, r) => s + (r.repairCost || 0), 0);
+            }).reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
             const fuel = fuelRecords.filter(f => {
                 const d = new Date(f.date);
                 return d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
-            }).reduce((s, f) => s + f.totalCost, 0);
+            }).reduce((s, f) => s + (Number(f.totalCost) || 0), 0);
             const parts = purchaseOrders.filter(po => {
                 const d = new Date(po.deliveryDate || po.createdAt);
                 return po.status === 'Received' && d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
-            }).reduce((s, po) => s + po.totalAmount, 0);
+            }).reduce((s, po) => s + (Number(po.totalAmount) || 0), 0);
             monthlyCosts.push({ month: m, repair, fuel, parts, total: repair + fuel + parts });
         }
         const projected = [...monthlyCosts];
