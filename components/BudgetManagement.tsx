@@ -384,14 +384,24 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             {/* TAB CONTENT: BUDGET */}
             {activeTab === 'budget' && (
                 <>
-                    {/* Summary Cards */}
+                    {/* Summary Cards — ใช้ค่าใช้จ่ายจริงจากระบบ + guard NaN */}
+                    {(() => {
+                        const autoTotal = Object.values(autoSpentByCategory).reduce((s, v) => s + v, 0);
+                        const displaySpent = Math.max(monthlyBudgetSummary.totalSpent, autoTotal);
+                        const displayAllocated = monthlyBudgetSummary.totalAllocated;
+                        const displayCommitted = monthlyBudgetSummary.totalCommitted;
+                        const displayAvailable = displayAllocated > 0 ? displayAllocated - displaySpent - displayCommitted : 0;
+                        const pctSpent = displayAllocated > 0 ? ((displaySpent / displayAllocated) * 100).toFixed(1) + '%' : '—';
+                        const pctCommitted = displayAllocated > 0 ? ((displayCommitted / displayAllocated) * 100).toFixed(1) + '%' : '—';
+                        const pctAvailable = displayAllocated > 0 ? ((displayAvailable / displayAllocated) * 100).toFixed(1) + '%' : '—';
+                        return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-[2rem] p-6 text-white shadow-lg hover:shadow-xl transition-all">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <p className="text-sm text-blue-100 font-bold uppercase tracking-wider">งบประมาณทั้งหมด</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(monthlyBudgetSummary.totalAllocated).replace('฿', '')}</h3>
-                                    <p className="text-xs text-blue-100 mt-1">บาท</p>
+                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(displayAllocated)}</h3>
+                                    <p className="text-xs text-blue-100 mt-1">{displayAllocated > 0 ? 'บาท' : 'ยังไม่ได้ตั้งงบ'}</p>
                                 </div>
                                 <div className="bg-white/20 p-3 rounded-xl">
                                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z" /></svg>
@@ -402,9 +412,9 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                         <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-[2rem] p-6 text-white shadow-lg hover:shadow-xl transition-all">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-sm text-red-100 font-bold uppercase tracking-wider">ใช้จ่ายแล้ว</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(monthlyBudgetSummary.totalSpent).replace('฿', '')}</h3>
-                                    <p className="text-xs text-red-100 mt-1">{((monthlyBudgetSummary.totalSpent / monthlyBudgetSummary.totalAllocated) * 100).toFixed(1)}% ของงบ</p>
+                                    <p className="text-sm text-red-100 font-bold uppercase tracking-wider">ใช้จ่ายจริง (Auto)</p>
+                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(displaySpent)}</h3>
+                                    <p className="text-xs text-red-100 mt-1">{pctSpent} ของงบ</p>
                                 </div>
                                 <div className="bg-white/20 p-3 rounded-xl">
                                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-2 0H3V6h14v8zm-7-7c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm13 0v11c0 1.1-.9 2-2 2H4v-2h17V7h2z" /></svg>
@@ -416,8 +426,8 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <p className="text-sm text-amber-100 font-bold uppercase tracking-wider">งบจอง (PO)</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(monthlyBudgetSummary.totalCommitted).replace('฿', '')}</h3>
-                                    <p className="text-xs text-amber-100 mt-1">{((monthlyBudgetSummary.totalCommitted / monthlyBudgetSummary.totalAllocated) * 100).toFixed(1)}% ของงบ</p>
+                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(displayCommitted)}</h3>
+                                    <p className="text-xs text-amber-100 mt-1">{pctCommitted} ของงบ</p>
                                 </div>
                                 <div className="bg-white/20 p-3 rounded-xl">
                                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z" /></svg>
@@ -429,8 +439,8 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <p className="text-sm text-emerald-100 font-bold uppercase tracking-wider">คงเหลือ</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(monthlyBudgetSummary.totalAvailable).replace('฿', '')}</h3>
-                                    <p className="text-xs text-emerald-100 mt-1">{((monthlyBudgetSummary.totalAvailable / monthlyBudgetSummary.totalAllocated) * 100).toFixed(1)}% ของงบ</p>
+                                    <h3 className="text-3xl font-extrabold mt-2">{formatCurrency(displayAvailable)}</h3>
+                                    <p className="text-xs text-emerald-100 mt-1">{pctAvailable} ของงบ</p>
                                 </div>
                                 <div className="bg-white/20 p-3 rounded-xl">
                                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" /></svg>
@@ -438,6 +448,31 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                             </div>
                         </div>
                     </div>
+                        );
+                    })()}
+
+                    {/* Auto Spent Breakdown — แสดงค่าใช้จ่ายจริงจากระบบแม้ไม่มี budget */}
+                    {monthlyBudgetSummary.budgetCount === 0 && Object.values(autoSpentByCategory).some(v => v > 0) && (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-[2rem] p-6 border border-blue-200">
+                            <h3 className="text-lg font-bold text-blue-800 mb-1">ค่าใช้จ่ายจริงเดือนนี้ (คำนวณอัตโนมัติ)</h3>
+                            <p className="text-xs text-blue-500 mb-4">ยังไม่ได้ตั้งงบประมาณ — ข้อมูลด้านล่างคำนวณจากใบซ่อม, PO, น้ำมัน ในระบบ</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                {Object.entries(autoSpentByCategory).map(([cat, amount]) => (
+                                    <div key={cat} className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <div className={`w-2.5 h-2.5 rounded-full ${CATEGORY_CLASSES[cat as BudgetCategory] || 'bg-slate-400'}`}></div>
+                                            <p className="text-[11px] font-bold text-slate-500 truncate">{cat}</p>
+                                        </div>
+                                        <p className={`text-sm font-extrabold ${amount > 0 ? 'text-slate-800' : 'text-slate-300'}`}>{formatCurrency(amount)}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-4 flex items-center justify-between bg-white rounded-xl p-3 border border-blue-200">
+                                <span className="text-sm font-bold text-blue-800">รวมค่าใช้จ่ายจริงทั้งหมด</span>
+                                <span className="text-lg font-extrabold text-blue-700">{formatCurrency(Object.values(autoSpentByCategory).reduce((s, v) => s + v, 0))}</span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Charts Section */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
