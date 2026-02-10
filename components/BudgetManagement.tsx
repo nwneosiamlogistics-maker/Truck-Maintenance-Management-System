@@ -160,6 +160,49 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             .filter(d => selectedVehicleId === 'all' || d.vehicleId === selectedVehicleId);
     }, [repairs, fuelRecords, vehicles, selectedYear, selectedVehicleId]);
 
+    // ================= ประมาณการค่าใช้จ่ายรายการยอดสูง (อะไหล่ + น้ำมัน) =================
+
+    const topExpenseItems = useMemo(() => {
+        const itemMap: Record<string, { name: string; totalCost: number; totalQty: number; unit: string; months: Set<number> }> = {};
+
+        repairs.filter(r => {
+            const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
+            return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === selectedYear;
+        }).forEach(r => {
+            const month = new Date(r.repairEndDate || r.updatedAt || r.createdAt).getMonth() + 1;
+            (r.parts || []).forEach(p => {
+                const key = (p.name || '').trim().toLowerCase();
+                if (!key) return;
+                const cost = (p.unitPrice || 0) * (p.quantity || 0);
+                if (!itemMap[key]) itemMap[key] = { name: p.name, totalCost: 0, totalQty: 0, unit: p.unit || 'ชิ้น', months: new Set() };
+                itemMap[key].totalCost += cost;
+                itemMap[key].totalQty += p.quantity || 0;
+                itemMap[key].months.add(month);
+            });
+        });
+
+        fuelRecords.filter(f => new Date(f.date).getFullYear() === selectedYear).forEach(f => {
+            const key = `fuel_${f.fuelType}`;
+            const month = new Date(f.date).getMonth() + 1;
+            if (!itemMap[key]) itemMap[key] = { name: `น้ำมัน${f.fuelType}`, totalCost: 0, totalQty: 0, unit: 'ลิตร', months: new Set() };
+            itemMap[key].totalCost += f.totalCost;
+            itemMap[key].totalQty += f.liters;
+            itemMap[key].months.add(month);
+        });
+
+        const elapsedMonths = Math.min(currentMonth, 12);
+        return Object.values(itemMap)
+            .map(item => ({
+                name: item.name, totalCost: item.totalCost, totalQty: item.totalQty, unit: item.unit,
+                activeMonths: item.months.size,
+                monthlyAvg: elapsedMonths > 0 ? Math.round(item.totalCost / elapsedMonths) : 0,
+                annualProjection: elapsedMonths > 0 ? Math.round((item.totalCost / elapsedMonths) * 12) : 0,
+                avgPrice: item.totalQty > 0 ? Math.round(item.totalCost / item.totalQty) : 0
+            }))
+            .sort((a, b) => b.totalCost - a.totalCost)
+            .slice(0, 20);
+    }, [repairs, fuelRecords, selectedYear, currentMonth]);
+
     // ================= BUDGET PLANNING TEMPLATE =================
 
     const planningData = useMemo(() => {
@@ -559,6 +602,94 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                             {analysisData.length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                                     <p className="font-medium">ไม่มีข้อมูลต้นทุนสำหรับปีนี้</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Top Expense Items — ประมาณการค่าใช้จ่ายรายการยอดสูง */}
+                    <div className="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100">
+                        <div className="p-6">
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <span className="bg-amber-100 p-2 rounded-lg text-xl">📊</span>
+                                ประมาณการค่าใช้จ่ายรายการยอดสูง (ปี {selectedYear + 543})
+                            </h3>
+                            <p className="text-xs text-slate-400 mt-1">
+                                Top 20 รายการ (อะไหล่ + น้ำมัน) เรียงตามยอดเงินสูงสุด — คำนวณจากข้อมูลจริง {currentMonth} เดือนแรก
+                            </p>
+                        </div>
+
+                        {/* Summary Cards */}
+                        {topExpenseItems.length > 0 && (
+                            <div className="px-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100">
+                                    <p className="text-xs text-amber-600 font-bold">ยอดรวมทั้งหมด</p>
+                                    <p className="text-lg font-extrabold text-amber-700 mt-1">{formatCurrency(topExpenseItems.reduce((s, i) => s + i.totalCost, 0))}</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                                    <p className="text-xs text-blue-600 font-bold">เฉลี่ย/เดือน</p>
+                                    <p className="text-lg font-extrabold text-blue-700 mt-1">{formatCurrency(topExpenseItems.reduce((s, i) => s + i.monthlyAvg, 0))}</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-100">
+                                    <p className="text-xs text-purple-600 font-bold">ประมาณการ/ปี</p>
+                                    <p className="text-lg font-extrabold text-purple-700 mt-1">{formatCurrency(topExpenseItems.reduce((s, i) => s + i.annualProjection, 0))}</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-4 border border-slate-200">
+                                    <p className="text-xs text-slate-600 font-bold">จำนวนรายการ</p>
+                                    <p className="text-lg font-extrabold text-slate-700 mt-1">{topExpenseItems.length} รายการ</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-100">
+                                <thead className="bg-slate-50/80">
+                                    <tr>
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-slate-400 uppercase w-10">#</th>
+                                        <th className="px-4 py-4 text-left text-xs font-bold text-slate-400 uppercase">รายการ</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">จำนวน</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">ราคาเฉลี่ย/หน่วย</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">ยอดรวม (YTD)</th>
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-slate-400 uppercase">เดือนที่ใช้</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-blue-500 uppercase">เฉลี่ย/เดือน</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-purple-500 uppercase">ประมาณการ/ปี</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-100">
+                                    {topExpenseItems.map((item, idx) => (
+                                        <tr key={idx} className={`hover:bg-slate-50 ${idx < 3 ? 'bg-amber-50/30' : ''}`}>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${idx === 0 ? 'bg-amber-400 text-white' : idx === 1 ? 'bg-slate-300 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                                    {idx + 1}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-sm font-bold text-slate-800">{item.name}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-sm text-slate-600">
+                                                {item.totalQty.toLocaleString()} {item.unit}
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-sm text-slate-600">{formatCurrency(item.avgPrice)}/{item.unit}</td>
+                                            <td className="px-4 py-3 text-right text-sm font-bold text-slate-800">{formatCurrency(item.totalCost)}</td>
+                                            <td className="px-4 py-3 text-center text-sm text-slate-500">{item.activeMonths}/{currentMonth} เดือน</td>
+                                            <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">{formatCurrency(item.monthlyAvg)}</td>
+                                            <td className="px-4 py-3 text-right text-sm font-bold text-purple-600">{formatCurrency(item.annualProjection)}</td>
+                                        </tr>
+                                    ))}
+                                    {topExpenseItems.length > 0 && (
+                                        <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
+                                            <td className="px-4 py-4" colSpan={4}><span className="text-sm text-slate-800">รวมทั้งหมด</span></td>
+                                            <td className="px-4 py-4 text-right text-sm text-slate-800">{formatCurrency(topExpenseItems.reduce((s, i) => s + i.totalCost, 0))}</td>
+                                            <td className="px-4 py-4"></td>
+                                            <td className="px-4 py-4 text-right text-sm text-blue-600">{formatCurrency(topExpenseItems.reduce((s, i) => s + i.monthlyAvg, 0))}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-purple-600">{formatCurrency(topExpenseItems.reduce((s, i) => s + i.annualProjection, 0))}</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                            {topExpenseItems.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                    <p className="font-medium">ยังไม่มีข้อมูลอะไหล่/น้ำมันสำหรับปีนี้</p>
                                 </div>
                             )}
                         </div>
