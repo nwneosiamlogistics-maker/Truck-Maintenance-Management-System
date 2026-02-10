@@ -48,20 +48,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
         return { totalAllocated, totalSpent, totalCommitted, totalAvailable, utilizationRate, budgetCount: monthBudgets.length };
     }, [budgets, selectedYear, selectedMonth]);
 
-    // ... (Old Logic: Prepare category breakdown chart data) ...
-    const categoryChartData = useMemo(() => {
-        const monthBudgets = budgets.filter(b => b.year === selectedYear && b.month === selectedMonth);
-        return monthBudgets.map(budget => ({
-            category: budget.category,
-            allocated: budget.allocatedAmount,
-            spent: budget.spentAmount,
-            committed: budget.committedAmount,
-            available: budget.availableAmount,
-            utilizationRate: budget.allocatedAmount > 0 ? ((budget.spentAmount + budget.committedAmount) / budget.allocatedAmount * 100) : 0
-        }));
-    }, [budgets, selectedYear, selectedMonth]);
-
-    // ... (Old Logic: Prepare trend data) ...
+    // ... (Trend data: ใช้ข้อมูลจริงจาก repairs/fuel/PO ย้อนหลัง 12 เดือน) ...
     const trendData = useMemo(() => {
         const months = [];
         for (let i = 11; i >= 0; i--) {
@@ -71,19 +58,31 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
 
             const monthBudgets = budgets.filter(b => b.year === year && b.month === month);
             const allocated = monthBudgets.reduce((sum, b) => sum + b.allocatedAmount, 0);
-            const spent = monthBudgets.reduce((sum, b) => sum + b.spentAmount, 0);
-            const committed = monthBudgets.reduce((sum, b) => sum + b.committedAmount, 0);
+
+            const repairCost = repairs.filter(r => {
+                const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
+                return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === year && d.getMonth() + 1 === month;
+            }).reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
+            const fuelCost = fuelRecords.filter(f => {
+                const d = new Date(f.date);
+                return d.getFullYear() === year && d.getMonth() + 1 === month;
+            }).reduce((s, f) => s + (Number(f.totalCost) || 0), 0);
+            const poCost = purchaseOrders.filter(po => {
+                const d = new Date(po.deliveryDate || po.createdAt);
+                return po.status === 'Received' && d.getFullYear() === year && d.getMonth() + 1 === month;
+            }).reduce((s, po) => s + (Number(po.totalAmount) || 0), 0);
+
+            const realSpent = repairCost + fuelCost + poCost;
 
             months.push({
                 month: `${month}/${year.toString().slice(2)}`,
                 allocated: allocated / 1000,
-                spent: spent / 1000,
-                committed: committed / 1000,
-                total: (spent + committed) / 1000
+                spent: realSpent / 1000,
+                total: realSpent / 1000
             });
         }
         return months;
-    }, [budgets, selectedYear, selectedMonth]);
+    }, [budgets, repairs, fuelRecords, purchaseOrders, selectedYear, selectedMonth]);
 
     // ================= AUTO-CALCULATE BUDGET (ข้อมูลจริงเท่านั้น) =================
 
@@ -116,6 +115,19 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
         }).forEach(f => { result['น้ำมันเชื้อเฟลิง'] += Number(f.totalCost) || 0; });
         return result;
     }, [repairs, purchaseOrders, fuelRecords, selectedYear, selectedMonth]);
+
+    // ... (Category breakdown: ใช้ autoSpentByCategory + budget) ...
+    const categoryChartData = useMemo(() => {
+        const allCats: BudgetCategory[] = ['ซ่อมบำรุงรถ', 'อะไหล่', 'น้ำมันเชื้อเฟลิง', 'ค่าแรงช่าง', 'ค่าภาษีและประกันภัย', 'อื่นๆ'];
+        const monthBudgets = budgets.filter(b => b.year === selectedYear && b.month === selectedMonth);
+        return allCats.map(cat => {
+            const b = monthBudgets.find(mb => mb.category === cat);
+            const autoSpent = autoSpentByCategory[cat] || 0;
+            const allocated = b ? b.allocatedAmount : 0;
+            const spent = Math.max(b ? b.spentAmount : 0, autoSpent);
+            return { category: cat, allocated, spent, autoSpent };
+        }).filter(d => d.allocated > 0 || d.spent > 0);
+    }, [budgets, autoSpentByCategory, selectedYear, selectedMonth]);
 
     const budgetVsActual = useMemo(() => {
         const monthBudgets = budgets.filter(b => b.year === selectedYear && b.month === selectedMonth);
@@ -478,7 +490,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Trend Chart */}
                         <div className="bg-white rounded-[2rem] shadow-sm p-6 border border-slate-100">
-                            <h3 className="text-lg font-bold text-slate-800 mb-6">แนวโน้มการใช้งบประมาณ (12 เดือน)</h3>
+                            <h3 className="text-lg font-bold text-slate-800 mb-6">แนวโน้มค่าใช้จ่ายจริง (12 เดือน) — หน่วย: พันบาท</h3>
                             <ResponsiveContainer width="100%" height={300}>
                                 <LineChart data={trendData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -486,18 +498,18 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                                     <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
                                     <Tooltip
                                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                        formatter={(value: number) => `${value.toFixed(0)}K`}
+                                        formatter={(value: number) => `${value.toFixed(1)}K`}
                                     />
                                     <Legend />
-                                    <Line type="monotone" dataKey="allocated" stroke="#3b82f6" strokeWidth={2} name="งบประมาณ" />
-                                    <Line type="monotone" dataKey="total" stroke="#ef4444" strokeWidth={2} name="ใช้จ่าย + จอง" />
+                                    <Line type="monotone" dataKey="allocated" stroke="#3b82f6" strokeWidth={2} name="งบประมาณ" dot={{ r: 3 }} />
+                                    <Line type="monotone" dataKey="total" stroke="#ef4444" strokeWidth={2} name="ใช้จ่ายจริง" dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
 
                         {/* Category Breakdown */}
                         <div className="bg-white rounded-[2rem] shadow-sm p-6 border border-slate-100">
-                            <h3 className="text-lg font-bold text-slate-800 mb-6">การใช้งบตามหมวดหมู่</h3>
+                            <h3 className="text-lg font-bold text-slate-800 mb-6">สัดส่วนต้นทุน (Cost Breakdown)</h3>
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={categoryChartData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -509,7 +521,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                                     />
                                     <Legend />
                                     <Bar dataKey="allocated" fill="#3b82f6" name="งบประมาณ" radius={[8, 8, 0, 0]} />
-                                    <Bar dataKey="spent" fill="#ef4444" name="ใช้แล้ว" radius={[8, 8, 0, 0]} />
+                                    <Bar dataKey="spent" fill="#ef4444" name="ใช้จ่ายจริง" radius={[8, 8, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
