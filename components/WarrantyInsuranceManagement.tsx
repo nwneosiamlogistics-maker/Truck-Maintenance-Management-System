@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { PartWarranty, InsuranceClaim, Vehicle, WarrantyAlert, InsuranceAlert, StockItem, Supplier } from '../types';
+import type { PartWarranty, InsuranceClaim, Vehicle, WarrantyAlert, InsuranceAlert, StockItem, Supplier, Repair } from '../types';
 import { formatCurrency } from '../utils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useToast } from '../context/ToastContext';
@@ -30,6 +30,7 @@ interface WarrantyInsuranceManagementProps {
     cargoClaims: CargoInsuranceClaim[];
     setCargoClaims: React.Dispatch<React.SetStateAction<CargoInsuranceClaim[]>>;
     drivers: Driver[];
+    repairs?: Repair[];
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -47,7 +48,8 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
     setCargoPolicies,
     cargoClaims,
     setCargoClaims,
-    drivers
+    drivers,
+    repairs = []
 }) => {
     const [activeTab, setActiveTab] = useState<'warranty' | 'insurance' | 'cargo' | 'investigation' | 'vehicles'>('vehicles');
     const [isAddWarrantyModalOpen, setIsAddWarrantyModalOpen] = useState(false);
@@ -757,7 +759,7 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
 
             {activeTab === 'vehicles' && (
                 <div className="animate-fade-in-up">
-                    <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} />
+                    <VehicleManagement vehicles={vehicles} setVehicles={setVehicles} repairs={repairs} />
                 </div>
             )}
 

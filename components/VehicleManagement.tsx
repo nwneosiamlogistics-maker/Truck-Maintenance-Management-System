@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Vehicle } from '../types';
+import type { Vehicle, Repair } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction } from '../utils';
 import { Download } from 'lucide-react';
@@ -178,15 +178,32 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
 interface VehicleManagementProps {
     vehicles: Vehicle[];
     setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
+    repairs?: Repair[];
 }
 
-const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehicles }) => {
+const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehicles, repairs = [] }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { addToast } = useToast();
 
     const safeVehicles = useMemo(() => Array.isArray(vehicles) ? vehicles : [], [vehicles]);
+
+    // คำนวณรถที่กำลังซ่อมจากข้อมูลใบซ่อม
+    const repairingPlates = useMemo(() => {
+        const activeStatuses = ['รอซ่อม', 'กำลังซ่อม', 'รออะไหล่'];
+        const plates = new Set<string>();
+        (Array.isArray(repairs) ? repairs : []).forEach(r => {
+            if (activeStatuses.includes(r.status)) plates.add(r.licensePlate);
+        });
+        return plates;
+    }, [repairs]);
+
+    const getVehicleStatus = (vehicle: Vehicle): { label: string; className: string } => {
+        if (vehicle.status === 'Inactive') return { label: 'เลิกใช้งาน', className: 'bg-slate-100 text-slate-500' };
+        if (repairingPlates.has(vehicle.licensePlate)) return { label: 'กำลังซ่อม', className: 'bg-amber-100 text-amber-700' };
+        return { label: 'ใช้งานได้', className: 'bg-green-100 text-green-700' };
+    };
 
     const filteredVehicles = useMemo(() => {
         return safeVehicles
@@ -331,9 +348,11 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                         <div className={actStatus.className}>{vehicle.actExpiryDate ? new Date(vehicle.actExpiryDate).toLocaleDateString('th-TH') : '-'} ({actStatus.text})</div>
                                     </td>
                                     <td className="px-4 py-3 text-center">
-                                        <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${vehicle.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                            {vehicle.status}
-                                        </span>
+                                        {(() => { const vs = getVehicleStatus(vehicle); return (
+                                            <span className={`px-2 py-1 rounded-full text-[10px] font-black ${vs.className}`}>
+                                                {vs.label}
+                                            </span>
+                                        ); })()}
                                     </td>
                                     <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
                                         <button onClick={() => handleOpenModal(vehicle)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
@@ -355,9 +374,11 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                             <div key={vehicle.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
                                 <div className="flex justify-between items-center">
                                     <span className="font-bold text-lg text-gray-800">{vehicle.licensePlate}</span>
-                                    <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${vehicle.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                        {vehicle.status}
-                                    </span>
+                                    {(() => { const vs = getVehicleStatus(vehicle); return (
+                                        <span className={`px-2 py-1 rounded-full text-[10px] font-black ${vs.className}`}>
+                                            {vs.label}
+                                        </span>
+                                    ); })()}
                                 </div>
                                 <div className="text-sm space-y-1 text-gray-600">
                                     <p>{vehicle.vehicleType} {vehicle.make} {vehicle.model}</p>

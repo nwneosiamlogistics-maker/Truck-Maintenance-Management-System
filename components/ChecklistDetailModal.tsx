@@ -93,7 +93,7 @@ const ChecklistDetailModal: React.FC<ChecklistDetailModalProps> = ({ checklist, 
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-start pt-4 sm:pt-8 p-2 sm:p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-4 sm:p-6 border-b flex justify-between items-center no-print">
                     <div>

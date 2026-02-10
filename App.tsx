@@ -401,6 +401,7 @@ const AppContent: React.FC<AppContentProps> = ({
                     cargoClaims={cargoClaims}
                     setCargoClaims={setCargoClaims}
                     drivers={drivers}
+                    repairs={repairs}
                 />;
             case 'incident-log':
                 return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} />;
