@@ -32,6 +32,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
     const [selectedMonth, setSelectedMonth] = useState(currentMonth);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedVehicleId, setSelectedVehicleId] = useState<string>('all');
+    const { addToast } = useToast();
 
     // ... (Old Logic: Calculate budget summary for current month) ...
     const monthlyBudgetSummary = useMemo(() => {
@@ -84,87 +85,141 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
         return months;
     }, [budgets, selectedYear, selectedMonth]);
 
-    // ================= NEW LOGIC =================
+    // ================= AUTO-CALCULATE BUDGET (ข้อมูลจริงเท่านั้น) =================
 
-    // 1. Cost Analysis Data
+    const autoSpentByCategory = useMemo(() => {
+        const result: Record<string, number> = {
+            'ซ่อมบำรุงรถ': 0, 'อะไหล่': 0, 'น้ำมันเชื้อเฟลิง': 0,
+            'ค่าแรงช่าง': 0, 'ค่าภาษีและประกันภัย': 0, 'อื่นๆ': 0
+        };
+        repairs.filter(r => {
+            const d = new Date(r.repairEndDate || r.updatedAt);
+            return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === selectedYear && d.getMonth() + 1 === selectedMonth;
+        }).forEach(r => {
+            const totalCost = r.repairCost || 0;
+            const partsCost = (r.parts || []).reduce((sum, p) => sum + ((p.unitPrice || 0) * (p.quantity || 0)), 0);
+            const laborCost = Math.max(0, totalCost - partsCost);
+            if (r.dispatchType === 'ภายนอก') {
+                result['ซ่อมบำรุงรถ'] += totalCost;
+            } else {
+                result['ค่าแรงช่าง'] += laborCost;
+                if (partsCost === 0) result['ซ่อมบำรุงรถ'] += totalCost;
+            }
+        });
+        purchaseOrders.filter(po => {
+            const d = new Date(po.deliveryDate || po.createdAt);
+            return po.status === 'Received' && d.getFullYear() === selectedYear && d.getMonth() + 1 === selectedMonth;
+        }).forEach(po => { result['อะไหล่'] += po.totalAmount; });
+        fuelRecords.filter(f => {
+            const d = new Date(f.date);
+            return d.getFullYear() === selectedYear && d.getMonth() + 1 === selectedMonth;
+        }).forEach(f => { result['น้ำมันเชื้อเฟลิง'] += f.totalCost; });
+        return result;
+    }, [repairs, purchaseOrders, fuelRecords, selectedYear, selectedMonth]);
+
+    const budgetVsActual = useMemo(() => {
+        const monthBudgets = budgets.filter(b => b.year === selectedYear && b.month === selectedMonth);
+        return monthBudgets.map(b => {
+            const autoSpent = autoSpentByCategory[b.category] || 0;
+            const actualSpent = Math.max(b.spentAmount, autoSpent);
+            const remaining = b.allocatedAmount - actualSpent - b.committedAmount;
+            const utilization = b.allocatedAmount > 0 ? ((actualSpent + b.committedAmount) / b.allocatedAmount * 100) : 0;
+            const autoStatus = utilization >= 100 ? 'เกินงบ' : utilization >= 80 ? 'ใกล้เกิน' : 'ปกติ';
+            return { ...b, autoSpent, actualSpent, remaining, utilization, autoStatus };
+        });
+    }, [budgets, autoSpentByCategory, selectedYear, selectedMonth]);
+
+    // ================= COST ANALYSIS (ข้อมูลจริงจาก repairs.parts) =================
+
     const analysisData = useMemo(() => {
-        const relevantRepairs = repairs.filter(r => {
-            if (activeTab !== 'analysis') return false;
-            const rDate = new Date(r.createdAt); // Should ideally use repair completion date
-            return rDate.getFullYear() === selectedYear;
+        const doneRepairs = repairs.filter(r => {
+            const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
+            return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === selectedYear;
         });
+        const yearFuel = fuelRecords.filter(f => new Date(f.date).getFullYear() === selectedYear);
 
-        const relevantFuel = fuelRecords.filter(f => {
-            if (activeTab !== 'analysis') return false;
-            const fDate = new Date(f.date);
-            return fDate.getFullYear() === selectedYear;
-        });
-
-        // Group by Vehicle (or All)
-        const aggregatedData = vehicles.map(v => {
-            const vRepairs = relevantRepairs.filter(r => r.licensePlate === v.licensePlate);
-            const vFuel = relevantFuel.filter(f => f.vehicleId === v.id);
-
-            const laborCost = vRepairs.reduce((sum, r) => sum + (r.repairCost || 0) * 0.3, 0); // Mock breakdown
-            const partsCost = vRepairs.reduce((sum, r) => sum + (r.repairCost || 0) * 0.7, 0); // Mock breakdown
-            const fuelCost = vFuel.reduce((sum, f) => sum + f.totalCost, 0);
-            const externalCost = 0; // Placeholder
-
-            const totalCost = laborCost + partsCost + fuelCost + externalCost;
-            const totalKm = vFuel.reduce((sum, f) => sum + f.distanceTraveled, 0) || 1; // Avoid div 0
-
+        return vehicles.filter(v => v.status === 'Active').map(v => {
+            const vR = doneRepairs.filter(r => r.licensePlate === v.licensePlate);
+            const vF = yearFuel.filter(f => f.licensePlate === v.licensePlate);
+            const partsCost = vR.reduce((s, r) =>
+                s + (r.parts || []).reduce((ps, p) => ps + ((p.unitPrice || 0) * (p.quantity || 0)), 0), 0);
+            const totalRepair = vR.reduce((s, r) => s + (r.repairCost || 0), 0);
+            const laborCost = Math.max(0, totalRepair - partsCost);
+            const externalCost = vR.filter(r => r.dispatchType === 'ภายนอก').reduce((s, r) => s + (r.repairCost || 0), 0);
+            const fuelCost = vF.reduce((s, f) => s + f.totalCost, 0);
+            const totalKm = vF.reduce((s, f) => s + (f.distanceTraveled || 0), 0) || 1;
+            const totalCost = totalRepair + fuelCost;
+            const regDate = v.registrationDate ? new Date(v.registrationDate) : null;
+            const vehicleAge = regDate ? Math.round((Date.now() - regDate.getTime()) / (365.25 * 24 * 3600000) * 10) / 10 : 0;
             return {
-                vehicleId: v.id,
-                licensePlate: v.licensePlate,
-                laborCost,
-                partsCost,
-                fuelCost,
-                externalCost,
-                totalCost,
-                costPerKm: totalCost / totalKm
+                vehicleId: v.id, licensePlate: v.licensePlate, vehicleType: v.vehicleType,
+                laborCost, partsCost, fuelCost, externalCost, totalCost,
+                costPerKm: totalCost / totalKm, repairCount: vR.length, vehicleAge, totalKm
+            };
+        }).sort((a, b) => b.totalCost - a.totalCost)
+            .filter(d => selectedVehicleId === 'all' || d.vehicleId === selectedVehicleId);
+    }, [repairs, fuelRecords, vehicles, selectedYear, selectedVehicleId]);
+
+    // ================= BUDGET PLANNING TEMPLATE =================
+
+    const planningData = useMemo(() => {
+        const prevYear = selectedYear - 1;
+        const categories: BudgetCategory[] = ['ซ่อมบำรุงรถ', 'อะไหล่', 'น้ำมันเชื้อเฟลิง', 'ค่าแรงช่าง', 'ค่าภาษีและประกันภัย', 'อื่นๆ'];
+        return categories.map(cat => {
+            const prevB = budgets.filter(b => b.year === prevYear && b.category === cat);
+            const currB = budgets.filter(b => b.year === selectedYear && b.category === cat);
+            const prevSpent = prevB.reduce((s, b) => s + b.spentAmount, 0);
+            const prevAllocated = prevB.reduce((s, b) => s + b.allocatedAmount, 0);
+            const currAllocated = currB.reduce((s, b) => s + b.allocatedAmount, 0);
+            const currSpent = currB.reduce((s, b) => s + b.spentAmount, 0);
+            const baseSpent = Math.max(prevSpent, currSpent);
+            const projected = Math.round(baseSpent * 1.05);
+            return {
+                category: cat, prevYearAllocated: prevAllocated, prevYearSpent: prevSpent,
+                currYearAllocated: currAllocated, currYearSpent: currSpent,
+                projectedAnnual: projected, projectedMonthly: Math.round(projected / 12),
+                variance: currAllocated > 0 ? Math.round(((currSpent - currAllocated) / currAllocated) * 100) : 0
             };
         });
+    }, [budgets, selectedYear]);
 
-        if (selectedVehicleId !== 'all') {
-            return aggregatedData.filter(d => d.vehicleId === selectedVehicleId);
-        }
-        return aggregatedData;
-    }, [repairs, fuelRecords, vehicles, selectedYear, selectedVehicleId, activeTab]);
+    // ================= COST FORECAST (Weighted Moving Average — ไม่ใช้ random) =================
 
-    // 2. Cost Forecast Data (Simple Moving Average Projection)
     const forecastData = useMemo(() => {
-        if (activeTab !== 'forecast') return [];
-
-        const monthlyCosts: { month: number, cost: number }[] = [];
+        const monthlyCosts: { month: number; repair: number; fuel: number; parts: number; total: number }[] = [];
         for (let m = 1; m <= 12; m++) {
-            const monthlyRepairs = repairs.filter(r => {
-                const d = new Date(r.createdAt);
-                return d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
-            });
-            const monthlyFuel = fuelRecords.filter(f => {
+            const repair = repairs.filter(r => {
+                const d = new Date(r.repairEndDate || r.updatedAt || r.createdAt);
+                return r.status === 'ซ่อมเสร็จ' && d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
+            }).reduce((s, r) => s + (r.repairCost || 0), 0);
+            const fuel = fuelRecords.filter(f => {
                 const d = new Date(f.date);
                 return d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
-            });
-            const cost = monthlyRepairs.reduce((s, r) => s + (r.repairCost || 0), 0) +
-                monthlyFuel.reduce((s, f) => s + f.totalCost, 0);
-            monthlyCosts.push({ month: m, cost });
+            }).reduce((s, f) => s + f.totalCost, 0);
+            const parts = purchaseOrders.filter(po => {
+                const d = new Date(po.deliveryDate || po.createdAt);
+                return po.status === 'Received' && d.getFullYear() === selectedYear && d.getMonth() + 1 === m;
+            }).reduce((s, po) => s + po.totalAmount, 0);
+            monthlyCosts.push({ month: m, repair, fuel, parts, total: repair + fuel + parts });
         }
-
-        // Project next 3 months based on avg of last 3 months
         const projected = [...monthlyCosts];
-        const last3Months = monthlyCosts.slice(currentMonth - 3, currentMonth);
-        const avg = last3Months.length > 0 ? last3Months.reduce((s, i) => s + i.cost, 0) / last3Months.length : 0;
-
-        for (let i = 1; i <= 3; i++) {
-            projected.push({ month: currentMonth + i, cost: avg * (1 + (Math.random() * 0.1 - 0.05)) }); // +/- 5% variance
+        const past = monthlyCosts.filter(m => m.month <= currentMonth && m.total > 0);
+        if (past.length >= 2) {
+            const wts = past.map((_, i) => i + 1);
+            const totalW = wts.reduce((a, b) => a + b, 0);
+            const wAvg = past.reduce((s, m, i) => s + m.total * wts[i], 0) / totalW;
+            for (let i = 1; i <= 3; i++) {
+                projected.push({ month: currentMonth + i, repair: 0, fuel: 0, parts: 0, total: Math.round(wAvg) });
+            }
         }
-
         return projected.map(d => ({
-            name: new Date(selectedYear, d.month - 1).toLocaleDateString('th-TH', { month: 'short' }),
-            cost: d.cost,
+            name: d.month <= 12
+                ? new Date(selectedYear, d.month - 1).toLocaleDateString('th-TH', { month: 'short' })
+                : new Date(selectedYear + 1, d.month - 13).toLocaleDateString('th-TH', { month: 'short' }) + '*',
+            repair: d.repair, fuel: d.fuel, parts: d.parts, total: d.total,
             type: d.month > currentMonth ? 'forecast' : 'actual'
         }));
-    }, [repairs, fuelRecords, selectedYear, currentMonth, activeTab]);
+    }, [repairs, fuelRecords, purchaseOrders, selectedYear, currentMonth]);
 
 
     const handleAddBudget = (newBudget: Omit<MaintenanceBudget, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -176,7 +231,6 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
         };
         setBudgets(prev => [budget, ...prev]);
         setIsAddModalOpen(false);
-        const { addToast } = useToast();
         addToast(`เพิ่มงบประมาณ ${budget.category} สำเร็จ`, 'success');
     };
 
@@ -353,10 +407,11 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                         </div>
                     </div>
 
-                    {/* Budget Table */}
+                    {/* Budget vs Actual Table (Auto-Calculated) */}
                     <div className="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100">
                         <div className="p-6">
-                            <h3 className="text-lg font-bold text-slate-800">รายละเอียดงบประมาณ</h3>
+                            <h3 className="text-lg font-bold text-slate-800">งบประมาณ vs ค่าใช้จ่ายจริง (คำนวณอัตโนมัติ)</h3>
+                            <p className="text-xs text-slate-400 mt-1">ยอด "ใช้จริง (Auto)" คำนวณจากใบซ่อม, PO, และน้ำมันในระบบ</p>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-100">
@@ -365,44 +420,44 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">หมวดหมู่</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">แผนก</th>
                                         <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">งบประมาณ</th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">ใช้แล้ว</th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">จองไว้</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">ใช้จริง (Auto)</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">จองไว้ (PO)</th>
                                         <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">คงเหลือ</th>
                                         <th className="px-6 py-4 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">สถานะ</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
-                                    {budgets
-                                        .filter(b => b.year === selectedYear && b.month === selectedMonth)
-                                        .map((budget) => {
-                                            const utilizationRate = (budget.spentAmount + budget.committedAmount) / budget.allocatedAmount * 100;
-                                            return (
-                                                <tr key={budget.id} className="hover:bg-slate-50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className={`w-3 h-3 rounded-full ${CATEGORY_CLASSES[budget.category]}`}></div>
-                                                            <span className="text-sm font-bold text-slate-800">{budget.category}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600 font-medium">{budget.department}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">{formatCurrency(budget.allocatedAmount)}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-red-600">{formatCurrency(budget.spentAmount)}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-amber-600">{formatCurrency(budget.committedAmount)}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">{formatCurrency(budget.availableAmount)}</td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`px-3 py-1 text-xs font-bold rounded-full ${budget.status === 'ปกติ' ? 'bg-green-100 text-green-700' :
-                                                            budget.status === 'ใกล้เกิน' ? 'bg-yellow-100 text-yellow-700' :
-                                                                'bg-red-100 text-red-700'
-                                                            }`}>
-                                                            {budget.status} ({utilizationRate.toFixed(0)}%)
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                    {budgetVsActual.map((row) => (
+                                        <tr key={row.id} className={`hover:bg-slate-50 transition-colors ${row.autoStatus === 'เกินงบ' ? 'bg-red-50/50' : ''}`}>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-3 h-3 rounded-full ${CATEGORY_CLASSES[row.category]}`}></div>
+                                                    <span className="text-sm font-bold text-slate-800">{row.category}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-600 font-medium">{row.department}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">{formatCurrency(row.allocatedAmount)}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className="text-sm font-bold text-red-600">{formatCurrency(row.actualSpent)}</span>
+                                                {row.autoSpent > 0 && row.autoSpent !== row.spentAmount && (
+                                                    <span className="block text-[10px] text-blue-500 font-medium">Auto: {formatCurrency(row.autoSpent)}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-amber-600">{formatCurrency(row.committedAmount)}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">{formatCurrency(row.remaining)}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-3 py-1 text-xs font-bold rounded-full ${row.autoStatus === 'ปกติ' ? 'bg-green-100 text-green-700' :
+                                                    row.autoStatus === 'ใกล้เกิน' ? 'bg-yellow-100 text-yellow-700' :
+                                                        'bg-red-100 text-red-700'
+                                                    }`}>
+                                                    {row.autoStatus} ({row.utilization.toFixed(0)}%)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
-                            {budgets.filter(b => b.year === selectedYear && b.month === selectedMonth).length === 0 && (
+                            {budgetVsActual.length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                                     <svg className="w-16 h-16 mb-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -451,35 +506,62 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                         </ResponsiveContainer>
                     </div>
 
-                    {/* Detailed List */}
+                    {/* Detailed Cost-per-Vehicle Table */}
                     <div className="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100">
                         <div className="p-6">
-                            <h3 className="text-lg font-bold text-slate-800">รายละเอียดต้นทุนรายคัน</h3>
+                            <h3 className="text-lg font-bold text-slate-800">รายละเอียดต้นทุนรายคัน (ปี {selectedYear + 543})</h3>
+                            <p className="text-xs text-slate-400 mt-1">คำนวณจากใบซ่อมจริง (สถานะซ่อมเสร็จ) + น้ำมัน — เรียงตามต้นทุนสูงสุด</p>
                         </div>
-                        <table className="min-w-full divide-y divide-gray-100">
-                            <thead className="bg-slate-50/80">
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">ทะเบียนรถ</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">น้ำมัน</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">อะไหล่</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">ค่าแรง</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">รวมทั้งหมด</th>
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">ต้นทุน/กม.</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-100">
-                                {analysisData.map((data, index) => (
-                                    <tr key={index} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{data.licensePlate}</td>
-                                        <td className="px-6 py-4 text-right text-sm text-slate-600">{formatCurrency(data.fuelCost)}</td>
-                                        <td className="px-6 py-4 text-right text-sm text-slate-600">{formatCurrency(data.partsCost)}</td>
-                                        <td className="px-6 py-4 text-right text-sm text-slate-600">{formatCurrency(data.laborCost)}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-blue-600">{formatCurrency(data.totalCost)}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-purple-600">{data.costPerKm.toFixed(2)} บ./กม.</td>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-100">
+                                <thead className="bg-slate-50/80">
+                                    <tr>
+                                        <th className="px-4 py-4 text-left text-xs font-bold text-slate-400 uppercase">ทะเบียนรถ</th>
+                                        <th className="px-4 py-4 text-left text-xs font-bold text-slate-400 uppercase">ประเภท</th>
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-slate-400 uppercase">อายุ (ปี)</th>
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-slate-400 uppercase">ซ่อม (ครั้ง)</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">น้ำมัน</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">อะไหล่</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">ค่าแรง</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">ภายนอก</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">รวมทั้งหมด</th>
+                                        <th className="px-4 py-4 text-right text-xs font-bold text-slate-400 uppercase">บ./กม.</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-100">
+                                    {analysisData.map((data, index) => (
+                                        <tr key={index} className={`hover:bg-slate-50 ${index === 0 && analysisData.length > 1 ? 'bg-red-50/30' : ''}`}>
+                                            <td className="px-4 py-4 text-sm font-bold text-slate-800">{data.licensePlate}</td>
+                                            <td className="px-4 py-4 text-sm text-slate-600">{data.vehicleType}</td>
+                                            <td className="px-4 py-4 text-center text-sm text-slate-600">{data.vehicleAge > 0 ? data.vehicleAge.toFixed(1) : '-'}</td>
+                                            <td className="px-4 py-4 text-center text-sm font-bold text-slate-700">{data.repairCount}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-amber-600">{formatCurrency(data.fuelCost)}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-emerald-600">{formatCurrency(data.partsCost)}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-violet-600">{formatCurrency(data.laborCost)}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-red-600">{formatCurrency(data.externalCost)}</td>
+                                            <td className="px-4 py-4 text-right text-sm font-bold text-blue-600">{formatCurrency(data.totalCost)}</td>
+                                            <td className="px-4 py-4 text-right text-sm font-bold text-purple-600">{data.costPerKm.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                    {analysisData.length > 0 && (
+                                        <tr className="bg-slate-50 font-bold">
+                                            <td className="px-4 py-4 text-sm text-slate-800" colSpan={4}>รวมทั้งหมด ({analysisData.length} คัน)</td>
+                                            <td className="px-4 py-4 text-right text-sm text-amber-600">{formatCurrency(analysisData.reduce((s, d) => s + d.fuelCost, 0))}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-emerald-600">{formatCurrency(analysisData.reduce((s, d) => s + d.partsCost, 0))}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-violet-600">{formatCurrency(analysisData.reduce((s, d) => s + d.laborCost, 0))}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-red-600">{formatCurrency(analysisData.reduce((s, d) => s + d.externalCost, 0))}</td>
+                                            <td className="px-4 py-4 text-right text-sm text-blue-600">{formatCurrency(analysisData.reduce((s, d) => s + d.totalCost, 0))}</td>
+                                            <td className="px-4 py-4"></td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                            {analysisData.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                    <p className="font-medium">ไม่มีข้อมูลต้นทุนสำหรับปีนี้</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -487,15 +569,16 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
             {/* TAB CONTENT: FORECAST */}
             {activeTab === 'forecast' && (
                 <div className="space-y-6">
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] p-8 text-white shadow-lg mx-auto max-w-4xl">
-                        <h3 className="text-2xl font-bold mb-2">Cost Forecast (AI Prediction)</h3>
-                        <p className="text-indigo-100 mb-8">คาดการณ์ค่าใช้จ่าย 3 เดือนข้างหน้าตามข้อมูลย้อนหลัง</p>
+                    {/* Forecast Chart */}
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] p-8 text-white shadow-lg">
+                        <h3 className="text-2xl font-bold mb-2">คาดการณ์ค่าใช้จ่าย (Weighted Moving Average)</h3>
+                        <p className="text-indigo-100 mb-8">คำนวณจากข้อมูลจริงย้อนหลัง — คาดการณ์ 3 เดือนข้างหน้า</p>
 
-                        <div className="h-[300px] w-full bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                        <div className="h-[350px] w-full bg-white/10 rounded-xl p-4 backdrop-blur-sm">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={forecastData}>
+                                <ComposedChart data={forecastData}>
                                     <defs>
-                                        <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                                        <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
                                             <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                                         </linearGradient>
@@ -504,21 +587,80 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ budgets, setBudgets
                                     <YAxis stroke="#e0e7ff" tick={{ fill: '#e0e7ff' }} />
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                                     <Tooltip
-                                        contentStyle={{ backgroundColor: 'rgba(255,255,255,0.9)', color: '#1e293b', borderRadius: '12px' }}
+                                        contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', color: '#1e293b', borderRadius: '12px' }}
                                         formatter={(value: number) => formatCurrency(value)}
                                     />
-                                    <Area type="monotone" dataKey="cost" stroke="#c084fc" fillOpacity={1} fill="url(#colorCost)" />
-                                </AreaChart>
+                                    <Legend wrapperStyle={{ color: '#e0e7ff' }} />
+                                    <Bar dataKey="repair" stackId="detail" fill="#ef4444" name="ค่าซ่อม" radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="fuel" stackId="detail" fill="#f59e0b" name="น้ำมัน" radius={[0, 0, 0, 0]} />
+                                    <Bar dataKey="parts" stackId="detail" fill="#10b981" name="อะไหล่ (PO)" radius={[4, 4, 0, 0]} />
+                                    <Line type="monotone" dataKey="total" stroke="#c084fc" strokeWidth={3} name="รวมทั้งหมด" dot={{ fill: '#c084fc', r: 4 }} />
+                                </ComposedChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="mt-4 flex gap-4 text-sm justify-center">
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-purple-400"></div>
-                                <span>Actual (ข้อมูลจริง)</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-purple-300">--- Forecast (คาดการณ์) ---</span>
-                            </div>
+                        <div className="mt-4 flex gap-6 text-sm justify-center flex-wrap">
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div><span>ค่าซ่อม</span></div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-400"></div><span>น้ำมัน</span></div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-400"></div><span>อะไหล่</span></div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-400"></div><span>รวม (เส้น)</span></div>
+                            <div className="flex items-center gap-2"><span className="text-purple-300 italic">* = คาดการณ์</span></div>
+                        </div>
+                    </div>
+
+                    {/* Budget Planning Template */}
+                    <div className="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100">
+                        <div className="p-6">
+                            <h3 className="text-lg font-bold text-slate-800">แผนงบประมาณปี {selectedYear + 544} (อิงข้อมูลจริง)</h3>
+                            <p className="text-xs text-slate-400 mt-1">เปรียบเทียบปีก่อน vs ปีนี้ + คาดการณ์ปีหน้า (+5% inflation)</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-100">
+                                <thead className="bg-slate-50/80">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase">หมวดหมู่</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase">งบปีก่อน</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase">ใช้จริงปีก่อน</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase">งบปีนี้</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase">ใช้จริงปีนี้</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-blue-500 uppercase">คาดการณ์/ปี</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-blue-500 uppercase">คาดการณ์/เดือน</th>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-slate-400 uppercase">Variance</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-100">
+                                    {planningData.map((row) => (
+                                        <tr key={row.category} className="hover:bg-slate-50">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-3 h-3 rounded-full ${CATEGORY_CLASSES[row.category]}`}></div>
+                                                    <span className="text-sm font-bold text-slate-800">{row.category}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-sm text-slate-500">{formatCurrency(row.prevYearAllocated)}</td>
+                                            <td className="px-6 py-4 text-right text-sm text-slate-600">{formatCurrency(row.prevYearSpent)}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">{formatCurrency(row.currYearAllocated)}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-red-600">{formatCurrency(row.currYearSpent)}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-blue-600">{formatCurrency(row.projectedAnnual)}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-blue-500">{formatCurrency(row.projectedMonthly)}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${row.variance <= 0 ? 'bg-green-100 text-green-700' : row.variance <= 10 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {row.variance > 0 ? '+' : ''}{row.variance}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    <tr className="bg-slate-50 font-bold">
+                                        <td className="px-6 py-4 text-sm text-slate-800">รวมทั้งหมด</td>
+                                        <td className="px-6 py-4 text-right text-sm">{formatCurrency(planningData.reduce((s, r) => s + r.prevYearAllocated, 0))}</td>
+                                        <td className="px-6 py-4 text-right text-sm">{formatCurrency(planningData.reduce((s, r) => s + r.prevYearSpent, 0))}</td>
+                                        <td className="px-6 py-4 text-right text-sm">{formatCurrency(planningData.reduce((s, r) => s + r.currYearAllocated, 0))}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-red-600">{formatCurrency(planningData.reduce((s, r) => s + r.currYearSpent, 0))}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-blue-600">{formatCurrency(planningData.reduce((s, r) => s + r.projectedAnnual, 0))}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-blue-500">{formatCurrency(planningData.reduce((s, r) => s + r.projectedMonthly, 0))}</td>
+                                        <td className="px-6 py-4"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
