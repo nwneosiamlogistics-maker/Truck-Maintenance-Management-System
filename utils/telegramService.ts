@@ -1,10 +1,11 @@
 
-import { MaintenancePlan, Repair, Vehicle, PartWarranty, CargoInsurancePolicy } from "../types";
+import { MaintenancePlan, Repair, Vehicle, PartWarranty, CargoInsurancePolicy, PurchaseOrder, StockItem, MaintenanceBudget } from "../types";
+import { database } from "../firebase/firebase";
+import { ref, get, set } from "firebase/database";
 
-// Telegram Configuration
-// ในการใช้งานจริง ควรย้ายไปเก็บใน .env
-const TELEGRAM_BOT_TOKEN = '8239268406:AAFEWkq1OIsp9SoCPs2jySZoXsvyPkqg0X4';
-const TELEGRAM_CHAT_ID = '-5251676030';
+// Telegram Configuration — ค่าจาก .env (VITE_TELEGRAM_BOT_TOKEN, VITE_TELEGRAM_CHAT_ID)
+const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '';
+const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID || '';
 
 interface TelegramMessage {
     chat_id: string;
@@ -80,7 +81,7 @@ export const checkAndSendDailyMaintenanceSummary = async (plans: MaintenancePlan
         return;
     }
 
-    const lastSentDate = localStorage.getItem('lastMaintenanceNotificationDate');
+    const lastSentDate = await getLastSentDate('lastMaintenanceNotificationDate');
     const todayStr = NOW.toDateString();
     if (lastSentDate === todayStr) return;
 
@@ -134,7 +135,7 @@ export const checkAndSendDailyMaintenanceSummary = async (plans: MaintenancePlan
     if (overduePlans.length === 0 && upcomingPlans.length === 0) {
         console.log('[Telegram-Summary] Nothing to notify today.');
         // Still mark as sent so we don't keep checking every state update
-        localStorage.setItem('lastMaintenanceNotificationDate', todayStr);
+        await setLastSentDate('lastMaintenanceNotificationDate', todayStr);
         return;
     }
 
@@ -152,7 +153,7 @@ export const checkAndSendDailyMaintenanceSummary = async (plans: MaintenancePlan
     message += `\n📋 กรุณาตรวจสอบในระบบวางแผนซ่อมบำรุง`;
 
     if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
-        localStorage.setItem('lastMaintenanceNotificationDate', todayStr);
+        await setLastSentDate('lastMaintenanceNotificationDate', todayStr);
     }
 };
 
@@ -162,7 +163,7 @@ export const checkAndSendDailyRepairStatus = async (repairs: Repair[], technicia
     // 18:30 PM
     if (NOW.getHours() < 18 || (NOW.getHours() === 18 && NOW.getMinutes() < 30)) return;
 
-    const lastSentDate = localStorage.getItem('lastRepairStatusNotificationDate');
+    const lastSentDate = await getLastSentDate('lastRepairStatusNotificationDate');
     const todayStr = NOW.toDateString();
     if (lastSentDate === todayStr) return;
 
@@ -175,7 +176,7 @@ export const checkAndSendDailyRepairStatus = async (repairs: Repair[], technicia
     const activeRepairs = repairs.filter(r => ['กำลังซ่อม', 'รออะไหล่', 'รอซ่อม'].includes(r.status));
 
     if (activeRepairs.length === 0) {
-        localStorage.setItem('lastRepairStatusNotificationDate', todayStr);
+        await setLastSentDate('lastRepairStatusNotificationDate', todayStr);
         return;
     }
 
@@ -209,41 +210,63 @@ export const checkAndSendDailyRepairStatus = async (repairs: Repair[], technicia
     message += `\n✅ ตรวจสอบรายละเอียดเพิ่มเติมในระบบ`;
 
     if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
-        localStorage.setItem('lastRepairStatusNotificationDate', todayStr);
+        await setLastSentDate('lastRepairStatusNotificationDate', todayStr);
         console.log('Daily repair status summary sent.');
     }
 };
 
 
-const sendToTelegram = async (payload: TelegramMessage): Promise<boolean> => {
-    try {
-        const url = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage';
-        console.log(`[Telegram] Sending message to: ${url}`);
+const sendToTelegram = async (payload: TelegramMessage, maxRetries = 3): Promise<boolean> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const url = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage';
+            if (attempt === 1) console.log(`[Telegram] Sending message to: ${url}`);
+            else console.log(`[Telegram] Retry attempt ${attempt}/${maxRetries}...`);
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Telegram API Error Response:', errorText);
-            try {
-                const errorJson = JSON.parse(errorText);
-                if (errorJson.description) {
-                    console.error(`Telegram Error Details: ${errorJson.description} (Code: ${errorJson.error_code})`);
-                }
-            } catch (e) { }
-            return false;
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Telegram API Error Response:', errorText);
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    if (errorJson.description) {
+                        console.error(`Telegram Error Details: ${errorJson.description} (Code: ${errorJson.error_code})`);
+                    }
+                } catch (e) { }
+                if (attempt === maxRetries) return false;
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+                continue;
+            }
+
+            console.log('[Telegram] Message sent successfully');
+            return true;
+        } catch (error) {
+            console.error(`Telegram Network/CORS/Proxy Error (attempt ${attempt}):`, error);
+            if (attempt === maxRetries) return false;
+            await new Promise(r => setTimeout(r, 1000 * attempt));
         }
-
-        console.log('[Telegram] Message sent successfully');
-        return true;
-    } catch (error) {
-        console.error('Telegram Network/CORS/Proxy Error:', error);
-        return false;
     }
+    return false;
+};
+
+// --- Firebase-based lastSentDate (replaces localStorage) ---
+const getLastSentDate = async (key: string): Promise<string | null> => {
+    try {
+        const snapshot = await get(ref(database, `_telegramMeta/${key}`));
+        return snapshot.exists() ? snapshot.val() : null;
+    } catch { return localStorage.getItem(key); }
+};
+
+const setLastSentDate = async (key: string, value: string): Promise<void> => {
+    try {
+        await set(ref(database, `_telegramMeta/${key}`), value);
+    } catch { /* fallback */ }
+    localStorage.setItem(key, value);
 };
 
 // --- Daily Warranty & Insurance Expiry Alert (09:00) ---
@@ -255,7 +278,7 @@ export const checkAndSendWarrantyInsuranceAlerts = async (
     const NOW = new Date();
     if (NOW.getHours() < 9) return;
 
-    const lastSentDate = localStorage.getItem('lastWarrantyInsuranceAlertDate');
+    const lastSentDate = await getLastSentDate('lastWarrantyInsuranceAlertDate');
     const todayStr = NOW.toDateString();
     if (lastSentDate === todayStr) return;
 
@@ -318,7 +341,7 @@ export const checkAndSendWarrantyInsuranceAlerts = async (
 
     if (totalExpired === 0 && totalExpiring === 0) {
         console.log('[Telegram-WarrantyInsurance] Nothing to notify today.');
-        localStorage.setItem('lastWarrantyInsuranceAlertDate', todayStr);
+        await setLastSentDate('lastWarrantyInsuranceAlertDate', todayStr);
         return;
     }
 
@@ -385,8 +408,126 @@ export const checkAndSendWarrantyInsuranceAlerts = async (
     message += `\n📋 กรุณาตรวจสอบในระบบจัดการการรับประกันและประกันภัย`;
 
     if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
-        localStorage.setItem('lastWarrantyInsuranceAlertDate', todayStr);
+        await setLastSentDate('lastWarrantyInsuranceAlertDate', todayStr);
         console.log('[Telegram-WarrantyInsurance] Alert sent successfully.');
+    }
+};
+
+// ==================== แจ้งเตือน PO ใหม่ (Real-time) ====================
+export const sendNewPOTelegramNotification = async (po: PurchaseOrder) => {
+    const itemSummary = po.items.slice(0, 5).map(i => `- ${i.name} x${i.quantity}`).join('\n');
+    const moreItems = po.items.length > 5 ? `\n... และอีก ${po.items.length - 5} รายการ` : '';
+
+    const messageText = `
+📦 <b>ใบสั่งซื้อใหม่ (PO)</b>
+
+🔢 <b>เลขที่:</b> ${po.poNumber}
+🏢 <b>ผู้จำหน่าย:</b> ${po.supplierName}
+💰 <b>มูลค่ารวม:</b> ฿${po.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+👤 <b>ผู้ขอ:</b> ${po.requesterName || '-'}
+
+<b>📋 รายการ:</b>
+${itemSummary}${moreItems}
+
+📅 <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}
+`.trim();
+
+    return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: messageText, parse_mode: 'HTML' });
+};
+
+// ==================== แจ้งเตือนงบประมาณใกล้เกิน (เรียกจาก BudgetManagement) ====================
+export const sendBudgetAlertTelegramNotification = async (
+    budgets: MaintenanceBudget[],
+    repairs: Repair[],
+    fuelRecords: { totalCost?: number; date: string }[]
+) => {
+    const NOW = new Date();
+    const lastSentDate = await getLastSentDate('lastBudgetAlertDate');
+    const todayStr = NOW.toDateString();
+    if (lastSentDate === todayStr) return;
+
+    const currentMonth = NOW.getMonth();
+    const currentYear = NOW.getFullYear();
+
+    const monthBudgets = budgets.filter(b => b.month === currentMonth + 1 && b.year === currentYear);
+
+    if (monthBudgets.length === 0) return;
+
+    const alerts: { category: string; allocated: number; spent: number; pct: number }[] = [];
+
+    monthBudgets.forEach(b => {
+        const allocated = b.allocatedAmount || 0;
+        if (allocated <= 0) return;
+
+        let spent = b.spentAmount || 0;
+        // เพิ่มค่าใช้จ่ายจริงจาก repairs + fuel ของเดือนนี้
+        if (b.category === 'ซ่อมบำรุงรถ' || b.category === 'ค่าแรงช่าง') {
+            spent += repairs
+                .filter(r => r.status === 'ซ่อมเสร็จ' && new Date(r.repairEndDate || r.updatedAt || r.createdAt).getMonth() === currentMonth)
+                .reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
+        }
+        if (b.category === 'น้ำมันเชื้อเฟลิง') {
+            spent += fuelRecords
+                .filter(f => new Date(f.date).getMonth() === currentMonth)
+                .reduce((s, f) => s + (Number(f.totalCost) || 0), 0);
+        }
+
+        const pct = Math.round((spent / allocated) * 100);
+        if (pct >= 80) {
+            alerts.push({ category: b.category, allocated, spent, pct });
+        }
+    });
+
+    if (alerts.length === 0) {
+        await setLastSentDate('lastBudgetAlertDate', todayStr);
+        return;
+    }
+
+    let message = `⚠️ <b>แจ้งเตือนงบประมาณใกล้เกิน</b>\n(${NOW.toLocaleDateString('th-TH')})\n`;
+    alerts.forEach(a => {
+        const icon = a.pct >= 100 ? '🔴' : '🟡';
+        message += `\n${icon} <b>${a.category}:</b> ใช้ไป ${a.pct}%\n`;
+        message += `   งบ ฿${a.allocated.toLocaleString()} | ใช้จ่าย ฿${a.spent.toLocaleString()}\n`;
+    });
+    message += `\n📋 กรุณาตรวจสอบในระบบจัดการงบประมาณ`;
+
+    if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
+        await setLastSentDate('lastBudgetAlertDate', todayStr);
+    }
+};
+
+// ==================== แจ้งเตือนสต็อกต่ำ (Daily 10:00 — เรียกจาก App.tsx) ====================
+export const checkAndSendLowStockAlert = async (stock: StockItem[]) => {
+    const NOW = new Date();
+    if (NOW.getHours() < 10) return;
+
+    const lastSentDate = await getLastSentDate('lastLowStockAlertDate');
+    const todayStr = NOW.toDateString();
+    if (lastSentDate === todayStr) return;
+
+    if (!stock || stock.length === 0) return;
+
+    const lowStockItems = stock.filter(s => s.quantity <= s.minStock);
+
+    if (lowStockItems.length === 0) {
+        await setLastSentDate('lastLowStockAlertDate', todayStr);
+        return;
+    }
+
+    let message = `📦 <b>แจ้งเตือนสต็อกอะไหล่ต่ำ</b>\n(${NOW.toLocaleDateString('th-TH')})\n`;
+    message += `\n🔴 <b>ต่ำกว่าจุดสั่งซื้อ (${lowStockItems.length} รายการ):</b>\n`;
+
+    lowStockItems.slice(0, 15).forEach(s => {
+        const icon = s.quantity === 0 ? '❌' : '⚠️';
+        message += `${icon} ${s.name} [${s.code}]: คงเหลือ ${s.quantity}/${s.minStock} ${s.unit}\n`;
+    });
+    if (lowStockItems.length > 15) message += `... และอีก ${lowStockItems.length - 15} รายการ\n`;
+
+    message += `\n📋 กรุณาดำเนินการสั่งซื้อในระบบ`;
+
+    if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
+        await setLastSentDate('lastLowStockAlertDate', todayStr);
+        console.log('[Telegram-LowStock] Alert sent successfully.');
     }
 };
 

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { RepairKPI } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, formatHoursDescriptive } from '../utils';
+import * as XLSX from 'xlsx';
 
 interface KPIModalProps {
     kpi: RepairKPI | null;
@@ -206,9 +207,29 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) =>
         }
     };
 
+    const handleExportExcel = () => {
+        if (filteredKpiData.length === 0) {
+            addToast('ไม่มีข้อมูล KPI สำหรับ Export', 'warning');
+            return;
+        }
+        const data = filteredKpiData.map((kpi, idx) => ({
+            'ลำดับ': idx + 1,
+            'หมวดหมู่': kpi.category,
+            'รายการซ่อม': kpi.item,
+            'เวลามาตรฐาน (ชม.)': Number(kpi.standardHours.toFixed(2)),
+            'เวลามาตรฐาน (แสดง)': formatHoursDescriptive(kpi.standardHours, 8),
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        ws['!cols'] = [{ wch: 6 }, { wch: 35 }, { wch: 40 }, { wch: 18 }, { wch: 22 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'KPI Data');
+        XLSX.writeFile(wb, `KPI_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        addToast(`Export KPI ${filteredKpiData.length} รายการ สำเร็จ`, 'success');
+    };
+
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
+            <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-3">
                 <input
                     type="text"
                     aria-label="ค้นหา KPI"
@@ -217,9 +238,15 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) =>
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full md:w-96 p-2 border border-gray-300 rounded-lg text-base"
                 />
-                <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap">
-                    + เพิ่ม KPI ใหม่
-                </button>
+                <div className="flex items-center gap-2">
+                    <button onClick={handleExportExcel} className="px-4 py-2 text-base font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 whitespace-nowrap flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Export Excel
+                    </button>
+                    <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap">
+                        + เพิ่ม KPI ใหม่
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm overflow-auto max-h-[65vh]">

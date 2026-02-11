@@ -24,3 +24,12 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Cloud Functions build output
+functions/lib
+functions/node_modules

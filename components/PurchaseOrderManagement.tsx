@@ -6,6 +6,7 @@ import CreatePOModal from './CreatePOModal';
 import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency, formatTotalCurrency } from '../utils';
+import { sendNewPOTelegramNotification } from '../utils/telegramService';
 
 interface PurchaseOrderManagementProps {
     purchaseOrders: PurchaseOrder[];
@@ -455,6 +456,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         }));
 
         addToast(`สร้างใบสั่งซื้อ ${newPoNumber} สำเร็จ`, 'success');
+        sendNewPOTelegramNotification(newPO);
         setIsCreateModalOpen(false);
         setSelectedPRIds(new Set());
         setActiveLocalTab('po-list');
