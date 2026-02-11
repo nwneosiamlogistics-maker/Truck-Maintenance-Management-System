@@ -10,7 +10,7 @@ import Header from './components/Header';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import Login from './components/Login';
-import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus, checkAndSendWarrantyInsuranceAlerts } from './utils/telegramService';
+import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus, checkAndSendWarrantyInsuranceAlerts, checkAndSendLowStockAlert, sendBudgetAlertTelegramNotification } from './utils/telegramService';
 import { checkAndGenerateSystemNotifications } from './utils/notificationEngine';
 
 // Lazy Load Pages
@@ -105,10 +105,12 @@ const AppContent: React.FC<AppContentProps> = ({
             checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
             checkAndSendDailyRepairStatus(repairs, technicians);
             checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
+            checkAndSendLowStockAlert(stock);
+            sendBudgetAlertTelegramNotification(budgets, repairs, fuelRecords);
         }, 5000);
 
         return () => clearTimeout(timer);
-    }, [maintenancePlans, repairs, vehicles, technicians, partWarranties, cargoPolicies]);
+    }, [maintenancePlans, repairs, vehicles, technicians, partWarranties, cargoPolicies, stock, budgets, fuelRecords]);
 
     // System Auto-Notifications Engine - use refs to avoid stale closures
     const stockRef = useRef(stock);
