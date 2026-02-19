@@ -53,7 +53,7 @@ function thaiDate(): string {
 
 export const dailyMaintenanceSummary = onSchedule(
     {
-        schedule: '30 1 * * *',  // 08:30 ICT = 01:30 UTC
+        schedule: '30 8 * * *',  // 08:30 ICT
         timeZone: 'Asia/Bangkok',
         region: 'asia-southeast1',
         secrets: [telegramBotToken, telegramChatId],
@@ -146,7 +146,7 @@ export const dailyMaintenanceSummary = onSchedule(
 
 export const dailyWarrantyInsuranceAlert = onSchedule(
     {
-        schedule: '0 2 * * *',  // 09:00 ICT = 02:00 UTC
+        schedule: '0 9 * * *',  // 09:00 ICT
         timeZone: 'Asia/Bangkok',
         region: 'asia-southeast1',
         secrets: [telegramBotToken, telegramChatId],
@@ -277,7 +277,7 @@ export const dailyWarrantyInsuranceAlert = onSchedule(
 
 export const dailyRepairStatusSummary = onSchedule(
     {
-        schedule: '30 11 * * *',  // 18:30 ICT = 11:30 UTC
+        schedule: '30 18 * * *',  // 18:30 ICT
         timeZone: 'Asia/Bangkok',
         region: 'asia-southeast1',
         secrets: [telegramBotToken, telegramChatId],
