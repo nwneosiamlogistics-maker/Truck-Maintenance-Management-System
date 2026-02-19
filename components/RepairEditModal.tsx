@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction, RepairCategoryMaster } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
@@ -17,9 +17,10 @@ interface RepairEditModalProps {
     transactions: StockTransaction[];
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     suppliers: Supplier[];
+    repairCategories: RepairCategoryMaster[];
 }
 
-const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, transactions, setTransactions, suppliers }) => {
+const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, transactions, setTransactions, suppliers, repairCategories }) => {
     const getInitialState = (repairData: Repair) => {
         const repairCopy = JSON.parse(JSON.stringify(repairData));
         if (!Array.isArray(repairCopy.estimations) || repairCopy.estimations.length === 0) {
@@ -549,11 +550,43 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
-                                            <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ประเภทการซ่อม">
-                                                <option>ซ่อมทั่วไป</option>
-                                                <option>เปลี่ยนอะไหล่</option>
-                                                <option>ตรวจเช็ก</option>
+                                            <select
+                                                value={formData.repairCategory.split(' > ')[0] || ''}
+                                                onChange={e => setFormData(prev => ({ ...prev, repairCategory: e.target.value }))}
+                                                className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="เลือกหมวดหมู่หลัก"
+                                            >
+                                                <option value="">🔧 เลือกหมวดหมู่หลัก...</option>
+                                                {(Array.isArray(repairCategories) ? repairCategories : [])
+                                                    .filter(c => c.isActive)
+                                                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                                                    .map(cat => (
+                                                        <option key={cat.code} value={cat.nameTh}>{cat.icon} {cat.nameTh} ({cat.nameEn})</option>
+                                                    ))
+                                                }
                                             </select>
+                                            {(() => {
+                                                const mainName = formData.repairCategory.split(' > ')[0];
+                                                const found = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                                const subs = (found?.subCategories || []).filter(s => s.isActive);
+                                                if (!found || subs.length === 0) return null;
+                                                return (
+                                                    <select
+                                                        value={formData.repairCategory.includes(' > ') ? formData.repairCategory : ''}
+                                                        onChange={e => setFormData(prev => ({ ...prev, repairCategory: e.target.value || mainName }))}
+                                                        className="mt-2 w-full p-3 border border-blue-300 bg-blue-50 rounded-lg" aria-label="เลือกหมวดย่อย"
+                                                    >
+                                                        <option value="">📋 เลือกงานย่อย (ไม่บังคับ)...</option>
+                                                        {subs.map(sub => (
+                                                            <option key={sub.id} value={`${mainName} > ${sub.nameTh}`}>▸ {sub.nameTh} ({sub.nameEn})</option>
+                                                        ))}
+                                                    </select>
+                                                );
+                                            })()}
+                                            {formData.repairCategory && (
+                                                <div className="mt-1 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 font-semibold">
+                                                    ✅ {formData.repairCategory}
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">เลขไมล์</label>

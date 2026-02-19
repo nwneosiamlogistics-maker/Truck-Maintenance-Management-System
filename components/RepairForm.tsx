@@ -1,13 +1,12 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef, useCallback } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver, DailyChecklist } from '../types';
-import { MousePointer2, Settings, Truck, Package, Disc, Shield, Maximize2, AlertCircle, Clock, CheckCircle2, User, Wrench, CreditCard, ChevronRight, Edit3, ClipboardList } from 'lucide-react';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver, DailyChecklist, RepairCategoryMaster } from '../types';
+import { Settings, Truck, Package, Shield, Maximize2, AlertCircle, Clock, CheckCircle2, User, Wrench, CreditCard, ChevronRight, Edit3, ClipboardList } from 'lucide-react';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
-import TruckModel3D from './TruckModel3D';
 import DailyChecklistForm from './DailyChecklistForm';
 
 
@@ -89,9 +88,10 @@ interface RepairFormProps {
     drivers: Driver[];
     checklists: DailyChecklist[];
     setChecklists: React.Dispatch<React.SetStateAction<DailyChecklist[]>>;
+    repairCategories: RepairCategoryMaster[];
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays, drivers, checklists, setChecklists }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays, drivers, checklists, setChecklists, repairCategories }) => {
 
     const getInitialState = () => {
         const getRoundedStartDate = () => {
@@ -436,30 +436,23 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setIsDriverSuggestionsOpen(false);
     };
 
-    const handlePartSelect = (part: string) => {
-        setFormData(prev => ({
-            ...prev,
-            problemDescription: prev.problemDescription
-                ? `${prev.problemDescription}\n- ตรวจเช็ค: ${part}`
-                : `- ตรวจเช็ค: ${part}`
-        }));
-        addToast(`เลือกส่วน "${part}" เรียบร้อย`, 'info');
-    };
-
     const resetForm = () => {
         setFormData(getInitialState());
         setOtherVehicleType('');
         setCurrentStep(0);
-        setAssignmentType('internal');
         setIsConfirmed(false);
+        setAssignmentType('internal');
+        setDriverSearchQuery('');
     };
 
-    const updateEstimationFromKPIs = useCallback((kpiIds: string[]) => {
-        const kpis = kpiIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
-        const totalHours = kpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
+    const handleAddKPIs = (newKpis: RepairKPI[]) => {
+        const newIds = newKpis.map(k => k.id);
+        const currentIds = new Set(formData.kpiTaskIds || []);
+        newIds.forEach(id => currentIds.add(id));
 
-        const newDescription = kpis.map(k => `- ${k.item}`).join('\n');
-        const newCategory = kpis.length > 0 ? kpis[0].category : 'ซ่อมทั่วไป';
+        const allIds = Array.from(currentIds);
+        const allKpis = allIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
+        const totalHours = allKpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
 
         setFormData(prev => {
             const activeEst = prev.estimations[prev.estimations.length - 1];
@@ -474,28 +467,36 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
             return {
                 ...prev,
-                kpiTaskIds: kpiIds,
-                problemDescription: newDescription,
-                repairCategory: newCategory,
+                kpiTaskIds: allIds,
                 estimations: updatedEstimations
             };
         });
-    }, [kpiMap, holidayDates]);
-
-    const handleAddKPIs = (newKpis: RepairKPI[]) => {
-        const newIds = newKpis.map(k => k.id);
-        const currentIds = new Set(formData.kpiTaskIds || []);
-        newIds.forEach(id => currentIds.add(id));
-
-        updateEstimationFromKPIs(Array.from(currentIds));
-
         addToast(`เพิ่ม ${newKpis.length} รายการ KPI สำเร็จ`, 'success');
         setKPIModalOpen(false);
     };
 
     const handleRemoveKpi = (kpiId: string) => {
         const newIds = (formData.kpiTaskIds || []).filter(id => id !== kpiId);
-        updateEstimationFromKPIs(newIds);
+        const kpis = newIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
+        const totalHours = kpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
+
+        setFormData(prev => {
+            const activeEst = prev.estimations[prev.estimations.length - 1];
+            const startDate = new Date(activeEst.estimatedStartDate || Date.now());
+            const endDate = calculateFinishTime(startDate, totalHours, holidayDates);
+
+            const updatedEstimations = prev.estimations.map(e =>
+                e.sequence === activeEst.sequence
+                    ? { ...e, estimatedLaborHours: totalHours, estimatedEndDate: endDate.toISOString(), aiReasoning: 'คำนวณจาก KPI มาตรฐานและเวลาทำงาน' }
+                    : e
+            );
+
+            return {
+                ...prev,
+                kpiTaskIds: newIds,
+                estimations: updatedEstimations
+            };
+        });
     };
 
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
@@ -715,7 +716,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <div className="animate-fade-in-up delay-200">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ชื่อผู้แจ้งซ่อม (Reported By)</label>
-                                <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold placeholder:text-slate-300 shadow-sm" placeholder="ชื่อผู้แจ้งอาการเสีย" />
+                                <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm" placeholder="ชื่อผู้แจ้งอาการเสีย" />
                             </div>
                         </div>
 
@@ -802,12 +803,50 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
 
-                        {/* 3D Model Section */}
-                        <div className="animate-scale-in delay-700 pt-10">
-                            <TruckModel3D onPartSelect={handlePartSelect} />
+                        <div className="animate-fade-in-up delay-[800ms]">
+                            <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ประเภทการซ่อม (Category) *</label>
+                            <select
+                                value={formData.repairCategory.split(' > ')[0] || ''}
+                                onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value })); }}
+                                className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
+                                aria-label="เลือกหมวดหมู่หลัก"
+                            >
+                                <option value="">🔧 เลือกหมวดหมู่หลัก...</option>
+                                {(Array.isArray(repairCategories) ? repairCategories : [])
+                                    .filter(c => c.isActive)
+                                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                                    .map(cat => (
+                                        <option key={cat.code} value={cat.nameTh}>{cat.icon} {cat.nameTh} ({cat.nameEn})</option>
+                                    ))
+                                }
+                            </select>
+                            {(() => {
+                                const mainName = formData.repairCategory.split(' > ')[0];
+                                const found = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                const subs = (found?.subCategories || []).filter(s => s.isActive);
+                                if (!found || subs.length === 0) return null;
+                                return (
+                                    <select
+                                        value={formData.repairCategory.includes(' > ') ? formData.repairCategory : ''}
+                                        onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value || mainName })); }}
+                                        className="w-full mt-3 p-5 bg-blue-50 border-2 border-blue-200 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
+                                        aria-label="เลือกหมวดย่อย"
+                                    >
+                                        <option value="">📋 เลือกงานย่อย (ไม่บังคับ)...</option>
+                                        {subs.map(sub => (
+                                            <option key={sub.id} value={`${mainName} > ${sub.nameTh}`}>▸ {sub.nameTh} ({sub.nameEn})</option>
+                                        ))}
+                                    </select>
+                                );
+                            })()}
+                            {formData.repairCategory && formData.repairCategory !== 'ซ่อมทั่วไป' && (
+                                <div className="mt-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-semibold flex items-center gap-2">
+                                    <span>✅</span> {formData.repairCategory}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="animate-fade-in-up delay-[800ms] shadow-2xl shadow-slate-100 rounded-[2rem] overflow-hidden">
+                        <div className="animate-fade-in-up delay-[900ms] shadow-2xl shadow-slate-100 rounded-[2rem] overflow-hidden">
                             <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">อาการเสียโดยละเอียด (Problem Description) *</label>
                             <textarea
                                 name="problemDescription"
@@ -818,57 +857,98 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 required
                                 placeholder="ระบุอาการเสียโดยละเอียด หรือเลือกจากรูปด้านบน..."
                             ></textarea>
+                            {(() => {
+                                const mainName = formData.repairCategory.split(' > ')[0];
+                                const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                if (!cat) return null;
+                                const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
+                                const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
+                                const symptoms = sub?.suggestedSymptoms || (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
+                                const unique = Array.from(new Set(symptoms));
+                                if (unique.length === 0) return null;
+                                return (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest self-center mr-1">อาการที่พบบ่อย:</span>
+                                        {unique.map(symptom => (
+                                            <button
+                                                key={symptom}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        problemDescription: prev.problemDescription
+                                                            ? `${prev.problemDescription}\n- ${symptom}`
+                                                            : `- ${symptom}`
+                                                    }));
+                                                }}
+                                                className="px-4 py-1.5 text-xs font-bold bg-white border border-slate-200 text-slate-600 rounded-full hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all active:scale-95 shadow-sm"
+                                            >
+                                                + {symptom}
+                                            </button>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 );
             case 1: // การประเมินและมอบหมาย
                 return (
                     <div className="space-y-10 animate-fade-in-up">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <div className="animate-fade-in-up delay-100">
-                                <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ความสำคัญ (Priority)</label>
-                                <select
-                                    name="priority"
-                                    value={formData.priority}
-                                    onChange={handleInputChange}
-                                    className={`w-full p-5 border-2 rounded-[1.5rem] transition-all duration-300 font-bold shadow-sm cursor-pointer appearance-none ${formData.priority === 'ปกติ' ? 'bg-slate-50 border-slate-100 text-slate-700' :
-                                        formData.priority === 'ด่วน' ? 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-500/10' :
-                                            'bg-red-50 border-red-200 text-red-700 focus:ring-red-500/10'
-                                        }`}
-                                    aria-label="Select Priority"
-                                >
-                                    <option value="ปกติ">ปกติ (Normal)</option>
-                                    <option value="ด่วน">ด่วน (Urgent)</option>
-                                    <option value="ด่วนที่สุด">ด่วนที่สุด (Emergency)</option>
-                                </select>
-                            </div>
-                            <div className="animate-fade-in-up delay-200">
-                                <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ประเภทการซ่อม (Category)</label>
-                                <select
-                                    name="repairCategory"
-                                    value={formData.repairCategory}
-                                    onChange={handleInputChange}
-                                    className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
-                                    aria-label="Select Repair Category"
-                                >
-                                    <option>ซ่อมทั่วไป</option>
-                                    <option>เปลี่ยนอะไหล่</option>
-                                    <option>ตรวจเช็ก</option>
-                                </select>
-                            </div>
+                        <div className="animate-fade-in-up delay-100">
+                            <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ความสำคัญ (Priority)</label>
+                            <select name="priority" value={formData.priority} onChange={handleInputChange} className={`w-full p-5 border-2 rounded-[1.5rem] transition-all duration-300 font-bold shadow-sm cursor-pointer appearance-none ${formData.priority === 'ปกติ' ? 'bg-slate-50 border-slate-100 text-slate-700' : formData.priority === 'ด่วน' ? 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-500/10' : 'bg-red-50 border-red-200 text-red-700 focus:ring-red-500/10'}`} aria-label="Select Priority">
+                                <option value="ปกติ">ปกติ (Normal)</option>
+                                <option value="ด่วน">ด่วน (Urgent)</option>
+                                <option value="ด่วนที่สุด">ด่วนที่สุด (Emergency)</option>
+                            </select>
                         </div>
 
-                        <div className="animate-fade-in-up delay-300">
+                        <div className="animate-fade-in-up delay-200">
                             <div className="flex justify-between items-center mb-6">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 ml-1">การประมาณการณ์เวลาซ่อม (Repair Estimation) *</label>
-                                <button
-                                    type="button"
-                                    onClick={() => setKPIModalOpen(true)}
-                                    className="px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl hover:from-teal-600 hover:to-cyan-700 shadow-lg shadow-teal-500/20 transform hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2"
-                                >
+                                <button type="button" onClick={() => setKPIModalOpen(true)} className="px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl hover:from-teal-600 hover:to-cyan-700 shadow-lg shadow-teal-500/20 transform hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2">
                                     <Settings size={14} /> + เพิ่มงาน KPI
                                 </button>
                             </div>
+
+                            {(() => {
+                                const mainName = formData.repairCategory.split(' > ')[0];
+                                const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
+                                const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                if (!cat) return null;
+                                const catCode = cat.code;
+                                const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
+                                const subCode = sub?.code || null;
+                                const selectedIds = new Set(formData.kpiTaskIds || []);
+                                const suggestedKpis = (Array.isArray(kpiData) ? kpiData : []).filter(kpi => {
+                                    if (selectedIds.has(kpi.id)) return false;
+                                    if (subCode && kpi.subCategoryCode === subCode) return true;
+                                    if (kpi.categoryCode === catCode) return true;
+                                    return false;
+                                }).sort((a, b) => {
+                                    if (subCode) {
+                                        const aMatch = a.subCategoryCode === subCode ? 0 : 1;
+                                        const bMatch = b.subCategoryCode === subCode ? 0 : 1;
+                                        if (aMatch !== bMatch) return aMatch - bMatch;
+                                    }
+                                    return a.item.localeCompare(b.item);
+                                });
+                                if (suggestedKpis.length === 0) return null;
+                                return (
+                                    <div className="mb-6 p-5 bg-amber-50 border-2 border-amber-200 rounded-2xl animate-fade-in-up">
+                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3">💡 KPI แนะนำจากหมวด &quot;{formData.repairCategory}&quot;:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {suggestedKpis.map(kpi => (
+                                                <button key={kpi.id} type="button" onClick={() => handleAddKPIs([kpi])} className="px-4 py-2 text-xs font-bold bg-white border border-amber-300 text-amber-800 rounded-full hover:bg-amber-100 hover:border-amber-400 transition-all active:scale-95 shadow-sm flex items-center gap-2">
+                                                    <span>+ {kpi.item}</span>
+                                                    <span className="text-[9px] text-amber-500 font-black">({kpi.standardHours} ชม.)</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] space-y-8">
                                 {selectedKpis.length > 0 ? (
@@ -907,15 +987,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     <div className="group opacity-80">
                                         <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2 ml-1">เวลาที่คาดว่าจะซ่อมเสร็จ (คำนวณอัตโนมัติ)</label>
                                         <div className="relative">
-                                            <input
-                                                type="datetime-local"
-                                                value={toLocalISOString(activeEstimation.estimatedEndDate) || ''}
-                                                onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)}
-                                                className="w-full p-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-slate-500 font-bold shadow-sm cursor-not-allowed"
-                                                readOnly
-                                                required
-                                                aria-label="Estimated End Date"
-                                            />
+                                            <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedEndDate) || ''} onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)} className="w-full p-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-slate-500 font-bold shadow-sm cursor-not-allowed" readOnly required aria-label="Estimated End Date" />
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500"><CheckCircle2 size={16} /></div>
                                         </div>
                                     </div>
@@ -923,7 +995,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
                                 {totalKpiHours > 0 &&
                                     <div className="p-5 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border border-blue-100 rounded-2xl text-[11px] text-blue-700 leading-relaxed font-bold animate-fade-in-up">
-                                        ✨ AI Insights: "{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours, 8)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}"
+                                        ✨ AI Insights: &quot;{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours, 8)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}&quot;
                                     </div>
                                 }
                             </div>
@@ -934,21 +1006,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <div className="grid grid-cols-2 gap-10">
                                 <label className={`relative p-8 rounded-[2.5rem] border-2 transition-all duration-500 cursor-pointer group flex items-center gap-6 overflow-hidden ${assignmentType === 'internal' ? 'bg-blue-600 border-blue-600 shadow-2xl shadow-blue-500/30' : 'bg-slate-50 border-slate-100'}`}>
                                     <input type="radio" name="assignmentType" value="internal" checked={assignmentType === 'internal'} onChange={() => handleAssignmentTypeChange('internal')} className="sr-only" />
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'internal' ? 'bg-white/20 text-white' : 'bg-white text-blue-600 shadow-sm'}`}>
-                                        <User size={24} />
-                                    </div>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'internal' ? 'bg-white/20 text-white' : 'bg-white text-blue-600 shadow-sm'}`}><User size={24} /></div>
                                     <div>
                                         <p className={`text-sm font-black uppercase tracking-widest ${assignmentType === 'internal' ? 'text-white' : 'text-slate-800'}`}>ซ่อมภายใน</p>
                                         <p className={`text-[10px] ${assignmentType === 'internal' ? 'text-white/60' : 'text-slate-400'} font-bold`}>ใช้ทีมสไลด์ช่างบริษัท</p>
                                     </div>
                                     {assignmentType === 'internal' && <div className="absolute top-4 right-4 text-white animate-scale-in"><CheckCircle2 size={24} /></div>}
                                 </label>
-
                                 <label className={`relative p-8 rounded-[2.5rem] border-2 transition-all duration-500 cursor-pointer group flex items-center gap-6 overflow-hidden ${assignmentType === 'external' ? 'bg-emerald-600 border-emerald-600 shadow-2xl shadow-emerald-500/30' : 'bg-slate-50 border-slate-100'}`}>
                                     <input type="radio" name="assignmentType" value="external" checked={assignmentType === 'external'} onChange={() => handleAssignmentTypeChange('external')} className="sr-only" />
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'external' ? 'bg-white/20 text-white' : 'bg-white text-emerald-600 shadow-sm'}`}>
-                                        <Wrench size={24} />
-                                    </div>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'external' ? 'bg-white/20 text-white' : 'bg-white text-emerald-600 shadow-sm'}`}><Wrench size={24} /></div>
                                     <div>
                                         <p className={`text-sm font-black uppercase tracking-widest ${assignmentType === 'external' ? 'text-white' : 'text-slate-800'}`}>ซ่อมภายนอก</p>
                                         <p className={`text-[10px] ${assignmentType === 'external' ? 'text-white/60' : 'text-slate-400'} font-bold`}>จ้างอู่หรือบริษัทภายนอก</p>
@@ -956,48 +1023,26 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     {assignmentType === 'external' && <div className="absolute top-4 right-4 text-white animate-scale-in"><CheckCircle2 size={24} /></div>}
                                 </label>
                             </div>
-
                             <div className="mt-8 animate-fade-in-up">
                                 {assignmentType === 'internal' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10 bg-blue-50/30 border-2 border-blue-100/50 rounded-[2.5rem]">
                                         <div className="animate-fade-in-up delay-100">
                                             <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-blue-600 mb-3 ml-1">ช่างหลัก (Main Technician) *</label>
-                                            <select
-                                                name="assignedTechnicianId"
-                                                value={formData.assignedTechnicianId || ''}
-                                                onChange={handleInputChange}
-                                                className="w-full p-5 bg-white border-2 border-blue-100 rounded-[1.5rem] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md cursor-pointer appearance-none"
-                                                required
-                                                aria-label="Select Technician"
-                                            >
+                                            <select name="assignedTechnicianId" value={formData.assignedTechnicianId || ''} onChange={handleInputChange} className="w-full p-5 bg-white border-2 border-blue-100 rounded-[1.5rem] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md cursor-pointer appearance-none" required aria-label="Select Technician">
                                                 <option value="" disabled>-- เลือกช่างหลัก --</option>
-                                                {mainTechnicians.map(tech => (
-                                                    <option key={tech.id} value={tech.id}>{tech.name}</option>
-                                                ))}
+                                                {mainTechnicians.map(tech => (<option key={tech.id} value={tech.id}>{tech.name}</option>))}
                                             </select>
                                         </div>
                                         <div className="animate-fade-in-up delay-200">
                                             <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-blue-600 mb-3 ml-1">ผู้ช่วยช่าง (Assistants)</label>
-                                            <TechnicianMultiSelect
-                                                allTechnicians={assistantTechnicians}
-                                                selectedTechnicianIds={formData.assistantTechnicianIds}
-                                                onChange={(ids) => setFormData(prev => ({ ...prev, assistantTechnicianIds: ids }))}
-                                            />
+                                            <TechnicianMultiSelect allTechnicians={assistantTechnicians} selectedTechnicianIds={formData.assistantTechnicianIds} onChange={(ids) => setFormData(prev => ({ ...prev, assistantTechnicianIds: ids }))} />
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="p-10 bg-emerald-50/30 border-2 border-emerald-100/50 rounded-[2.5rem] animate-fade-in-up">
                                         <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-3 ml-1">ชื่ออู่หรือหน่วยงานภายนอก (External Contractor) *</label>
                                         <div className="relative group">
-                                            <input
-                                                type="text"
-                                                name="externalTechnicianName"
-                                                value={formData.externalTechnicianName || ''}
-                                                onChange={handleInputChange}
-                                                placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก..."
-                                                className="w-full p-5 bg-white border-2 border-emerald-100 rounded-[1.5rem] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md"
-                                                required
-                                            />
+                                            <input type="text" name="externalTechnicianName" value={formData.externalTechnicianName || ''} onChange={handleInputChange} placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก..." className="w-full p-5 bg-white border-2 border-emerald-100 rounded-[1.5rem] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md" required />
                                             <div className="absolute right-5 top-1/2 -translate-y-1/2 text-emerald-500 group-focus-within:animate-bounce"><Wrench size={20} /></div>
                                         </div>
                                     </div>
@@ -1424,7 +1469,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             {isStockModalOpen && <StockSelectionModal stock={mainStock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
             {isRevolvingStockModalOpen && <StockSelectionModal stock={revolvingStock} onClose={() => setRevolvingStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
             {isExternalPartModalOpen && <ExternalPartModal onClose={() => setExternalPartModalOpen(false)} onAddExternalParts={handleAddExternalParts} suppliers={suppliers} />}
-            {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} />}
+            {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} activeRepairCategory={formData.repairCategory} />}
         </div>
     );
 };

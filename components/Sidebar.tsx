@@ -5,7 +5,7 @@ import {
     Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
     Shield, Calendar, Clock, ClipboardCheck, Disc, Box, ShoppingCart,
     File, Store, Users, PenTool, UserCog, BookOpen, Wallet, Fuel,
-    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target
+    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -145,6 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
         {
             section: 'รายงานและการตั้งค่า', items: [
                 { id: 'kpi-management', icon: <BarChart2 size={20} />, label: 'จัดการ KPI' },
+                { id: 'repair-categories', icon: <Layers size={20} />, label: 'หมวดหมู่งานซ่อม' },
                 { id: 'settings', icon: <Settings size={20} />, label: 'ตั้งค่าระบบ' },
             ]
         },

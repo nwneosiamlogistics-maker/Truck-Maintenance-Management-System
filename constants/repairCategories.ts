@@ -1,0 +1,119 @@
+import type { RepairCategoryMaster } from '../types';
+
+export const DEFAULT_REPAIR_CATEGORIES: RepairCategoryMaster[] = [
+    {
+        id: 'CAT-ENG', code: 'ENG', nameTh: 'เครื่องยนต์', nameEn: 'Engine', icon: '🔧', isActive: true, sortOrder: 1,
+        subCategories: [
+            { id: 'ENG-OIL', code: 'ENG-OIL', nameTh: 'เปลี่ยนน้ำมันเครื่อง', nameEn: 'Oil Change', parentCode: 'ENG', suggestedParts: ['น้ำมันเครื่อง', 'ไส้กรองน้ำมัน'], suggestedSymptoms: ['น้ำมันเครื่องดำ/เสื่อมสภาพ', 'ครบกำหนดเปลี่ยนถ่าย', 'น้ำมันเครื่องรั่ว'], isActive: true },
+            { id: 'ENG-BLT', code: 'ENG-BLT', nameTh: 'สายพาน', nameEn: 'Belt', parentCode: 'ENG', suggestedParts: ['สายพานราวลิ้น', 'สายพานไดชาร์จ'], suggestedSymptoms: ['สายพานมีเสียงดัง', 'สายพานหลุด/ขาด', 'สายพานสึกหรอ'], isActive: true },
+            { id: 'ENG-FLT', code: 'ENG-FLT', nameTh: 'ไส้กรอง', nameEn: 'Filter', parentCode: 'ENG', suggestedParts: ['ไส้กรองอากาศ', 'ไส้กรองน้ำมันเชื้อเพลิง'], suggestedSymptoms: ['ไส้กรองตัน/สกปรก', 'เครื่องยนต์ไม่มีกำลัง', 'ควันดำ'], isActive: true },
+            { id: 'ENG-TBO', code: 'ENG-TBO', nameTh: 'เทอร์โบ', nameEn: 'Turbo', parentCode: 'ENG', suggestedParts: ['เทอร์โบชาร์จเจอร์'], suggestedSymptoms: ['เทอร์โบมีเสียงหวีด', 'ควันขาว/น้ำมันรั่ว', 'เครื่องไม่มีแรง'], isActive: true },
+            { id: 'ENG-GEN', code: 'ENG-GEN', nameTh: 'ซ่อมเครื่องยนต์ทั่วไป', nameEn: 'General Engine', parentCode: 'ENG', suggestedSymptoms: ['เครื่องยนต์สตาร์ทไม่ติด', 'เครื่องยนต์ร้อนผิดปกติ', 'เครื่องยนต์สั่น', 'มีเสียงดังผิดปกติ'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-TRA', code: 'TRA', nameTh: 'ระบบส่งกำลัง', nameEn: 'Transmission', icon: '⚙️', isActive: true, sortOrder: 2,
+        subCategories: [
+            { id: 'TRA-GBX', code: 'TRA-GBX', nameTh: 'ซ่อมเกียร์', nameEn: 'Gearbox', parentCode: 'TRA', suggestedParts: ['น้ำมันเกียร์', 'ซิงโครไนเซอร์'], suggestedSymptoms: ['เข้าเกียร์ไม่ได้', 'เกียร์กระตุก', 'มีเสียงดังจากเกียร์'], isActive: true },
+            { id: 'TRA-CLT', code: 'TRA-CLT', nameTh: 'เปลี่ยนคลัตช์', nameEn: 'Clutch', parentCode: 'TRA', suggestedParts: ['ชุดคลัตช์', 'ลูกปืนคลัตช์'], suggestedSymptoms: ['คลัตช์ลื่น/ไม่จับ', 'เหยียบคลัตช์หนัก', 'มีเสียงดังเมื่อเหยียบคลัตช์'], isActive: true },
+            { id: 'TRA-AXL', code: 'TRA-AXL', nameTh: 'เพลา/เฟืองท้าย', nameEn: 'Axle/Differential', parentCode: 'TRA', suggestedParts: ['น้ำมันเฟืองท้าย', 'ซีลเพลา'], suggestedSymptoms: ['มีเสียงดังจากเฟืองท้าย', 'น้ำมันเฟืองท้ายรั่ว', 'เพลาสั่น'], isActive: true },
+            { id: 'TRA-PTO', code: 'TRA-PTO', nameTh: 'PTO/เพาเวอร์เทคออฟ', nameEn: 'PTO', parentCode: 'TRA', suggestedSymptoms: ['PTO ไม่ทำงาน', 'PTO มีเสียงดัง'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-SUS', code: 'SUS', nameTh: 'ช่วงล่าง', nameEn: 'Suspension', icon: '🔩', isActive: true, sortOrder: 3,
+        subCategories: [
+            { id: 'SUS-SHK', code: 'SUS-SHK', nameTh: 'เปลี่ยนโช้คอัพ', nameEn: 'Shock Absorber', parentCode: 'SUS', suggestedParts: ['โช้คอัพ'], suggestedSymptoms: ['รถโคลงเคลง', 'โช้คอัพรั่ว', 'รถกระเด้งมาก'], isActive: true },
+            { id: 'SUS-BJT', code: 'SUS-BJT', nameTh: 'ลูกหมาก', nameEn: 'Ball Joint', parentCode: 'SUS', suggestedParts: ['ลูกหมากปีกนก', 'ลูกหมากคันชัก'], suggestedSymptoms: ['พวงมาลัยหลวม', 'มีเสียงดังเวลาเลี้ยว', 'ลูกหมากหลวม/แตก'], isActive: true },
+            { id: 'SUS-SPR', code: 'SUS-SPR', nameTh: 'แหนบ/สปริง', nameEn: 'Leaf Spring', parentCode: 'SUS', suggestedParts: ['แหนบ', 'ยูโบลท์'], suggestedSymptoms: ['แหนบหัก', 'รถเอียง/ไม่เท่ากัน', 'ยูโบลท์หลุด'], isActive: true },
+            { id: 'SUS-BSH', code: 'SUS-BSH', nameTh: 'บุชยาง', nameEn: 'Bushing', parentCode: 'SUS', suggestedParts: ['บุชยางแหนบ', 'บุชยางเหล็กกันโคลง'], suggestedSymptoms: ['บุชยางแตก/เสื่อม', 'มีเสียงดังจากช่วงล่าง'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-BRK', code: 'BRK', nameTh: 'ระบบเบรก', nameEn: 'Braking', icon: '🛑', isActive: true, sortOrder: 4,
+        subCategories: [
+            { id: 'BRK-PAD', code: 'BRK-PAD', nameTh: 'เปลี่ยนผ้าเบรก', nameEn: 'Brake Pad', parentCode: 'BRK', suggestedParts: ['ผ้าเบรก'], suggestedSymptoms: ['ผ้าเบรกหมด', 'เบรกมีเสียงดัง', 'เบรกไม่อยู่'], isActive: true },
+            { id: 'BRK-DSC', code: 'BRK-DSC', nameTh: 'เจียรจานเบรก', nameEn: 'Brake Disc', parentCode: 'BRK', suggestedParts: ['จานเบรก'], suggestedSymptoms: ['จานเบรกบิ่น/สึก', 'เบรกสั่น', 'จานเบรกร้อนผิดปกติ'], isActive: true },
+            { id: 'BRK-AIR', code: 'BRK-AIR', nameTh: 'ระบบเบรกลม', nameEn: 'Air Brake', parentCode: 'BRK', suggestedParts: ['วาล์วเบรก', 'ถังลม'], suggestedSymptoms: ['ลมเบรกรั่ว', 'เบรกลมไม่ทำงาน', 'ลมไม่ขึ้น'], isActive: true },
+            { id: 'BRK-CYL', code: 'BRK-CYL', nameTh: 'ลูกสูบเบรก', nameEn: 'Brake Cylinder', parentCode: 'BRK', suggestedParts: ['ลูกสูบเบรก', 'ชุดซ่อมลูกสูบ'], suggestedSymptoms: ['น้ำมันเบรกรั่ว', 'ลูกสูบเบรกค้าง'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-ELE', code: 'ELE', nameTh: 'ระบบไฟฟ้า', nameEn: 'Electrical', icon: '⚡', isActive: true, sortOrder: 5,
+        subCategories: [
+            { id: 'ELE-ALT', code: 'ELE-ALT', nameTh: 'ไดชาร์จ', nameEn: 'Alternator', parentCode: 'ELE', suggestedParts: ['ไดชาร์จ'], suggestedSymptoms: ['ไฟชาร์จไม่เข้า', 'ไดชาร์จมีเสียงดัง', 'แบตหมดบ่อย'], isActive: true },
+            { id: 'ELE-BAT', code: 'ELE-BAT', nameTh: 'แบตเตอรี่', nameEn: 'Battery', parentCode: 'ELE', suggestedParts: ['แบตเตอรี่'], suggestedSymptoms: ['สตาร์ทไม่ติด', 'แบตเตอรี่เสื่อม', 'แบตเตอรี่บวม'], isActive: true },
+            { id: 'ELE-LGT', code: 'ELE-LGT', nameTh: 'ไฟส่องสว่าง', nameEn: 'Lighting', parentCode: 'ELE', suggestedParts: ['หลอดไฟหน้า', 'หลอดไฟท้าย'], suggestedSymptoms: ['ไฟหน้าไม่ติด', 'ไฟท้ายไม่ติด', 'ไฟเลี้ยวไม่ทำงาน'], isActive: true },
+            { id: 'ELE-STR', code: 'ELE-STR', nameTh: 'ไดสตาร์ท', nameEn: 'Starter', parentCode: 'ELE', suggestedParts: ['ไดสตาร์ท'], suggestedSymptoms: ['สตาร์ทไม่หมุน', 'ไดสตาร์ทมีเสียงดัง', 'สตาร์ทค้าง'], isActive: true },
+            { id: 'ELE-WIR', code: 'ELE-WIR', nameTh: 'สายไฟ/ระบบไฟ', nameEn: 'Wiring', parentCode: 'ELE', suggestedSymptoms: ['สายไฟขาด/ชำรุด', 'ไฟฟ้าลัดวงจร', 'ฟิวส์ขาดบ่อย'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-AC', code: 'AC', nameTh: 'ระบบปรับอากาศ', nameEn: 'Air Conditioning', icon: '❄️', isActive: true, sortOrder: 6,
+        subCategories: [
+            { id: 'AC-REF', code: 'AC-REF', nameTh: 'เติมน้ำยาแอร์', nameEn: 'Refrigerant', parentCode: 'AC', suggestedParts: ['น้ำยาแอร์ R134a'], suggestedSymptoms: ['แอร์ไม่เย็น', 'น้ำยาแอร์หมด'], isActive: true },
+            { id: 'AC-CMP', code: 'AC-CMP', nameTh: 'ซ่อมคอมเพรสเซอร์', nameEn: 'Compressor', parentCode: 'AC', suggestedParts: ['คอมเพรสเซอร์แอร์'], suggestedSymptoms: ['คอมแอร์ไม่ทำงาน', 'คอมแอร์มีเสียงดัง', 'คอมแอร์ค้าง'], isActive: true },
+            { id: 'AC-CON', code: 'AC-CON', nameTh: 'คอนเดนเซอร์/แผงร้อน', nameEn: 'Condenser', parentCode: 'AC', suggestedParts: ['คอนเดนเซอร์'], suggestedSymptoms: ['แผงร้อนตัน', 'แอร์ไม่เย็นเท่าที่ควร'], isActive: true },
+            { id: 'AC-EVP', code: 'AC-EVP', nameTh: 'ตู้แอร์/แผงเย็น', nameEn: 'Evaporator', parentCode: 'AC', suggestedParts: ['ตู้แอร์'], suggestedSymptoms: ['แอร์มีกลิ่นเหม็น', 'น้ำหยดจากตู้แอร์', 'ลมแอร์อ่อน'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-TIR', code: 'TIR', nameTh: 'ยางและล้อ', nameEn: 'Tires & Wheels', icon: '🛞', isActive: true, sortOrder: 7,
+        subCategories: [
+            { id: 'TIR-REP', code: 'TIR-REP', nameTh: 'เปลี่ยนยาง', nameEn: 'Tire Replacement', parentCode: 'TIR', suggestedParts: ['ยางรถบรรทุก'], suggestedSymptoms: ['ยางสึก/หมดดอก', 'ยางแตก/ระเบิด', 'ยางรั่ว'], isActive: true },
+            { id: 'TIR-ALN', code: 'TIR-ALN', nameTh: 'ตั้งศูนย์ล้อ', nameEn: 'Wheel Alignment', parentCode: 'TIR', suggestedSymptoms: ['รถเบี่ยงซ้าย/ขวา', 'พวงมาลัยไม่ตรง', 'ยางสึกไม่เท่ากัน'], isActive: true },
+            { id: 'TIR-BAL', code: 'TIR-BAL', nameTh: 'ถ่วงล้อ', nameEn: 'Wheel Balancing', parentCode: 'TIR', suggestedParts: ['ตะกั่วถ่วงล้อ'], suggestedSymptoms: ['พวงมาลัยสั่นที่ความเร็วสูง', 'ล้อไม่สมดุล'], isActive: true },
+            { id: 'TIR-RET', code: 'TIR-RET', nameTh: 'หล่อดอกยาง', nameEn: 'Retread', parentCode: 'TIR', suggestedSymptoms: ['ดอกยางสึก/ตื้น', 'ต้องการหล่อดอกใหม่'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-BOD', code: 'BOD', nameTh: 'ตัวถังและสี', nameEn: 'Body & Paint', icon: '🎨', isActive: true, sortOrder: 8,
+        subCategories: [
+            { id: 'BOD-PNT', code: 'BOD-PNT', nameTh: 'พ่นสี', nameEn: 'Paint', parentCode: 'BOD', suggestedSymptoms: ['สีลอก/ซีด', 'รอยขีดข่วน', 'สนิมขึ้น'], isActive: true },
+            { id: 'BOD-DEN', code: 'BOD-DEN', nameTh: 'ซ่อมตัวถัง/เคาะ', nameEn: 'Dent Repair', parentCode: 'BOD', suggestedSymptoms: ['ตัวถังบุบ/ยุบ', 'ตัวถังแตก', 'ชนกระแทก'], isActive: true },
+            { id: 'BOD-GLS', code: 'BOD-GLS', nameTh: 'กระจก', nameEn: 'Glass', parentCode: 'BOD', suggestedParts: ['กระจกหน้า', 'กระจกข้าง'], suggestedSymptoms: ['กระจกแตก/ร้าว', 'กระจกหน้าเป็นฝ้า'], isActive: true },
+            { id: 'BOD-MIR', code: 'BOD-MIR', nameTh: 'กระจกมองข้าง', nameEn: 'Mirror', parentCode: 'BOD', suggestedParts: ['กระจกมองข้าง'], suggestedSymptoms: ['กระจกมองข้างแตก', 'กระจกมองข้างหลุด'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-HYD', code: 'HYD', nameTh: 'ระบบไฮดรอลิก', nameEn: 'Hydraulic', icon: '💧', isActive: true, sortOrder: 9,
+        subCategories: [
+            { id: 'HYD-PMP', code: 'HYD-PMP', nameTh: 'ปั๊มไฮดรอลิก', nameEn: 'Hydraulic Pump', parentCode: 'HYD', suggestedParts: ['ปั๊มไฮดรอลิก'], suggestedSymptoms: ['ปั๊มไฮดรอลิกไม่ทำงาน', 'แรงดันไฮดรอลิกต่ำ'], isActive: true },
+            { id: 'HYD-HSE', code: 'HYD-HSE', nameTh: 'สายไฮดรอลิก', nameEn: 'Hydraulic Hose', parentCode: 'HYD', suggestedParts: ['สายไฮดรอลิก'], suggestedSymptoms: ['สายไฮดรอลิกรั่ว', 'สายไฮดรอลิกแตก/บวม'], isActive: true },
+            { id: 'HYD-CYL', code: 'HYD-CYL', nameTh: 'กระบอกสูบไฮดรอลิก', nameEn: 'Hydraulic Cylinder', parentCode: 'HYD', suggestedParts: ['กระบอกสูบ', 'ซีลไฮดรอลิก'], suggestedSymptoms: ['กระบอกสูบรั่ว', 'ยกไม่ขึ้น/ทำงานช้า'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-COO', code: 'COO', nameTh: 'ระบบหล่อเย็น', nameEn: 'Cooling', icon: '🌡️', isActive: true, sortOrder: 10,
+        subCategories: [
+            { id: 'COO-RAD', code: 'COO-RAD', nameTh: 'หม้อน้ำ', nameEn: 'Radiator', parentCode: 'COO', suggestedParts: ['หม้อน้ำ', 'น้ำยาหล่อเย็น'], suggestedSymptoms: ['หม้อน้ำรั่ว', 'น้ำหล่อเย็นหมด', 'เครื่องร้อนผิดปกติ'], isActive: true },
+            { id: 'COO-THR', code: 'COO-THR', nameTh: 'เทอร์โมสตัท', nameEn: 'Thermostat', parentCode: 'COO', suggestedParts: ['เทอร์โมสตัท'], suggestedSymptoms: ['เครื่องร้อนเร็วผิดปกติ', 'อุณหภูมิไม่คงที่'], isActive: true },
+            { id: 'COO-FAN', code: 'COO-FAN', nameTh: 'พัดลมหม้อน้ำ', nameEn: 'Cooling Fan', parentCode: 'COO', suggestedParts: ['พัดลม', 'คลัตช์พัดลม'], suggestedSymptoms: ['พัดลมไม่หมุน', 'พัดลมมีเสียงดัง'], isActive: true },
+            { id: 'COO-WPM', code: 'COO-WPM', nameTh: 'ปั๊มน้ำ', nameEn: 'Water Pump', parentCode: 'COO', suggestedParts: ['ปั๊มน้ำ'], suggestedSymptoms: ['ปั๊มน้ำรั่ว', 'น้ำไม่หมุนเวียน'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-FUE', code: 'FUE', nameTh: 'ระบบเชื้อเพลิง', nameEn: 'Fuel System', icon: '⛽', isActive: true, sortOrder: 11,
+        subCategories: [
+            { id: 'FUE-PMP', code: 'FUE-PMP', nameTh: 'ปั๊มน้ำมันเชื้อเพลิง', nameEn: 'Fuel Pump', parentCode: 'FUE', suggestedParts: ['ปั๊มน้ำมัน'], suggestedSymptoms: ['เครื่องดับกลางทาง', 'สตาร์ทไม่ติด/ติดยาก', 'แรงดันน้ำมันต่ำ'], isActive: true },
+            { id: 'FUE-INJ', code: 'FUE-INJ', nameTh: 'หัวฉีด', nameEn: 'Injector', parentCode: 'FUE', suggestedParts: ['หัวฉีด'], suggestedSymptoms: ['เครื่องสั่นเดินไม่เรียบ', 'หัวฉีดรั่ว', 'กินน้ำมันมาก'], isActive: true },
+            { id: 'FUE-FLT', code: 'FUE-FLT', nameTh: 'กรองเชื้อเพลิง', nameEn: 'Fuel Filter', parentCode: 'FUE', suggestedParts: ['ไส้กรองเชื้อเพลิง'], suggestedSymptoms: ['กรองเชื้อเพลิงตัน', 'เครื่องไม่มีกำลัง'], isActive: true },
+            { id: 'FUE-TNK', code: 'FUE-TNK', nameTh: 'ถังน้ำมัน', nameEn: 'Fuel Tank', parentCode: 'FUE', suggestedParts: ['ถังน้ำมัน'], suggestedSymptoms: ['ถังน้ำมันรั่ว', 'ถังน้ำมันเป็นสนิม'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-PM', code: 'PM', nameTh: 'ซ่อมบำรุงตามระยะ', nameEn: 'Preventive Maintenance', icon: '📋', isActive: true, sortOrder: 12,
+        subCategories: [
+            { id: 'PM-SVC', code: 'PM-SVC', nameTh: 'เช็กระยะ', nameEn: 'Service Interval', parentCode: 'PM', suggestedSymptoms: ['ครบกำหนดเช็กระยะ', 'ครบระยะเปลี่ยนถ่าย'], isActive: true },
+            { id: 'PM-GRO', code: 'PM-GRO', nameTh: 'อัดจาระบี', nameEn: 'Greasing', parentCode: 'PM', suggestedParts: ['จาระบี'], suggestedSymptoms: ['ครบกำหนดอัดจาระบี', 'ข้อต่อมีเสียงดัง'], isActive: true },
+            { id: 'PM-INS', code: 'PM-INS', nameTh: 'ตรวจสภาพทั่วไป', nameEn: 'General Inspection', parentCode: 'PM', suggestedSymptoms: ['ตรวจสภาพประจำปี', 'ตรวจก่อนออกทริป'], isActive: true },
+        ]
+    },
+    {
+        id: 'CAT-OTH', code: 'OTH', nameTh: 'อื่นๆ', nameEn: 'Others', icon: '📦', isActive: true, sortOrder: 13,
+        subCategories: [
+            { id: 'OTH-ACC', code: 'OTH-ACC', nameTh: 'ติดตั้งอุปกรณ์เสริม', nameEn: 'Accessories', parentCode: 'OTH', suggestedSymptoms: ['ติดตั้งอุปกรณ์ใหม่', 'ดัดแปลงอุปกรณ์'], isActive: true },
+            { id: 'OTH-GEN', code: 'OTH-GEN', nameTh: 'งานทั่วไป', nameEn: 'General', parentCode: 'OTH', suggestedSymptoms: ['งานซ่อมทั่วไป', 'อื่นๆ'], isActive: true },
+        ]
+    },
+];

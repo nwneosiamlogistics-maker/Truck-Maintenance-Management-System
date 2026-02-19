@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import type { Repair, Technician, RepairStatus, StockItem, UsedPart, Supplier, StockTransaction } from '../types';
+import type { Repair, Technician, RepairStatus, StockItem, UsedPart, Supplier, StockTransaction, RepairCategoryMaster } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
@@ -23,9 +23,10 @@ interface RepairListProps {
     updateFungibleStock: (updates: { stockItemId: string, quantity: number, repairOrderNo: string }[]) => void;
     usedParts: UsedPart[];
     suppliers: Supplier[];
+    repairCategories: RepairCategoryMaster[];
 }
 
-const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions, addUsedParts, updateFungibleStock, usedParts, suppliers }) => {
+const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions, addUsedParts, updateFungibleStock, usedParts, suppliers, repairCategories }) => {
     const [statusFilter, setStatusFilter] = useState<RepairStatus | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
@@ -487,7 +488,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                 </div>
             </div>
 
-            {editingRepair && <RepairEditModal repair={editingRepair} onSave={handleSaveRepair} onClose={() => setEditingRepair(null)} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} suppliers={suppliers} />}
+            {editingRepair && <RepairEditModal repair={editingRepair} onSave={handleSaveRepair} onClose={() => setEditingRepair(null)} technicians={technicians} stock={stock} setStock={setStock} transactions={transactions} setTransactions={setTransactions} suppliers={suppliers} repairCategories={repairCategories} />}
             {viewingRepair && <VehicleDetailModal repair={viewingRepair} allRepairs={repairs} technicians={technicians} onClose={() => setViewingRepair(null)} />}
             {addUsedPartsRepair && <AddUsedPartsModal repair={addUsedPartsRepair} onSaveIndividual={addUsedParts} onSaveFungible={updateFungibleStock} stock={stock} onClose={() => setAddUsedPartsRepair(null)} />}
         </div>
