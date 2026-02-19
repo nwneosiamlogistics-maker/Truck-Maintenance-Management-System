@@ -897,33 +897,58 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                     <div className="space-y-10 animate-fade-in-up">
                         <div className="animate-fade-in-up delay-100">
                             <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ความสำคัญ (Priority)</label>
-                            <select
-                                name="priority"
-                                value={formData.priority}
-                                onChange={handleInputChange}
-                                className={`w-full p-5 border-2 rounded-[1.5rem] transition-all duration-300 font-bold shadow-sm cursor-pointer appearance-none ${formData.priority === 'ปกติ' ? 'bg-slate-50 border-slate-100 text-slate-700' :
-                                    formData.priority === 'ด่วน' ? 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-500/10' :
-                                        'bg-red-50 border-red-200 text-red-700 focus:ring-red-500/10'
-                                    }`}
-                                aria-label="Select Priority"
-                            >
+                            <select name="priority" value={formData.priority} onChange={handleInputChange} className={`w-full p-5 border-2 rounded-[1.5rem] transition-all duration-300 font-bold shadow-sm cursor-pointer appearance-none ${formData.priority === 'ปกติ' ? 'bg-slate-50 border-slate-100 text-slate-700' : formData.priority === 'ด่วน' ? 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-500/10' : 'bg-red-50 border-red-200 text-red-700 focus:ring-red-500/10'}`} aria-label="Select Priority">
                                 <option value="ปกติ">ปกติ (Normal)</option>
                                 <option value="ด่วน">ด่วน (Urgent)</option>
                                 <option value="ด่วนที่สุด">ด่วนที่สุด (Emergency)</option>
                             </select>
                         </div>
 
-                        <div className="animate-fade-in-up delay-300">
+                        <div className="animate-fade-in-up delay-200">
                             <div className="flex justify-between items-center mb-6">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 ml-1">การประมาณการณ์เวลาซ่อม (Repair Estimation) *</label>
-                                <button
-                                    type="button"
-                                    onClick={() => setKPIModalOpen(true)}
-                                    className="px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl hover:from-teal-600 hover:to-cyan-700 shadow-lg shadow-teal-500/20 transform hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2"
-                                >
+                                <button type="button" onClick={() => setKPIModalOpen(true)} className="px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl hover:from-teal-600 hover:to-cyan-700 shadow-lg shadow-teal-500/20 transform hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2">
                                     <Settings size={14} /> + เพิ่มงาน KPI
                                 </button>
                             </div>
+
+                            {(() => {
+                                const mainName = formData.repairCategory.split(' > ')[0];
+                                const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
+                                const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                if (!cat) return null;
+                                const catCode = cat.code;
+                                const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
+                                const subCode = sub?.code || null;
+                                const selectedIds = new Set(formData.kpiTaskIds || []);
+                                const suggestedKpis = (Array.isArray(kpiData) ? kpiData : []).filter(kpi => {
+                                    if (selectedIds.has(kpi.id)) return false;
+                                    if (subCode && kpi.subCategoryCode === subCode) return true;
+                                    if (kpi.categoryCode === catCode) return true;
+                                    return false;
+                                }).sort((a, b) => {
+                                    if (subCode) {
+                                        const aMatch = a.subCategoryCode === subCode ? 0 : 1;
+                                        const bMatch = b.subCategoryCode === subCode ? 0 : 1;
+                                        if (aMatch !== bMatch) return aMatch - bMatch;
+                                    }
+                                    return a.item.localeCompare(b.item);
+                                });
+                                if (suggestedKpis.length === 0) return null;
+                                return (
+                                    <div className="mb-6 p-5 bg-amber-50 border-2 border-amber-200 rounded-2xl animate-fade-in-up">
+                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3">💡 KPI แนะนำจากหมวด &quot;{formData.repairCategory}&quot;:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {suggestedKpis.map(kpi => (
+                                                <button key={kpi.id} type="button" onClick={() => handleAddKPIs([kpi])} className="px-4 py-2 text-xs font-bold bg-white border border-amber-300 text-amber-800 rounded-full hover:bg-amber-100 hover:border-amber-400 transition-all active:scale-95 shadow-sm flex items-center gap-2">
+                                                    <span>+ {kpi.item}</span>
+                                                    <span className="text-[9px] text-amber-500 font-black">({kpi.standardHours} ชม.)</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] space-y-8">
                                 {selectedKpis.length > 0 ? (
@@ -962,15 +987,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     <div className="group opacity-80">
                                         <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2 ml-1">เวลาที่คาดว่าจะซ่อมเสร็จ (คำนวณอัตโนมัติ)</label>
                                         <div className="relative">
-                                            <input
-                                                type="datetime-local"
-                                                value={toLocalISOString(activeEstimation.estimatedEndDate) || ''}
-                                                onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)}
-                                                className="w-full p-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-slate-500 font-bold shadow-sm cursor-not-allowed"
-                                                readOnly
-                                                required
-                                                aria-label="Estimated End Date"
-                                            />
+                                            <input type="datetime-local" value={toLocalISOString(activeEstimation.estimatedEndDate) || ''} onChange={(e) => handleDateChange('estimatedEndDate', e.target.value)} className="w-full p-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-slate-500 font-bold shadow-sm cursor-not-allowed" readOnly required aria-label="Estimated End Date" />
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500"><CheckCircle2 size={16} /></div>
                                         </div>
                                     </div>
@@ -978,7 +995,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
                                 {totalKpiHours > 0 &&
                                     <div className="p-5 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border border-blue-100 rounded-2xl text-[11px] text-blue-700 leading-relaxed font-bold animate-fade-in-up">
-                                        ✨ AI Insights: "{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours, 8)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}"
+                                        ✨ AI Insights: &quot;{activeEstimation.aiReasoning || `คำนวณจากเวลามาตรฐานรวม ${formatHoursDescriptive(totalKpiHours, 8)} โดยพิจารณาเวลาทำงาน (08:00-17:00), พักเที่ยง, และวันหยุด`}&quot;
                                     </div>
                                 }
                             </div>
@@ -989,21 +1006,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <div className="grid grid-cols-2 gap-10">
                                 <label className={`relative p-8 rounded-[2.5rem] border-2 transition-all duration-500 cursor-pointer group flex items-center gap-6 overflow-hidden ${assignmentType === 'internal' ? 'bg-blue-600 border-blue-600 shadow-2xl shadow-blue-500/30' : 'bg-slate-50 border-slate-100'}`}>
                                     <input type="radio" name="assignmentType" value="internal" checked={assignmentType === 'internal'} onChange={() => handleAssignmentTypeChange('internal')} className="sr-only" />
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'internal' ? 'bg-white/20 text-white' : 'bg-white text-blue-600 shadow-sm'}`}>
-                                        <User size={24} />
-                                    </div>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'internal' ? 'bg-white/20 text-white' : 'bg-white text-blue-600 shadow-sm'}`}><User size={24} /></div>
                                     <div>
                                         <p className={`text-sm font-black uppercase tracking-widest ${assignmentType === 'internal' ? 'text-white' : 'text-slate-800'}`}>ซ่อมภายใน</p>
                                         <p className={`text-[10px] ${assignmentType === 'internal' ? 'text-white/60' : 'text-slate-400'} font-bold`}>ใช้ทีมสไลด์ช่างบริษัท</p>
                                     </div>
                                     {assignmentType === 'internal' && <div className="absolute top-4 right-4 text-white animate-scale-in"><CheckCircle2 size={24} /></div>}
                                 </label>
-
                                 <label className={`relative p-8 rounded-[2.5rem] border-2 transition-all duration-500 cursor-pointer group flex items-center gap-6 overflow-hidden ${assignmentType === 'external' ? 'bg-emerald-600 border-emerald-600 shadow-2xl shadow-emerald-500/30' : 'bg-slate-50 border-slate-100'}`}>
                                     <input type="radio" name="assignmentType" value="external" checked={assignmentType === 'external'} onChange={() => handleAssignmentTypeChange('external')} className="sr-only" />
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'external' ? 'bg-white/20 text-white' : 'bg-white text-emerald-600 shadow-sm'}`}>
-                                        <Wrench size={24} />
-                                    </div>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'external' ? 'bg-white/20 text-white' : 'bg-white text-emerald-600 shadow-sm'}`}><Wrench size={24} /></div>
                                     <div>
                                         <p className={`text-sm font-black uppercase tracking-widest ${assignmentType === 'external' ? 'text-white' : 'text-slate-800'}`}>ซ่อมภายนอก</p>
                                         <p className={`text-[10px] ${assignmentType === 'external' ? 'text-white/60' : 'text-slate-400'} font-bold`}>จ้างอู่หรือบริษัทภายนอก</p>
@@ -1011,48 +1023,26 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     {assignmentType === 'external' && <div className="absolute top-4 right-4 text-white animate-scale-in"><CheckCircle2 size={24} /></div>}
                                 </label>
                             </div>
-
                             <div className="mt-8 animate-fade-in-up">
                                 {assignmentType === 'internal' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10 bg-blue-50/30 border-2 border-blue-100/50 rounded-[2.5rem]">
                                         <div className="animate-fade-in-up delay-100">
                                             <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-blue-600 mb-3 ml-1">ช่างหลัก (Main Technician) *</label>
-                                            <select
-                                                name="assignedTechnicianId"
-                                                value={formData.assignedTechnicianId || ''}
-                                                onChange={handleInputChange}
-                                                className="w-full p-5 bg-white border-2 border-blue-100 rounded-[1.5rem] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md cursor-pointer appearance-none"
-                                                required
-                                                aria-label="Select Technician"
-                                            >
+                                            <select name="assignedTechnicianId" value={formData.assignedTechnicianId || ''} onChange={handleInputChange} className="w-full p-5 bg-white border-2 border-blue-100 rounded-[1.5rem] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md cursor-pointer appearance-none" required aria-label="Select Technician">
                                                 <option value="" disabled>-- เลือกช่างหลัก --</option>
-                                                {mainTechnicians.map(tech => (
-                                                    <option key={tech.id} value={tech.id}>{tech.name}</option>
-                                                ))}
+                                                {mainTechnicians.map(tech => (<option key={tech.id} value={tech.id}>{tech.name}</option>))}
                                             </select>
                                         </div>
                                         <div className="animate-fade-in-up delay-200">
                                             <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-blue-600 mb-3 ml-1">ผู้ช่วยช่าง (Assistants)</label>
-                                            <TechnicianMultiSelect
-                                                allTechnicians={assistantTechnicians}
-                                                selectedTechnicianIds={formData.assistantTechnicianIds}
-                                                onChange={(ids) => setFormData(prev => ({ ...prev, assistantTechnicianIds: ids }))}
-                                            />
+                                            <TechnicianMultiSelect allTechnicians={assistantTechnicians} selectedTechnicianIds={formData.assistantTechnicianIds} onChange={(ids) => setFormData(prev => ({ ...prev, assistantTechnicianIds: ids }))} />
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="p-10 bg-emerald-50/30 border-2 border-emerald-100/50 rounded-[2.5rem] animate-fade-in-up">
                                         <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-3 ml-1">ชื่ออู่หรือหน่วยงานภายนอก (External Contractor) *</label>
                                         <div className="relative group">
-                                            <input
-                                                type="text"
-                                                name="externalTechnicianName"
-                                                value={formData.externalTechnicianName || ''}
-                                                onChange={handleInputChange}
-                                                placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก..."
-                                                className="w-full p-5 bg-white border-2 border-emerald-100 rounded-[1.5rem] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md"
-                                                required
-                                            />
+                                            <input type="text" name="externalTechnicianName" value={formData.externalTechnicianName || ''} onChange={handleInputChange} placeholder="กรอกชื่อช่าง หรือ อู่ภายนอก..." className="w-full p-5 bg-white border-2 border-emerald-100 rounded-[1.5rem] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md" required />
                                             <div className="absolute right-5 top-1/2 -translate-y-1/2 text-emerald-500 group-focus-within:animate-bounce"><Wrench size={20} /></div>
                                         </div>
                                     </div>
