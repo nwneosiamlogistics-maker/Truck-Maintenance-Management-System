@@ -550,21 +550,43 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
-                                            <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ประเภทการซ่อม">
-                                                <option value="">-- เลือกหมวดหมู่ --</option>
+                                            <select
+                                                value={formData.repairCategory.split(' > ')[0] || ''}
+                                                onChange={e => setFormData(prev => ({ ...prev, repairCategory: e.target.value }))}
+                                                className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="เลือกหมวดหมู่หลัก"
+                                            >
+                                                <option value="">🔧 เลือกหมวดหมู่หลัก...</option>
                                                 {(Array.isArray(repairCategories) ? repairCategories : [])
                                                     .filter(c => c.isActive)
                                                     .sort((a, b) => a.sortOrder - b.sortOrder)
                                                     .map(cat => (
-                                                        <optgroup key={cat.code} label={`${cat.icon} ${cat.nameTh}`}>
-                                                            <option value={cat.nameTh}>{cat.nameTh} (ทั่วไป)</option>
-                                                            {(cat.subCategories || []).filter(s => s.isActive).map(sub => (
-                                                                <option key={sub.id} value={`${cat.nameTh} > ${sub.nameTh}`}>{sub.nameTh}</option>
-                                                            ))}
-                                                        </optgroup>
+                                                        <option key={cat.code} value={cat.nameTh}>{cat.icon} {cat.nameTh} ({cat.nameEn})</option>
                                                     ))
                                                 }
                                             </select>
+                                            {(() => {
+                                                const mainName = formData.repairCategory.split(' > ')[0];
+                                                const found = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                                const subs = (found?.subCategories || []).filter(s => s.isActive);
+                                                if (!found || subs.length === 0) return null;
+                                                return (
+                                                    <select
+                                                        value={formData.repairCategory.includes(' > ') ? formData.repairCategory : ''}
+                                                        onChange={e => setFormData(prev => ({ ...prev, repairCategory: e.target.value || mainName }))}
+                                                        className="mt-2 w-full p-3 border border-blue-300 bg-blue-50 rounded-lg" aria-label="เลือกหมวดย่อย"
+                                                    >
+                                                        <option value="">📋 เลือกงานย่อย (ไม่บังคับ)...</option>
+                                                        {subs.map(sub => (
+                                                            <option key={sub.id} value={`${mainName} > ${sub.nameTh}`}>▸ {sub.nameTh} ({sub.nameEn})</option>
+                                                        ))}
+                                                    </select>
+                                                );
+                                            })()}
+                                            {formData.repairCategory && (
+                                                <div className="mt-1 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 font-semibold">
+                                                    ✅ {formData.repairCategory}
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">เลขไมล์</label>

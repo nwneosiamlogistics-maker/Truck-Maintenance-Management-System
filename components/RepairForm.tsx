@@ -844,30 +844,46 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 </select>
                             </div>
                             <div className="animate-fade-in-up delay-200">
-                                <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ประเภทการซ่อม (Category)</label>
+                                <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ประเภทการซ่อม (Category) *</label>
                                 <select
-                                    name="repairCategory"
-                                    value={formData.repairCategory}
-                                    onChange={handleInputChange}
+                                    value={formData.repairCategory.split(' > ')[0] || ''}
+                                    onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value })); }}
                                     className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
-                                    aria-label="Select Repair Category"
+                                    aria-label="เลือกหมวดหมู่หลัก"
                                 >
-                                    <option value="">-- เลือกหมวดหมู่ --</option>
+                                    <option value="">🔧 เลือกหมวดหมู่หลัก...</option>
                                     {(Array.isArray(repairCategories) ? repairCategories : [])
                                         .filter(c => c.isActive)
                                         .sort((a, b) => a.sortOrder - b.sortOrder)
                                         .map(cat => (
-                                            <optgroup key={cat.code} label={`${cat.icon} ${cat.nameTh} (${cat.nameEn})`}>
-                                                <option value={cat.nameTh}>{cat.nameTh} (ทั่วไป)</option>
-                                                {(cat.subCategories || []).filter(s => s.isActive).map(sub => (
-                                                    <option key={sub.id} value={`${cat.nameTh} > ${sub.nameTh}`}>
-                                                        {sub.nameTh} ({sub.nameEn})
-                                                    </option>
-                                                ))}
-                                            </optgroup>
+                                            <option key={cat.code} value={cat.nameTh}>{cat.icon} {cat.nameTh} ({cat.nameEn})</option>
                                         ))
                                     }
                                 </select>
+                                {(() => {
+                                    const mainName = formData.repairCategory.split(' > ')[0];
+                                    const found = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                    const subs = (found?.subCategories || []).filter(s => s.isActive);
+                                    if (!found || subs.length === 0) return null;
+                                    return (
+                                        <select
+                                            value={formData.repairCategory.includes(' > ') ? formData.repairCategory : ''}
+                                            onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value || mainName })); }}
+                                            className="w-full mt-3 p-5 bg-blue-50 border-2 border-blue-200 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
+                                            aria-label="เลือกหมวดย่อย"
+                                        >
+                                            <option value="">📋 เลือกงานย่อย (ไม่บังคับ)...</option>
+                                            {subs.map(sub => (
+                                                <option key={sub.id} value={`${mainName} > ${sub.nameTh}`}>▸ {sub.nameTh} ({sub.nameEn})</option>
+                                            ))}
+                                        </select>
+                                    );
+                                })()}
+                                {formData.repairCategory && (
+                                    <div className="mt-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-semibold flex items-center gap-2">
+                                        <span>✅</span> {formData.repairCategory}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
