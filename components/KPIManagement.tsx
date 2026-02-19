@@ -278,6 +278,110 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
         }
     };
 
+    const safeCats = useMemo(() => (Array.isArray(repairCategories) ? repairCategories : []).filter(c => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder), [repairCategories]);
+
+    const unassignedCount = useMemo(() => safeKpiData.filter(k => !k.categoryCode).length, [safeKpiData]);
+
+    const handleAutoAssignCategories = async () => {
+        const unassigned = safeKpiData.filter(k => !k.categoryCode);
+        if (unassigned.length === 0) {
+            addToast('KPI ทุกรายการมีรหัสหมวดหมู่ครบแล้ว', 'info');
+            return;
+        }
+
+        const confirmed = await confirmAction(
+            'จัดหมวดหมู่อัตโนมัติ',
+            `พบ KPI ${unassigned.length} รายการที่ยังไม่มีรหัสหมวดหมู่ ระบบจะจับคู่จากชื่อหมวดหมู่กับโครงสร้าง 13 หมวดหลักให้อัตโนมัติ`,
+            'ดำเนินการ'
+        );
+        if (!confirmed) return;
+
+        const buildKeywords = (): { code: string; subCode?: string; catName: string; keywords: string[] }[] => {
+            const entries: { code: string; subCode?: string; catName: string; keywords: string[] }[] = [];
+            for (const cat of safeCats) {
+                const catKeywords = [cat.nameTh.toLowerCase(), cat.nameEn.toLowerCase()];
+                entries.push({ code: cat.code, catName: cat.nameTh, keywords: catKeywords });
+                for (const sub of (cat.subCategories || []).filter(s => s.isActive)) {
+                    const subKeywords = [sub.nameTh.toLowerCase(), sub.nameEn.toLowerCase(), sub.code.toLowerCase()];
+                    entries.push({ code: cat.code, subCode: sub.code, catName: `${cat.nameTh} > ${sub.nameTh}`, keywords: subKeywords });
+                }
+            }
+            return entries;
+        };
+
+        const keywordEntries = buildKeywords();
+        let assignedCount = 0;
+
+        setKpiData(prev => prev.map(kpi => {
+            if (kpi.categoryCode) return kpi;
+
+            const catLower = (kpi.category || '').toLowerCase().trim();
+            if (!catLower) return kpi;
+
+            // 1. Try exact match on main category name
+            const mainParts = catLower.split('>').map(s => s.trim());
+            const mainName = mainParts[0];
+            const subName = mainParts.length > 1 ? mainParts[1] : null;
+
+            const exactMainMatch = safeCats.find(c =>
+                c.nameTh.toLowerCase() === mainName || c.nameEn.toLowerCase() === mainName
+            );
+
+            if (exactMainMatch) {
+                let subMatch = null;
+                if (subName) {
+                    subMatch = (exactMainMatch.subCategories || []).find(s =>
+                        s.nameTh.toLowerCase() === subName || s.nameEn.toLowerCase() === subName
+                    );
+                }
+                assignedCount++;
+                return {
+                    ...kpi,
+                    categoryCode: exactMainMatch.code,
+                    subCategoryCode: subMatch?.code,
+                    category: subMatch ? `${exactMainMatch.nameTh} > ${subMatch.nameTh}` : exactMainMatch.nameTh,
+                };
+            }
+
+            // 2. Try keyword/substring matching
+            let bestMatch: { code: string; subCode?: string; catName: string } | null = null;
+            let bestScore = 0;
+
+            for (const entry of keywordEntries) {
+                for (const kw of entry.keywords) {
+                    if (catLower.includes(kw) || kw.includes(catLower)) {
+                        const score = entry.subCode ? 2 : 1; // prefer sub-category match
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMatch = entry;
+                        }
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                assignedCount++;
+                return {
+                    ...kpi,
+                    categoryCode: bestMatch.code as any,
+                    subCategoryCode: bestMatch.subCode,
+                    category: bestMatch.catName,
+                };
+            }
+
+            // 3. Fallback: assign to OTH (อื่นๆ)
+            assignedCount++;
+            return {
+                ...kpi,
+                categoryCode: 'OTH' as any,
+                subCategoryCode: 'OTH-GEN',
+                category: `อื่นๆ > งานทั่วไป`,
+            };
+        }));
+
+        addToast(`จัดหมวดหมู่อัตโนมัติสำเร็จ ${assignedCount} รายการ`, 'success');
+    };
+
     const handleExportExcel = () => {
         if (filteredKpiData.length === 0) {
             addToast('ไม่มีข้อมูล KPI สำหรับ Export', 'warning');
@@ -303,22 +407,19 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
     return (
         <div className="space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-3">
-                <input
-                    type="text"
-                    aria-label="ค้นหา KPI"
-                    placeholder="ค้นหา (รายการซ่อม, หมวดหมู่)..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full md:w-96 p-2 border border-gray-300 rounded-lg text-base"
-                />
+                <input type="text" aria-label="ค้นหา KPI" placeholder="ค้นหา (รายการซ่อม, หมวดหมู่)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-96 p-2 border border-gray-300 rounded-lg text-base" />
                 <div className="flex items-center gap-2">
+                    {unassignedCount > 0 && (
+                        <button onClick={handleAutoAssignCategories} className="px-4 py-2 text-base font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 whitespace-nowrap flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                            จัดหมวดอัตโนมัติ ({unassignedCount})
+                        </button>
+                    )}
                     <button onClick={handleExportExcel} className="px-4 py-2 text-base font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 whitespace-nowrap flex items-center gap-2">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                         Export Excel
                     </button>
-                    <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap">
-                        + เพิ่ม KPI ใหม่
-                    </button>
+                    <button onClick={() => handleOpenModal()} className="px-4 py-2 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap">+ เพิ่ม KPI ใหม่</button>
                 </div>
             </div>
 
