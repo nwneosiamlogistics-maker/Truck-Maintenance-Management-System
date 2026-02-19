@@ -28,7 +28,7 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
 
     const getInitialState = (): Omit<RepairKPI, 'id'> => {
         if (kpi) return kpi;
-        return { category: '', item: '', standardHours: 0, categoryCode: undefined, subCategoryCode: undefined };
+        return { category: '', item: '', standardHours: 0, categoryCode: null as any, subCategoryCode: null as any };
     };
 
     const [formData, setFormData] = useState(getInitialState());
@@ -66,16 +66,16 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
     const handleMainCatChange = (catCode: string) => {
         const cat = safeCats.find(c => c.code === catCode);
         if (!cat) {
-            setFormData(prev => ({ ...prev, categoryCode: undefined, subCategoryCode: undefined, category: '' }));
+            setFormData(prev => ({ ...prev, categoryCode: null as any, subCategoryCode: null as any, category: '' }));
             return;
         }
-        setFormData(prev => ({ ...prev, categoryCode: cat.code, subCategoryCode: undefined, category: cat.nameTh }));
+        setFormData(prev => ({ ...prev, categoryCode: cat.code, subCategoryCode: null as any, category: cat.nameTh }));
     };
 
     const handleSubCatChange = (subCode: string) => {
         if (!selectedMainCat) return;
         if (!subCode) {
-            setFormData(prev => ({ ...prev, subCategoryCode: undefined, category: selectedMainCat.nameTh }));
+            setFormData(prev => ({ ...prev, subCategoryCode: null as any, category: selectedMainCat.nameTh }));
             return;
         }
         const sub = (selectedMainCat.subCategories || []).find(s => s.code === subCode);
@@ -338,7 +338,7 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
                 return {
                     ...kpi,
                     categoryCode: exactMainMatch.code,
-                    subCategoryCode: subMatch?.code,
+                    subCategoryCode: subMatch?.code || null,
                     category: subMatch ? `${exactMainMatch.nameTh} > ${subMatch.nameTh}` : exactMainMatch.nameTh,
                 };
             }
@@ -364,7 +364,7 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
                 return {
                     ...kpi,
                     categoryCode: bestMatch.code as any,
-                    subCategoryCode: bestMatch.subCode,
+                    subCategoryCode: bestMatch.subCode || null,
                     category: bestMatch.catName,
                 };
             }
