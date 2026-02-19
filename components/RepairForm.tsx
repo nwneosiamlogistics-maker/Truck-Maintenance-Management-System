@@ -1,13 +1,12 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver, DailyChecklist, RepairCategoryMaster } from '../types';
-import { MousePointer2, Settings, Truck, Package, Disc, Shield, Maximize2, AlertCircle, Clock, CheckCircle2, User, Wrench, CreditCard, ChevronRight, Edit3, ClipboardList } from 'lucide-react';
+import { Settings, Truck, Package, Shield, Maximize2, AlertCircle, Clock, CheckCircle2, User, Wrench, CreditCard, ChevronRight, Edit3, ClipboardList } from 'lucide-react';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import { useToast } from '../context/ToastContext';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
-import TruckModel3D from './TruckModel3D';
 import DailyChecklistForm from './DailyChecklistForm';
 
 
@@ -437,26 +436,21 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         setIsDriverSuggestionsOpen(false);
     };
 
-    const handlePartSelect = (part: string) => {
-        setFormData(prev => ({
-            ...prev,
-            problemDescription: prev.problemDescription
-                ? `${prev.problemDescription}\n- ตรวจเช็ค: ${part}`
-                : `- ตรวจเช็ค: ${part}`
-        }));
-        addToast(`เลือกส่วน "${part}" เรียบร้อย`, 'info');
-    };
-
     const resetForm = () => {
         setFormData(getInitialState());
         setOtherVehicleType('');
         setCurrentStep(0);
-        setAssignmentType('internal');
         setIsConfirmed(false);
+        setAssignmentType('internal');
+        setDriverSearchQuery('');
     };
 
-    const updateEstimationFromKPIs = useCallback((kpiIds: string[]) => {
-        const kpis = kpiIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
+    const handleAddKPIs = (newKpis: RepairKPI[]) => {
+        const newIds = newKpis.map(k => k.id);
+        const currentIds = new Set(formData.kpiTaskIds || []);
+        newIds.forEach(id => currentIds.add(id));
+
+        const kpis = newIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
         const totalHours = kpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
 
         const newDescription = kpis.map(k => `- ${k.item}`).join('\n');
@@ -475,28 +469,43 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
             return {
                 ...prev,
-                kpiTaskIds: kpiIds,
+                kpiTaskIds: Array.from(currentIds),
                 problemDescription: newDescription,
                 repairCategory: newCategory,
                 estimations: updatedEstimations
             };
         });
-    }, [kpiMap, holidayDates]);
-
-    const handleAddKPIs = (newKpis: RepairKPI[]) => {
-        const newIds = newKpis.map(k => k.id);
-        const currentIds = new Set(formData.kpiTaskIds || []);
-        newIds.forEach(id => currentIds.add(id));
-
-        updateEstimationFromKPIs(Array.from(currentIds));
-
         addToast(`เพิ่ม ${newKpis.length} รายการ KPI สำเร็จ`, 'success');
         setKPIModalOpen(false);
     };
 
     const handleRemoveKpi = (kpiId: string) => {
         const newIds = (formData.kpiTaskIds || []).filter(id => id !== kpiId);
-        updateEstimationFromKPIs(newIds);
+        const kpis = newIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
+        const totalHours = kpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
+
+        const newDescription = kpis.map(k => `- ${k.item}`).join('\n');
+        const newCategory = kpis.length > 0 ? kpis[0].category : 'ซ่อมทั่วไป';
+
+        setFormData(prev => {
+            const activeEst = prev.estimations[prev.estimations.length - 1];
+            const startDate = new Date(activeEst.estimatedStartDate || Date.now());
+            const endDate = calculateFinishTime(startDate, totalHours, holidayDates);
+
+            const updatedEstimations = prev.estimations.map(e =>
+                e.sequence === activeEst.sequence
+                    ? { ...e, estimatedLaborHours: totalHours, estimatedEndDate: endDate.toISOString(), aiReasoning: 'คำนวณจาก KPI มาตรฐานและเวลาทำงาน' }
+                    : e
+            );
+
+            return {
+                ...prev,
+                kpiTaskIds: newIds,
+                problemDescription: newDescription,
+                repairCategory: newCategory,
+                estimations: updatedEstimations
+            };
+        });
     };
 
     const handleAddPartsFromStock = (newParts: PartRequisitionItem[]) => {
@@ -716,7 +725,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <div className="animate-fade-in-up delay-200">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ชื่อผู้แจ้งซ่อม (Reported By)</label>
-                                <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold placeholder:text-slate-300 shadow-sm" placeholder="ชื่อผู้แจ้งอาการเสีย" />
+                                <input type="text" name="reportedBy" value={formData.reportedBy} onChange={handleInputChange} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm" placeholder="ชื่อผู้แจ้งอาการเสีย" />
                             </div>
                         </div>
 
@@ -801,11 +810,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">รุ่น (Model)</label>
                                 <input type="text" name="vehicleModel" value={formData.vehicleModel} onChange={handleInputChange} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm" placeholder="รุ่นรถ" />
                             </div>
-                        </div>
-
-                        {/* 3D Model Section */}
-                        <div className="animate-scale-in delay-700 pt-10">
-                            <TruckModel3D onPartSelect={handlePartSelect} />
                         </div>
 
                         <div className="animate-fade-in-up delay-[800ms] shadow-2xl shadow-slate-100 rounded-[2rem] overflow-hidden">
