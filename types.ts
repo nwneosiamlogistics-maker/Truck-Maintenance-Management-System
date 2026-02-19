@@ -462,6 +462,8 @@ export interface RepairFormSeed {
 
 export interface RepairKPI {
     id: string;
+    categoryCode?: RepairCategoryCode;
+    subCategoryCode?: string;
     category: string;
     item: string;
     standardHours: number;

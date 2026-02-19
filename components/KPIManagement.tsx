@@ -13,12 +13,22 @@ interface KPIModalProps {
 }
 
 const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiData, repairCategories }) => {
+    const safeCats = useMemo(() => (Array.isArray(repairCategories) ? repairCategories : []).filter(c => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder), [repairCategories]);
+
+    const detectCatFromName = (catName: string) => {
+        const mainName = catName.split(' > ')[0];
+        return safeCats.find(c => c.nameTh === mainName) || null;
+    };
+
+    const detectSubFromName = (catName: string, parentCat: RepairCategoryMaster | null) => {
+        if (!catName.includes(' > ') || !parentCat) return null;
+        const subName = catName.split(' > ')[1];
+        return (parentCat.subCategories || []).find(s => s.nameTh === subName) || null;
+    };
+
     const getInitialState = (): Omit<RepairKPI, 'id'> => {
-        return kpi || {
-            category: '',
-            item: '',
-            standardHours: 0,
-        };
+        if (kpi) return kpi;
+        return { category: '', item: '', standardHours: 0, categoryCode: undefined, subCategoryCode: undefined };
     };
 
     const [formData, setFormData] = useState(getInitialState());
@@ -26,9 +36,22 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
     const [minutes, setMinutes] = useState('0');
     const { addToast } = useToast();
 
+    const selectedMainCat = useMemo(() => {
+        if (formData.categoryCode) return safeCats.find(c => c.code === formData.categoryCode) || null;
+        return detectCatFromName(formData.category);
+    }, [formData.categoryCode, formData.category, safeCats]);
+
+    const activeSubs = useMemo(() => (selectedMainCat?.subCategories || []).filter(s => s.isActive), [selectedMainCat]);
+
     useEffect(() => {
         if (kpi) {
-            setFormData(kpi);
+            const cat = kpi.categoryCode ? safeCats.find(c => c.code === kpi.categoryCode) : detectCatFromName(kpi.category);
+            const sub = cat ? detectSubFromName(kpi.category, cat) : null;
+            setFormData({
+                ...kpi,
+                categoryCode: cat?.code || kpi.categoryCode,
+                subCategoryCode: sub?.code || kpi.subCategoryCode,
+            });
             const h = Math.floor(kpi.standardHours);
             const m = Math.round((kpi.standardHours % 1) * 60);
             setHours(String(h));
@@ -40,6 +63,27 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
         }
     }, [kpi]);
 
+    const handleMainCatChange = (catCode: string) => {
+        const cat = safeCats.find(c => c.code === catCode);
+        if (!cat) {
+            setFormData(prev => ({ ...prev, categoryCode: undefined, subCategoryCode: undefined, category: '' }));
+            return;
+        }
+        setFormData(prev => ({ ...prev, categoryCode: cat.code, subCategoryCode: undefined, category: cat.nameTh }));
+    };
+
+    const handleSubCatChange = (subCode: string) => {
+        if (!selectedMainCat) return;
+        if (!subCode) {
+            setFormData(prev => ({ ...prev, subCategoryCode: undefined, category: selectedMainCat.nameTh }));
+            return;
+        }
+        const sub = (selectedMainCat.subCategories || []).find(s => s.code === subCode);
+        if (sub) {
+            setFormData(prev => ({ ...prev, subCategoryCode: sub.code, category: `${selectedMainCat.nameTh} > ${sub.nameTh}` }));
+        }
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -47,8 +91,12 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.category.trim() || !formData.item.trim()) {
-            addToast('กรุณากรอกข้อมูลหมวดหมู่และรายการซ่อม', 'warning');
+        if (!formData.categoryCode) {
+            addToast('กรุณาเลือกหมวดหมู่หลัก', 'warning');
+            return;
+        }
+        if (!formData.item.trim()) {
+            addToast('กรุณากรอกรายการซ่อม', 'warning');
             return;
         }
 
@@ -76,18 +124,6 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
         onSave({ ...formData, standardHours: totalStandardHours, id: kpi?.id || '' });
     };
 
-    const allCategories = useMemo(() => {
-        const masterCats = (Array.isArray(repairCategories) ? repairCategories : [])
-            .filter(c => c.isActive)
-            .sort((a, b) => a.sortOrder - b.sortOrder)
-            .flatMap(c => [
-                c.nameTh,
-                ...(c.subCategories || []).filter(s => s.isActive).map(s => `${c.nameTh} > ${s.nameTh}`)
-            ]);
-        const existingCats = Array.from(new Set(existingKpiData.map(item => item.category)));
-        return Array.from(new Set([...masterCats, ...existingCats])).sort();
-    }, [existingKpiData, repairCategories]);
-
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
@@ -100,21 +136,45 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
                     </div>
                     <div className="p-6 space-y-4">
                         <div>
-                            <label className="block text-sm font-medium">หมวดหมู่ *</label>
-                            <input
-                                list="kpi-categories"
-                                type="text"
-                                name="category"
-                                value={formData.category}
-                                onChange={handleInputChange}
-                                required
-                                aria-label="หมวดหมู่"
+                            <label className="block text-sm font-medium">หมวดหมู่หลัก *</label>
+                            <select
+                                value={formData.categoryCode || ''}
+                                onChange={e => handleMainCatChange(e.target.value)}
                                 className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                            />
-                            <datalist id="kpi-categories">
-                                {allCategories.map(cat => <option key={cat} value={cat} />)}
-                            </datalist>
+                                aria-label="เลือกหมวดหมู่หลัก"
+                            >
+                                <option value="">🔧 เลือกหมวดหมู่หลัก...</option>
+                                {safeCats.map(cat => (
+                                    <option key={cat.code} value={cat.code}>{cat.icon} {cat.nameTh} ({cat.nameEn})</option>
+                                ))}
+                            </select>
                         </div>
+                        {selectedMainCat && activeSubs.length > 0 && (
+                            <div>
+                                <label className="block text-sm font-medium">หมวดย่อย</label>
+                                <select
+                                    value={formData.subCategoryCode || ''}
+                                    onChange={e => handleSubCatChange(e.target.value)}
+                                    className="mt-1 w-full p-2 border border-blue-300 bg-blue-50 rounded-lg"
+                                    aria-label="เลือกหมวดย่อย"
+                                >
+                                    <option value="">📋 เลือกงานย่อย (ไม่บังคับ)...</option>
+                                    {activeSubs.map(sub => (
+                                        <option key={sub.code} value={sub.code}>▸ {sub.nameTh} ({sub.nameEn})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {formData.categoryCode && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 font-semibold">
+                                    ✅ {formData.category}
+                                </span>
+                                <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-mono rounded">
+                                    {formData.categoryCode}{formData.subCategoryCode ? ` / ${formData.subCategoryCode}` : ''}
+                                </span>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-medium">รายการซ่อม *</label>
                             <input
@@ -125,6 +185,7 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
                                 required
                                 aria-label="รายการซ่อม"
                                 className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
+                                placeholder="เช่น เปลี่ยนถ่ายน้ำมันเครื่อง 15W-40"
                             />
                         </div>
                         <div>
@@ -196,10 +257,10 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
     };
 
     const handleSaveKPI = (kpi: RepairKPI) => {
-        if (kpi.id) { // Editing
+        if (kpi.id) {
             setKpiData(prev => prev.map(item => item.id === kpi.id ? kpi : item));
             addToast(`อัปเดต KPI '${kpi.item}' สำเร็จ`, 'success');
-        } else { // Adding
+        } else {
             const newKPI = { ...kpi, id: `kpi-${Date.now()}` };
             setKpiData(prev => [newKPI, ...prev]);
             addToast(`เพิ่ม KPI '${newKPI.item}' สำเร็จ`, 'success');
@@ -224,13 +285,15 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
         }
         const data = filteredKpiData.map((kpi, idx) => ({
             'ลำดับ': idx + 1,
+            'รหัสหมวด': kpi.categoryCode || '',
+            'รหัสย่อย': kpi.subCategoryCode || '',
             'หมวดหมู่': kpi.category,
             'รายการซ่อม': kpi.item,
             'เวลามาตรฐาน (ชม.)': Number(kpi.standardHours.toFixed(2)),
             'เวลามาตรฐาน (แสดง)': formatHoursDescriptive(kpi.standardHours, 8),
         }));
         const ws = XLSX.utils.json_to_sheet(data);
-        ws['!cols'] = [{ wch: 6 }, { wch: 35 }, { wch: 40 }, { wch: 18 }, { wch: 22 }];
+        ws['!cols'] = [{ wch: 6 }, { wch: 10 }, { wch: 12 }, { wch: 35 }, { wch: 40 }, { wch: 18 }, { wch: 22 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'KPI Data');
         XLSX.writeFile(wb, `KPI_Data_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -263,6 +326,7 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase w-20">รหัส</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมวดหมู่</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการซ่อม</th>
                             <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase">เวลามาตรฐาน</th>
@@ -272,6 +336,11 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredKpiData.map(kpi => (
                             <tr key={kpi.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-center">
+                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-mono rounded font-bold">
+                                        {kpi.categoryCode || '—'}
+                                    </span>
+                                </td>
                                 <td className="px-4 py-3 text-sm">{kpi.category}</td>
                                 <td className="px-4 py-3 font-semibold">{kpi.item}</td>
                                 <td className="px-4 py-3 text-right font-bold">{formatHoursDescriptive(kpi.standardHours, 8)}</td>
@@ -283,7 +352,7 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repa
                         ))}
                         {filteredKpiData.length === 0 && (
                             <tr>
-                                <td colSpan={4} className="text-center py-10 text-gray-500">ไม่พบข้อมูล KPI</td>
+                                <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูล KPI</td>
                             </tr>
                         )}
                     </tbody>
