@@ -450,11 +450,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const currentIds = new Set(formData.kpiTaskIds || []);
         newIds.forEach(id => currentIds.add(id));
 
-        const kpis = newIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
-        const totalHours = kpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
-
-        const newDescription = kpis.map(k => `- ${k.item}`).join('\n');
-        const newCategory = kpis.length > 0 ? kpis[0].category : 'ซ่อมทั่วไป';
+        const allIds = Array.from(currentIds);
+        const allKpis = allIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
+        const totalHours = allKpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
 
         setFormData(prev => {
             const activeEst = prev.estimations[prev.estimations.length - 1];
@@ -469,9 +467,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
             return {
                 ...prev,
-                kpiTaskIds: Array.from(currentIds),
-                problemDescription: newDescription,
-                repairCategory: newCategory,
+                kpiTaskIds: allIds,
                 estimations: updatedEstimations
             };
         });
@@ -483,9 +479,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         const newIds = (formData.kpiTaskIds || []).filter(id => id !== kpiId);
         const kpis = newIds.map(id => kpiMap.get(id)).filter(Boolean) as RepairKPI[];
         const totalHours = kpis.reduce((sum, kpi) => sum + kpi.standardHours, 0);
-
-        const newDescription = kpis.map(k => `- ${k.item}`).join('\n');
-        const newCategory = kpis.length > 0 ? kpis[0].category : 'ซ่อมทั่วไป';
 
         setFormData(prev => {
             const activeEst = prev.estimations[prev.estimations.length - 1];
@@ -501,8 +494,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             return {
                 ...prev,
                 kpiTaskIds: newIds,
-                problemDescription: newDescription,
-                repairCategory: newCategory,
                 estimations: updatedEstimations
             };
         });
@@ -812,7 +803,50 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
 
-                        <div className="animate-fade-in-up delay-[800ms] shadow-2xl shadow-slate-100 rounded-[2rem] overflow-hidden">
+                        <div className="animate-fade-in-up delay-[800ms]">
+                            <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ประเภทการซ่อม (Category) *</label>
+                            <select
+                                value={formData.repairCategory.split(' > ')[0] || ''}
+                                onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value })); }}
+                                className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
+                                aria-label="เลือกหมวดหมู่หลัก"
+                            >
+                                <option value="">🔧 เลือกหมวดหมู่หลัก...</option>
+                                {(Array.isArray(repairCategories) ? repairCategories : [])
+                                    .filter(c => c.isActive)
+                                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                                    .map(cat => (
+                                        <option key={cat.code} value={cat.nameTh}>{cat.icon} {cat.nameTh} ({cat.nameEn})</option>
+                                    ))
+                                }
+                            </select>
+                            {(() => {
+                                const mainName = formData.repairCategory.split(' > ')[0];
+                                const found = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                const subs = (found?.subCategories || []).filter(s => s.isActive);
+                                if (!found || subs.length === 0) return null;
+                                return (
+                                    <select
+                                        value={formData.repairCategory.includes(' > ') ? formData.repairCategory : ''}
+                                        onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value || mainName })); }}
+                                        className="w-full mt-3 p-5 bg-blue-50 border-2 border-blue-200 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
+                                        aria-label="เลือกหมวดย่อย"
+                                    >
+                                        <option value="">📋 เลือกงานย่อย (ไม่บังคับ)...</option>
+                                        {subs.map(sub => (
+                                            <option key={sub.id} value={`${mainName} > ${sub.nameTh}`}>▸ {sub.nameTh} ({sub.nameEn})</option>
+                                        ))}
+                                    </select>
+                                );
+                            })()}
+                            {formData.repairCategory && formData.repairCategory !== 'ซ่อมทั่วไป' && (
+                                <div className="mt-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-semibold flex items-center gap-2">
+                                    <span>✅</span> {formData.repairCategory}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="animate-fade-in-up delay-[900ms] shadow-2xl shadow-slate-100 rounded-[2rem] overflow-hidden">
                             <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">อาการเสียโดยละเอียด (Problem Description) *</label>
                             <textarea
                                 name="problemDescription"
@@ -861,66 +895,22 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             case 1: // การประเมินและมอบหมาย
                 return (
                     <div className="space-y-10 animate-fade-in-up">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            <div className="animate-fade-in-up delay-100">
-                                <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ความสำคัญ (Priority)</label>
-                                <select
-                                    name="priority"
-                                    value={formData.priority}
-                                    onChange={handleInputChange}
-                                    className={`w-full p-5 border-2 rounded-[1.5rem] transition-all duration-300 font-bold shadow-sm cursor-pointer appearance-none ${formData.priority === 'ปกติ' ? 'bg-slate-50 border-slate-100 text-slate-700' :
-                                        formData.priority === 'ด่วน' ? 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-500/10' :
-                                            'bg-red-50 border-red-200 text-red-700 focus:ring-red-500/10'
-                                        }`}
-                                    aria-label="Select Priority"
-                                >
-                                    <option value="ปกติ">ปกติ (Normal)</option>
-                                    <option value="ด่วน">ด่วน (Urgent)</option>
-                                    <option value="ด่วนที่สุด">ด่วนที่สุด (Emergency)</option>
-                                </select>
-                            </div>
-                            <div className="animate-fade-in-up delay-200">
-                                <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ประเภทการซ่อม (Category) *</label>
-                                <select
-                                    value={formData.repairCategory.split(' > ')[0] || ''}
-                                    onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value })); }}
-                                    className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
-                                    aria-label="เลือกหมวดหมู่หลัก"
-                                >
-                                    <option value="">🔧 เลือกหมวดหมู่หลัก...</option>
-                                    {(Array.isArray(repairCategories) ? repairCategories : [])
-                                        .filter(c => c.isActive)
-                                        .sort((a, b) => a.sortOrder - b.sortOrder)
-                                        .map(cat => (
-                                            <option key={cat.code} value={cat.nameTh}>{cat.icon} {cat.nameTh} ({cat.nameEn})</option>
-                                        ))
-                                    }
-                                </select>
-                                {(() => {
-                                    const mainName = formData.repairCategory.split(' > ')[0];
-                                    const found = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
-                                    const subs = (found?.subCategories || []).filter(s => s.isActive);
-                                    if (!found || subs.length === 0) return null;
-                                    return (
-                                        <select
-                                            value={formData.repairCategory.includes(' > ') ? formData.repairCategory : ''}
-                                            onChange={e => { setFormData(prev => ({ ...prev, repairCategory: e.target.value || mainName })); }}
-                                            className="w-full mt-3 p-5 bg-blue-50 border-2 border-blue-200 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
-                                            aria-label="เลือกหมวดย่อย"
-                                        >
-                                            <option value="">📋 เลือกงานย่อย (ไม่บังคับ)...</option>
-                                            {subs.map(sub => (
-                                                <option key={sub.id} value={`${mainName} > ${sub.nameTh}`}>▸ {sub.nameTh} ({sub.nameEn})</option>
-                                            ))}
-                                        </select>
-                                    );
-                                })()}
-                                {formData.repairCategory && (
-                                    <div className="mt-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-semibold flex items-center gap-2">
-                                        <span>✅</span> {formData.repairCategory}
-                                    </div>
-                                )}
-                            </div>
+                        <div className="animate-fade-in-up delay-100">
+                            <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ความสำคัญ (Priority)</label>
+                            <select
+                                name="priority"
+                                value={formData.priority}
+                                onChange={handleInputChange}
+                                className={`w-full p-5 border-2 rounded-[1.5rem] transition-all duration-300 font-bold shadow-sm cursor-pointer appearance-none ${formData.priority === 'ปกติ' ? 'bg-slate-50 border-slate-100 text-slate-700' :
+                                    formData.priority === 'ด่วน' ? 'bg-orange-50 border-orange-200 text-orange-700 focus:ring-orange-500/10' :
+                                        'bg-red-50 border-red-200 text-red-700 focus:ring-red-500/10'
+                                    }`}
+                                aria-label="Select Priority"
+                            >
+                                <option value="ปกติ">ปกติ (Normal)</option>
+                                <option value="ด่วน">ด่วน (Urgent)</option>
+                                <option value="ด่วนที่สุด">ด่วนที่สุด (Emergency)</option>
+                            </select>
                         </div>
 
                         <div className="animate-fade-in-up delay-300">
