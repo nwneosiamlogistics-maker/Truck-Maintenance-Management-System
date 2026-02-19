@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { RepairKPI } from '../types';
+import type { RepairKPI, RepairCategoryMaster } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, formatHoursDescriptive } from '../utils';
 import * as XLSX from 'xlsx';
@@ -9,9 +9,10 @@ interface KPIModalProps {
     onSave: (kpi: RepairKPI) => void;
     onClose: () => void;
     existingKpiData: RepairKPI[];
+    repairCategories: RepairCategoryMaster[];
 }
 
-const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiData }) => {
+const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiData, repairCategories }) => {
     const getInitialState = (): Omit<RepairKPI, 'id'> => {
         return kpi || {
             category: '',
@@ -76,8 +77,16 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
     };
 
     const allCategories = useMemo(() => {
-        return Array.from(new Set(existingKpiData.map(item => item.category))).sort();
-    }, [existingKpiData]);
+        const masterCats = (Array.isArray(repairCategories) ? repairCategories : [])
+            .filter(c => c.isActive)
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .flatMap(c => [
+                c.nameTh,
+                ...(c.subCategories || []).filter(s => s.isActive).map(s => `${c.nameTh} > ${s.nameTh}`)
+            ]);
+        const existingCats = Array.from(new Set(existingKpiData.map(item => item.category)));
+        return Array.from(new Set([...masterCats, ...existingCats])).sort();
+    }, [existingKpiData, repairCategories]);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[101] flex justify-center items-center p-4">
@@ -157,9 +166,10 @@ const KPIModal: React.FC<KPIModalProps> = ({ kpi, onSave, onClose, existingKpiDa
 interface KPIManagementProps {
     kpiData: RepairKPI[];
     setKpiData: React.Dispatch<React.SetStateAction<RepairKPI[]>>;
+    repairCategories: RepairCategoryMaster[];
 }
 
-const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) => {
+const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData, repairCategories }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingKPI, setEditingKPI] = useState<RepairKPI | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -286,6 +296,7 @@ const KPIManagement: React.FC<KPIManagementProps> = ({ kpiData, setKpiData }) =>
                     onSave={handleSaveKPI}
                     onClose={() => setIsModalOpen(false)}
                     existingKpiData={safeKpiData}
+                    repairCategories={repairCategories}
                 />
             )}
         </div>

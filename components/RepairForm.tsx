@@ -1,5 +1,5 @@
 import React, { useState, FormEvent, useMemo, useEffect, useRef, useCallback } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver, DailyChecklist } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, FileAttachment, Tab, Priority, EstimationAttempt, Vehicle, Supplier, RepairFormSeed, RepairKPI, Holiday, Driver, DailyChecklist, RepairCategoryMaster } from '../types';
 import { MousePointer2, Settings, Truck, Package, Disc, Shield, Maximize2, AlertCircle, Clock, CheckCircle2, User, Wrench, CreditCard, ChevronRight, Edit3, ClipboardList } from 'lucide-react';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
@@ -89,9 +89,10 @@ interface RepairFormProps {
     drivers: Driver[];
     checklists: DailyChecklist[];
     setChecklists: React.Dispatch<React.SetStateAction<DailyChecklist[]>>;
+    repairCategories: RepairCategoryMaster[];
 }
 
-const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays, drivers, checklists, setChecklists }) => {
+const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, repairs, setActiveTab, vehicles, suppliers, initialData, clearInitialData, kpiData, holidays, drivers, checklists, setChecklists, repairCategories }) => {
 
     const getInitialState = () => {
         const getRoundedStartDate = () => {
@@ -851,9 +852,21 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-sm cursor-pointer appearance-none"
                                     aria-label="Select Repair Category"
                                 >
-                                    <option>ซ่อมทั่วไป</option>
-                                    <option>เปลี่ยนอะไหล่</option>
-                                    <option>ตรวจเช็ก</option>
+                                    <option value="">-- เลือกหมวดหมู่ --</option>
+                                    {(Array.isArray(repairCategories) ? repairCategories : [])
+                                        .filter(c => c.isActive)
+                                        .sort((a, b) => a.sortOrder - b.sortOrder)
+                                        .map(cat => (
+                                            <optgroup key={cat.code} label={`${cat.icon} ${cat.nameTh} (${cat.nameEn})`}>
+                                                <option value={cat.nameTh}>{cat.nameTh} (ทั่วไป)</option>
+                                                {(cat.subCategories || []).filter(s => s.isActive).map(sub => (
+                                                    <option key={sub.id} value={`${cat.nameTh} > ${sub.nameTh}`}>
+                                                        {sub.nameTh} ({sub.nameEn})
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        ))
+                                    }
                                 </select>
                             </div>
                         </div>

@@ -1,7 +1,29 @@
 
 
-export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance' | 'vehicles' | 'incident-log';
+export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories';
 
+export type RepairCategoryCode = 'ENG' | 'TRA' | 'SUS' | 'BRK' | 'ELE' | 'AC' | 'TIR' | 'BOD' | 'HYD' | 'COO' | 'FUE' | 'PM' | 'OTH';
+
+export interface RepairSubCategory {
+    id: string;
+    code: string;
+    nameTh: string;
+    nameEn: string;
+    parentCode: RepairCategoryCode;
+    suggestedParts?: string[];
+    isActive: boolean;
+}
+
+export interface RepairCategoryMaster {
+    id: string;
+    code: RepairCategoryCode;
+    nameTh: string;
+    nameEn: string;
+    icon: string;
+    isActive: boolean;
+    sortOrder: number;
+    subCategories: RepairSubCategory[];
+}
 
 export type Priority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
 export type RepairStatus = 'รอซ่อม' | 'กำลังซ่อม' | 'รออะไหล่' | 'ซ่อมเสร็จ' | 'ยกเลิก';

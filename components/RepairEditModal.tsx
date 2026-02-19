@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction } from '../types';
+import type { Repair, Technician, StockItem, PartRequisitionItem, RepairStatus, StockStatus, Priority, EstimationAttempt, Supplier, StockTransaction, RepairCategoryMaster } from '../types';
 import StockSelectionModal from './StockSelectionModal';
 import ExternalPartModal from './ExternalPartModal';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
@@ -17,9 +17,10 @@ interface RepairEditModalProps {
     transactions: StockTransaction[];
     setTransactions: React.Dispatch<React.SetStateAction<StockTransaction[]>>;
     suppliers: Supplier[];
+    repairCategories: RepairCategoryMaster[];
 }
 
-const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, transactions, setTransactions, suppliers }) => {
+const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClose, technicians, stock, setStock, transactions, setTransactions, suppliers, repairCategories }) => {
     const getInitialState = (repairData: Repair) => {
         const repairCopy = JSON.parse(JSON.stringify(repairData));
         if (!Array.isArray(repairCopy.estimations) || repairCopy.estimations.length === 0) {
@@ -550,9 +551,19 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">ประเภทการซ่อม</label>
                                             <select name="repairCategory" value={formData.repairCategory} onChange={handleInputChange} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="ประเภทการซ่อม">
-                                                <option>ซ่อมทั่วไป</option>
-                                                <option>เปลี่ยนอะไหล่</option>
-                                                <option>ตรวจเช็ก</option>
+                                                <option value="">-- เลือกหมวดหมู่ --</option>
+                                                {(Array.isArray(repairCategories) ? repairCategories : [])
+                                                    .filter(c => c.isActive)
+                                                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                                                    .map(cat => (
+                                                        <optgroup key={cat.code} label={`${cat.icon} ${cat.nameTh}`}>
+                                                            <option value={cat.nameTh}>{cat.nameTh} (ทั่วไป)</option>
+                                                            {(cat.subCategories || []).filter(s => s.isActive).map(sub => (
+                                                                <option key={sub.id} value={`${cat.nameTh} > ${sub.nameTh}`}>{sub.nameTh}</option>
+                                                            ))}
+                                                        </optgroup>
+                                                    ))
+                                                }
                                             </select>
                                         </div>
                                         <div>

@@ -50,6 +50,7 @@ const DriverManagement = lazy(() => import('./components/DriverManagement'));
 const WarrantyInsuranceManagement = lazy(() => import('./components/WarrantyInsuranceManagement'));
 const IncidentLogPage = lazy(() => import('./components/IncidentLogPage'));
 const OKRManagement = lazy(() => import('./components/OKRManagement'));
+const RepairCategoryManagement = lazy(() => import('./components/RepairCategoryManagement'));
 
 
 
@@ -96,7 +97,7 @@ const AppContent: React.FC<AppContentProps> = ({
         budgets, setBudgets, fuelRecords, setFuelRecords, partWarranties, setPartWarranties,
         insuranceClaims, setInsuranceClaims, reports, setReports, notifications, setNotifications,
         tools, setTools, toolTransactions, setToolTransactions, cargoPolicies, setCargoPolicies,
-        cargoClaims, setCargoClaims, unreadNotificationCount
+        cargoClaims, setCargoClaims, repairCategories, setRepairCategories, unreadNotificationCount
     } = useAdmin();
 
     // Daily Maintenance, Repair Status & Warranty/Insurance Check
@@ -230,6 +231,7 @@ const AppContent: React.FC<AppContentProps> = ({
                     drivers={drivers}
                     checklists={checklists}
                     setChecklists={setChecklists}
+                    repairCategories={repairCategories}
                 />;
             case 'list':
                 return <RepairList
@@ -244,6 +246,7 @@ const AppContent: React.FC<AppContentProps> = ({
                     updateFungibleStock={updateFungibleStock}
                     usedParts={usedParts}
                     suppliers={suppliers}
+                    repairCategories={repairCategories}
                 />;
             case 'history':
                 return <RepairHistory
@@ -258,6 +261,7 @@ const AppContent: React.FC<AppContentProps> = ({
                     updateFungibleStock={updateFungibleStock}
                     usedParts={usedParts}
                     suppliers={suppliers}
+                    repairCategories={repairCategories}
                 />;
             case 'vehicle-repair-history':
                 return <VehicleRepairHistory repairs={repairs} vehicles={vehicles} />;
@@ -329,7 +333,7 @@ const AppContent: React.FC<AppContentProps> = ({
                     vehicles={vehicles}
                 />;
             case 'kpi-management':
-                return <KPIManagement kpiData={kpiData} setKpiData={setKpiData} />;
+                return <KPIManagement kpiData={kpiData} setKpiData={setKpiData} repairCategories={repairCategories} />;
             case 'okr-management':
                 return <OKRManagement
                     setActiveTab={setActiveTab}
@@ -407,6 +411,8 @@ const AppContent: React.FC<AppContentProps> = ({
                 />;
             case 'incident-log':
                 return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} />;
+            case 'repair-categories':
+                return <RepairCategoryManagement repairCategories={repairCategories} setRepairCategories={setRepairCategories} />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:

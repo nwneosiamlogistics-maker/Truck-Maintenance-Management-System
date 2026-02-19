@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Supplier, StockTransaction, PartRequisitionItem } from '../types';
+import type { Repair, Technician, StockItem, RepairStatus, UsedPart, Supplier, StockTransaction, PartRequisitionItem, RepairCategoryMaster } from '../types';
 import RepairEditModal from './RepairEditModal';
 import VehicleDetailModal from './VehicleDetailModal';
 import AddUsedPartsModal from './AddUsedPartsModal';
@@ -19,9 +19,10 @@ interface RepairHistoryProps {
     updateFungibleStock: (updates: { stockItemId: string, quantity: number, repairOrderNo: string }[]) => void;
     usedParts: UsedPart[];
     suppliers: Supplier[];
+    repairCategories: RepairCategoryMaster[];
 }
 
-const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions, addUsedParts, updateFungibleStock, suppliers, usedParts }) => {
+const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, technicians, stock, setStock, transactions, setTransactions, addUsedParts, updateFungibleStock, suppliers, usedParts, repairCategories }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
     const [addUsedPartsRepair, setAddUsedPartsRepair] = useState<Repair | null>(null);
@@ -299,6 +300,7 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                     transactions={transactions}
                     setTransactions={setTransactions}
                     suppliers={suppliers}
+                    repairCategories={repairCategories}
                 />
             )}
             {viewingRepair && (

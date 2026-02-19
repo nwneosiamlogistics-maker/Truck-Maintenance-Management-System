@@ -72,7 +72,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
 
         return ytdRep.filter(r => {
             // Exclude PM categories as they are expected to be repeated
-            if (r.repairCategory.includes('PM') || r.repairCategory.includes('เช็คระยะ')) return false;
+            if (r.repairCategory.includes('PM') || r.repairCategory.includes('เช็คระยะ') || r.repairCategory.includes('ซ่อมบำรุงตามระยะ')) return false;
 
             const rDate = new Date(r.createdAt);
             return repairs.some(prev => {
@@ -150,7 +150,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
 
             // HS6: Repeat Repair - Same symptom on same truck within 90 days (Exclude PM)
             const repeatedThisMonth = mRep.filter(r => {
-                if (r.repairCategory.includes('PM') || r.repairCategory.includes('เช็คระยะ')) return false;
+                if (r.repairCategory.includes('PM') || r.repairCategory.includes('เช็คระยะ') || r.repairCategory.includes('ซ่อมบำรุงตามระยะ')) return false;
 
                 const rDate = new Date(r.createdAt);
                 return repairs.some(prev => {
@@ -253,7 +253,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
         }).length;
         const ytdRep = repairs.filter(r => new Date(r.createdAt) >= rollingYearStart);
         const hs6 = ytdRep.filter(r => {
-            if (r.repairCategory.includes('PM') || r.repairCategory.includes('เช็คระยะ')) return false;
+            if (r.repairCategory.includes('PM') || r.repairCategory.includes('เช็คระยะ') || r.repairCategory.includes('ซ่อมบำรุงตามระยะ')) return false;
 
             const rDate = new Date(r.createdAt);
             return repairs.some(prev => {
