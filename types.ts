@@ -11,6 +11,7 @@ export interface RepairSubCategory {
     nameEn: string;
     parentCode: RepairCategoryCode;
     suggestedParts?: string[];
+    suggestedSymptoms?: string[];
     isActive: boolean;
 }
 

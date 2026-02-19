@@ -823,6 +823,38 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 required
                                 placeholder="ระบุอาการเสียโดยละเอียด หรือเลือกจากรูปด้านบน..."
                             ></textarea>
+                            {(() => {
+                                const mainName = formData.repairCategory.split(' > ')[0];
+                                const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
+                                if (!cat) return null;
+                                const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
+                                const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
+                                const symptoms = sub?.suggestedSymptoms || (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
+                                const unique = Array.from(new Set(symptoms));
+                                if (unique.length === 0) return null;
+                                return (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest self-center mr-1">อาการที่พบบ่อย:</span>
+                                        {unique.map(symptom => (
+                                            <button
+                                                key={symptom}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        problemDescription: prev.problemDescription
+                                                            ? `${prev.problemDescription}\n- ${symptom}`
+                                                            : `- ${symptom}`
+                                                    }));
+                                                }}
+                                                className="px-4 py-1.5 text-xs font-bold bg-white border border-slate-200 text-slate-600 rounded-full hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all active:scale-95 shadow-sm"
+                                            >
+                                                + {symptom}
+                                            </button>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 );
