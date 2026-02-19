@@ -1453,7 +1453,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             {isStockModalOpen && <StockSelectionModal stock={mainStock} onClose={() => setStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
             {isRevolvingStockModalOpen && <StockSelectionModal stock={revolvingStock} onClose={() => setRevolvingStockModalOpen(false)} onAddParts={handleAddPartsFromStock} existingParts={formData.parts} />}
             {isExternalPartModalOpen && <ExternalPartModal onClose={() => setExternalPartModalOpen(false)} onAddExternalParts={handleAddExternalParts} suppliers={suppliers} />}
-            {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} />}
+            {isKPIModalOpen && <KPIPickerModal isOpen={isKPIModalOpen} kpiData={kpiData} onClose={() => setKPIModalOpen(false)} onAddMultipleKPIs={handleAddKPIs} initialSelectedIds={formData.kpiTaskIds || []} activeRepairCategory={formData.repairCategory} />}
         </div>
     );
 };

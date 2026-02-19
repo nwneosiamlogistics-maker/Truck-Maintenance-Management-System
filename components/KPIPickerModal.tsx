@@ -8,9 +8,10 @@ interface KPIPickerModalProps {
     onAddMultipleKPIs: (kpis: RepairKPI[]) => void;
     kpiData: RepairKPI[];
     initialSelectedIds: string[];
+    activeRepairCategory?: string;
 }
 
-const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddMultipleKPIs, kpiData, initialSelectedIds }) => {
+const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddMultipleKPIs, kpiData, initialSelectedIds, activeRepairCategory }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialSelectedIds));
 
@@ -29,9 +30,20 @@ const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddM
             return acc;
         }, {} as Record<string, RepairKPI[]>);
 
-        return Object.entries(grouped).sort((a, b) => a[0].localeCompare(b[0]));
+        const entries = Object.entries(grouped);
+        if (activeRepairCategory) {
+            const mainCat = activeRepairCategory.split(' > ')[0];
+            entries.sort((a, b) => {
+                const aMatch = a[0].startsWith(mainCat) ? 0 : 1;
+                const bMatch = b[0].startsWith(mainCat) ? 0 : 1;
+                return aMatch - bMatch || a[0].localeCompare(b[0]);
+            });
+        } else {
+            entries.sort((a, b) => a[0].localeCompare(b[0]));
+        }
+        return entries;
 
-    }, [searchTerm, kpiData]);
+    }, [searchTerm, kpiData, activeRepairCategory]);
 
     const handleToggleSelection = (kpiId: string) => {
         setSelectedIds(prev => {
@@ -72,7 +84,10 @@ const KPIPickerModal: React.FC<KPIPickerModalProps> = ({ isOpen, onClose, onAddM
                     {filteredAndGroupedKPIs.length > 0 ? (
                         filteredAndGroupedKPIs.map(([category, kpis]) => (
                             <div key={category} className="mb-4">
-                                <h4 className="font-bold text-lg text-gray-700 bg-gray-200 p-2 rounded-t-lg sticky top-0">{category}</h4>
+                                <h4 className={`font-bold text-lg p-2 rounded-t-lg sticky top-0 ${activeRepairCategory && category.startsWith(activeRepairCategory.split(' > ')[0]) ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>
+                                    {category}
+                                    {activeRepairCategory && category.startsWith(activeRepairCategory.split(' > ')[0]) && <span className="ml-2 text-xs font-normal bg-blue-600 text-white px-2 py-0.5 rounded-full">ตรงกับหมวดที่เลือก</span>}
+                                </h4>
                                 <ul className="bg-white divide-y border-x border-b rounded-b-lg">
                                     {kpis.map(kpi => {
                                         const isSelected = selectedIds.has(kpi.id);
