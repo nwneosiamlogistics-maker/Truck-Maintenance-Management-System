@@ -19,6 +19,7 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
             vehicleType: '',
             make: '',
             model: '',
+            chassisNumber: null,
             registrationDate: null,
             insuranceCompany: null,
             insuranceExpiryDate: null,
@@ -103,6 +104,10 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
                             <div>
                                 <label className="block text-sm font-medium">รุ่น</label>
                                 <input type="text" name="model" placeholder="ระบุรุ่น" aria-label="Model" value={formData.model || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">หมายเลขตัวเครื่องรถ</label>
+                                <input type="text" name="chassisNumber" placeholder="ระบุหมายเลขตัวเครื่อง" aria-label="Chassis Number" value={formData.chassisNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                             <div className="lg:col-span-2">
                                 <label className="block text-sm font-medium">วันจดทะเบียนรถ</label>
@@ -283,6 +288,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
             'ประเภทรถ': v.vehicleType,
             'ยี่ห้อ': v.make,
             'รุ่น': v.model,
+            'หมายเลขตัวเครื่อง': v.chassisNumber || '-',
             'อายุรถ': calculateVehicleAge(v.registrationDate),
             'วันที่จดทะเบียน': v.registrationDate || '-',
             'บริษัทประกัน': v.insuranceCompany || '-',
@@ -324,6 +330,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียน</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภท / ยี่ห้อ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อายุรถ</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมายเลขตัวเครื่อง</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประกันภัย</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">พรบ.</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">สถานะ</th>
@@ -339,6 +346,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                     <td className="px-4 py-3 font-semibold">{vehicle.licensePlate}</td>
                                     <td className="px-4 py-3"><div>{vehicle.vehicleType}</div><div className="text-sm text-gray-500">{vehicle.make} {vehicle.model}</div></td>
                                     <td className="px-4 py-3 text-sm text-gray-700">{calculateVehicleAge(vehicle.registrationDate)}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-700">{vehicle.chassisNumber || '-'}</td>
                                     <td className="px-4 py-3 text-sm">
                                         <div>{vehicle.insuranceCompany || '-'}</div>
                                         <div className={insuranceStatus.className}>{vehicle.insuranceExpiryDate ? new Date(vehicle.insuranceExpiryDate).toLocaleDateString('th-TH') : '-'} ({insuranceStatus.text})</div>
@@ -383,6 +391,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                 <div className="text-sm space-y-1 text-gray-600">
                                     <p>{vehicle.vehicleType} {vehicle.make} {vehicle.model}</p>
                                     <p>อายุรถ: {calculateVehicleAge(vehicle.registrationDate)}</p>
+                                    <p>หมายเลขตัวเครื่อง: {vehicle.chassisNumber || '-'}</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg">
                                     <div>
