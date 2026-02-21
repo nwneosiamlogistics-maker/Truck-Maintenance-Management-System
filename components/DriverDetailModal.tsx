@@ -109,7 +109,7 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                             <p className="text-sm text-slate-500">{driver.employeeId} • {driver.licenseClass}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                    <button onClick={onClose} title="ปิด" aria-label="ปิด" className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                         <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -187,6 +187,20 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                                     </div>
                                 </div>
                             </div>
+                            
+                            {/* Photos Section */}
+                            {driver.photos && driver.photos.length > 0 && (
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 md:col-span-2">
+                                    <h4 className="font-bold text-slate-800 mb-4 border-b pb-2">รูปภาพ / เอกสาร</h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                        {driver.photos.map((url, index) => (
+                                            <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="block relative aspect-square rounded-xl overflow-hidden border border-slate-200 hover:shadow-md transition-shadow">
+                                                <img src={url} alt={`รูปภาพพนักงาน ${index + 1}`} className="w-full h-full object-cover" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -237,6 +251,8 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                             <div className="flex justify-between items-center">
                                 <h4 className="font-bold text-slate-800">ข้อมูลการลาประจำปี {selectedYear}</h4>
                                 <select
+                                    title="เลือกปี"
+                                    aria-label="เลือกปี"
                                     value={selectedYear}
                                     onChange={(e) => setSelectedYear(Number(e.target.value))}
                                     className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -317,8 +333,10 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                                         <h5 className="font-bold text-slate-800 mb-3">บันทึกการลา (ปี {selectedYear})</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1">ประเภทการลา</label>
+                                                <label htmlFor="leave-type" className="block text-xs font-bold text-slate-700 mb-1">ประเภทการลา</label>
                                                 <select
+                                                    id="leave-type"
+                                                    title="ประเภทการลา"
                                                     value={newLeave.type}
                                                     onChange={e => setNewLeave({ ...newLeave, type: e.target.value as LeaveType })}
                                                     className="w-full p-2 rounded-xl border border-slate-300 text-sm"
@@ -341,9 +359,11 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1">วันที่เริ่ม</label>
+                                                <label htmlFor="leave-start-date" className="block text-xs font-bold text-slate-700 mb-1">วันที่เริ่ม</label>
                                                 <input
+                                                    id="leave-start-date"
                                                     type="date"
+                                                    title="วันที่เริ่มลา"
                                                     value={newLeave.startDate}
                                                     onChange={e => minDateCheck(e.target.value)}
                                                     className="w-full p-2 rounded-xl border border-slate-300 text-sm"
@@ -351,9 +371,11 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1">วันที่สิ้นสุด</label>
+                                                <label htmlFor="leave-end-date" className="block text-xs font-bold text-slate-700 mb-1">วันที่สิ้นสุด</label>
                                                 <input
+                                                    id="leave-end-date"
                                                     type="date"
+                                                    title="วันที่สิ้นสุดการลา"
                                                     value={newLeave.endDate}
                                                     onChange={e => setNewLeave({ ...newLeave, endDate: e.target.value })}
                                                     className="w-full p-2 rounded-xl border border-slate-300 text-sm"

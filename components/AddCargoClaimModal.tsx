@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import type { CargoInsuranceClaim, CargoInsurancePolicy, Driver } from '../types';
+import PhotoUpload from './PhotoUpload';
 
 interface AddCargoClaimModalProps {
     onClose: () => void;
@@ -23,6 +24,7 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
     const [estimatedDamage, setEstimatedDamage] = useState<string>('');
     const [claimedAmount, setClaimedAmount] = useState<string>('');
     const [notes, setNotes] = useState('');
+    const [photos, setPhotos] = useState<string[]>([]);
     const [isDriverSuggestionsOpen, setIsDriverSuggestionsOpen] = useState(false);
     const [driverSuggestions, setDriverSuggestions] = useState<Driver[]>([]);
     const driverSuggestionsRef = React.useRef<HTMLDivElement>(null);
@@ -110,7 +112,7 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
             claimedAmount: Number(claimedAmount),
             deductible: calculateDeductible(),
             status: 'filed',
-            photos: [],
+            photos,
             documents: [],
             notes,
             createdAt: new Date().toISOString(),
@@ -376,6 +378,20 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
                                     )}
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Photos Section */}
+                        <div className="p-8 bg-slate-50 rounded-[2rem] border-2 border-slate-100 space-y-6">
+                            <h4 className="flex items-center gap-3 text-sm font-black text-slate-700 uppercase tracking-widest">
+                                <span className="w-8 h-8 rounded-lg bg-pink-600 text-white flex items-center justify-center text-xs">📸</span>
+                                รูปภาพประกอบการเคลม
+                            </h4>
+                            <PhotoUpload
+                                photos={photos}
+                                onChange={setPhotos}
+                                entity="cargoClaim"
+                                entityId="new"
+                            />
                         </div>
                     </form>
                 </div>

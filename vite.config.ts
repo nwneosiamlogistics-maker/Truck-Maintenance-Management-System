@@ -19,7 +19,18 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path.replace(/^\/telegram-api/, '')
-        }
+        },
+        '/nas-api': {
+          target: env.VITE_NAS_QUICKCONNECT_URL || 'https://neosiam.sg3.quickconnect.to',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/nas-api/, '/webapi'),
+          configure: (proxy) => {
+            proxy.on('proxyReq', (_proxyReq, req) => {
+              console.log('[NAS Proxy]', req.method, req.url);
+            });
+          },
+        },
       },
     },
     plugins: [react()],

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Driver, DrivingIncident, Vehicle } from '../types';
+import PhotoUpload from './PhotoUpload';
 
 interface AddIncidentModalProps {
     driver?: Driver; // Pre-selected driver if applicable
@@ -29,7 +30,8 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
         actionsTaken: '',
         damageToVehicle: 0,
         damageToProperty: 0,
-        injuries: ''
+        injuries: '',
+        photos: [] as string[]
     });
     const [customType, setCustomType] = useState('');
 
@@ -396,20 +398,18 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
                         </div>
                     </div>
 
-                    {/* Evidence Section (Mock) */}
+                    {/* Evidence Section */}
                     <div className="space-y-4 pt-6 border-t border-slate-100">
                         <div className="flex items-center gap-2 text-slate-600">
                             <div className="w-1.5 h-6 bg-slate-600 rounded-full"></div>
                             <h4 className="font-bold uppercase tracking-wider text-sm">หลักฐานและรูปภาพ</h4>
                         </div>
-                        <div className="flex flex-wrap gap-4">
-                            <div className="w-32 h-32 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all text-slate-400 hover:text-blue-500 group">
-                                <svg className="w-8 h-8 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                <span className="text-[10px] font-bold uppercase">เพิ่มรูปภาพ</span>
-                            </div>
-                        </div>
+                        <PhotoUpload
+                            photos={formData.photos}
+                            onChange={(photos) => setFormData(prev => ({ ...prev, photos }))}
+                            entity="incident"
+                            entityId="new"
+                        />
                     </div>
                 </form>
 

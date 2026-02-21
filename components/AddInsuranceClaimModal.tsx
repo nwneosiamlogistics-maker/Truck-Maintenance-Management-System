@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import type { InsuranceClaim, IncidentType, Vehicle } from '../types';
 import { formatCurrency } from '../utils';
 import { useToast } from '../context/ToastContext';
+import PhotoUpload from './PhotoUpload';
 
 interface AddInsuranceClaimModalProps {
     onClose: () => void;
@@ -56,7 +57,8 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
         estimatedRepairCost: 0,
         adjusterName: '',
         adjusterContact: '',
-        notes: ''
+        notes: '',
+        photos: [] as string[]
     });
 
     const claimAmount = formData.damageAssessment - formData.deductible;
@@ -103,6 +105,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
             adjusterName: formData.adjusterName || undefined,
             adjusterContact: formData.adjusterContact || undefined,
             documents: [],
+            photos: formData.photos,
             notes: formData.notes || undefined
         };
 
@@ -433,6 +436,20 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
                                 rows={2}
                                 placeholder="ข้อมูลเพิ่มเติม..."
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none resize-none"
+                            />
+                        </div>
+
+                        {/* Photos Section */}
+                        <div className="md:col-span-2 bg-slate-50 rounded-[2rem] p-6 border-2 border-slate-100 space-y-6">
+                            <h4 className="flex items-center gap-3 text-sm font-black text-slate-700 uppercase tracking-widest">
+                                <span className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs">📸</span>
+                                รูปภาพประกอบการเคลม
+                            </h4>
+                            <PhotoUpload
+                                photos={formData.photos}
+                                onChange={(photos) => setFormData(prev => ({ ...prev, photos }))}
+                                entity="insuranceClaim"
+                                entityId="new"
                             />
                         </div>
                     </div>

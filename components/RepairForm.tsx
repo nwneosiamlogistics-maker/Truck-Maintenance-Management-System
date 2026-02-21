@@ -8,7 +8,7 @@ import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 import DailyChecklistForm from './DailyChecklistForm';
-
+import PhotoUpload from './PhotoUpload';
 
 interface StepperProps {
     steps: string[];
@@ -148,6 +148,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             },
             kpiTaskIds: [],
             driverId: '',
+            photos: [],
         };
     };
 
@@ -686,7 +687,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 return (
                     <div className="space-y-10 animate-fade-in-up">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
-                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100" style={{ zIndex: 60 }}>
+                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100 z-[60]">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ทะเบียนรถ (License Plate) *</label>
                                 <div className="relative">
                                     <input
@@ -721,7 +722,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
-                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300" style={{ zIndex: 50 }}>
+                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300 z-[50]">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">พนักงานขับรถ (Driver)</label>
                                 <div className="relative">
                                     <input
@@ -857,11 +858,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 required
                                 placeholder="ระบุอาการเสียโดยละเอียด หรือเลือกจากรูปด้านบน..."
                             ></textarea>
+                            <PhotoUpload
+                                photos={formData.photos || []}
+                                onChange={(photos) => setFormData({ ...formData, photos })}
+                                entity="repair"
+                                entityId="new"
+                            />
                             {(() => {
                                 const mainName = formData.repairCategory.split(' > ')[0];
                                 const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
                                 if (!cat) return null;
                                 const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
+                                const subSymptoms = subName ? (cat.subCategories || []).find(s => s.nameTh === subName)?.suggestedSymptoms || [] : (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
                                 const symptoms = sub?.suggestedSymptoms || (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const unique = Array.from(new Set(symptoms));

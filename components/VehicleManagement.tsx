@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction } from '../utils';
 import { Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
+import PhotoUpload from './PhotoUpload';
 
 interface VehicleModalProps {
     vehicle: Vehicle | null;
@@ -28,6 +29,7 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
             actExpiryDate: null,
             cargoInsuranceCompany: null,
             status: 'Active',
+            photos: [],
         };
     };
 
@@ -128,6 +130,12 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
                                 </select>
                             </div>
                         </div>
+                        <PhotoUpload
+                            photos={formData.photos || []}
+                            onChange={(photos) => setFormData({ ...formData, photos })}
+                            entity="vehicle"
+                            entityId={vehicle?.id || 'new'}
+                        />
                     </div>
                     <div className="p-4 border rounded-lg bg-gray-50">
                         <h4 className="font-semibold mb-2">ประกันภัย</h4>
@@ -295,6 +303,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
             'วันหมดอายุประกัน': v.insuranceExpiryDate || '-',
             'บริษัท พรบ.': v.actCompany || '-',
             'วันหมดอายุ พรบ.': v.actExpiryDate || '-',
+            'รูปภาพ': v.photos ? v.photos.length : 0,
         }));
         exportToCSV('Fleet_Vehicles_List', exportData);
     };
@@ -334,6 +343,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประกันภัย</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">พรบ.</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">สถานะ</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">รูปภาพ</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">จัดการ</th>
                         </tr>
                     </thead>
@@ -362,6 +372,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                             </span>
                                         ); })()}
                                     </td>
+                                    <td className="px-4 py-3 text-center">{vehicle.photos && vehicle.photos.length > 0 ? `${vehicle.photos.length} รูป` : '-'}</td>
                                     <td className="px-4 py-3 text-center space-x-2 whitespace-nowrap">
                                         <button onClick={() => handleOpenModal(vehicle)} className="text-yellow-600 hover:text-yellow-800 text-base font-medium">แก้ไข</button>
                                         <button onClick={() => handleDeleteVehicle(vehicle)} className="text-red-500 hover:text-red-700 text-base font-medium">ลบ</button>
@@ -392,6 +403,7 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                     <p>{vehicle.vehicleType} {vehicle.make} {vehicle.model}</p>
                                     <p>อายุรถ: {calculateVehicleAge(vehicle.registrationDate)}</p>
                                     <p>หมายเลขตัวเครื่อง: {vehicle.chassisNumber || '-'}</p>
+                                    <p>รูปภาพ: {vehicle.photos ? vehicle.photos.length : 0} รูป</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg">
                                     <div>

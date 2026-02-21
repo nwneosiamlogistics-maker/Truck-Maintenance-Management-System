@@ -7,6 +7,7 @@ import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency, formatTotalCurrency } from '../utils';
 import { sendNewPOTelegramNotification } from '../utils/telegramService';
+import PhotoUpload from './PhotoUpload';
 
 interface PurchaseOrderManagementProps {
     purchaseOrders: PurchaseOrder[];
@@ -310,6 +311,60 @@ const TrackingView: React.FC<{
 };
 
 
+const ReceivePOModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    po: PurchaseOrder;
+    photos: string[];
+    onChangePhotos: (photos: string[]) => void;
+    onConfirm: () => void;
+}> = ({ isOpen, onClose, po, photos, onChangePhotos, onConfirm }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[102] flex justify-center items-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b flex justify-between items-center">
+                    <h3 className="text-2xl font-bold text-gray-800">รับของเข้าสต็อก (จากใบสั่งซื้อ)</h3>
+                    <button onClick={onClose} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                        <h4 className="font-semibold mb-2">รายการที่จะรับเข้า:</h4>
+                        <p><strong>PO:</strong> {po.poNumber} - {po.supplierName}</p>
+                        <ul className="list-disc list-inside space-y-1 mt-2">
+                            {(po.items || []).map((item, index) => (
+                                <li key={`${item.stockId}-${index}`}>
+                                    {item.name} - จำนวน: {item.quantity} {item.unit}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <PhotoUpload
+                        photos={photos}
+                        onChange={onChangePhotos}
+                        entity="purchaseOrder"
+                        entityId={po.id}
+                    />
+                </div>
+                <div className="p-6 border-t flex justify-end space-x-4 bg-gray-50">
+                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        className="px-8 py-2 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+                    >
+                        ยืนยันการรับของ
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
     purchaseOrders, setPurchaseOrders, purchaseRequisitions, setPurchaseRequisitions, setStock, setTransactions, suppliers, setActiveTab
 }) => {
@@ -325,6 +380,10 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
     const [pendingItemsPerPage, setPendingItemsPerPage] = useState(20);
     const [poPage, setPoPage] = useState(1);
     const [poItemsPerPage, setPoItemsPerPage] = useState(20);
+
+    // Receive PO modal states
+    const [receivingPO, setReceivingPO] = useState<PurchaseOrder | null>(null);
+    const [poPhotos, setPoPhotos] = useState<string[]>([]);
 
     // --- Data Filtering ---
     const pendingPRs = useMemo(() => {
@@ -462,7 +521,15 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         setActiveLocalTab('po-list');
     };
 
-    const handleReceivePO = async (po: PurchaseOrder) => {
+    const handleReceivePO = (po: PurchaseOrder) => {
+        setReceivingPO(po);
+        setPoPhotos([]);
+    };
+
+    const handleConfirmReceivePO = async () => {
+        if (!receivingPO) return;
+
+        const po = receivingPO;
         const confirmed = await confirmAction(
             'ยืนยันการรับของ',
             `ยืนยันการรับของสำหรับ PO: ${po.poNumber}? การกระทำนี้จะเพิ่มสต็อกสินค้าและปิด PR ที่เกี่ยวข้อง`
@@ -508,8 +575,8 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             setTransactions(prev => [...newTransactions, ...prev]);
         }
 
-        // 2. Update PO Status
-        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received' } : p));
+        // 2. Update PO Status with photos
+        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', photos: poPhotos } : p));
 
         // 3. Update Linked PRs to 'รับของแล้ว'
         setPurchaseRequisitions(prev => prev.map(pr => {
@@ -520,6 +587,8 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         }));
 
         addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย`, 'success');
+        setReceivingPO(null);
+        setPoPhotos([]);
     };
 
     const handleCancelPO = async (poId: string) => {
@@ -936,6 +1005,18 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                     onClose={() => setIsCreateModalOpen(false)}
                     onSave={handleSavePO}
                     suppliers={suppliers}
+                />
+            )}
+
+            {/* Receive PO Modal */}
+            {receivingPO && (
+                <ReceivePOModal
+                    isOpen={!!receivingPO}
+                    onClose={() => { setReceivingPO(null); setPoPhotos([]); }}
+                    po={receivingPO}
+                    photos={poPhotos}
+                    onChangePhotos={setPoPhotos}
+                    onConfirm={handleConfirmReceivePO}
                 />
             )}
         </div>

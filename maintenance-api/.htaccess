@@ -1,0 +1,18 @@
+# .htaccess สำหรับ Maintenance API บน NAS Synology
+# วางไฟล์นี้ในโฟลเดอร์ /volume1/web/Maintenance api/
+
+# --- CORS Headers ---
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Handle OPTIONS preflight
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=204,L]
+
+# Upload size limit (10MB)
+php_value upload_max_filesize 10M
+php_value post_max_size 12M
