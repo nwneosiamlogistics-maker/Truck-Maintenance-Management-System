@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Driver, LicenseClass, DriverStatus } from '../types';
+import PhotoUpload from './PhotoUpload';
 
 interface AddDriverModalProps {
     driver?: Driver | null;
@@ -65,7 +66,8 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
         usedLeave: driver?.usedLeave || { sick: 0, personal: 0, vacation: 0 },
         leaves: driver?.leaves || [],
         status: (driver?.status || 'active') as DriverStatus,
-        notes: driver?.notes || ''
+        notes: driver?.notes || '',
+        photos: driver?.photos || [] as string[]
     });
 
     const [certificationInput, setCertificationInput] = useState('');
@@ -483,6 +485,20 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                             title="หมายเหตุ"
                             placeholder="ระบุรายละเอียดเพิ่มเติม..."
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none resize-none"
+                        />
+                    </div>
+
+                    {/* Photos */}
+                    <div>
+                        <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600">6</span>
+                            รูปภาพพนักงาน / เอกสาร
+                        </h4>
+                        <PhotoUpload
+                            photos={formData.photos}
+                            onChange={(photos) => setFormData(prev => ({ ...prev, photos }))}
+                            entity="driver"
+                            entityId={driver?.id || 'new'}
                         />
                     </div>
                 </form>

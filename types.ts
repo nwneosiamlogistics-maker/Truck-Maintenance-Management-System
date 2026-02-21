@@ -104,6 +104,7 @@ export interface Repair {
     status: RepairStatus;
     createdAt: string;
     updatedAt: string;
+    photos?: string[];
     approvalDate?: string | null;
     repairStartDate?: string | null;
     repairEndDate?: string | null;
@@ -206,6 +207,7 @@ export interface PurchaseRequisition {
     otherRequestTypeDetail?: string;
     budgetStatus: PurchaseBudgetType;
     relatedPoNumber?: string;
+    photos?: string[];
 }
 
 export interface PurchaseOrderItem {
@@ -248,6 +250,7 @@ export interface PurchaseOrder {
     linkedPrIds: string[];
     linkedPrNumbers?: string[];
     createdBy?: string;
+    photos?: string[];
 }
 
 export interface Vehicle {
@@ -264,6 +267,7 @@ export interface Vehicle {
     actExpiryDate: string | null;
     cargoInsuranceCompany: string | null;
     status: 'Active' | 'Inactive';
+    photos?: string[];
 }
 
 export interface Notification {
@@ -690,6 +694,7 @@ export interface Driver {
     status: DriverStatus;
 
     notes?: string;
+    photos?: string[];
     createdAt: string;
     updatedAt: string;
 }
@@ -778,7 +783,7 @@ export interface DrivingIncident {
     disciplinaryAction?: string;
 
     // Evidence
-    photos?: FileAttachment[];
+    photos?: FileAttachment[] | string[];
     policeReport?: FileAttachment;
 
 
@@ -896,7 +901,7 @@ export interface InsuranceClaim {
     denialReason?: string;
 
     documents: FileAttachment[];
-    photos?: FileAttachment[];
+    photos?: FileAttachment[] | string[];
 
     notes?: string;
 
@@ -995,7 +1000,7 @@ export interface CargoInsuranceClaim {
 
     status: InsuranceClaimStatus;
 
-    photos: FileAttachment[];
+    photos: FileAttachment[] | string[];
     documents: FileAttachment[];
 
     notes?: string;

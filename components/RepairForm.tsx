@@ -8,7 +8,7 @@ import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 import DailyChecklistForm from './DailyChecklistForm';
-
+import PhotoUpload from './PhotoUpload';
 
 interface StepperProps {
     steps: string[];
@@ -148,6 +148,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             },
             kpiTaskIds: [],
             driverId: '',
+            photos: [],
         };
     };
 
@@ -857,11 +858,18 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 required
                                 placeholder="ระบุอาการเสียโดยละเอียด หรือเลือกจากรูปด้านบน..."
                             ></textarea>
+                            <PhotoUpload
+                                photos={formData.photos || []}
+                                onChange={(photos) => setFormData({ ...formData, photos })}
+                                entity="repair"
+                                entityId="new"
+                            />
                             {(() => {
                                 const mainName = formData.repairCategory.split(' > ')[0];
                                 const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
                                 if (!cat) return null;
                                 const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
+                                const symptoms = subName ? (cat.subCategories || []).find(s => s.nameTh === subName)?.suggestedSymptoms || [] : (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
                                 const symptoms = sub?.suggestedSymptoms || (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const unique = Array.from(new Set(symptoms));

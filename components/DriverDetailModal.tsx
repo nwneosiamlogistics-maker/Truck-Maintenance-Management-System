@@ -187,6 +187,20 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                                     </div>
                                 </div>
                             </div>
+                            
+                            {/* Photos Section */}
+                            {driver.photos && driver.photos.length > 0 && (
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 md:col-span-2">
+                                    <h4 className="font-bold text-slate-800 mb-4 border-b pb-2">รูปภาพ / เอกสาร</h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                        {driver.photos.map((url, index) => (
+                                            <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="block relative aspect-square rounded-xl overflow-hidden border border-slate-200 hover:shadow-md transition-shadow">
+                                                <img src={url} alt={`รูปภาพพนักงาน ${index + 1}`} className="w-full h-full object-cover" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
