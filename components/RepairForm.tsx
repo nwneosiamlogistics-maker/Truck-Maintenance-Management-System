@@ -869,7 +869,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
                                 if (!cat) return null;
                                 const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
-                                const symptoms = subName ? (cat.subCategories || []).find(s => s.nameTh === subName)?.suggestedSymptoms || [] : (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
+                                const subSymptoms = subName ? (cat.subCategories || []).find(s => s.nameTh === subName)?.suggestedSymptoms || [] : (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
                                 const symptoms = sub?.suggestedSymptoms || (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const unique = Array.from(new Set(symptoms));
