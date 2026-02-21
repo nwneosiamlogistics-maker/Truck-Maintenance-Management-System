@@ -254,10 +254,24 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                         </div>
                     </div>
 
+                    {/* Photos - ย้ายขึ้นมาด้านบนเพื่อความสะดวก */}
+                    <div>
+                        <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600">2</span>
+                            รูปภาพพนักงาน / เอกสาร
+                        </h4>
+                        <PhotoUpload
+                            photos={formData.photos}
+                            onChange={(photos) => setFormData(prev => ({ ...prev, photos }))}
+                            entity="driver"
+                            entityId={driver?.id || 'new'}
+                        />
+                    </div>
+
                     {/* License Information */}
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">2</span>
+                            <span className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">3</span>
                             ข้อมูลใบขับขี่
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -327,7 +341,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                     {/* Employment Information */}
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600">3</span>
+                            <span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600">4</span>
                             ข้อมูลการทำงาน
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -395,7 +409,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                     {/* Emergency Contact */}
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-red-600">4</span>
+                            <span className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-red-600">5</span>
                             ผู้ติดต่อฉุกเฉิน
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -438,7 +452,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                     {/* Certifications */}
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">5</span>
+                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">6</span>
                             ใบรับรองและการอบรม
                         </h4>
                         <div className="flex gap-2 mb-3">
@@ -488,19 +502,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                         />
                     </div>
 
-                    {/* Photos */}
-                    <div>
-                        <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600">6</span>
-                            รูปภาพพนักงาน / เอกสาร
-                        </h4>
-                        <PhotoUpload
-                            photos={formData.photos}
-                            onChange={(photos) => setFormData(prev => ({ ...prev, photos }))}
-                            entity="driver"
-                            entityId={driver?.id || 'new'}
-                        />
-                    </div>
+
                 </form>
 
                 <div className="p-6 border-t border-gray-100 bg-slate-50 flex justify-end gap-3">
