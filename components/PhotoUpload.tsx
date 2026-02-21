@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { getAuth } from 'firebase/auth';
 import imageCompression from 'browser-image-compression';
 import { useToast } from '../context/ToastContext';
-import { uploadToNAS, getNASImageUrl, isNASPath } from '../utils/nasService';
 
 interface PhotoUploadProps {
   photos: string[];
@@ -9,6 +9,47 @@ interface PhotoUploadProps {
   entity: string; // 'vehicle', 'repair', 'purchaseOrder'
   entityId: string;
 }
+
+// ฟังก์ชันอัปโหลดรูปไปยัง PHP script บน NAS
+const uploadToNAS = async (file: File, entity: string, entityId: string): Promise<string> => {
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  // เรียกใช้ upload.php บน NAS
+  const response = await fetch(`http://192.168.1.89/Maintenance%20api/upload.php?entity=${encodeURIComponent(entity)}&id=${encodeURIComponent(entityId)}`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let errorMsg = 'Upload failed';
+    try {
+      const errData = await response.json();
+      errorMsg = errData.error || errorMsg;
+    } catch (e) {
+      errorMsg = `Server error ${response.status}`;
+    }
+    throw new Error(errorMsg);
+  }
+
+  const result = await response.json();
+  if (result.url) {
+    return result.url;
+  } else {
+    throw new Error('No URL returned from server');
+  }
+};
+
+// ตรวจสอบว่าเป็น URL ของ NAS หรือไม่
+const isNASPath = (url: string) => {
+  return url.includes('192.168.1.89') || url.includes('Maintenance%20api');
+};
+
+// ดึง URL สำหรับแสดงรูปภาพ
+const getNASImageUrl = async (url: string) => {
+  // สำหรับการแสดงผล สามารถใช้ URL ที่ได้มาตรงๆ ได้เลย เพราะ serve.php คืนค่าเป็น public URL
+  return url;
+};
 
 /**
  * Component สำหรับแสดงรูปภาพจาก NAS

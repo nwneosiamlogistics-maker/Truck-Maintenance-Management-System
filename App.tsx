@@ -101,9 +101,10 @@ const AppContent: React.FC<AppContentProps> = ({
     } = useAdmin();
 
     // Daily Maintenance, Repair Status & Warranty/Insurance Check
+    // ปิดการส่ง Maintenance Summary จากฝั่ง Frontend เพื่อหลีกเลี่ยงการแจ้งเตือนซ้ำกับ Cloud Function
     React.useEffect(() => {
         const timer = setTimeout(() => {
-            checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
+            // checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
             checkAndSendDailyRepairStatus(repairs, technicians);
             checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
             checkAndSendLowStockAlert(stock);
