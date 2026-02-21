@@ -687,7 +687,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 return (
                     <div className="space-y-10 animate-fade-in-up">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
-                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100" style={{ zIndex: 60 }}>
+                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100 z-[60]">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ทะเบียนรถ (License Plate) *</label>
                                 <div className="relative">
                                     <input
@@ -722,7 +722,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
-                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300" style={{ zIndex: 50 }}>
+                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300 z-[50]">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">พนักงานขับรถ (Driver)</label>
                                 <div className="relative">
                                     <input

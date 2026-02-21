@@ -590,6 +590,8 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         setReceivingPO(null);
         setPoPhotos([]);
     };
+
+    const handleCancelPO = async (poId: string) => {
         if (await promptForPasswordAsync('ยกเลิกใบสั่งซื้อ')) {
             // Update PO status
             setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, status: 'Cancelled' } : p));

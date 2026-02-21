@@ -259,6 +259,7 @@ export interface Vehicle {
     vehicleType: string;
     make: string;
     model: string;
+    chassisNumber: string | null;
     registrationDate: string | null;
     insuranceCompany: string | null;
     insuranceExpiryDate: string | null;
