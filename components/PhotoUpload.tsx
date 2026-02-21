@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { getAuth } from 'firebase/auth';
 import imageCompression from 'browser-image-compression';
 import { useToast } from '../context/ToastContext';
 
@@ -15,8 +14,8 @@ const uploadToNAS = async (file: File, entity: string, entityId: string): Promis
   const formData = new FormData();
   formData.append('photo', file);
 
-  // เรียกใช้ upload.php บน NAS
-  const response = await fetch(`http://192.168.1.89/Maintenance%20api/upload.php?entity=${encodeURIComponent(entity)}&id=${encodeURIComponent(entityId)}`, {
+  // เรียกใช้ upload.php บน NAS (ใช้ HTTPS QuickConnect เพื่อหลีกเลี่ยงปัญหา mixed content/CORS)
+  const response = await fetch(`https://neosiam.sg3.quickconnect.to/Maintenance%20api/upload.php?entity=${encodeURIComponent(entity)}&id=${encodeURIComponent(entityId)}`, {
     method: 'POST',
     body: formData,
   });
@@ -42,7 +41,7 @@ const uploadToNAS = async (file: File, entity: string, entityId: string): Promis
 
 // ตรวจสอบว่าเป็น URL ของ NAS หรือไม่
 const isNASPath = (url: string) => {
-  return url.includes('192.168.1.89') || url.includes('Maintenance%20api');
+  return url.includes('192.168.1.89') || url.includes('Maintenance%20api') || url.includes('neosiam.sg3.quickconnect.to');
 };
 
 // ดึง URL สำหรับแสดงรูปภาพ
