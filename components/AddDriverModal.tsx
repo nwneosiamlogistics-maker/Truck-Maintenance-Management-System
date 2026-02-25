@@ -78,18 +78,21 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
         if (isSubmitting) return;
 
         setIsSubmitting(true);
+        const safePhotos = Array.isArray(formData.photos) ? formData.photos : [];
         try {
             if (driver) {
                 // Editing existing driver
                 await onSave({
                     ...driver,
                     ...formData,
+                    photos: safePhotos,
                     updatedAt: new Date().toISOString()
                 } as Driver);
             } else {
                 // Adding new driver
                 const newDriver: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'> = {
-                    ...formData
+                    ...formData,
+                    photos: safePhotos
                 };
                 await onSave(newDriver);
             }

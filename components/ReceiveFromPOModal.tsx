@@ -31,6 +31,8 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
             return;
         }
 
+        const safePhotos = Array.isArray(photos) ? photos : [];
+
         // 1. Update stock
         setStock(prevStock => {
             const newStock = [...prevStock];
@@ -70,7 +72,7 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         // 3. Update PR status
         setPurchaseRequisitions(prev => prev.map(pr =>
             pr.id === selectedPrId
-                ? { ...pr, status: 'รับของแล้ว', updatedAt: new Date().toISOString(), photos }
+                ? { ...pr, status: 'รับของแล้ว', updatedAt: new Date().toISOString(), photos: safePhotos }
                 : pr
         ));
 

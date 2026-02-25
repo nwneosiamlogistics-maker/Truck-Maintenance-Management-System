@@ -96,6 +96,7 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const safePhotos = Array.isArray(photos) ? photos : [];
         onSave({
             policyId,
             claimNumber: `CLM-CARGO-${Date.now()}`,
@@ -112,7 +113,7 @@ const AddCargoClaimModal: React.FC<AddCargoClaimModalProps> = ({ onClose, onSave
             claimedAmount: Number(claimedAmount),
             deductible: calculateDeductible(),
             status: 'filed',
-            photos,
+            photos: safePhotos,
             documents: [],
             notes,
             createdAt: new Date().toISOString(),

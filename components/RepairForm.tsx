@@ -571,6 +571,9 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         const { repairOrderNo, ...repairData } = formData;
 
+        // Ensure photos is an array before saving
+        repairData.photos = Array.isArray(formData.photos) ? formData.photos : [];
+
         if (repairData.vehicleType === 'อื่นๆ') {
             if (!otherVehicleType.trim()) {
                 addToast('กรุณาระบุประเภทรถ', 'warning');

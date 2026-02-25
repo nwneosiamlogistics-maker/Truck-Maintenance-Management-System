@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PhotoUpload from './PhotoUpload';
 import ReactDOM from 'react-dom';
 import ReactDOMServer from 'react-dom/server';
 import type { IncidentInvestigationReport, Vehicle, InsuranceClaim, CargoInsuranceClaim, Driver } from '../types';
@@ -134,6 +135,13 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
         preventiveActions: [],
         recommendations: [],
         investigationTeam: [],
+
+        evidences: {
+            incidentPhotos: [],
+            skidPhotos: [],
+            transportDocs: [],
+            gpsGraphs: [],
+        },
 
         siteConditions: {},
         managementReview: {
@@ -588,25 +596,57 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                     </div>
                                 </div>
 
-                                {/* Evidences (Mock Uploads) */}
+                                {/* Evidences (Uploads) */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">5.2 หลักฐาน (Evidences)</h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
-                                            <span className="text-2xl">📸</span>
-                                            <span className="text-xs mt-2">รูปที่เกิดเหตุ</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปที่เกิดเหตุ</p>
+                                            <PhotoUpload
+                                                photos={formData.evidences?.incidentPhotos || []}
+                                                onChange={(photos) => setFormData(prev => ({
+                                                    ...prev,
+                                                    evidences: { ...prev.evidences, incidentPhotos: photos }
+                                                }))}
+                                                entity="incident-investigation"
+                                                entityId={formData.reportNo || 'new'}
+                                            />
                                         </div>
-                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
-                                            <span className="text-2xl">🛣️</span>
-                                            <span className="text-xs mt-2">รูปแนวเบรก</span>
+                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปแนวเบรก</p>
+                                            <PhotoUpload
+                                                photos={formData.evidences?.skidPhotos || []}
+                                                onChange={(photos) => setFormData(prev => ({
+                                                    ...prev,
+                                                    evidences: { ...prev.evidences, skidPhotos: photos }
+                                                }))}
+                                                entity="incident-investigation"
+                                                entityId={(formData.reportNo || 'new') + '-skid'}
+                                            />
                                         </div>
-                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
-                                            <span className="text-2xl">📄</span>
-                                            <span className="text-xs mt-2">ใบกำกับขนส่ง</span>
+                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> ใบกำกับขนส่ง</p>
+                                            <PhotoUpload
+                                                photos={formData.evidences?.transportDocs || []}
+                                                onChange={(photos) => setFormData(prev => ({
+                                                    ...prev,
+                                                    evidences: { ...prev.evidences, transportDocs: photos }
+                                                }))}
+                                                entity="incident-investigation"
+                                                entityId={(formData.reportNo || 'new') + '-docs'}
+                                            />
                                         </div>
-                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
-                                            <span className="text-2xl">🛰️</span>
-                                            <span className="text-xs mt-2">กราฟ GPS</span>
+                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> กราฟ GPS</p>
+                                            <PhotoUpload
+                                                photos={formData.evidences?.gpsGraphs || []}
+                                                onChange={(photos) => setFormData(prev => ({
+                                                    ...prev,
+                                                    evidences: { ...prev.evidences, gpsGraphs: photos }
+                                                }))}
+                                                entity="incident-investigation"
+                                                entityId={(formData.reportNo || 'new') + '-gps'}
+                                            />
                                         </div>
                                     </div>
                                 </div>

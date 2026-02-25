@@ -68,7 +68,8 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
 
         setIsSubmitting(true);
         try {
-            await onSave({ ...formData, id: vehicle?.id || '' });
+            const safePhotos = Array.isArray(formData.photos) ? formData.photos : [];
+            await onSave({ ...formData, photos: safePhotos, id: vehicle?.id || '' });
         } catch (error) {
             console.error(error);
             setIsSubmitting(false);

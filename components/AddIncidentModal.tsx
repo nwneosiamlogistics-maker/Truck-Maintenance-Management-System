@@ -96,6 +96,8 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
         e.preventDefault();
         if (!selectedDriverId) return;
 
+        const safePhotos = Array.isArray(formData.photos) ? formData.photos : [];
+
         let finalDescription = formData.description;
         if (formData.type === 'อื่นๆ' && customType.trim()) {
             finalDescription = `[ประเภท: ${customType}] ${finalDescription}`;
@@ -105,6 +107,7 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
             driverId: selectedDriverId,
             ...formData,
             description: finalDescription,
+            photos: safePhotos,
         });
     };
 
