@@ -67,15 +67,11 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
         e.preventDefault();
 
         if (!selectedVehicle) {
-            addToast('กรุณาเลือกรถ', 'warning');
+            addToast('กรุณาเลือกรถที่ต้องการเคลม', 'warning');
             return;
         }
 
-        if (!formData.description) {
-            addToast('กรุณาระบุรายละเอียดอุบัติเหตุ', 'warning');
-            return;
-        }
-
+        const safePhotos = Array.isArray(formData.photos) ? formData.photos : [];
         const claim: Omit<InsuranceClaim, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'> = {
             claimNumber: formData.claimNumber,
             vehicleId: selectedVehicle.id,
@@ -105,7 +101,7 @@ const AddInsuranceClaimModal: React.FC<AddInsuranceClaimModalProps> = ({ onClose
             adjusterName: formData.adjusterName || undefined,
             adjusterContact: formData.adjusterContact || undefined,
             documents: [],
-            photos: formData.photos,
+            photos: safePhotos,
             notes: formData.notes || undefined
         };
 

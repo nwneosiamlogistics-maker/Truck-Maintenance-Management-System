@@ -1,14 +1,15 @@
 <?php
-// serve.php - แสดงรูปภาพจาก NAS
+// serve.php — แสดงไฟล์จาก NAS
 // =========================================================================
-// URL: serve.php?entity=vehicle&id=VEH-123&file=image.webp
-// Path: /volume1/web/Maintenance api/uploads/<entity>/<id>/<file>
+// URL: serve.php?file=truck-maintenance/vehicle/VEH-001/photo.webp
+// ค้นหาจาก Synology Drive ก่อน แล้ว fallback ไป /tmp/nas-uploads
+// ตาม NAS-UPLOAD-GUIDE
 // =========================================================================
 
 // --- CORS Headers ---
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -16,54 +17,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // --- Configuration ---
-$baseDir = '/volume1/web/Maintenance api/uploads';
+$DRIVE_BASE = '/volume1/Operation/paweewat/subcontractor-truck-management';
+$TMP_BASE   = '/tmp/nas-uploads';
 
-// --- Helper ---
-function respondError($message, $status = 400)
-{
-    http_response_code($status);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
+// --- Helper: JSON error (200 เสมอ ตาม guide) ---
+function respondError($message) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => false, 'error' => $message], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// --- Validate Params ---
-$entity = isset($_GET['entity']) ? trim($_GET['entity']) : '';
-$id = isset($_GET['id']) ? trim($_GET['id']) : '';
-$file = isset($_GET['file']) ? trim($_GET['file']) : '';
-
-if ($entity === '' || $id === '' || $file === '') {
-    respondError('Missing entity, id, or file', 400);
+// --- Validate ?file= param ---
+$fileParam = isset($_GET['file']) ? trim($_GET['file']) : '';
+if ($fileParam === '') {
+    respondError('Missing file parameter');
 }
 
-// Sanitize: ป้องกัน path traversal
-$entity = preg_replace('/[^a-zA-Z0-9_-]/', '', $entity);
-$id = preg_replace('/[^a-zA-Z0-9_.-]/', '', $id);
-$file = basename($file); // ป้องกัน directory traversal
-$file = str_replace('..', '', $file);
-
-// --- หาไฟล์ ---
-$path = rtrim($baseDir, '/') . '/' . $entity . '/' . $id . '/' . $file;
-
-if (!is_file($path)) {
-    respondError('File not found: ' . $entity . '/' . $id . '/' . $file, 404);
+// --- Sanitize: ป้องกัน path traversal ---
+if (strpos($fileParam, '..') !== false) {
+    respondError('Invalid file path');
+}
+$fileParam = ltrim(preg_replace('/[^a-zA-Z0-9\/_.\-]/', '', $fileParam), '/');
+if ($fileParam === '') {
+    respondError('Invalid file path after sanitize');
 }
 
-// --- กำหนด Content-Type ---
-$ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-$mimeTypes = [
-    'jpg' => 'image/jpeg',
-    'jpeg' => 'image/jpeg',
-    'png' => 'image/png',
-    'webp' => 'image/webp',
-    'gif' => 'image/gif',
+// --- ค้นหาไฟล์: Synology Drive ก่อน → fallback /tmp ---
+global $DRIVE_BASE, $TMP_BASE;
+$candidates = [
+    $DRIVE_BASE . '/' . $fileParam,
+    $TMP_BASE   . '/' . $fileParam,
 ];
-$mime = isset($mimeTypes[$ext]) ? $mimeTypes[$ext] : 'application/octet-stream';
 
-// --- Cache headers (cache รูป 30 วัน) ---
-header('Cache-Control: public, max-age=2592000');
+$filePath = null;
+foreach ($candidates as $candidate) {
+    if (is_file($candidate)) {
+        $filePath = $candidate;
+        break;
+    }
+}
+
+if ($filePath === null) {
+    respondError('File not found: ' . $fileParam);
+}
+
+// --- กำหนด MIME type ---
+$ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+$mimeMap = [
+    'webp' => 'image/webp',
+    'jpg'  => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'png'  => 'image/png',
+    'gif'  => 'image/gif',
+    'pdf'  => 'application/pdf',
+];
+$mime = isset($mimeMap[$ext]) ? $mimeMap[$ext] : 'application/octet-stream';
+
+// --- ส่งไฟล์ ---
 header('Content-Type: ' . $mime);
-header('Content-Length: ' . filesize($path));
+header('Content-Length: ' . filesize($filePath));
+header('Cache-Control: public, max-age=2592000');
+header('X-Served-From: ' . (strpos($filePath, $TMP_BASE) === 0 ? 'tmp' : 'drive'));
 
-readfile($path);
+readfile($filePath);
 exit;

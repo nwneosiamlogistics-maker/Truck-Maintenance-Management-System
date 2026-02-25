@@ -576,7 +576,8 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         }
 
         // 2. Update PO Status with photos
-        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', photos: poPhotos } : p));
+        const safePhotos = Array.isArray(poPhotos) ? poPhotos : [];
+        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', photos: safePhotos } : p));
 
         // 3. Update Linked PRs to 'รับของแล้ว'
         setPurchaseRequisitions(prev => prev.map(pr => {

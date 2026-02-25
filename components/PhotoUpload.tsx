@@ -1,71 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import imageCompression from 'browser-image-compression';
+import React, { useState } from 'react';
 import { useToast } from '../context/ToastContext';
-import { uploadToNAS, getNASImageUrl, isNASPath, clearBlobCache } from '../utils/nasService';
+import { uploadFileToStorage } from '../utils/fileUpload';
 
 interface PhotoUploadProps {
   photos: string[];
   onChange: (photos: string[]) => void;
-  entity: string; // 'vehicle', 'repair', 'purchaseOrder'
+  entity: string; // 'vehicle', 'repair', 'driver', 'incident', 'insurance', 'cargo'
   entityId: string;
 }
-
-/**
- * Component สำหรับแสดงรูปภาพจาก NAS
- * ถ้า URL เป็น NAS path จะ fetch ผ่าน FileStation API
- * ถ้าเป็น URL ปกติ (http/https/data) จะแสดงตรงๆ
- */
-const NASImage: React.FC<{ src: string; alt: string; className?: string }> = ({ src, alt, className }) => {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (!isNASPath(src)) {
-      setBlobUrl(src);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(false);
-
-    getNASImageUrl(src)
-      .then((url) => {
-        if (!cancelled) {
-          setBlobUrl(url);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load NAS image:', err);
-        if (!cancelled) {
-          setError(true);
-          setLoading(false);
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, [src]);
-
-  if (loading) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-gray-100 animate-pulse`}>
-        <span className="text-xs text-gray-400">กำลังโหลด...</span>
-      </div>
-    );
-  }
-
-  if (error || !blobUrl) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-red-50 border border-red-200`}>
-        <span className="text-xs text-red-400">โหลดรูปไม่ได้</span>
-      </div>
-    );
-  }
-
-  return <img src={blobUrl} alt={alt} className={className} />;
-};
 
 const PhotoUpload: React.FC<PhotoUploadProps> = ({ photos, onChange, entity, entityId }) => {
   const [uploading, setUploading] = useState(false);
@@ -83,31 +25,17 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ photos, onChange, entity, ent
 
     setUploading(true);
     try {
-      // Compress to WebP (max ~5MB, limit dimension to control size)
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 5,
-        maxWidthOrHeight: 2560,
-        fileType: 'image/webp',
-        initialQuality: 0.8,
-      });
+      // สร้างชื่อไฟล์ปลอดภัย และใช้ .webp เป็นนามสกุลให้ตรงกับไฟล์ที่บีบอัด
+      const base = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]+$/, '');
+      const filename = `${Date.now()}_${base}.webp`;
 
-      // Safety: reject if still >5MB after compression
-      if (compressed.size > 5 * 1024 * 1024) {
-        addToast('ขนาดไฟล์หลังบีบอัดยังเกิน 5MB กรุณาลดขนาดรูป', 'error');
-        return;
-      }
+      // อัปโหลดไปยัง NAS (ตัวช่วยจะบีบอัดเป็น WebP ให้เอง)
+      const path = `truck-maintenance/${entity}/${entityId}/${filename}`;
+      const imageUrl = await uploadFileToStorage(file, path);
 
-      // สร้างชื่อไฟล์ที่ปลอดภัย (ไม่มีอักขระพิเศษ)
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const filename = `${Date.now()}_${safeName}.webp`;
-      const webpFile = new File([compressed], filename, { type: 'image/webp' });
-
-      // อัปโหลดไปยัง NAS ผ่าน FileStation API
-      const nasPath = await uploadToNAS(webpFile, entity, entityId);
-
-      // เก็บ NAS path ใน Firebase (ผ่าน onChange)
-      onChange([...photos, nasPath]);
-      addToast('อัปโหลดรูปไปยัง NAS สำเร็จ', 'success');
+      // เก็บ NAS URL ใน Firebase Realtime Database (ผ่าน onChange)
+      onChange([...photos, imageUrl]);
+      addToast('อัปโหลดรูปสำเร็จ', 'success');
 
     } catch (error: any) {
       console.error('Upload error:', error);
@@ -139,7 +67,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ photos, onChange, entity, ent
         {uploading && (
           <div className="flex items-center gap-2 mt-2">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-blue-600">กำลังอัปโหลดไปยัง NAS...</p>
+            <p className="text-sm text-blue-600">กำลังอัปโหลดรูปภาพ...</p>
           </div>
         )}
       </div>
@@ -148,10 +76,14 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ photos, onChange, entity, ent
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {photos.map((url, index) => (
             <div key={index} className="relative">
-              <NASImage
+              <img
                 src={url}
                 alt={`รูปภาพ ${index + 1}`}
                 className="w-full h-24 object-cover rounded-lg border"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '';
+                  (e.target as HTMLImageElement).alt = 'โหลดรูปไม่ได้';
+                }}
               />
               <button
                 type="button"

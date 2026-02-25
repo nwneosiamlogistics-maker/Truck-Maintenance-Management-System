@@ -1,51 +1,43 @@
 <?php
-// /web/maintenance-api/upload.php
-// ปรับตาม NAS-UPLOAD-GUIDE: อัปโหลด /tmp/nas-uploads + serve.php ด้วยพารามิเตอร์ file
+// NCR Upload API - align with NAS-UPLOAD-GUIDE
+// วางที่ /web/ncr-api/upload.php
+// อัปโหลดลง /tmp/nas-uploads แล้วให้ serve.php คืนไฟล์ตาม path
+
+// ===== CONFIG =====
+$API_KEY     = 'neosiam-nas-2026-secret';
+$UPLOAD_DIR  = '/tmp/nas-uploads'; // PHP http user เขียนได้
+$BASE_URL    = 'https://neosiam.dscloud.biz/api/serve.php?file='; // serve.php จะดึงจาก /tmp + Synology Drive
+$MAX_SIZE    = 10 * 1024 * 1024; // 10MB
+$ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
 
 // ===== CORS =====
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-API-Key');
 header('Content-Type: application/json; charset=utf-8');
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit; // 200 เสมอ
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; } // 200 เสมอ
 
-// ===== CONFIG =====
-$API_KEY    = 'NAS_UPLOAD_KEY_sansan856';
-$UPLOAD_DIR = '/tmp/nas-uploads';
-$MAX_SIZE   = 10 * 1024 * 1024; // 10MB
-$ALLOWED_TYPES = [
-    'image/webp','image/jpeg','image/jpg','image/png','image/x-png','image/pjpeg',
-    'image/gif','application/pdf','application/octet-stream'
-];
-
-// Build BASE_URL dynamically from incoming request (support reverse proxy/tunnel)
-$scheme = 'http';
-if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && !empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
-    $scheme = $_SERVER['HTTP_X_FORWARDED_PROTO'];
-} elseif (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
-    $scheme = 'https';
-}
-$host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
-$BASE_URL = $scheme . '://' . $host . '/api/serve.php?file='; // serve.php จะหาไฟล์จาก /tmp + Synology Drive
-
+// ===== Helper (ตอบกลับเสมอ 200) =====
 function respond($data) {
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 // ===== Auth =====
-if (($_SERVER['HTTP_X_API_KEY'] ?? '') !== $API_KEY) {
+$reqKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
+if ($reqKey !== $API_KEY) {
     respond(['success' => false, 'error' => 'Unauthorized']);
 }
 
-// ===== Validate =====
+// ===== Validate method =====
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(['success' => false, 'error' => 'Method not allowed']);
 }
-if (!isset($_FILES['file']) || !isset($_POST['path'])) {
-    respond(['success' => false, 'error' => 'Missing file or path']);
-}
 
+// ===== Validate file =====
+if (!isset($_FILES['file'])) {
+    respond(['success' => false, 'error' => 'No file uploaded']);
+}
 $file = $_FILES['file'];
 if ($file['error'] !== UPLOAD_ERR_OK) {
     respond(['success' => false, 'error' => 'Upload error', 'code' => $file['error']]);
@@ -54,34 +46,19 @@ if ($file['size'] > $MAX_SIZE) {
     respond(['success' => false, 'error' => 'File too large', 'max' => $MAX_SIZE]);
 }
 
-// ===== MIME detection with fallbacks =====
-$mimeType = '';
+// MIME type check
+$mimeType = $file['type'];
 if (function_exists('finfo_open')) {
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mimeType = finfo_file($finfo, $file['tmp_name']);
     finfo_close($finfo);
 }
-$clientType = isset($file['type']) ? $file['type'] : '';
-if ((!$mimeType || $mimeType === 'application/octet-stream') && $clientType) {
-    $mimeType = $clientType;
-}
 if (!in_array($mimeType, $ALLOWED_TYPES, true)) {
-    $pathName = trim($_POST['path'] ?? ($file['name'] ?? ''));
-    $ext = strtolower(pathinfo($pathName, PATHINFO_EXTENSION));
-    $map = [
-        'webp' => 'image/webp', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
-        'png' => 'image/png', 'gif' => 'image/gif', 'pdf' => 'application/pdf'
-    ];
-    if (isset($map[$ext])) {
-        $mimeType = $map[$ext];
-    }
-}
-if (!in_array($mimeType, $ALLOWED_TYPES, true)) {
-    respond(['success' => false, 'error' => 'File type not allowed', 'type' => $mimeType, 'clientType' => $clientType]);
+    respond(['success' => false, 'error' => 'File type not allowed', 'type' => $mimeType]);
 }
 
-// ===== Path sanitize =====
-$rawPath = trim($_POST['path'] ?? '');
+// ===== Path handling =====
+$rawPath = isset($_POST['path']) ? trim($_POST['path']) : '';
 if ($rawPath === '' || str_contains($rawPath, '..')) {
     respond(['success' => false, 'error' => 'Invalid path']);
 }
@@ -96,7 +73,7 @@ foreach ($segments as $seg) {
 }
 $subPath = implode('/', $safeSegments);
 
-// fallback หาก path ว่าง
+// fallback ชื่อไฟล์ถ้าไม่มี path (ไม่น่ามีใน flow นี้)
 if ($subPath === '') {
     $extMap = [
         'image/webp' => 'webp', 'image/jpeg' => 'jpg', 'image/png' => 'png',
@@ -117,7 +94,7 @@ if (!move_uploaded_file($file['tmp_name'], $fullPath)) {
 }
 @chmod($fullPath, 0644);
 
-$url = $BASE_URL . $subPath;
+$url = rtrim($BASE_URL, '/') . '/' . $subPath;
 
 respond([
     'success' => true,
