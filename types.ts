@@ -122,6 +122,7 @@ export interface Technician {
     rating: number;
     completedJobs: number;
     currentJobs: number;
+    photos?: string[];
 }
 
 export interface StockItem {
@@ -428,6 +429,7 @@ export interface Tool {
 
     recordedBy: string | null; // ผู้บันทึก
     notes: string | null; // หมายเหตุ
+    photos?: string[]; // รูปภาพประกอบ
 }
 
 export interface ToolTransaction {
