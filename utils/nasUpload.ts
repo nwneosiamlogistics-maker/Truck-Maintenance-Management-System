@@ -18,8 +18,8 @@ const getCandidates = (): string[] => {
   }
   return [
     ...overrides,
-    'https://neosiam.dscloud.biz/api',
-    'http://192.168.1.82/api',
+    'https://neosiam.dscloud.biz/Maintenance-api',
+    'http://192.168.1.82/Maintenance-api',
   ];
 };
 

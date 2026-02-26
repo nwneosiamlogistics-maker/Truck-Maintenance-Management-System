@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // --- Configuration ---
-$DRIVE_BASE = '/volume1/Operation/paweewat/subcontractor-truck-management';
+$DRIVE_BASE = '/volume1/Operation/paweewat/Smart Truck Maintenance';
 $TMP_BASE   = '/tmp/nas-uploads';
 
 // --- Helper: JSON error (200 เสมอ ตาม guide) ---
