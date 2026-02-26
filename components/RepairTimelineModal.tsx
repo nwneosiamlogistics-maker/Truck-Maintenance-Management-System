@@ -65,11 +65,13 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
         });
     }
 
+    const hasPhotos = Array.isArray(repair.photos) && repair.photos.length > 0;
+
     if (repair.repairEndDate) {
         events.push({
             title: 'ซ่อมเสร็จสิ้น (Completed)',
             date: repair.repairEndDate,
-            description: `สถานะจบงาน: ${repair.status}`,
+            description: `สถานะจบงาน: ${repair.status}${hasPhotos ? ` | 📷 ${repair.photos!.length} รูป` : ''}`,
             icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', // Check Circle
             color: 'bg-green-500',
             bg: 'bg-green-50',
@@ -244,6 +246,24 @@ const RepairTimelineModal: React.FC<RepairTimelineModalProps> = ({ repair, onClo
                                                         </span>
                                                     </div>
                                                     <p className="text-gray-600 text-sm leading-relaxed">{event.description}</p>
+                                                    {/* Show photos on the Completed event */}
+                                                    {event.order === 4 && hasPhotos && (
+                                                        <div className="mt-3">
+                                                            <p className="text-xs font-semibold text-gray-500 mb-2">📷 รูปภาพประกอบ ({repair.photos!.length} รูป)</p>
+                                                            <div className="grid grid-cols-5 sm:grid-cols-8 gap-1.5">
+                                                                {repair.photos!.map((url, idx) => (
+                                                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                                                        <img
+                                                                            src={url}
+                                                                            alt={`รูปที่ ${idx + 1}`}
+                                                                            className="w-full h-14 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity cursor-pointer shadow-sm"
+                                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                        />
+                                                                    </a>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

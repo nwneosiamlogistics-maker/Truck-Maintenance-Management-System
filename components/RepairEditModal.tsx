@@ -6,6 +6,7 @@ import ExternalPartModal from './ExternalPartModal';
 import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { useToast } from '../context/ToastContext';
 import { calculateStockStatus, formatCurrency } from '../utils';
+import PhotoUpload from './PhotoUpload';
 
 interface RepairEditModalProps {
     repair: Repair;
@@ -179,6 +180,14 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                 return;
             }
 
+            if (newStatus === 'ซ่อมเสร็จ') {
+                const hasPhotos = Array.isArray(newFormData.photos) && newFormData.photos.length > 0;
+                if (!hasPhotos) {
+                    addToast('กรุณาแนบรูปภาพอย่างน้อย 1 รูปก่อนจบงาน', 'warning');
+                    return;
+                }
+            }
+
             const now = new Date().toISOString();
             if (newStatus === 'กำลังซ่อม' && !newFormData.repairStartDate) newFormData.repairStartDate = now;
             if (newStatus === 'ซ่อมเสร็จ' && !newFormData.repairEndDate) newFormData.repairEndDate = now;
@@ -247,7 +256,14 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
         setIsSubmitting(true);
 
         try {
-            let finalFormData = { ...formData };
+            const photosSafe = Array.isArray(formData.photos) ? formData.photos : [];
+            if (formData.status === 'ซ่อมเสร็จ' && photosSafe.length === 0) {
+                addToast('กรุณาแนบรูปภาพอย่างน้อย 1 รูปก่อนบันทึกสถานะ "ซ่อมเสร็จ"', 'warning');
+                setIsSubmitting(false);
+                return;
+            }
+
+            let finalFormData = { ...formData, photos: photosSafe };
 
             // 1. Update Estimation Status if repair is completed
             if (finalFormData.status === 'ซ่อมเสร็จ' && Array.isArray(finalFormData.estimations) && finalFormData.estimations.length > 0) {
@@ -806,6 +822,15 @@ const RepairEditModal: React.FC<RepairEditModalProps> = ({ repair, onSave, onClo
                                 <div className="p-6">
                                     <label className="block text-sm font-medium text-gray-700">บันทึกผลการซ่อม</label>
                                     <textarea name="repairResult" value={formData.repairResult} onChange={handleInputChange} rows={4} className="mt-1 w-full p-3 border border-gray-300 rounded-lg" aria-label="บันทึกผลการซ่อม" placeholder="ระบุรายละเอียดหลังการซ่อมเสร็จสิ้น"></textarea>
+                                    <div className="mt-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">รูปภาพประกอบงานซ่อม</label>
+                                        <PhotoUpload
+                                            photos={formData.photos || []}
+                                            onChange={(photos) => setFormData(prev => ({ ...prev, photos }))}
+                                            entity="repair"
+                                            entityId={formData.repairOrderNo || 'new'}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>

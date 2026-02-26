@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import type { Repair, Technician, RepairStatus, StockItem, UsedPart, Supplier, StockTransaction, RepairCategoryMaster } from '../types';
 import RepairEditModal from './RepairEditModal';
@@ -10,6 +10,7 @@ import { Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 // // import { sendRepairStatusLineNotification } from '../utils/lineService';
 import { sendRepairStatusTelegramNotification } from '../utils/telegramService';
+import { uploadFileToStorage } from '../utils/fileUpload';
 
 interface RepairListProps {
     repairs: Repair[];
@@ -117,6 +118,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
         const now = new Date();
         const nowDate = now.toISOString().split('T')[0];
         const nowTime = now.toTimeString().slice(0, 5);
+        const uploadedUrls: string[] = [];
 
         const { value: selectedDateTime } = await Swal.fire({
             title: `<div class="text-2xl font-bold mb-2">ยืนยันสถานะ: ${newStatus}</div>`,
@@ -144,6 +146,12 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                         </div>
                     </div>
                     <p class="text-xs text-gray-400 mt-2 italic text-center">* คุณสามารถแก้ไขวันย้อนหลังหากบันทึกล่าช้า</p>
+                    <div class="mt-3 p-3 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">
+                        <label class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">แนบรูปภาพ (${newStatus === 'ซ่อมเสร็จ' ? 'จำเป็นต้องมีอย่างน้อย 1 รูป' : 'ไม่บังคับ'})</label>
+                        <input id="swal-file" type="file" accept="image/*" multiple class="swal2-input !m-0 !w-full !rounded-xl !border-gray-200 !text-sm" />
+                        <div id="swal-upload-status" class="text-xs text-slate-500 mt-2"></div>
+                        <div id="swal-preview" class="mt-2 grid grid-cols-6 gap-2"></div>
+                    </div>
                 </div>
             `,
             focusConfirm: false,
@@ -152,12 +160,51 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             cancelButtonText: 'ยกเลิก',
             confirmButtonColor: '#2563eb',
             cancelButtonColor: '#94a3b8',
+            didOpen: (popup) => {
+                const fileInput = popup.querySelector('#swal-file') as HTMLInputElement | null;
+                const preview = popup.querySelector('#swal-preview') as HTMLElement | null;
+                const statusEl = popup.querySelector('#swal-upload-status') as HTMLElement | null;
+                if (fileInput) {
+                    fileInput.addEventListener('change', async () => {
+                        const files = Array.from(fileInput.files || []);
+                        if (files.length === 0) return;
+                        if (statusEl) statusEl.textContent = 'กำลังอัปโหลด...';
+                        for (const f of files) {
+                            try {
+                                const safeBase = f.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]+$/, '');
+                                const filename = `${Date.now()}_${safeBase}.webp`;
+                                const path = `truck-maintenance/repair/${repair.repairOrderNo}/${filename}`;
+                                const url = await uploadFileToStorage(f as File, path);
+                                uploadedUrls.push(url);
+                                if (preview) {
+                                    const img = document.createElement('img');
+                                    img.src = url;
+                                    img.alt = 'รูปที่อัปโหลด';
+                                    img.className = 'w-16 h-16 object-cover rounded-lg border';
+                                    preview.appendChild(img);
+                                }
+                            } catch (err) {
+                                console.error('Upload failed', err);
+                            }
+                        }
+                        if (statusEl) statusEl.textContent = uploadedUrls.length > 0 ? `อัปโหลดแล้ว ${uploadedUrls.length} รูป` : '';
+                        (fileInput as HTMLInputElement).value = '';
+                    });
+                }
+            },
             preConfirm: () => {
                 const dateInput = document.getElementById('swal-input-date') as HTMLInputElement;
                 const timeInput = document.getElementById('swal-input-time') as HTMLInputElement;
                 if (!dateInput.value || !timeInput.value) {
                     Swal.showValidationMessage('กรุณาระบุทั้งวันที่และเวลา');
                     return false;
+                }
+                if (newStatus === 'ซ่อมเสร็จ') {
+                    const totalPhotos = (Array.isArray(repair.photos) ? repair.photos.length : 0) + uploadedUrls.length;
+                    if (totalPhotos < 1) {
+                        Swal.showValidationMessage('กรุณาแนบรูปภาพอย่างน้อย 1 รูป');
+                        return false;
+                    }
                 }
                 return `${dateInput.value}T${timeInput.value}`;
             },
@@ -170,7 +217,7 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
 
         if (selectedDateTime) {
             const timestamp = new Date(selectedDateTime).toISOString();
-            const updatedRepair = { ...repair, status: newStatus, updatedAt: new Date().toISOString() };
+            const updatedRepair = { ...repair, status: newStatus, updatedAt: new Date().toISOString(), photos: [...(repair.photos || []), ...uploadedUrls] };
 
             if (newStatus === 'กำลังซ่อม') {
                 updatedRepair.repairStartDate = timestamp;
@@ -272,10 +319,10 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
             if (hasParts && !hasLoggedUsedParts) {
                 setAddUsedPartsRepair(updatedRepair);
             }
-        }
 
-        // Send Telegram Notification
-        sendRepairStatusTelegramNotification(repair, repair.status, newStatus);
+            // Send Telegram Notification
+            sendRepairStatusTelegramNotification(repair, repair.status, newStatus);
+        }
     }
 
     const getStatusBadge = (status: RepairStatus) => {

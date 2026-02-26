@@ -181,8 +181,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const [prData, setPrData] = useState(getInitialState());
     const [selectedStockId, setSelectedStockId] = useState('');
-    const [isVatEnabled, setIsVatEnabled] = useState(false);
+    const [isVatEnabled, setIsVatEnabled] = useState(true);
     const [vatRate, setVatRate] = useState(7);
+    const [vatMode, setVatMode] = useState<'exclusive' | 'inclusive'>('exclusive');
     const [departmentSelection, setDepartmentSelection] = useState('แผนกซ่อมบำรุง');
     const { addToast } = useToast();
 
@@ -210,8 +211,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     setVatRate(7);
                 }
             } else {
-                setIsVatEnabled(false);
+                setIsVatEnabled(true);
                 setVatRate(7);
+                setVatMode('exclusive');
             }
         }
     }, [isOpen, getInitialState, initialRequisition]);
@@ -222,28 +224,29 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     const { subtotal, vatAmount, grandTotal } = useMemo(() => {
         const items = Array.isArray(prData.items) ? prData.items : [];
 
-        // 1. คำนวณยอดรวมของแต่ละรายการ (Line Item Total) และปัดเศษทันที
-        // เพื่อให้ผลรวมท้ายบิลตรงกับผลรวมในตาราง (Sum of rounded lines)
-        const sub = items.reduce((total: number, item) => {
-            const rawLineTotal = item.quantity * item.unitPrice;
-            const roundedLineTotal = calculateThaiTax(rawLineTotal);
-            return total + roundedLineTotal;
+        // 1. ยอดรวมตามที่กรอก (sum of line totals)
+        const rawSum = items.reduce((total: number, item) => {
+            return total + calculateThaiTax(item.quantity * item.unitPrice);
         }, 0);
+        const roundedRawSum = calculateThaiTax(rawSum);
 
-        // 2. ยอดรวมก่อนภาษี (Subtotal)
-        // ปัดเศษอีกครั้งเพื่อความมั่นใจ (ป้องกัน Floating Point Drift)
-        const roundedSub = calculateThaiTax(sub);
+        if (!isVatEnabled) {
+            return { subtotal: roundedRawSum, vatAmount: 0, grandTotal: roundedRawSum };
+        }
 
-        // 3. คำนวณ VAT (VAT Calculation)
-        // เรียกใช้ฟังก์ชัน calculateVat จาก utils โดยตรง (สะอาดและลดความผิดพลาด)
-        const vat = isVatEnabled ? calculateVat(roundedSub, vatRate) : 0;
-
-        // 4. ยอดรวมสุทธิ (Grand Total)
-        // นำ Subtotal ที่ปัดแล้ว + VAT ที่ปัดแล้ว มารวมกัน
-        const grand = calculateThaiTax(roundedSub + vat);
-
-        return { subtotal: roundedSub, vatAmount: vat, grandTotal: grand };
-    }, [prData.items, isVatEnabled, vatRate]);
+        if (vatMode === 'inclusive') {
+            // ราคาที่กรอกรวม VAT แล้ว → ถอด VAT ออก
+            // ราคาก่อน VAT = ยอดรวม ÷ (1 + vatRate/100)
+            const netBeforeVat = calculateThaiTax(roundedRawSum / (1 + vatRate / 100));
+            const vat = calculateThaiTax(roundedRawSum - netBeforeVat);
+            return { subtotal: netBeforeVat, vatAmount: vat, grandTotal: roundedRawSum };
+        } else {
+            // ราคาที่กรอกยังไม่รวม VAT → บวก VAT เพิ่ม
+            const vat = calculateVat(roundedRawSum, vatRate);
+            const grand = calculateThaiTax(roundedRawSum + vat);
+            return { subtotal: roundedRawSum, vatAmount: vat, grandTotal: grand };
+        }
+    }, [prData.items, isVatEnabled, vatRate, vatMode]);
 
     const handlePrint = () => {
         if (!initialRequisition) return;
@@ -609,13 +612,37 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     <div className="flex justify-end pt-4">
                         <div className="w-full md:w-1/3 space-y-2">
                             <div className="flex justify-between"><span>ราคารวม</span><span>{formatCurrency(subtotal)}</span></div>
-                            <div className="flex justify-between items-center">
-                                <span>
-                                    <input type="checkbox" checked={isVatEnabled} onChange={e => setIsVatEnabled(e.target.checked)} className="mr-2" disabled={!areFinancialsEditable} aria-label="เปิดใช้งาน VAT" />
-                                    VAT
-                                    <input type="number" value={vatRate} onChange={e => setVatRate(Number(e.target.value))} className="w-16 ml-2 p-1 border rounded text-right" disabled={!isVatEnabled || !areFinancialsEditable} aria-label="อัตราภาษีมูลค่าเพิ่ม (%)" /> %
+                            <div className="flex justify-between items-start gap-2">
+                                <span className="flex flex-wrap items-center gap-1 text-sm">
+                                    <input type="checkbox" checked={isVatEnabled} onChange={e => setIsVatEnabled(e.target.checked)} className="mr-1" disabled={!areFinancialsEditable} aria-label="เปิดใช้งาน VAT" />
+                                    <span className="font-medium">VAT</span>
+                                    <input type="number" value={vatRate} onChange={e => setVatRate(Number(e.target.value))} className="w-14 p-1 border rounded text-right" disabled={!isVatEnabled || !areFinancialsEditable} aria-label="อัตราภาษีมูลค่าเพิ่ม (%)" />
+                                    <span>%</span>
+                                    {isVatEnabled && areFinancialsEditable && (
+                                        <span className="flex items-center gap-1 ml-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setVatMode('exclusive')}
+                                                title="ราคาที่กรอกยังไม่รวม VAT (บวก VAT เพิ่ม)"
+                                                className={`px-2 py-0.5 rounded border text-xs font-medium transition-colors ${vatMode === 'exclusive' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}
+                                            >
+                                                +VAT
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setVatMode('inclusive')}
+                                                title="ราคาที่กรอกรวม VAT แล้ว (ถอด VAT ออก)"
+                                                className={`px-2 py-0.5 rounded border text-xs font-medium transition-colors ${vatMode === 'inclusive' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}
+                                            >
+                                                ถอด VAT
+                                            </button>
+                                        </span>
+                                    )}
                                 </span>
-                                <span>{formatCurrency(vatAmount)}</span>
+                                <span className="flex flex-col items-end">
+                                    <span>{formatCurrency(vatAmount)}</span>
+                                    {isVatEnabled && <span className="text-xs text-gray-400">{vatMode === 'inclusive' ? 'รวม VAT แล้ว' : 'บวก VAT เพิ่ม'}</span>}
+                                </span>
                             </div>
                             <div className="flex justify-between font-bold text-lg border-t pt-2"><span>ยอดรวมสุทธิ</span><span>{formatCurrency(grandTotal)}</span></div>
                         </div>
