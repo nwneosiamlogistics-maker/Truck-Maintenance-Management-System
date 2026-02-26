@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { Tool, ToolTransaction, Technician, ToolStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction } from '../utils';
+import PhotoUpload from './PhotoUpload';
 
 interface ToolModalProps {
     tool: Tool | null;
@@ -51,14 +52,17 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
             electricalData: null,
             recordedBy: null,
             notes: null,
+            photos: [],
         };
     };
 
     const [formData, setFormData] = useState(getInitialState());
+    const [photos, setPhotos] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setFormData(getInitialState());
+        setPhotos(tool?.photos || []);
     }, [tool]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -94,7 +98,8 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
             await onSave({
                 ...formData,
                 id: tool?.id || '',
-                quantityCheckedOut: tool?.quantityCheckedOut || 0
+                quantityCheckedOut: tool?.quantityCheckedOut || 0,
+                photos,
             } as Tool);
         } catch (error) {
             console.error(error);
@@ -227,6 +232,14 @@ const ToolModal: React.FC<ToolModalProps> = ({ tool, onSave, onClose, existingTo
                             <label className="block text-sm font-medium text-gray-700">หมายเหตุ</label>
                             <textarea name="notes" aria-label="หมายเหตุ" value={formData.notes || ''} onChange={handleInputChange} rows={2} className="mt-1 w-full p-2 border rounded-lg" />
                         </div>
+
+                        <h4 className="font-semibold text-lg border-b pb-2 mt-6">📷 รูปภาพประกอบ</h4>
+                        <PhotoUpload
+                            photos={photos}
+                            onChange={setPhotos}
+                            entity="tools"
+                            entityId={tool?.id || 'new'}
+                        />
                     </div>
 
                     <div className="p-6 border-t flex justify-end gap-4">
@@ -254,6 +267,7 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
     const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTool, setEditingTool] = useState<Tool | null>(null);
+    const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
 
     const handleCheckout = () => addToast('ฟังก์ชันยืมเครื่องมือยังไม่เปิดใช้งาน', 'info');
     const handleCheckIn = () => addToast('ฟังก์ชันคืนเครื่องมือยังไม่เปิดใช้งาน', 'info');
@@ -334,22 +348,56 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {safeTools.map(tool => (
-                                <tr key={tool.id}>
-                                    <td className="px-4 py-3"><div className="font-semibold">{tool.name}</div><div className="text-sm text-gray-500">{tool.code}</div></td>
-                                    <td className="px-4 py-3"><div className="font-semibold">{tool.brand || '-'}</div><div className="text-sm text-gray-500">{tool.model || '-'}</div></td>
-                                    <td className="px-4 py-3">{tool.category}</td>
-                                    <td className="px-4 py-3 text-right">
-                                        <span className="font-bold text-lg">{tool.totalQuantity}</span> / <span className="text-orange-600">{tool.quantityCheckedOut}</span>
-                                    </td>
-                                    <td className="px-4 py-3">{tool.status}</td>
-                                    <td className="px-4 py-3">{tool.storageLocation}</td>
-                                    <td className="px-4 py-3 text-center space-x-2">
-                                        <button onClick={() => handleOpenModal(tool)} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
-                                        <button onClick={() => handleDeleteTool(tool)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {safeTools.map(tool => {
+                                const toolPhotos = Array.isArray(tool.photos) ? tool.photos.filter(Boolean) : [];
+                                return (
+                                    <tr key={tool.id}>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                {toolPhotos.length > 0 ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setLightbox({ photos: toolPhotos, index: 0 })}
+                                                        className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-colors"
+                                                        title={`ดูรูปภาพ (${toolPhotos.length} รูป)`}
+                                                    >
+                                                        <img
+                                                            src={toolPhotos[0]}
+                                                            alt={tool.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                        />
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-xs border border-gray-200">
+                                                        📷
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <div className="font-semibold">{tool.name}</div>
+                                                    <div className="text-sm text-gray-500">{tool.code}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3"><div className="font-semibold">{tool.brand || '-'}</div><div className="text-sm text-gray-500">{tool.model || '-'}</div></td>
+                                        <td className="px-4 py-3">{tool.category}</td>
+                                        <td className="px-4 py-3 text-right">
+                                            <span className="font-bold text-lg">{tool.totalQuantity}</span> / <span className="text-orange-600">{tool.quantityCheckedOut}</span>
+                                        </td>
+                                        <td className="px-4 py-3">{tool.status}</td>
+                                        <td className="px-4 py-3">{tool.storageLocation}</td>
+                                        <td className="px-4 py-3 text-center space-x-2">
+                                            {toolPhotos.length > 0 && (
+                                                <button onClick={() => setLightbox({ photos: toolPhotos, index: 0 })} className="text-blue-500 hover:text-blue-700 font-medium" title="ดูรูปภาพทั้งหมด">
+                                                    📷 {toolPhotos.length}
+                                                </button>
+                                            )}
+                                            <button onClick={() => handleOpenModal(tool)} className="text-yellow-600 hover:text-yellow-800 font-medium">แก้ไข</button>
+                                            <button onClick={() => handleDeleteTool(tool)} className="text-red-500 hover:text-red-700 font-medium">ลบ</button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -389,6 +437,56 @@ const ToolManagement: React.FC<ToolManagementProps> = ({ tools, setTools, transa
                     onClose={() => setIsModalOpen(false)}
                     existingTools={safeTools}
                 />
+            )}
+
+            {lightbox && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[200] flex flex-col items-center justify-center p-4"
+                    onClick={() => setLightbox(null)}
+                >
+                    <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setLightbox(null)}
+                            className="absolute -top-10 right-0 text-white text-3xl hover:text-gray-300 z-10"
+                            aria-label="ปิด"
+                        >
+                            ✕
+                        </button>
+                        <img
+                            src={lightbox.photos[lightbox.index]}
+                            alt={`รูปที่ ${lightbox.index + 1}`}
+                            className="w-full max-h-[75vh] object-contain rounded-xl shadow-2xl"
+                        />
+                        <div className="flex items-center justify-center gap-4 mt-4">
+                            <button
+                                onClick={() => setLightbox(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null)}
+                                disabled={lightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ‹ ก่อนหน้า
+                            </button>
+                            <span className="text-white text-sm">{lightbox.index + 1} / {lightbox.photos.length}</span>
+                            <button
+                                onClick={() => setLightbox(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null)}
+                                disabled={lightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ถัดไป ›
+                            </button>
+                        </div>
+                        <div className="flex gap-2 mt-3 justify-center flex-wrap">
+                            {lightbox.photos.map((url, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setLightbox(prev => prev ? { ...prev, index: idx } : null)}
+                                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${idx === lightbox.index ? 'border-blue-400' : 'border-transparent hover:border-gray-400'}`}
+                                >
+                                    <img src={url} alt={`thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -33,6 +33,8 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false); // General incident modal
     const [viewMode, setViewMode] = useState<'list' | 'leave-report'>('list');
+    const [isChartCollapsed, setIsChartCollapsed] = useState(true);
+    const [cardLightbox, setCardLightbox] = useState<{ photos: string[]; index: number } | null>(null);
     const { addToast } = useToast();
 
     const handleSaveDriver = (driver: Driver | Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -195,9 +197,9 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
     }, [topPerformers]);
 
     return (
-        <div className="space-y-8 animate-fade-in-up">
+        <div className="space-y-4 animate-fade-in-up">
             {/* Header */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div>
                         <h2 className="text-3xl font-bold text-slate-800">จัดการพนักงานขับรถ</h2>
@@ -287,82 +289,48 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
 
             {viewMode === 'list' ? (
                 <>
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-[2rem] p-6 text-white shadow-lg hover:shadow-xl transition-all">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <p className="text-sm text-blue-100 font-bold uppercase tracking-wider">คนขับทั้งหมด</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">{drivers.length}</h3>
-                                    <p className="text-xs text-blue-100 mt-1">{drivers.filter(d => d.status === 'active').length} คนปฏิบัติงาน</p>
-                                </div>
-                                <div className="bg-white/20 p-3 rounded-xl">
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
-                                </div>
+                    {/* Summary Stats - Compact horizontal bar */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="bg-blue-500 rounded-xl p-3 text-white flex items-center gap-3 shadow">
+                            <div className="bg-white/20 p-2 rounded-lg shrink-0">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
+                            </div>
+                            <div>
+                                <p className="text-xs text-blue-100 font-bold">คนขับทั้งหมด</p>
+                                <p className="text-2xl font-extrabold leading-tight">{drivers.length}</p>
+                                <p className="text-xs text-blue-100">{drivers.filter(d => d.status === 'active').length} ปฏิบัติงาน</p>
                             </div>
                         </div>
-
-                        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[2rem] p-6 text-white shadow-lg hover:shadow-xl transition-all">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <p className="text-sm text-emerald-100 font-bold uppercase tracking-wider">คะแนนปลอดภัยเฉลี่ย</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">
-                                        {drivers.length > 0 ? (
-                                            (driverPerformances.reduce((sum, d) => sum + (isNaN(d.performance.safetyScore) ? 0 : d.performance.safetyScore), 0) / drivers.length).toFixed(0)
-                                        ) : '0'}
-                                    </h3>
-                                    <p className="text-xs text-emerald-100 mt-1">จาก 100 คะแนน</p>
-                                </div>
-                                <div className="bg-white/20 p-3 rounded-xl">
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" /></svg>
-                                </div>
+                        <div className="bg-emerald-500 rounded-xl p-3 text-white flex items-center gap-3 shadow">
+                            <div className="bg-white/20 p-2 rounded-lg shrink-0">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" /></svg>
+                            </div>
+                            <div>
+                                <p className="text-xs text-emerald-100 font-bold">คะแนนปลอดภัยเฉลี่ย</p>
+                                <p className="text-2xl font-extrabold leading-tight">{drivers.length > 0 ? (driverPerformances.reduce((sum, d) => sum + (isNaN(d.performance.safetyScore) ? 0 : d.performance.safetyScore), 0) / drivers.length).toFixed(0) : '0'}</p>
+                                <p className="text-xs text-emerald-100">จาก 100 คะแนน</p>
                             </div>
                         </div>
-
-                        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-[2rem] p-6 text-white shadow-lg hover:shadow-xl transition-all">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <p className="text-sm text-amber-100 font-bold uppercase tracking-wider">อุบัติเหตุทั้งหมด</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">{incidents.length}</h3>
-                                    <p className="text-xs text-amber-100 mt-1">{incidents.filter(i => i.severity === 'critical').length} รายการร้ายแรง</p>
-                                </div>
-                                <div className="bg-white/20 p-3 rounded-xl">
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
-                                </div>
+                        <div className="bg-amber-500 rounded-xl p-3 text-white flex items-center gap-3 shadow">
+                            <div className="bg-white/20 p-2 rounded-lg shrink-0">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
+                            </div>
+                            <div>
+                                <p className="text-xs text-amber-100 font-bold">อุบัติเหตุทั้งหมด</p>
+                                <p className="text-2xl font-extrabold leading-tight">{incidents.length}</p>
+                                <p className="text-xs text-amber-100">{incidents.filter(i => i.severity === 'critical').length} ร้ายแรง</p>
                             </div>
                         </div>
-
-                        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-[2rem] p-6 text-white shadow-lg hover:shadow-xl transition-all">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <p className="text-sm text-purple-100 font-bold uppercase tracking-wider">ค่าซ่อมบำรุงเฉลี่ย</p>
-                                    <h3 className="text-3xl font-extrabold mt-2">
-                                        {formatCurrency(driverPerformances.reduce((sum, d) => sum + d.performance.maintenanceCost, 0) / (drivers.length || 1))}
-                                    </h3>
-                                    <p className="text-xs text-purple-100 mt-1">บาท/คน</p>
-                                </div>
-                                <div className="bg-white/20 p-3 rounded-xl">
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" /></svg>
-                                </div>
+                        <div className="bg-purple-500 rounded-xl p-3 text-white flex items-center gap-3 shadow">
+                            <div className="bg-white/20 p-2 rounded-lg shrink-0">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" /></svg>
+                            </div>
+                            <div>
+                                <p className="text-xs text-purple-100 font-bold">ค่าซ่อมเฉลี่ย</p>
+                                <p className="text-xl font-extrabold leading-tight">{formatCurrency(driverPerformances.reduce((sum, d) => sum + d.performance.maintenanceCost, 0) / (drivers.length || 1))}</p>
+                                <p className="text-xs text-purple-100">บาท/คน</p>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Top Performers Chart */}
-                    <div className="bg-white rounded-[2rem] shadow-sm p-6 border border-slate-100">
-                        <h3 className="text-lg font-bold text-slate-800 mb-6">5 อันดับคนขับยอดเยี่ยม</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <RadarChart data={performanceChartData}>
-                                <PolarGrid stroke="#e2e8f0" />
-                                <PolarAngleAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} />
-                                <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                                <Radar name="ความปลอดภัย" dataKey="safety" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
-                                <Radar name="ประสิทธิภาพน้ำมัน" dataKey="efficiency" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                                <Radar name="การบำรุงรักษา" dataKey="maintenance" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} />
-                                <Legend />
-                                <Tooltip />
-                            </RadarChart>
-                        </ResponsiveContainer>
                     </div>
 
                     {/* Driver List */}
@@ -417,7 +385,7 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                                     </div>
                                 </div>
 
-                                <div className="p-3 bg-slate-50/50 border-t border-slate-100 grid grid-cols-4 gap-2">
+                                <div className="p-3 bg-slate-50/50 border-t border-slate-100 grid grid-cols-5 gap-1.5">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setSelectedDriver(driver); setModalTab('overview'); }}
                                         className="flex flex-col items-center justify-center gap-1 bg-white hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200 hover:border-blue-200 rounded-xl py-2 transition-all shadow-sm group/btn"
@@ -433,6 +401,25 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                                     >
                                         <span className="text-sm">📅</span>
                                         <span className="text-[10px] font-bold">วันลา</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const photos = Array.isArray(driver.photos) ? driver.photos.filter(Boolean) : [];
+                                            if (photos.length > 0) {
+                                                setCardLightbox({ photos, index: 0 });
+                                            }
+                                        }}
+                                        className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-all shadow-sm border ${
+                                            (driver.photos && driver.photos.length > 0)
+                                                ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                                                : 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed'
+                                        }`}
+                                        title={driver.photos && driver.photos.length > 0 ? `ดูรูปภาพ (${driver.photos.length} รูป)` : 'ไม่มีรูปภาพ'}
+                                        disabled={!driver.photos || driver.photos.length === 0}
+                                    >
+                                        <span className="text-sm">🖼️</span>
+                                        <span className="text-[10px] font-bold">รูป{driver.photos && driver.photos.length > 0 ? ` (${driver.photos.length})` : ''}</span>
                                     </button>
                                     <button
                                         onClick={(e) => handleEditClick(e, driver)}
@@ -463,6 +450,40 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                             <p className="text-slate-400 font-medium">ไม่พบข้อมูลคนขับ</p>
                         </div>
                     )}
+
+                    {/* Top Performers Chart - Collapsible */}
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                        <button
+                            onClick={() => setIsChartCollapsed(!isChartCollapsed)}
+                            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors"
+                        >
+                            <h3 className="text-base font-bold text-slate-700 flex items-center gap-2">
+                                <span>📊</span> 5 อันดับคนขับยอดเยี่ยม
+                            </h3>
+                            <svg
+                                className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isChartCollapsed ? '' : 'rotate-180'}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {!isChartCollapsed && (
+                            <div className="px-6 pb-6">
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <RadarChart data={performanceChartData}>
+                                        <PolarGrid stroke="#e2e8f0" />
+                                        <PolarAngleAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} />
+                                        <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10 }} />
+                                        <Radar name="ความปลอดภัย" dataKey="safety" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+                                        <Radar name="ประสิทธิภาพน้ำมัน" dataKey="efficiency" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                                        <Radar name="การบำรุงรักษา" dataKey="maintenance" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} />
+                                        <Legend />
+                                        <Tooltip />
+                                    </RadarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                    </div>
                 </>
             ) : (
                 <DriverLeaveReport drivers={drivers} />
@@ -492,6 +513,13 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                     onClose={() => setSelectedDriver(null)}
                     onUpdate={handleUpdateDriver}
                     initialTab={modalTab}
+                    onEdit={async () => {
+                        const isAdmin = await promptForPasswordAsync(`แก้ไขข้อมูลคุณ ${selectedDriver.name}`);
+                        if (isAdmin) {
+                            setEditingDriver(selectedDriver);
+                            setSelectedDriver(null);
+                        }
+                    }}
                 />
             )}
 
@@ -504,6 +532,57 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                     onClose={() => { setIsIncidentModalOpen(false); setIncidentDriver(null); }}
                     onSave={handleSaveIncident}
                 />
+            )}
+
+            {/* Card Photo Lightbox */}
+            {cardLightbox && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[200] flex flex-col items-center justify-start pt-6 p-4 overflow-y-auto"
+                    onClick={() => setCardLightbox(null)}
+                >
+                    <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setCardLightbox(null)}
+                            className="absolute -top-10 right-0 text-white text-3xl hover:text-gray-300 z-10"
+                            aria-label="ปิด"
+                        >
+                            ✕
+                        </button>
+                        <img
+                            src={cardLightbox.photos[cardLightbox.index]}
+                            alt={`รูปที่ ${cardLightbox.index + 1}`}
+                            className="w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl"
+                        />
+                        <div className="flex items-center justify-center gap-4 mt-4">
+                            <button
+                                onClick={() => setCardLightbox(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null)}
+                                disabled={cardLightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ‹ ก่อนหน้า
+                            </button>
+                            <span className="text-white text-sm">{cardLightbox.index + 1} / {cardLightbox.photos.length}</span>
+                            <button
+                                onClick={() => setCardLightbox(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null)}
+                                disabled={cardLightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ถัดไป ›
+                            </button>
+                        </div>
+                        <div className="flex gap-2 mt-3 justify-center flex-wrap">
+                            {cardLightbox.photos.map((url, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setCardLightbox(prev => prev ? { ...prev, index: idx } : null)}
+                                    className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors ${idx === cardLightbox.index ? 'border-blue-400' : 'border-transparent hover:border-gray-400'}`}
+                                >
+                                    <img src={url} alt={`thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

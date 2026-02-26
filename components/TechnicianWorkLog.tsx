@@ -30,6 +30,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
     const [endDate, setEndDate] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [viewingParts, setViewingParts] = useState<PartRequisitionItem[] | null>(null);
+    const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
@@ -198,6 +199,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ใบแจ้งซ่อม / ทะเบียน</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อาการ / ประเภท</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">รายการอะไหล่</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">รูปภาพ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ช่าง / ประเภทส่งซ่อม</th>
                         </tr>
                     </thead>
@@ -225,6 +227,28 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                                         <span className="text-gray-400 text-sm">-</span>
                                     )}
                                 </td>
+                                <td className="px-4 py-3 align-top text-center">
+                                    {(() => {
+                                        const repairPhotos = Array.isArray(r.photos) ? r.photos.filter(Boolean) : [];
+                                        return repairPhotos.length > 0 ? (
+                                            <button
+                                                onClick={() => setLightbox({ photos: repairPhotos, index: 0 })}
+                                                className="inline-flex flex-col items-center gap-1 group"
+                                                title={`ดูรูปภาพ (${repairPhotos.length} รูป)`}
+                                            >
+                                                <img
+                                                    src={repairPhotos[0]}
+                                                    alt="รูปซ่อม"
+                                                    className="w-12 h-12 object-cover rounded-lg border border-gray-200 group-hover:border-blue-400 transition-colors"
+                                                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                                <span className="text-xs text-blue-500 font-medium">{repairPhotos.length} รูป</span>
+                                            </button>
+                                        ) : (
+                                            <span className="text-gray-300 text-sm">-</span>
+                                        );
+                                    })()}
+                                </td>
                                 <td className="px-4 py-3 align-top">
                                     <div className="text-sm">{getTechnicianDisplay(r)}</div>
                                     <div className="text-sm text-gray-600">{r.dispatchType}</div>
@@ -233,7 +257,7 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
                         ))}
                         {filteredRepairs.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
+                                <td colSpan={6} className="text-center py-10 text-gray-500">ไม่พบข้อมูล</td>
                             </tr>
                         )}
                     </tbody>
@@ -266,6 +290,58 @@ const TechnicianWorkLog: React.FC<TechnicianWorkLogProps> = ({ repairs, technici
             </div>
 
             {viewingParts && <PartsListModal parts={viewingParts} onClose={() => setViewingParts(null)} />}
+
+            {lightbox && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[200] flex flex-col items-center justify-center p-4"
+                    onClick={() => setLightbox(null)}
+                >
+                    <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setLightbox(null)}
+                            className="absolute -top-10 right-0 text-white text-3xl hover:text-gray-300 z-10"
+                            aria-label="ปิด"
+                        >
+                            ✕
+                        </button>
+                        <img
+                            src={lightbox.photos[lightbox.index]}
+                            alt={`รูปที่ ${lightbox.index + 1}`}
+                            className="w-full max-h-[75vh] object-contain rounded-xl shadow-2xl"
+                        />
+                        <div className="flex items-center justify-center gap-4 mt-4">
+                            <button
+                                onClick={() => setLightbox(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null)}
+                                disabled={lightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ‹ ก่อนหน้า
+                            </button>
+                            <span className="text-white text-sm">{lightbox.index + 1} / {lightbox.photos.length}</span>
+                            <button
+                                onClick={() => setLightbox(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null)}
+                                disabled={lightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ถัดไป ›
+                            </button>
+                        </div>
+                        <div className="flex gap-2 mt-3 justify-center flex-wrap">
+                            {lightbox.photos.map((url, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setLightbox(prev => prev ? { ...prev, index: idx } : null)}
+                                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${
+                                        idx === lightbox.index ? 'border-blue-400' : 'border-transparent hover:border-gray-400'
+                                    }`}
+                                >
+                                    <img src={url} alt={`thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

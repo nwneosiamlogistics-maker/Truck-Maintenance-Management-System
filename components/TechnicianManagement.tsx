@@ -3,6 +3,7 @@ import type { Technician, Repair, RepairStatus, TechnicianRole } from '../types'
 import TechnicianModal from './TechnicianModal';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction } from '../utils';
+import PhotoUpload from './PhotoUpload';
 
 interface TechnicianEditModalProps {
     technician: Technician | null;
@@ -29,11 +30,13 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
 
     const [formData, setFormData] = useState<Technician>(getInitialState);
     const [skillsString, setSkillsString] = useState(technician?.skills.join(', ') || '');
+    const [photos, setPhotos] = useState<string[]>(technician?.photos || []);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setFormData(getInitialState());
         setSkillsString(technician?.skills.join(', ') || '');
+        setPhotos(technician?.photos || []);
     }, [technician]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -49,7 +52,7 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
         setIsSubmitting(true);
         try {
             const skillsArray = skillsString.split(',').map(s => s.trim()).filter(Boolean);
-            await onSave({ ...formData, skills: skillsArray });
+            await onSave({ ...formData, skills: skillsArray, photos });
         } catch (error) {
             console.error(error);
             setIsSubmitting(false);
@@ -127,6 +130,16 @@ const TechnicianEditModal: React.FC<TechnicianEditModalProps> = ({ technician, o
                             <input type="number" name="currentJobs" aria-label="Current Jobs" value={formData.currentJobs} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all" />
                         </div>
                     </div>
+
+                    <div>
+                        <h4 className="text-sm font-bold text-gray-700 mb-2">📷 รูปภาพประจำตัว</h4>
+                        <PhotoUpload
+                            photos={photos}
+                            onChange={setPhotos}
+                            entity="technicians"
+                            entityId={technician?.id || 'new'}
+                        />
+                    </div>
                 </form>
                 <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
                     <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50">ยกเลิก</button>
@@ -155,6 +168,7 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
 
     const [isDetailModalOpen, setDetailModalOpen] = useState(false);
     const [isEditModalOpen, setEditModalOpen] = useState(false);
+    const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
 
     const { addToast } = useToast();
 
@@ -341,6 +355,24 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                 {filteredAndSortedTechnicians.map(tech => (
                     <div key={tech.id} className="bg-white rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between transition-all hover:shadow-xl hover:-translate-y-1 overflow-hidden group">
                         <div className="p-6 pb-0">
+                            {(() => {
+                                const techPhotos = Array.isArray(tech.photos) ? tech.photos.filter(Boolean) : [];
+                                return techPhotos.length > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setLightbox({ photos: techPhotos, index: 0 })}
+                                        className="w-full h-32 mb-4 rounded-2xl overflow-hidden border border-slate-100 hover:border-blue-300 transition-colors"
+                                        title={`ดูรูปภาพ (${techPhotos.length} รูป)`}
+                                    >
+                                        <img
+                                            src={techPhotos[0]}
+                                            alt={tech.name}
+                                            className="w-full h-full object-cover"
+                                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    </button>
+                                ) : null;
+                            })()}
                             <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <h3 className="text-xl font-bold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition-colors" title={tech.name}>{tech.name}</h3>
@@ -392,6 +424,18 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                                 <button onClick={() => openDetailModal(tech)} className="flex-1 bg-white hover:bg-blue-50 text-slate-600 font-bold py-2.5 px-4 rounded-xl transition-all active:scale-95 text-xs shadow-sm hover:shadow border border-slate-200 group-hover:border-blue-200 group-hover:text-blue-600">
                                     รายละเอียด
                                 </button>
+                                {(() => {
+                                    const techPhotos = Array.isArray(tech.photos) ? tech.photos.filter(Boolean) : [];
+                                    return techPhotos.length > 0 ? (
+                                        <button
+                                            onClick={() => setLightbox({ photos: techPhotos, index: 0 })}
+                                            className="px-3 bg-white hover:bg-blue-50 text-blue-500 hover:text-blue-700 font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm hover:shadow border border-slate-200 text-xs"
+                                            title="ดูรูปภาพทั้งหมด"
+                                        >
+                                            📷 {techPhotos.length}
+                                        </button>
+                                    ) : null;
+                                })()}
                                 <button onClick={() => handleOpenEditModal(tech)} aria-label={`Edit ${tech.name}`} className="px-3 bg-white hover:bg-amber-50 text-slate-600 hover:text-amber-600 font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm hover:shadow border border-slate-200">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 </button>
@@ -417,6 +461,58 @@ const TechnicianManagement: React.FC<TechnicianManagementProps> = ({ technicians
                     onSave={handleSaveTechnician}
                     onClose={() => setEditModalOpen(false)}
                 />
+            )}
+
+            {lightbox && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[200] flex flex-col items-center justify-center p-4"
+                    onClick={() => setLightbox(null)}
+                >
+                    <div className="relative w-full max-w-3xl" onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setLightbox(null)}
+                            className="absolute -top-10 right-0 text-white text-3xl hover:text-gray-300 z-10"
+                            aria-label="ปิด"
+                        >
+                            ✕
+                        </button>
+                        <img
+                            src={lightbox.photos[lightbox.index]}
+                            alt={`รูปที่ ${lightbox.index + 1}`}
+                            className="w-full max-h-[70vh] object-contain rounded-2xl shadow-2xl"
+                        />
+                        <div className="flex items-center justify-center gap-4 mt-4">
+                            <button
+                                onClick={() => setLightbox(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null)}
+                                disabled={lightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ‹ ก่อนหน้า
+                            </button>
+                            <span className="text-white text-sm">{lightbox.index + 1} / {lightbox.photos.length}</span>
+                            <button
+                                onClick={() => setLightbox(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null)}
+                                disabled={lightbox.photos.length <= 1}
+                                className="px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ถัดไป ›
+                            </button>
+                        </div>
+                        <div className="flex gap-2 mt-3 justify-center flex-wrap">
+                            {lightbox.photos.map((url, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setLightbox(prev => prev ? { ...prev, index: idx } : null)}
+                                    className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors ${
+                                        idx === lightbox.index ? 'border-blue-400' : 'border-transparent hover:border-gray-400'
+                                    }`}
+                                >
+                                    <img src={url} alt={`thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
