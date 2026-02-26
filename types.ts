@@ -696,6 +696,73 @@ export interface Driver {
 
     status: DriverStatus;
 
+    // ===== Driver Matrix Fields =====
+    idCard?: string;                // หมายเลขบัตรประชาชน
+    dateOfBirth?: string;           // วัน/เดือน/ปีเกิด
+
+    // ตรวจประวัติอาชญากรรม
+    criminalCheck?: {
+        result?: 'ผ่าน' | 'ไม่ผ่าน' | 'รอผล';
+        remark?: string;
+        checkedDate?: string;
+    };
+
+    // อบรมความปลอดภัย (Safety Induction) รายไตรมาส
+    safetyInduction?: {
+        q1?: string;
+        q2?: string;
+        q3?: string;
+        q4?: string;
+    };
+
+    // ตรวจสารเสพติด รายไตรมาส (DD-MMM-YY)
+    drugTests?: {
+        formula?: string;
+        q1?: string;
+        q2?: string;
+        q3?: string;
+        q4?: string;
+    };
+
+    // GPS & Facing Camera
+    gpsProvider?: string;
+    facingCamera?: string;
+
+    // รูปภาพรถ/อุปกรณ์
+    vehicleFrontPhoto?: string;
+    safetyBeltPhoto?: string;
+    vehicleLeftPhoto?: string;
+    vehicleRightPhoto?: string;
+    vehicleBackPhoto?: string;
+    driverAppearanceOk?: boolean;   // แต่งกายสวมเสื้อบริษัท / สะท้อนแสง / Safety
+
+    // Defensive Driving Program & Refresh Training
+    defensiveDriving?: {
+        plan?: string;
+        bookingDate?: string;
+        startDate?: string;
+        endDate?: string;
+        preTest?: number;
+        postTest?: number;
+        trainer?: string;
+        nextRefreshDate?: string;
+        record2022?: string;
+        record2023?: string;
+    };
+
+    // Incab Coaching
+    incabCoaching?: {
+        score?: number;
+        date?: string;
+    };
+
+    // Certificate
+    certificate?: {
+        certificateNo?: string;
+        issuedDate?: string;
+    };
+    // ===== End Driver Matrix Fields =====
+
     notes?: string;
     photos?: string[];
     createdAt: string;

@@ -2,11 +2,12 @@ import React, { useState, useMemo } from 'react';
 import type { Driver, DriverPerformance, DrivingIncident, Vehicle, FuelRecord, Repair } from '../types';
 import { formatCurrency } from '../utils';
 import { BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { LayoutGrid, FileText, Edit } from 'lucide-react';
+import { LayoutGrid, FileText, Edit, Table2 } from 'lucide-react';
 import AddDriverModal from './AddDriverModal';
 import { useToast } from '../context/ToastContext';
 import DriverDetailModal from './DriverDetailModal';
 import DriverLeaveReport from './DriverLeaveReport';
+import DriverMatrix from './DriverMatrix';
 import { promptForPasswordAsync, showAlert } from '../utils';
 
 import AddIncidentModal from './AddIncidentModal';
@@ -32,7 +33,7 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
     const [modalTab, setModalTab] = useState<'overview' | 'performance' | 'leaves'>('overview');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false); // General incident modal
-    const [viewMode, setViewMode] = useState<'list' | 'leave-report'>('list');
+    const [viewMode, setViewMode] = useState<'list' | 'leave-report' | 'matrix'>('list');
     const [isChartCollapsed, setIsChartCollapsed] = useState(true);
     const [cardLightbox, setCardLightbox] = useState<{ photos: string[]; index: number } | null>(null);
     const { addToast } = useToast();
@@ -220,6 +221,16 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                                 รายชื่อ
                             </button>
                             <button
+                                onClick={() => setViewMode('matrix')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'matrix'
+                                    ? 'bg-white text-blue-600 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                <Table2 size={18} />
+                                Driver Matrix
+                            </button>
+                            <button
                                 onClick={() => setViewMode('leave-report')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'leave-report'
                                     ? 'bg-white text-purple-600 shadow-sm'
@@ -269,8 +280,8 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                     </div>
                 </div>
 
-                {/* License Alerts (Only show in list mode) */}
-                {viewMode === 'list' && licenseAlerts.length > 0 && (
+                {/* License Alerts (Only show in list/matrix mode) */}
+                {(viewMode === 'list' || viewMode === 'matrix') && licenseAlerts.length > 0 && (
                     <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                         <div className="flex items-start gap-3">
                             <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
@@ -287,7 +298,14 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                 )}
             </div>
 
-            {viewMode === 'list' ? (
+            {viewMode === 'matrix' ? (
+                <DriverMatrix
+                    drivers={drivers}
+                    setDrivers={setDrivers}
+                    vehicles={vehicles}
+                    incidents={incidents}
+                />
+            ) : viewMode === 'list' ? (
                 <>
                     {/* Summary Stats - Compact horizontal bar */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

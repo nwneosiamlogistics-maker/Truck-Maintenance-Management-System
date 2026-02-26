@@ -123,36 +123,35 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
         setItems(prev => prev.filter((_, i) => i !== index));
     };
 
-    const { subtotal, vatAmount, whtAmount, totalAmount, netAmount } = useMemo(() => {
+    const { netBeforeVat, vatAmount, subtotal, whtAmount, totalAmount } = useMemo(() => {
         let itemsTotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
         let roundedItemsTotal = calculateThaiTax(itemsTotal);
 
-        let sub, vat, total;
+        let net: number, vat: number, sub: number;
 
         if (isPriceIncVat) {
-            // If items already include VAT, Total = roundedItemsTotal
-            total = roundedItemsTotal;
-            // Back-calculate subtotal: total / 1.07
-            sub = calculateThaiTax(total / (1 + vatRate / 100));
-            // VAT is the difference
-            vat = calculateThaiTax(total - sub);
+            // Price already includes VAT — back-calculate net
+            sub = roundedItemsTotal;  // displayed subtotal = price given
+            net = calculateThaiTax(sub / (1 + vatRate / 100));
+            vat = calculateThaiTax(sub - net);
         } else {
-            // Normal calculation
-            sub = roundedItemsTotal;
-            vat = isVatEnabled ? calculateVat(sub, vatRate) : 0;
+            // Normal: items are priced excluding VAT
+            net = roundedItemsTotal;  // ยอดก่อน VAT
+            vat = isVatEnabled ? calculateVat(net, vatRate) : 0;
             vat = calculateThaiTax(vat + manualVatAdjustment);
-            total = sub + vat;
+            sub = calculateThaiTax(net + vat);  // Subtotal = net + VAT
         }
 
-        const wht = isWhtEnabled ? calculateVat(sub, whtRate) : 0;
-        const grandTotal = total - wht;
+        // WHT คำนวณจากยอดก่อน VAT (net) เสมอ
+        const wht = isWhtEnabled ? calculateVat(net, whtRate) : 0;
+        const grandTotal = calculateThaiTax(sub - wht);
 
         return {
-            subtotal: sub,
+            netBeforeVat: net,
             vatAmount: vat,
+            subtotal: sub,
             whtAmount: wht,
-            totalAmount: calculateThaiTax(grandTotal),
-            netAmount: sub // Net amount for WHT calculation
+            totalAmount: grandTotal,
         };
     }, [items, isVatEnabled, vatRate, isWhtEnabled, whtRate, manualVatAdjustment, isPriceIncVat]);
 
@@ -356,11 +355,13 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                             </div>
 
                             <div className="w-80 space-y-3 bg-gray-50 p-6 rounded-2xl border border-gray-100 relative">
-                                {/* Subtotal */}
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-gray-600 font-medium">รวมเป็นเงิน (Subtotal)</span>
-                                    <span className="font-bold text-gray-800">{formatCurrency(subtotal)}</span>
-                                </div>
+                                {/* Net Before VAT — แสดงเฉพาะเมื่อเปิด VAT */}
+                                {isVatEnabled && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-500">ก่อน VAT (Net)</span>
+                                        <span className="font-medium text-gray-700">{formatCurrency(netBeforeVat)}</span>
+                                    </div>
+                                )}
 
                                 {/* Standard VAT */}
                                 <div className="flex justify-between items-center text-sm pt-1">
@@ -372,7 +373,7 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                             className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                             aria-label="Toggle VAT"
                                         />
-                                        <span className="text-gray-600">ภาษีมูลค่าเพิ่ม (VAT)</span>
+                                        <span className="text-gray-600">+ ภาษีมูลค่าเพิ่ม (VAT)</span>
                                         {isVatEnabled && (
                                             <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-2 py-0.5 ml-1">
                                                 <input
@@ -404,7 +405,13 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                     </div>
                                 </div>
 
-                                {/* Withholding Tax (WHT) */}
+                                {/* Subtotal (Net + VAT) */}
+                                <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
+                                    <span className="text-gray-600 font-medium">รวมเป็นเงิน (Subtotal)</span>
+                                    <span className="font-bold text-gray-800">{formatCurrency(subtotal)}</span>
+                                </div>
+
+                                {/* Withholding Tax (WHT) — คำนวณจากยอดก่อน VAT */}
                                 <div className="space-y-2 pt-2 border-t border-dashed border-gray-300">
                                     <div className="flex justify-between items-center text-sm">
                                         <div className="flex items-center gap-2">
@@ -415,7 +422,14 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                                 className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
                                                 aria-label="Toggle WHT"
                                             />
-                                            <span className="text-gray-600">หัก ณ ที่จ่าย (WHT)</span>
+                                            <div>
+                                                <span className="text-gray-600">หัก ณ ที่จ่าย (WHT)</span>
+                                                {isWhtEnabled && (
+                                                    <div className="text-[10px] text-gray-400 leading-tight">
+                                                        คำนวณจากยอดก่อน VAT ({formatCurrency(netBeforeVat)})
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                         {isWhtEnabled && (
                                             <span className="font-bold text-red-600">-{formatCurrency(whtAmount)}</span>
