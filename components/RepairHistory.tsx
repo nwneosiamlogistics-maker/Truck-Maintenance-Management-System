@@ -249,6 +249,23 @@ const RepairHistory: React.FC<RepairHistoryProps> = ({ repairs, setRepairs, tech
                                                     <p>VAT: <span className="font-semibold">{formatCurrency(repair.partsVat || 0)}</span> บาท</p>
                                                     <p className="text-base font-bold">ยอดรวม: <span className="text-blue-600">{formatCurrency(calculateTotalCost(repair))}</span> บาท</p>
                                                 </div>
+                                                {Array.isArray(repair.photos) && repair.photos.length > 0 && (
+                                                    <div className="mt-4">
+                                                        <h5 className="text-sm font-semibold text-gray-600 mb-2">📷 รูปภาพประกอบ ({repair.photos.length} รูป)</h5>
+                                                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                                                            {repair.photos.map((url, idx) => (
+                                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                                                    <img
+                                                                        src={url}
+                                                                        alt={`รูปที่ ${idx + 1}`}
+                                                                        className="w-full h-16 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity cursor-pointer shadow-sm"
+                                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                    />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
