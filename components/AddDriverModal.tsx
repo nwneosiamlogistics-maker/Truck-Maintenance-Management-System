@@ -73,6 +73,17 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
     const [certificationInput, setCertificationInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const handleMatrixNestedChange = <K extends 'criminalCheck' | 'drugTests' | 'safetyInduction' | 'defensiveDriving' | 'incabCoaching' | 'certificate'>(
+        key: K,
+        field: string,
+        value: string | number | boolean
+    ) => {
+        setFormData(prev => ({
+            ...prev,
+            [key]: { ...(prev as any)[key], [field]: value }
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isSubmitting) return;
@@ -487,6 +498,203 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                                     </button>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* Driver Matrix Fields */}
+                    <div>
+                        <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-cyan-600">7</span>
+                            ข้อมูล Driver Matrix
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* บัตรประชาชน */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">หมายเลขบัตรประชาชน</label>
+                                <input type="text" name="idCard" value={(formData as any).idCard || ''}
+                                    onChange={handleInputChange} placeholder="x-xxxx-xxxxx-xx-x"
+                                    title="หมายเลขบัตรประชาชน"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-100 focus:border-cyan-500 outline-none font-mono" />
+                            </div>
+                            {/* วันเกิด */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">วัน/เดือน/ปีเกิด</label>
+                                <input type="date" name="dateOfBirth" value={(formData as any).dateOfBirth || ''}
+                                    onChange={handleInputChange} title="วันเดือนปีเกิด"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-100 focus:border-cyan-500 outline-none" />
+                            </div>
+                            {/* ผลตรวจอาชญากรรม */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">ผลตรวจประวัติอาชญากรรม</label>
+                                <select value={(formData as any).criminalCheck?.result || ''}
+                                    onChange={e => handleMatrixNestedChange('criminalCheck', 'result', e.target.value)}
+                                    title="ผลตรวจประวัติอาชญากรรม" aria-label="ผลตรวจประวัติอาชญากรรม"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-100 focus:border-cyan-500 outline-none">
+                                    <option value="">- เลือก -</option>
+                                    <option value="ผ่าน">ผ่าน</option>
+                                    <option value="ไม่ผ่าน">ไม่ผ่าน</option>
+                                    <option value="รอผล">รอผล</option>
+                                </select>
+                            </div>
+                            {/* คดีที่พบ */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">คดีที่พบในประวัติอาชญากรรม</label>
+                                <input type="text" value={(formData as any).criminalCheck?.remark || ''}
+                                    onChange={e => handleMatrixNestedChange('criminalCheck', 'remark', e.target.value)}
+                                    placeholder="ระบุถ้ามี" title="คดีที่พบ"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-100 focus:border-cyan-500 outline-none" />
+                            </div>
+                            {/* GPS Provider */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">GPS Provider</label>
+                                <input type="text" name="gpsProvider" value={(formData as any).gpsProvider || ''}
+                                    onChange={handleInputChange} placeholder="ชื่อผู้ให้บริการ GPS"
+                                    title="GPS Provider"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-100 focus:border-cyan-500 outline-none" />
+                            </div>
+                            {/* Facing Camera */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Facing Camera Provider</label>
+                                <input type="text" name="facingCamera" value={(formData as any).facingCamera || ''}
+                                    onChange={handleInputChange} placeholder="ชื่อผู้ให้บริการกล้อง"
+                                    title="Facing Camera Provider"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-100 focus:border-cyan-500 outline-none" />
+                            </div>
+                        </div>
+
+                        {/* ตรวจสารเสพติด */}
+                        <div className="mt-4 p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                            <h5 className="text-sm font-bold text-orange-700 mb-3">ตรวจสารเสพติด (Drug Test) — DD-MMM-YY</h5>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">สูตร (Formula)</label>
+                                    <input type="text" value={(formData as any).drugTests?.formula || ''}
+                                        onChange={e => handleMatrixNestedChange('drugTests', 'formula', e.target.value)}
+                                        placeholder="สูตร" title="สูตรตรวจสารเสพติด"
+                                        className="w-full px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
+                                </div>
+                                {(['q1', 'q2', 'q3', 'q4'] as const).map(q => (
+                                    <div key={q}>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">{q.toUpperCase()}</label>
+                                        <input type="date" value={(formData as any).drugTests?.[q] || ''}
+                                            onChange={e => handleMatrixNestedChange('drugTests', q, e.target.value)}
+                                            title={`ตรวจสารเสพติด ${q.toUpperCase()}`}
+                                            className="w-full px-3 py-2 bg-white border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Defensive Driving */}
+                        <div className="mt-4 p-4 bg-cyan-50 border border-cyan-100 rounded-xl">
+                            <h5 className="text-sm font-bold text-cyan-700 mb-3">Defensive Driving Program & Refresh Training</h5>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Plan</label>
+                                    <input type="text" value={(formData as any).defensiveDriving?.plan || ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'plan', e.target.value)}
+                                        placeholder="Plan" title="Defensive Driving Plan"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Booking Date</label>
+                                    <input type="date" value={(formData as any).defensiveDriving?.bookingDate || ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'bookingDate', e.target.value)}
+                                        title="Booking Date"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">วันเริ่มอบรม (Start)</label>
+                                    <input type="date" value={(formData as any).defensiveDriving?.startDate || ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'startDate', e.target.value)}
+                                        title="Start Training Date"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">วันสิ้นสุด (Finished)</label>
+                                    <input type="date" value={(formData as any).defensiveDriving?.endDate || ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'endDate', e.target.value)}
+                                        title="Finished Training Date"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Pre Test</label>
+                                    <input type="number" value={(formData as any).defensiveDriving?.preTest ?? ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'preTest', Number(e.target.value))}
+                                        placeholder="0-100" title="Pre Test Score"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Post Test</label>
+                                    <input type="number" value={(formData as any).defensiveDriving?.postTest ?? ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'postTest', Number(e.target.value))}
+                                        placeholder="0-100" title="Post Test Score"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Trainer</label>
+                                    <input type="text" value={(formData as any).defensiveDriving?.trainer || ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'trainer', e.target.value)}
+                                        placeholder="ชื่อผู้ฝึกสอน" title="Trainer"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Next Refresh Date</label>
+                                    <input type="date" value={(formData as any).defensiveDriving?.nextRefreshDate || ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'nextRefreshDate', e.target.value)}
+                                        title="Next Training Refresh Date"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">Record 2022</label>
+                                    <input type="text" value={(formData as any).defensiveDriving?.record2022 || ''}
+                                        onChange={e => handleMatrixNestedChange('defensiveDriving', 'record2022', e.target.value)}
+                                        placeholder="ประวัติ 2022" title="Record Training 2022"
+                                        className="w-full px-3 py-2 bg-white border border-cyan-200 rounded-lg text-sm focus:outline-none" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Incab Coaching & Certificate */}
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-violet-50 border border-violet-100 rounded-xl">
+                                <h5 className="text-sm font-bold text-violet-700 mb-3">Incab Coaching</h5>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Score</label>
+                                        <input type="number" value={(formData as any).incabCoaching?.score ?? ''}
+                                            onChange={e => handleMatrixNestedChange('incabCoaching', 'score', Number(e.target.value))}
+                                            placeholder="0-100" title="Incab Coaching Score"
+                                            className="w-full px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Date</label>
+                                        <input type="date" value={(formData as any).incabCoaching?.date || ''}
+                                            onChange={e => handleMatrixNestedChange('incabCoaching', 'date', e.target.value)}
+                                            title="Incab Coaching Date"
+                                            className="w-full px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:outline-none" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl">
+                                <h5 className="text-sm font-bold text-rose-700 mb-3">Certificate</h5>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Certificate No.</label>
+                                        <input type="text" value={(formData as any).certificate?.certificateNo || ''}
+                                            onChange={e => handleMatrixNestedChange('certificate', 'certificateNo', e.target.value)}
+                                            placeholder="หมายเลขใบรับรอง" title="Certificate Number"
+                                            className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Issued Date</label>
+                                        <input type="date" value={(formData as any).certificate?.issuedDate || ''}
+                                            onChange={e => handleMatrixNestedChange('certificate', 'issuedDate', e.target.value)}
+                                            title="Certificate Issued Date"
+                                            className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:outline-none" />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
