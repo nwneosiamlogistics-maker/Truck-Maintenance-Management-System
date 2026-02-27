@@ -201,11 +201,11 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             }
 
             if (initialRequisition) {
-                const sub = (initialRequisition.items || []).reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
-                if (initialRequisition.vatAmount && initialRequisition.vatAmount > 0 && sub > 0) {
+                if (initialRequisition.vatAmount && initialRequisition.vatAmount > 0) {
                     setIsVatEnabled(true);
-                    const rate = (initialRequisition.vatAmount / sub) * 100;
-                    setVatRate(Math.round(rate * 100) / 100);
+                    // ใช้ vatRate ที่เก็บไว้โดยตรง ไม่ back-calculate จาก vatAmount/sub (จะได้ค่าผิด เช่น 6.54%)
+                    const storedRate = (initialRequisition as any).vatRate;
+                    setVatRate(storedRate != null ? storedRate : 7);
                 } else {
                     setIsVatEnabled(false);
                     setVatRate(7);
@@ -401,7 +401,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         }
 
         const itemsToSave = safeItems.map(({ rowId, ...rest }) => rest);
-        const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount };
+        const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount, vatRate: isVatEnabled ? vatRate : 0 } as any;
 
         // Ensure status is 'Pending Approval' if current status is 'Draft' or undefined
         // This auto-updates existing 'Draft' items to 'Pending Approval' upon save
