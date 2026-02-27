@@ -209,6 +209,7 @@ export interface PurchaseRequisition {
     budgetStatus: PurchaseBudgetType;
     relatedPoNumber?: string;
     photos?: string[];
+    quotationFiles?: string[];
 }
 
 export interface PurchaseOrderItem {

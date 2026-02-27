@@ -8,10 +8,14 @@ interface PurchaseRequisitionPrintProps {
 }
 
 const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ requisition }) => {
-    const subtotal = requisition.totalAmount - (requisition.vatAmount || 0);
     const vatAmount = requisition.vatAmount || 0;
     const grandTotal = requisition.totalAmount;
-    const vatRate = subtotal > 0 && vatAmount > 0 ? (vatAmount / subtotal) * 100 : 0;
+    const netBeforeVat = grandTotal - vatAmount;
+    const storedVatRate = (requisition as any).vatRate;
+    const vatRate = storedVatRate != null
+        ? storedVatRate
+        : (netBeforeVat > 0 && vatAmount > 0 ? (vatAmount / netBeforeVat) * 100 : 0);
+    const formattedVatRate = vatRate % 1 === 0 ? String(Math.round(vatRate)) : vatRate.toFixed(2);
 
     const logoUrl = "https://img2.pic.in.th/pic/logo-neo.png";
 
@@ -169,18 +173,25 @@ const PurchaseRequisitionPrint: React.FC<PurchaseRequisitionPrintProps> = ({ req
                         </div>
                     </div>
                     <div className="w-1/3">
+                        {/* รวมเป็นเงิน = grandTotal (ยอดรวมทั้งหมดรวม VAT) */}
                         <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
                             <span className="font-semibold">รวมเป็นเงิน</span>
-                            <span>{formatCurrency(subtotal)}</span>
+                            <span>{formatCurrency(grandTotal)}</span>
                         </div>
                         {vatAmount > 0 && (
-                            <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
-                                <span className="font-semibold">VAT ({vatRate.toFixed(0)}%)</span>
-                                <span>{formatCurrency(vatAmount)}</span>
-                            </div>
+                            <>
+                                <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
+                                    <span className="font-semibold">ภาษีมูลค่าเพิ่ม {formattedVatRate}%</span>
+                                    <span>{formatCurrency(vatAmount)}</span>
+                                </div>
+                                <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
+                                    <span className="font-semibold">ราคาไม่รวมภาษีมูลค่าเพิ่ม</span>
+                                    <span>{formatCurrency(netBeforeVat)}</span>
+                                </div>
+                            </>
                         )}
                         <div className="flex justify-between py-2 font-bold text-sm">
-                            <span>ยอดรวมสุทธิ</span>
+                            <span>จำนวนเงินรวมทั้งสิ้น</span>
                             <span className="text-base underline">{formatCurrency(grandTotal)}</span>
                         </div>
                     </div>

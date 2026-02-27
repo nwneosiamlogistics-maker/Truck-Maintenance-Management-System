@@ -20,14 +20,24 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
     const TARGET_ROWS = 12;
     const emptyRowsCount = Math.max(0, TARGET_ROWS - po.items.length);
 
-    // Use stored vatRate directly; fallback to back-calculation from netBeforeVat (not subtotal)
-    const vatRate = (po as any).vatRate != null
+    // netBeforeVat:
+    //   - PO ใหม่: ใช้ค่า netBeforeVat ที่เก็บไว้โดยตรง
+    //   - PO เก่า (ไม่มี netBeforeVat): net = subtotal - vatAmount
+    //     เพราะ PO เก่า subtotal = items gross (อาจรวม VAT), net = gross - VAT
+    const netBeforeVat: number = (po as any).netBeforeVat != null
+        ? (po as any).netBeforeVat
+        : (po.subtotal - (po.vatAmount || 0));
+
+    // vatRate:
+    //   - PO ใหม่: ใช้ค่า vatRate ที่เก็บไว้โดยตรง (7, 10, ฯลฯ)
+    //   - PO เก่า: คำนวณจาก vatAmount / netBeforeVat × 100
+    //     1,950-127.57=1,822.43 → 127.57/1,822.43×100 = 6.999...% → ปัดได้ 7% ✓
+    const vatRate: number = (po as any).vatRate != null
         ? (po as any).vatRate
-        : ((po as any).netBeforeVat > 0 && po.vatAmount > 0
-            ? (po.vatAmount / (po as any).netBeforeVat) * 100
-            : (po.subtotal > 0 && po.vatAmount > 0 ? (po.vatAmount / po.subtotal) * 100 : 0));
-    // Format: remove trailing zeros for whole numbers
-    const formattedVatRate = vatRate % 1 === 0 ? vatRate.toFixed(0) : vatRate.toFixed(2);
+        : (netBeforeVat > 0 && po.vatAmount > 0 ? (po.vatAmount / netBeforeVat) * 100 : 0);
+    // ปัดเศษ 2 ตำแหน่งก่อนตรวจ integer เพื่อแก้ floating-point เช่น 6.9999 → 7
+    const roundedVatRate = Math.round(vatRate * 100) / 100;
+    const formattedVatRate = roundedVatRate % 1 === 0 ? String(Math.round(roundedVatRate)) : roundedVatRate.toFixed(2);
 
     // Determine WHT Label
     let whtLabel = 'หัก ณ ที่จ่าย (WHT)';
@@ -187,14 +197,24 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
 
                     {/* Right: Numeric Totals */}
                     <div className="w-1/3">
+                        {/* รวมเป็นเงิน = subtotal (net+VAT) */}
                         <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
                             <span className="font-semibold">รวมเป็นเงิน</span>
                             <span>{formatCurrency(po.subtotal)}</span>
                         </div>
+                        {/* ภาษีมูลค่าเพิ่ม */}
                         <div className="flex justify-between py-1 border-b border-gray-300 border-dotted">
-                            <span className="font-semibold">{Number(formattedVatRate) > 0 ? `ภาษีมูลค่าเพิ่ม (VAT ${formattedVatRate}%)` : 'ภาษีมูลค่าเพิ่ม (VAT)'}</span>
+                            <span className="font-semibold">{Number(formattedVatRate) > 0 ? `ภาษีมูลค่าเพิ่ม ${formattedVatRate}%` : 'ภาษีมูลค่าเพิ่ม (VAT)'}</span>
                             <span>{formatCurrency(po.vatAmount)}</span>
                         </div>
+                        {/* ราคาไม่รวมภาษีมูลค่าเพิ่ม = netBeforeVat */}
+                        {po.vatAmount > 0 && (
+                            <div className="flex justify-between py-1 border-b border-gray-300 border-dotted text-gray-600">
+                                <span className="font-semibold">ราคาไม่รวมภาษีมูลค่าเพิ่ม</span>
+                                <span>{formatCurrency(netBeforeVat)}</span>
+                            </div>
+                        )}
+                        {/* หัก ณ ที่จ่าย */}
                         {po.whtAmount && po.whtAmount > 0 && (
                             <div className="flex justify-between py-1 border-b border-gray-300 border-dotted text-red-600">
                                 <span className="font-semibold">{whtLabel}</span>
@@ -202,7 +222,7 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
                             </div>
                         )}
                         <div className="flex justify-between py-2 font-bold text-sm">
-                            <span>ยอดเงินสุทธิ</span>
+                            <span>จำนวนเงินรวมทั้งสิ้น</span>
                             <span className="text-base underline">{formatTotalCurrency(po.totalAmount)}</span>
                         </div>
                     </div>
