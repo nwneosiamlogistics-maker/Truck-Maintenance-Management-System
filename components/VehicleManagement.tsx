@@ -21,7 +21,12 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
             make: '',
             model: '',
             chassisNumber: null,
+            engineNumber: null,
             registrationDate: null,
+            taxExpiryDate: null,
+            province: null,
+            fuelType: null,
+            yearOfManufacture: null,
             insuranceCompany: null,
             insuranceExpiryDate: null,
             insuranceType: null,
@@ -109,8 +114,63 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
                                 <input type="text" name="model" placeholder="ระบุรุ่น" aria-label="Model" value={formData.model || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">หมายเลขตัวเครื่องรถ</label>
-                                <input type="text" name="chassisNumber" placeholder="ระบุหมายเลขตัวเครื่อง" aria-label="Chassis Number" value={formData.chassisNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <label className="block text-sm font-medium">หมายเลขตัวถัง (Chassis)</label>
+                                <input type="text" name="chassisNumber" placeholder="ระบุหมายเลขตัวถัง" aria-label="Chassis Number" value={formData.chassisNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">หมายเลขตัวเครื่องยนต์</label>
+                                <input type="text" name="engineNumber" placeholder="ระบุหมายเลขตัวเครื่องยนต์" aria-label="Engine Number" value={formData.engineNumber || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">ปีที่ผลิต (ค.ศ.)</label>
+                                <input type="number" name="yearOfManufacture" placeholder="เช่น 2018" aria-label="Year of Manufacture" value={formData.yearOfManufacture || ''} onChange={e => setFormData(prev => ({ ...prev, yearOfManufacture: e.target.value ? Number(e.target.value) : null }))} min={1990} max={new Date().getFullYear()} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">จังหวัดที่จดทะเบียน</label>
+                                <input type="text" name="province" placeholder="เช่น กรุงเทพมหานคร" aria-label="Province" value={formData.province || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">เชื้อเพลิง</label>
+                                <select name="fuelType" aria-label="Fuel Type" value={formData.fuelType || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                    <option value="">- เลือก -</option>
+                                    <option value="ดีเซล">ดีเซล</option>
+                                    <option value="เบนซิน">เบนซิน</option>
+                                    <option value="NGV">NGV</option>
+                                    <option value="LPG">LPG</option>
+                                    <option value="ไฟฟ้า">ไฟฟ้า (EV)</option>
+                                    <option value="ไฮบริด">ไฮบริด</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">วันหมดอายุภาษีรถยนต์</label>
+                                <input
+                                    type="date"
+                                    name="taxExpiryDate"
+                                    aria-label="Tax Expiry Date"
+                                    value={formData.taxExpiryDate || ''}
+                                    onChange={e => {
+                                        const val = e.target.value || null;
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            taxExpiryDate: val,
+                                            ...(!prev.actExpiryDate ? { actExpiryDate: val } : {})
+                                        }));
+                                    }}
+                                    className={`mt-1 w-full p-2 border rounded-lg ${
+                                        formData.taxExpiryDate && formData.actExpiryDate && formData.taxExpiryDate !== formData.actExpiryDate
+                                            ? 'border-amber-400 bg-amber-50'
+                                            : 'border-gray-300'
+                                    }`}
+                                />
+                                {formData.actExpiryDate && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, taxExpiryDate: prev.actExpiryDate }))}
+                                        className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                    >
+                                        <span>⇐</span> ซิงค์จากวัน พรบ. ({new Date(formData.actExpiryDate).toLocaleDateString('th-TH')})
+                                    </button>
+                                )}
                             </div>
                             <div className="lg:col-span-2">
                                 <label className="block text-sm font-medium">วันจดทะเบียนรถ</label>
@@ -163,11 +223,81 @@ const VehicleModal: React.FC<VehicleModalProps> = ({ vehicle, onSave, onClose, e
                                 <input type="text" name="actCompany" placeholder="ระบุบริษัท พ.ร.บ." aria-label="ACT Company" value={formData.actCompany || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">วันที่หมดอายุ</label>
-                                <input type="date" name="actExpiryDate" aria-label="ACT Expiry Date" value={formData.actExpiryDate || ''} onChange={handleInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                                <label className="block text-sm font-medium">วันที่หมดอายุ พรบ.</label>
+                                <input
+                                    type="date"
+                                    name="actExpiryDate"
+                                    aria-label="ACT Expiry Date"
+                                    value={formData.actExpiryDate || ''}
+                                    onChange={e => {
+                                        const val = e.target.value || null;
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            actExpiryDate: val,
+                                            ...(!prev.taxExpiryDate ? { taxExpiryDate: val } : {})
+                                        }));
+                                    }}
+                                    className={`mt-1 w-full p-2 border rounded-lg ${
+                                        formData.taxExpiryDate && formData.actExpiryDate && formData.taxExpiryDate !== formData.actExpiryDate
+                                            ? 'border-amber-400 bg-amber-50'
+                                            : 'border-gray-300'
+                                    }`}
+                                />
+                                {formData.actExpiryDate && formData.taxExpiryDate && formData.actExpiryDate === formData.taxExpiryDate
+                                    ? <p className="mt-1 text-xs text-green-600">✓ ตรงกับวันหมดภาษี</p>
+                                    : formData.taxExpiryDate && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, actExpiryDate: prev.taxExpiryDate }))}
+                                            className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                        >
+                                            <span>⇐</span> ซิงค์จากวันภาษี ({new Date(formData.taxExpiryDate).toLocaleDateString('th-TH')})
+                                        </button>
+                                    )
+                                }
                             </div>
                         </div>
                     </div>
+
+                    {/* Mismatch warning banner */}
+                    {formData.actExpiryDate && formData.taxExpiryDate && formData.actExpiryDate !== formData.taxExpiryDate && (
+                        <div className="p-4 border-2 border-amber-300 rounded-lg bg-amber-50">
+                            <div className="flex items-start gap-3">
+                                <span className="text-amber-500 text-xl mt-0.5">⚠️</span>
+                                <div className="flex-1">
+                                    <p className="font-semibold text-amber-800">วันหมดภาษี และ พรบ. ไม่ตรงกัน</p>
+                                    <p className="text-xs text-amber-700 mt-1">โดยปกติวันหมดภาษีรถยนต์ควรตรงกันกับวันหมด พรบ. — หากต่างกันสามารถซิงค์ได้ตามต้องการ</p>
+                                    <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                                        <div className="flex items-center gap-2 bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                            <span className="text-gray-500">ภาษี:</span>
+                                            <span className="font-mono font-bold text-gray-800">{new Date(formData.taxExpiryDate).toLocaleDateString('th-TH')}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                            <span className="text-gray-500">พรบ.:</span>
+                                            <span className="font-mono font-bold text-gray-800">{new Date(formData.actExpiryDate).toLocaleDateString('th-TH')}</span>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, taxExpiryDate: prev.actExpiryDate }))}
+                                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition-colors"
+                                        >
+                                            ซิงค์ภาษี ← ตาม พรบ. ({new Date(formData.actExpiryDate).toLocaleDateString('th-TH')})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, actExpiryDate: prev.taxExpiryDate }))}
+                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                                        >
+                                            ซิงค์ พรบ. ← ตามภาษี ({new Date(formData.taxExpiryDate).toLocaleDateString('th-TH')})
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="p-4 border rounded-lg bg-gray-50">
                         <h4 className="font-semibold mb-2">ประกันสินค้า</h4>
                         <div className="grid grid-cols-1">
@@ -340,7 +470,10 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ทะเบียน</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประเภท / ยี่ห้อ</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">อายุรถ</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมายเลขตัวเครื่อง</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">หมายเลขตัวถัง / ตัวเครื่อง</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">วันหมดอายุภาษี</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">จังหวัด</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">เชื้อเพลิง</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">ประกันภัย</th>
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase">พรบ.</th>
                             <th className="px-4 py-3 text-center text-sm font-medium text-gray-500 uppercase">สถานะ</th>
@@ -356,8 +489,27 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                 <tr key={vehicle.id}>
                                     <td className="px-4 py-3 font-semibold">{vehicle.licensePlate}</td>
                                     <td className="px-4 py-3"><div>{vehicle.vehicleType}</div><div className="text-sm text-gray-500">{vehicle.make} {vehicle.model}</div></td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">{calculateVehicleAge(vehicle.registrationDate)}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">{vehicle.chassisNumber || '-'}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-700">
+                                        {vehicle.yearOfManufacture
+                                            ? (() => { const age = new Date().getFullYear() - vehicle.yearOfManufacture!; return <span className={age >= 15 ? 'text-red-600 font-bold' : age >= 10 ? 'text-amber-600 font-semibold' : 'text-gray-700'}>{age} ปี</span>; })()
+                                            : calculateVehicleAge(vehicle.registrationDate)}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm font-mono text-gray-700">
+                                        {vehicle.chassisNumber && <div><span className="text-xs text-gray-400">ตัวถัง:</span> {vehicle.chassisNumber}</div>}
+                                        {vehicle.engineNumber && <div><span className="text-xs text-gray-400">ตัวเครื่อง:</span> {vehicle.engineNumber}</div>}
+                                        {!vehicle.chassisNumber && !vehicle.engineNumber && <span className="text-gray-300">-</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm">
+                                        {vehicle.taxExpiryDate
+                                            ? (() => { const s = getExpiryStatus(vehicle.taxExpiryDate); return <div><div className="text-gray-700">{new Date(vehicle.taxExpiryDate).toLocaleDateString('th-TH')}</div><div className={s.className + ' text-xs'}>({s.text})</div></div>; })()
+                                            : <span className="text-gray-300">-</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-700">{vehicle.province || <span className="text-gray-300">-</span>}</td>
+                                    <td className="px-4 py-3 text-sm">
+                                        {vehicle.fuelType
+                                            ? <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{vehicle.fuelType}</span>
+                                            : <span className="text-gray-300">-</span>}
+                                    </td>
                                     <td className="px-4 py-3 text-sm">
                                         <div>{vehicle.insuranceCompany || '-'}</div>
                                         <div className={insuranceStatus.className}>{vehicle.insuranceExpiryDate ? new Date(vehicle.insuranceExpiryDate).toLocaleDateString('th-TH') : '-'} ({insuranceStatus.text})</div>
@@ -402,8 +554,12 @@ const VehicleManagement: React.FC<VehicleManagementProps> = ({ vehicles, setVehi
                                 </div>
                                 <div className="text-sm space-y-1 text-gray-600">
                                     <p>{vehicle.vehicleType} {vehicle.make} {vehicle.model}</p>
-                                    <p>อายุรถ: {calculateVehicleAge(vehicle.registrationDate)}</p>
-                                    <p>หมายเลขตัวเครื่อง: {vehicle.chassisNumber || '-'}</p>
+                                    <p>อายุรถ: {vehicle.yearOfManufacture ? `${new Date().getFullYear() - vehicle.yearOfManufacture} ปี` : calculateVehicleAge(vehicle.registrationDate)}</p>
+                                    {vehicle.chassisNumber && <p>หมายเลขตัวถัง: {vehicle.chassisNumber}</p>}
+                                    {vehicle.engineNumber && <p>หมายเลขตัวเครื่อง: {vehicle.engineNumber}</p>}
+                                    {vehicle.taxExpiryDate && <p>วันหมดภาษี: {new Date(vehicle.taxExpiryDate).toLocaleDateString('th-TH')}</p>}
+                                    {vehicle.province && <p>จังหวัด: {vehicle.province}</p>}
+                                    {vehicle.fuelType && <p>เชื้อเพลิง: {vehicle.fuelType}</p>}
                                     <p>รูปภาพ: {vehicle.photos ? vehicle.photos.length : 0} รูป</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg">

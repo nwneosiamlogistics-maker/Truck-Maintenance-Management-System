@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { Driver, DriverPerformance, DrivingIncident, Vehicle, FuelRecord, Repair } from '../types';
 import { formatCurrency } from '../utils';
 import { BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
@@ -8,7 +9,13 @@ import { useToast } from '../context/ToastContext';
 import DriverDetailModal from './DriverDetailModal';
 import DriverLeaveReport from './DriverLeaveReport';
 import DriverMatrix from './DriverMatrix';
-import { promptForPasswordAsync, showAlert } from '../utils';
+import { promptForPasswordAsync, showAlert, confirmAction } from '../utils';
+import { useSafetyChecks } from '../hooks/useSafetyChecks';
+import { useSafetyPlan } from '../hooks/useSafetyPlan';
+import { useIncabAssessments } from '../hooks/useIncabAssessments';
+import IncabAssessmentModal from './IncabAssessmentModal';
+import IncabAssessmentPrintModal from './IncabAssessmentPrintModal';
+import type { IncabAssessment } from '../types';
 
 import AddIncidentModal from './AddIncidentModal';
 
@@ -35,17 +42,26 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false); // General incident modal
     const [viewMode, setViewMode] = useState<'list' | 'leave-report' | 'matrix'>('list');
     const [isChartCollapsed, setIsChartCollapsed] = useState(true);
+    const [matrixZoom, setMatrixZoom] = useState(1);
+    const matrixZoomLevels = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4];
+    const matrixZoomIdx = matrixZoomLevels.indexOf(matrixZoom);
+    const matrixZoomIn  = () => setMatrixZoom(matrixZoomLevels[Math.min(matrixZoomLevels.length - 1, matrixZoomIdx + 1)]);
+    const matrixZoomOut = () => setMatrixZoom(matrixZoomLevels[Math.max(0, matrixZoomIdx - 1)]);
+    const matrixZoomReset = () => setMatrixZoom(1);
     const [cardLightbox, setCardLightbox] = useState<{ photos: string[]; index: number } | null>(null);
     const { addToast } = useToast();
+    const { checks: safetyChecks } = useSafetyChecks(new Date().getFullYear());
+    const { topics: safetyTopics, plans: trainingPlans } = useSafetyPlan(new Date().getFullYear());
+    const { assessments: incabAssessments, addAssessment, updateAssessment } = useIncabAssessments(new Date().getFullYear());
+    const [incabModalDriver, setIncabModalDriver] = useState<Driver | null>(null);
+    const [incabPrintAssessment, setIncabPrintAssessment] = useState<IncabAssessment | null>(null);
 
-    const handleSaveDriver = (driver: Driver | Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const handleSaveDriver = async (driver: Driver | Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>) => {
         if ('id' in driver) {
-            // Update existing driver
             setDrivers(prev => prev.map(d => d.id === driver.id ? driver : d));
             setEditingDriver(null);
-            showAlert('สำเร็จ', `อัปเดตข้อมูล ${driver.name} สำเร็จ`, 'success');
+            showAlert('บันทึกสำเร็จ', `อัปเดตข้อมูล ${driver.name} เรียบร้อย`, 'success');
         } else {
-            // Add new driver
             const newDriver: Driver = {
                 ...driver,
                 id: `DRV-${Date.now()}`,
@@ -54,7 +70,7 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
             };
             setDrivers(prev => [newDriver, ...prev]);
             setIsAddModalOpen(false);
-            showAlert('สำเร็จ', `เพิ่มคนขับ ${newDriver.name} สำเร็จ`, 'success');
+            showAlert('บันทึกสำเร็จ', `เพิ่มคนขับ ${newDriver.name} เรียบร้อย`, 'success');
         }
     };
 
@@ -63,13 +79,12 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
             ...incidentData,
             id: `INC-${Date.now()}`,
             createdAt: new Date().toISOString(),
-            createdBy: 'Admin' // Should be current user
+            createdBy: 'Admin'
         };
-
         setIncidents(prev => [newIncident, ...prev]);
         setIsIncidentModalOpen(false);
         setIncidentDriver(null);
-        showAlert('สำเร็จ', 'บันทึกอุบัติเหตุ/การฝ่าฝืนเรียบร้อยแล้ว', 'success');
+        showAlert('บันทึกสำเร็จ', 'บันทึกเหตุการณ์เรียบร้อย', 'success');
     };
 
     const handleEditClick = async (e: React.MouseEvent, driver: Driver) => {
@@ -80,10 +95,16 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
         }
     };
 
-    const handleUpdateDriver = (updatedDriver: Driver) => {
+    const handleUpdateDriver = async (updatedDriver: Driver) => {
+        const ok = await confirmAction(
+            'ยืนยันการบันทึกข้อมูล',
+            `บันทึกการเปลี่ยนแปลงข้อมูลของ ${updatedDriver.name} ใช่หรือไม่?`,
+            'บันทึก'
+        );
+        if (!ok) return;
         setDrivers(prev => prev.map(d => d.id === updatedDriver.id ? updatedDriver : d));
         setSelectedDriver(updatedDriver);
-        addToast('อัปเดตข้อมูลคนขับสำเร็จ', 'success');
+        addToast('บันทึกสำเร็จ', 'success');
     };
 
     // Calculate driver performance
@@ -242,6 +263,23 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                             </button>
                         </div>
 
+                        {viewMode === 'matrix' && (
+                            <div className="flex items-center gap-1 bg-slate-100 rounded-xl px-2 py-1.5 border border-slate-200 shrink-0">
+                                <span className="text-xs text-slate-500 mr-1">ขนาดตัวอักษร:</span>
+                                <button onClick={matrixZoomOut} disabled={matrixZoomIdx === 0} title="ย่อ" aria-label="ย่อตาราง"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white disabled:opacity-30 text-slate-600 transition-colors">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" /></svg>
+                                </button>
+                                <button onClick={matrixZoomReset} title="รีเซ็ต" aria-label="รีเซ็ตขนาด"
+                                    className="px-2 h-7 text-xs font-bold rounded-lg hover:bg-white text-slate-700 transition-colors min-w-[48px]">
+                                    {Math.round(matrixZoom * 100)}%
+                                </button>
+                                <button onClick={matrixZoomIn} disabled={matrixZoomIdx === matrixZoomLevels.length - 1} title="ขยาย" aria-label="ขยายตาราง"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white disabled:opacity-30 text-slate-600 transition-colors">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6M7 10h6" /></svg>
+                                </button>
+                            </div>
+                        )}
                         {viewMode === 'list' && (
                             <>
                                 <div className="flex gap-2 shrink-0">
@@ -304,6 +342,14 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                     setDrivers={setDrivers}
                     vehicles={vehicles}
                     incidents={incidents}
+                    safetyChecks={safetyChecks}
+                    safetyTopics={safetyTopics}
+                    trainingPlans={trainingPlans}
+                    incabAssessments={incabAssessments}
+                    zoom={matrixZoom}
+                    onEditDriver={driver => setEditingDriver(driver)}
+                    onDeleteDriver={driver => setDrivers(prev => prev.filter(d => d.id !== driver.id))}
+                    onOpenIncab={driver => setIncabModalDriver(driver)}
                 />
             ) : viewMode === 'list' ? (
                 <>
@@ -508,24 +554,24 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
             )}
 
             {/* Add Driver Modal */}
-            {isAddModalOpen && (
+            {isAddModalOpen && createPortal(
                 <AddDriverModal
                     onClose={() => setIsAddModalOpen(false)}
                     onSave={handleSaveDriver}
                 />
-            )}
+            , document.body)}
 
             {/* Edit Driver Modal */}
-            {editingDriver && (
+            {editingDriver && createPortal(
                 <AddDriverModal
                     driver={editingDriver}
                     onClose={() => setEditingDriver(null)}
                     onSave={handleSaveDriver}
                 />
-            )}
+            , document.body)}
 
             {/* Driver Detail Modal */}
-            {selectedDriver && (
+            {selectedDriver && createPortal(
                 <DriverDetailModal
                     driver={selectedDriver}
                     onClose={() => setSelectedDriver(null)}
@@ -539,10 +585,10 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                         }
                     }}
                 />
-            )}
+            , document.body)}
 
             {/* Incident Modal */}
-            {isIncidentModalOpen && (
+            {isIncidentModalOpen && createPortal(
                 <AddIncidentModal
                     driver={incidentDriver || undefined}
                     drivers={drivers}
@@ -550,12 +596,12 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                     onClose={() => { setIsIncidentModalOpen(false); setIncidentDriver(null); }}
                     onSave={handleSaveIncident}
                 />
-            )}
+            , document.body)}
 
-            {/* Card Photo Lightbox */}
-            {cardLightbox && (
+            {/* Card Photo Lightbox — portal to bypass overflow stacking context */}
+            {cardLightbox && createPortal(
                 <div
-                    className="fixed inset-0 bg-black bg-opacity-90 z-[200] flex flex-col items-center justify-start pt-6 p-4 overflow-y-auto"
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[9999] flex flex-col items-center justify-start pt-6 p-4 overflow-y-auto"
                     onClick={() => setCardLightbox(null)}
                 >
                     <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
@@ -601,6 +647,35 @@ const DriverManagement: React.FC<DriverManagementProps> = ({ drivers, setDrivers
                         </div>
                     </div>
                 </div>
+            , document.body)}
+
+            {/* Incab Assessment Modal */}
+            {incabModalDriver && (
+                <IncabAssessmentModal
+                    drivers={drivers}
+                    editAssessment={incabAssessments.filter(a => a.driverId === incabModalDriver.id).sort((a, b) => b.date.localeCompare(a.date))[0] ?? null}
+                    onSave={(assessment) => {
+                        const exists = incabAssessments.some(a => a.id === assessment.id);
+                        if (exists) updateAssessment(assessment);
+                        else addAssessment(assessment);
+                        setDrivers(prev => prev.map(d =>
+                            d.id === assessment.driverId
+                                ? { ...d, incabCoaching: { score: assessment.totalScore, date: assessment.date } }
+                                : d
+                        ));
+                        setIncabPrintAssessment(assessment);
+                    }}
+                    onClose={() => setIncabModalDriver(null)}
+                    onToast={(msg, type) => addToast(msg, type)}
+                />
+            )}
+
+            {/* Incab Print Modal */}
+            {incabPrintAssessment && (
+                <IncabAssessmentPrintModal
+                    assessment={incabPrintAssessment}
+                    onClose={() => setIncabPrintAssessment(null)}
+                />
             )}
         </div>
     );

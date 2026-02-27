@@ -1,6 +1,6 @@
 
 
-export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories';
+export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories' | 'safety-plan' | 'safety-check' | 'incab-assessment';
 
 export type RepairCategoryCode = 'ENG' | 'TRA' | 'SUS' | 'BRK' | 'ELE' | 'AC' | 'TIR' | 'BOD' | 'HYD' | 'COO' | 'FUE' | 'PM' | 'OTH';
 
@@ -262,7 +262,12 @@ export interface Vehicle {
     make: string;
     model: string;
     chassisNumber: string | null;
+    engineNumber: string | null;
     registrationDate: string | null;
+    taxExpiryDate: string | null;
+    province: string | null;
+    fuelType: string | null;
+    yearOfManufacture: number | null;
     insuranceCompany: string | null;
     insuranceExpiryDate: string | null;
     insuranceType: string | null;
@@ -706,6 +711,7 @@ export interface Driver {
         result?: 'ผ่าน' | 'ไม่ผ่าน' | 'รอผล';
         remark?: string;
         checkedDate?: string;
+        files?: string[];
     };
 
     // อบรมความปลอดภัย (Safety Induction) รายไตรมาส
@@ -736,6 +742,8 @@ export interface Driver {
     vehicleRightPhoto?: string;
     vehicleBackPhoto?: string;
     driverAppearanceOk?: boolean;   // แต่งกายสวมเสื้อบริษัท / สะท้อนแสง / Safety
+    firstAidBoxPhoto?: string;      // รูปถ่ายกล่องปฐมพยาบาล
+    flashlightPhoto?: string;       // รูปถ่ายไฟฉาย
 
     // Defensive Driving Program & Refresh Training
     defensiveDriving?: {
@@ -1292,4 +1300,167 @@ export interface OKRObjective {
     category: OKRCategory;
     progress: number; // 0-100
     metrics: OKRMetric[];
+}
+
+// ==================== SAFETY PLAN SYSTEM ====================
+
+export type SafetyTopicCode =
+    | 'induction_q1'
+    | 'induction_q2'
+    | 'induction_q3'
+    | 'induction_q4'
+    | 'defensive'
+    | 'defensive_refresh'
+    | string; // allow custom topics
+
+export type TrainingPlanStatus = 'planned' | 'booked' | 'done' | 'overdue';
+
+export type SafetyTopicTarget = 'all' | 'new_employee' | 'existing_employee';
+
+export interface SafetyTopic {
+    id: string;
+    year: number;
+    code: SafetyTopicCode;
+    name: string;
+    description?: string;
+    target: SafetyTopicTarget;
+    inCharge?: string;           // ผู้รับผิดชอบ
+    byLegal?: string;            // By Legal
+    budget?: number;
+    windowStart: string;         // ISO date — ช่วงเริ่มต้นที่อนุญาต
+    windowEnd: string;           // ISO date — ช่วงสิ้นสุด / dueDate
+    isMandatory: boolean;
+    sortOrder: number;
+    remark?: string;
+    isActive: boolean;
+    createdAt: string;
+}
+
+export interface TrainingSession {
+    id: string;
+    year: number;
+    topicId: string;
+    topicCode: SafetyTopicCode;
+    startDate: string;           // ISO date
+    endDate: string;             // ISO date
+    trainer: string;
+    location?: string;
+    capacity?: number;
+    attendeeIds: string[];       // driverId[]
+    evidencePhotos: string[];    // NAS URLs
+    certificateUrl?: string;
+    note?: string;
+    createdAt: string;
+    createdBy?: string;
+}
+
+export interface TrainingPlan {
+    id: string;
+    year: number;
+    driverId: string;
+    topicId: string;
+    topicCode: SafetyTopicCode;
+    dueDate: string;             // ISO date
+    status: TrainingPlanStatus;
+    bookingDate?: string;
+    actualDate?: string;
+    sessionId?: string;          // ผูกกับ TrainingSession
+    trainer?: string;
+    preTest?: number;
+    postTest?: number;
+    evidencePhotos: string[];    // NAS URLs
+    certificateUrl?: string;
+    nextDueDate?: string;        // คำนวณอัตโนมัติหลัง done
+    note?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// ==================== SAFETY CHECK SYSTEM ====================
+
+export type SafetyCheckType = 'alcohol' | 'substance';
+export type SafetyCheckMethod = 'breathalyzer' | 'urine' | 'blood';
+export type SafetyCheckResult = 'pass' | 'fail' | 'pending';
+
+export interface SafetyCheckAttendee {
+    driverId: string;
+    employeeId: string;
+    name: string;
+    position: string;
+    company: string;
+    alcoholLevel?: number;       // mg% — alcohol only
+    result: SafetyCheckResult;
+    remark?: string;
+}
+
+export interface SafetyCheck {
+    id: string;
+    date: string;                // ISO date
+    location: string;
+    auditor: string;             // ผู้ตรวจ/ลายเซ็น
+    type: SafetyCheckType;
+    method: SafetyCheckMethod;
+    attendees: SafetyCheckAttendee[];
+    evidenceFiles: string[];     // NAS URLs (ภาพ/PDF)
+    remark?: string;
+    createdAt: string;
+    createdBy?: string;
+}
+
+// ==================== INCAB ASSESSMENT ====================
+
+export type IncabAssessmentResult = 'pass' | 'fail';
+export type IncabApprovalStatus = 'approved' | 'rejected' | 'pending';
+
+export interface IncabVisionTest {
+    eyeSight: 'short' | 'long' | 'normal' | '';      // 1.1 สายตา
+    colorVision: 'normal' | 'deficient' | '';          // 1.2 การมองเห็นที่
+    hearing: 'normal' | 'deficient' | '';              // 1.3 การได้ยิน
+}
+
+export interface IncabDrivingChecklist {
+    parking: 'pass' | 'fail' | '';          // การจอด
+    reversing: 'pass' | 'fail' | '';        // การกลับรถ
+    speedControl: 'pass' | 'fail' | '';     // ความเร็วในเขต
+    mirrorUsage: 'pass' | 'fail' | '';      // การใช้กระจก
+    signalUsage: 'pass' | 'fail' | '';      // การให้สัญญาณ
+    laneKeeping: 'pass' | 'fail' | '';      // การรักษาช่องทาง
+}
+
+export interface IncabAssessment {
+    id: string;
+    year: number;
+    driverId: string;
+    driverName: string;
+    employeeId: string;
+    date: string;                           // ISO date
+    assessor: string;                       // ผู้ประเมิน
+    approvedBy?: string;                    // ผู้บังคับบัญชา
+    approvalStatus: IncabApprovalStatus;
+    nextTestDate?: string;                  // วันทดสอบครั้งถัดไป
+
+    // ส่วนที่ 1: การทดสอบร่างกาย (30 คะแนน)
+    visionTest: IncabVisionTest;
+    visionScore: number;                    // 0-30
+
+    // ส่วนที่ 2: สภาพจิตใจ/แก้ปัญหา (30 คะแนน)
+    situationQ1: string;                    // 2.1 ส่งสินค้าเร่งด่วน
+    situationQ1Score: number;               // 0-5
+    situationQ2: string;                    // 2.2 รถขับปาดหน้า
+    situationQ2Score: number;               // 0-5
+    situationQ3: string;                    // 2.3 ท่าทีการโต้เถียง/ความเครียด
+    situationQ3Score: number;               // 0-5
+    situationScore: number;                 // 0-30
+
+    // ส่วนที่ 3: การทดการขับขี่ (40 คะแนน)
+    drivingChecklist: IncabDrivingChecklist;
+    drivingScore: number;                   // 0-40
+
+    totalScore: number;                     // 0-100
+    result: IncabAssessmentResult;          // pass ≥ 70
+    remark?: string;
+
+    evidenceFiles: string[];                // NAS URLs
+    createdAt: string;
+    createdBy?: string;
 }

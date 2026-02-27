@@ -19,9 +19,14 @@ export const uploadFileToStorage = async (file: File, path: string): Promise<str
  */
 export const uploadFilesToStorage = async (files: File[], basePath: string): Promise<string[]> => {
     const promises = files.map((file, index) => {
-        const timestamp = Date.now();
+        const timestamp = Date.now() + index;
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const path = `${basePath}/${timestamp}_${index}_${safeName.replace(/\.[^.]+$/, '')}.webp`;
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+        const isPdf = ext === 'pdf' || file.type === 'application/pdf';
+        const finalName = isPdf
+            ? `${timestamp}_${safeName}`
+            : `${timestamp}_${safeName.replace(/\.[^.]+$/, '')}.webp`;
+        const path = `${basePath}/${finalName}`;
         return uploadFileToStorage(file, path);
     });
     return Promise.all(promises);

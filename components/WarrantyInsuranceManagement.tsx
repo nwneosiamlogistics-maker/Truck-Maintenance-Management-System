@@ -16,6 +16,17 @@ import IncidentInvestigationPrintLayout from './IncidentInvestigationPrintLayout
 import VehicleManagement from './VehicleManagement';
 import Swal from 'sweetalert2';
 
+const THAI_MONTHS = ['\u0e21.\u0e04.','\u0e01.\u0e1e.','\u0e21\u0e35.\u0e04.','\u0e40\u0e21.\u0e22.','\u0e1e.\u0e04.','\u0e21\u0e34.\u0e22.','\u0e01.\u0e04.','\u0e2a.\u0e04.','\u0e01.\u0e22.','\u0e15.\u0e04.','\u0e1e.\u0e22.','\u0e18.\u0e04.'];
+const toThaiDate = (dateStr?: string | null): string => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = THAI_MONTHS[d.getMonth()];
+    const year = d.getFullYear() + 543;
+    return `${day} ${month} ${year}`;
+};
+
 interface WarrantyInsuranceManagementProps {
     partWarranties: PartWarranty[];
     setPartWarranties: React.Dispatch<React.SetStateAction<PartWarranty[]>>;
@@ -539,7 +550,7 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                                                 <td className="px-6 py-4">
                                                     <div>
                                                         <p className={`text-sm font-medium ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-amber-600' : 'text-slate-700'}`}>
-                                                            {new Date(warranty.warrantyExpiry).toLocaleDateString('th-TH')}
+                                                            {toThaiDate(warranty.warrantyExpiry)}
                                                         </p>
                                                         <p className="text-xs text-slate-500">
                                                             {isExpired ? `หมดอายุแล้ว ${Math.abs(daysRemaining)} วัน` : `เหลือ ${daysRemaining} วัน`}
@@ -667,7 +678,7 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-slate-600">
-                                                {new Date(claim.incidentDate).toLocaleDateString('th-TH')}
+                                                {toThaiDate(claim.incidentDate)}
                                             </td>
                                             <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">
                                                 {formatCurrency(claim.claimAmount)}
@@ -858,7 +869,7 @@ const WarrantyInsuranceManagement: React.FC<WarrantyInsuranceManagementProps> = 
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="font-bold text-slate-800">{new Date(report.incidentDate).toLocaleDateString('th-TH')}</div>
+                                                    <div className="font-bold text-slate-800">{toThaiDate(report.incidentDate)}</div>
                                                     <div className="text-xs text-slate-500">{report.incidentTime} น.</div>
                                                 </td>
                                                 <td className="px-6 py-4">

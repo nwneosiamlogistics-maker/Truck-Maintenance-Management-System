@@ -147,4 +147,16 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'ประวัติอุบัติเหตุและเหตุการณ์',
         subtitle: 'ตารางแสดงข้อมูลอุบัติเหตุ การฝ่าฝืน และประวัติความปลอดภัยทั้งหมด'
     },
+    'safety-plan': {
+        title: 'แผนความปลอดภัย',
+        subtitle: 'Safety & Health Environment Master Plan — อบรมความปลอดภัยรายปี'
+    },
+    'safety-check': {
+        title: 'ตรวจสารเสพติด / แอลกอฮอล์',
+        subtitle: 'บันทึกผลตรวจ พรีวิว และพิมพ์ฟอร์มรายชื่อผู้ผ่านการตรวจ'
+    },
+    'incab-assessment': {
+        title: 'แบบฟอร์มทดสอบพนักงานขับรถ',
+        subtitle: 'บันทึกผลการทดสอบ Incab Coaching — ร่างกาย / จิตใจ / การขับขี่'
+    },
 };

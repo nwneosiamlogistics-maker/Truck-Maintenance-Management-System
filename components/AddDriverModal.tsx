@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import type { Driver, LicenseClass, DriverStatus } from '../types';
 import PhotoUpload from './PhotoUpload';
+import { confirmAction } from '../utils';
+
+// Thai National ID utilities
+const formatThaiId = (raw: string): string => {
+    const d = raw.replace(/\D/g, '').slice(0, 13);
+    if (!d) return '';
+    const p = [d.slice(0,1), d.slice(1,5), d.slice(5,10), d.slice(10,12), d.slice(12,13)].filter(Boolean);
+    return p.join('-');
+};
+
+const validateThaiId = (raw: string): boolean => {
+    const d = raw.replace(/\D/g, '');
+    if (d.length !== 13) return false;
+    let sum = 0;
+    for (let i = 0; i < 12; i++) sum += parseInt(d[i]) * (13 - i);
+    return (11 - (sum % 11)) % 10 === parseInt(d[12]);
+};
 
 interface AddDriverModalProps {
     driver?: Driver | null;
@@ -67,7 +84,8 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
         leaves: driver?.leaves || [],
         status: (driver?.status || 'active') as DriverStatus,
         notes: driver?.notes || '',
-        photos: driver?.photos || [] as string[]
+        photos: driver?.photos || [] as string[],
+        idCard: (driver as any)?.idCard || '',
     });
 
     const [certificationInput, setCertificationInput] = useState('');
@@ -87,6 +105,16 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isSubmitting) return;
+
+        const isEdit = !!driver;
+        const ok = await confirmAction(
+            isEdit ? 'ยืนยันการแก้ไขข้อมูลพนักงาน' : 'ยืนยันการเพิ่มพนักงานขับรถ',
+            isEdit
+                ? `ต้องการบันทึกการแก้ไขข้อมูลของ ${driver?.name} ใช่หรือไม่?`
+                : `ต้องการเพิ่มพนักงานขับรถ “${formData.name}” ใช่หรือไม่?`,
+            'บันทึก'
+        );
+        if (!ok) return;
 
         setIsSubmitting(true);
         const safePhotos = Array.isArray(formData.photos) ? formData.photos : [];
@@ -155,7 +183,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
                     <div className="flex justify-between items-center">
@@ -463,41 +491,35 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                         </div>
                     </div>
 
-                    {/* Certifications */}
+                    {/* Certifications — เชื่อมกับ Certificate ใน DriverMatrix */}
                     <div>
                         <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">6</span>
+                            <span className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center text-rose-600">6</span>
                             ใบรับรองและการอบรม
+                            <span className="text-xs font-normal text-slate-400 ml-1">(Certificate)</span>
                         </h4>
-                        <div className="flex gap-2 mb-3">
-                            <input
-                                type="text"
-                                value={certificationInput}
-                                onChange={(e) => setCertificationInput(e.target.value)}
-                                placeholder="เพิ่มใบรับรอง/การอบรม"
-                                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none"
-                            />
-                            <button
-                                type="button"
-                                onClick={addCertification}
-                                className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold text-sm"
-                            >
-                                เพิ่ม
-                            </button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {formData.certifications.map((cert, index) => (
-                                <div key={index} className="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2">
-                                    {cert}
-                                    <button
-                                        type="button"
-                                        onClick={() => removeCertification(index)}
-                                        className="text-indigo-400 hover:text-indigo-600"
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            ))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-rose-50 border border-rose-100 rounded-xl">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">Certificate No. <span className="text-xs font-normal text-slate-400">(หมายเลขใบรับรอง)</span></label>
+                                <input
+                                    type="text"
+                                    value={(formData as any).certificate?.certificateNo || ''}
+                                    onChange={e => handleMatrixNestedChange('certificate', 'certificateNo', e.target.value)}
+                                    placeholder="หมายเลขใบรับรอง"
+                                    title="Certificate Number"
+                                    className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-100 focus:border-rose-500 outline-none text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">Issued Date <span className="text-xs font-normal text-slate-400">(วันที่ออกใบรับรอง)</span></label>
+                                <input
+                                    type="date"
+                                    value={(formData as any).certificate?.issuedDate || ''}
+                                    onChange={e => handleMatrixNestedChange('certificate', 'issuedDate', e.target.value)}
+                                    title="Certificate Issued Date"
+                                    className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-100 focus:border-rose-500 outline-none text-sm"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -510,11 +532,45 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* บัตรประชาชน */}
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">หมายเลขบัตรประชาชน</label>
-                                <input type="text" name="idCard" value={(formData as any).idCard || ''}
-                                    onChange={handleInputChange} placeholder="x-xxxx-xxxxx-xx-x"
-                                    title="หมายเลขบัตรประชาชน"
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-100 focus:border-cyan-500 outline-none font-mono" />
+                                <label className="block text-sm font-bold text-slate-700 mb-2">
+                                    หมายเลขบัตรประชาชน
+                                </label>
+                                {(() => {
+                                    const raw = ((formData as any).idCard || '').replace(/\D/g, '');
+                                    const isValid = raw.length === 13 && validateThaiId(raw);
+                                    const isInvalid = raw.length === 13 && !isValid;
+                                    return (
+                                        <>
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                name="idCard"
+                                                value={raw}
+                                                onChange={e => {
+                                                    const digits = e.target.value.replace(/\D/g, '').slice(0, 13);
+                                                    setFormData(prev => ({ ...prev, idCard: digits } as any));
+                                                }}
+                                                placeholder="1234567890123"
+                                                maxLength={13}
+                                                title="หมายเลขบัตรประชาชน 13 หลัก"
+                                                aria-label="หมายเลขบัตรประชาชน"
+                                                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl focus:ring-2 outline-none font-mono ${
+                                                    isInvalid ? 'border-red-400 focus:ring-red-100 focus:border-red-500'
+                                                    : isValid ? 'border-emerald-400 focus:ring-emerald-100 focus:border-emerald-500'
+                                                    : 'border-slate-200 focus:ring-cyan-100 focus:border-cyan-500'
+                                                }`}
+                                            />
+                                            {raw.length > 0 && (
+                                                <div className="mt-1 font-mono text-slate-500 text-sm tracking-wider">
+                                                    {formatThaiId(raw)}
+                                                </div>
+                                            )}
+                                            {isValid && <p className="text-emerald-600 text-xs mt-1 font-medium">✓ หมายเลขถูกต้อง (Checksum ผ่าน)</p>}
+                                            {isInvalid && <p className="text-red-500 text-xs mt-1 font-medium">✗ Checksum ไม่ถูกต้อง — กรุณาตรวจสอบอีกครั้ง</p>}
+                                            {raw.length > 0 && raw.length < 13 && <p className="text-amber-500 text-xs mt-1">กรอกให้ครบ 13 หลัก ({raw.length}/13)</p>}
+                                        </>
+                                    );
+                                })()}
                             </div>
                             {/* วันเกิด */}
                             <div>
@@ -655,8 +711,8 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                             </div>
                         </div>
 
-                        {/* Incab Coaching & Certificate */}
-                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Incab Coaching */}
+                        <div className="mt-4">
                             <div className="p-4 bg-violet-50 border border-violet-100 rounded-xl">
                                 <h5 className="text-sm font-bold text-violet-700 mb-3">Incab Coaching</h5>
                                 <div className="grid grid-cols-2 gap-3">
@@ -673,25 +729,6 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
                                             onChange={e => handleMatrixNestedChange('incabCoaching', 'date', e.target.value)}
                                             title="Incab Coaching Date"
                                             className="w-full px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:outline-none" />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl">
-                                <h5 className="text-sm font-bold text-rose-700 mb-3">Certificate</h5>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">Certificate No.</label>
-                                        <input type="text" value={(formData as any).certificate?.certificateNo || ''}
-                                            onChange={e => handleMatrixNestedChange('certificate', 'certificateNo', e.target.value)}
-                                            placeholder="หมายเลขใบรับรอง" title="Certificate Number"
-                                            className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1">Issued Date</label>
-                                        <input type="date" value={(formData as any).certificate?.issuedDate || ''}
-                                            onChange={e => handleMatrixNestedChange('certificate', 'issuedDate', e.target.value)}
-                                            title="Certificate Issued Date"
-                                            className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:outline-none" />
                                     </div>
                                 </div>
                             </div>
