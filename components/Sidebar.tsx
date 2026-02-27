@@ -5,7 +5,7 @@ import {
     Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
     Shield, Calendar, Clock, ClipboardCheck, Disc, Box, ShoppingCart,
     File, Store, Users, PenTool, UserCog, BookOpen, Wallet, Fuel,
-    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers
+    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers, ShieldCheck, FlaskConical, Table2
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -128,6 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 { id: 'technicians', icon: <UserCog size={20} />, label: 'จัดการช่าง' },
                 { id: 'technicianWorkLog', icon: <BookOpen size={20} />, label: 'ประวัติงานซ่อมช่าง' },
                 { id: 'driver-management', icon: <User size={20} />, label: 'จัดการพนักงานขับรถ' },
+                { id: 'driver-matrix', icon: <Table2 size={20} />, label: 'Driver Matrix' },
             ]
         },
         {
@@ -140,6 +141,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             section: 'การจัดการความเสี่ยง', items: [
                 { id: 'warranty-insurance', icon: <Shield size={20} />, label: 'การรับประกันและประกันภัย' },
                 { id: 'incident-log', icon: <AlertTriangle size={20} />, label: 'ประวัติอุบัติเหตุ' },
+                { id: 'safety-plan', icon: <ShieldCheck size={20} />, label: 'แผนความปลอดภัย' },
+                { id: 'safety-check', icon: <FlaskConical size={20} />, label: 'ตรวจสาร/แอลกอฮอล์' },
+                { id: 'incab-assessment', icon: <ClipboardList size={20} />, label: 'แบบฟอร์มทดสอบพนักงานขับรถ' },
             ]
         },
         {

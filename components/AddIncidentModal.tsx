@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Driver, DrivingIncident, Vehicle } from '../types';
 import PhotoUpload from './PhotoUpload';
+import { confirmAction } from '../utils';
 
 interface AddIncidentModalProps {
     driver?: Driver; // Pre-selected driver if applicable
@@ -92,9 +93,17 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedDriverId) return;
+
+        const driverName = drivers.find(d => d.id === selectedDriverId)?.name || '';
+        const ok = await confirmAction(
+            'ยืนยันการบันทึกเหตุการณ์',
+            `บันทึกเหตุการณ์ “${formData.type}” ของ ${driverName} วันที่ ${formData.date} ใช่หรือไม่?`,
+            'บันทึก'
+        );
+        if (!ok) return;
 
         const safePhotos = Array.isArray(formData.photos) ? formData.photos : [];
 
@@ -112,7 +121,7 @@ const AddIncidentModal: React.FC<AddIncidentModalProps> = ({ driver: initialDriv
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex justify-center items-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9999] flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-3xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 flex justify-between items-center shrink-0">

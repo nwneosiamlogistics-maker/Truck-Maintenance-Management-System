@@ -3,6 +3,21 @@ import React from 'react';
 import { database } from '../firebase/firebase';
 import { ref, onValue, set } from 'firebase/database';
 
+/** Remove undefined values recursively so Firebase never receives them. */
+function stripUndefined<T>(value: T): T {
+    if (value === null || value === undefined) return null as unknown as T;
+    if (Array.isArray(value)) return value.map(stripUndefined) as unknown as T;
+    if (typeof value === 'object') {
+        const result: Record<string, unknown> = {};
+        for (const k of Object.keys(value as object)) {
+            const v = (value as Record<string, unknown>)[k];
+            if (v !== undefined) result[k] = stripUndefined(v);
+        }
+        return result as T;
+    }
+    return value;
+}
+
 type SetValue<T> = React.Dispatch<React.SetStateAction<T>>;
 
 export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, SetValue<T>] {
@@ -32,7 +47,7 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
       } else {
         // Path doesn't exist, initialize it.
         const dataToSet = resolvedInitial;
-        set(dbRef, dataToSet);
+        set(dbRef, stripUndefined(dataToSet));
         setValueState(dataToSet); // Set local state immediately
       }
     }, (error) => {
@@ -68,7 +83,7 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
             : newValueOrFn;
         
         // After determining the new state, push it to Firebase.
-        set(dbRef, resolvedValue).catch(error => {
+        set(dbRef, stripUndefined(resolvedValue)).catch(error => {
             console.error(`Firebase set failed for key "${key}":`, error);
             // In a production app, you might want to roll back the optimistic update here.
             isWriting.current = false; // Reset flag immediately on error

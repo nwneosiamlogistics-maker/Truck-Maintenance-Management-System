@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Driver, LeaveRecord, LeaveType } from '../types';
 import { formatCurrency } from '../utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -98,7 +99,7 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-start pt-4 pb-4 overflow-y-auto" onClick={onClose}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-start pt-4 pb-4 overflow-y-auto" onClick={onClose}>
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in-up flex flex-col" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 bg-slate-50 flex justify-between items-center shrink-0">
@@ -469,10 +470,10 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                 </div>
             </div>
 
-            {/* Lightbox */}
-            {lightbox && driver.photos && (
+            {/* Lightbox — portal to bypass overflow-y-auto stacking context */}
+            {lightbox && driver.photos && createPortal(
                 <div
-                    className="fixed inset-0 bg-black bg-opacity-90 z-[300] flex flex-col items-center justify-start pt-6 p-4 overflow-y-auto"
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[9999] flex flex-col items-center justify-start pt-6 p-4 overflow-y-auto"
                     onClick={() => setLightbox(null)}
                 >
                     <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
@@ -518,7 +519,7 @@ const DriverDetailModal: React.FC<DriverDetailModalProps> = ({ driver, onClose, 
                         </div>
                     </div>
                 </div>
-            )}
+            , document.body)}
         </div>
     );
 };

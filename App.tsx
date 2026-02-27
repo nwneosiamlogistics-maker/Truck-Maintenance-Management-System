@@ -47,10 +47,14 @@ const PurchaseOrderManagement = lazy(() => import('./components/PurchaseOrderMan
 const BudgetManagement = lazy(() => import('./components/BudgetManagement'));
 const FuelManagement = lazy(() => import('./components/FuelManagement'));
 const DriverManagement = lazy(() => import('./components/DriverManagement'));
+const DriverMatrixPage = lazy(() => import('./components/DriverMatrixPage'));
 const WarrantyInsuranceManagement = lazy(() => import('./components/WarrantyInsuranceManagement'));
 const IncidentLogPage = lazy(() => import('./components/IncidentLogPage'));
 const OKRManagement = lazy(() => import('./components/OKRManagement'));
 const RepairCategoryManagement = lazy(() => import('./components/RepairCategoryManagement'));
+const SafetyPlanTable = lazy(() => import('./components/SafetyPlanTable'));
+const SafetyCheckPage = lazy(() => import('./components/SafetyCheckPage'));
+const IncabAssessmentPage = lazy(() => import('./components/IncabAssessmentPage'));
 
 
 
@@ -393,6 +397,8 @@ const AppContent: React.FC<AppContentProps> = ({
                 return <FuelManagement fuelRecords={fuelRecords} setFuelRecords={setFuelRecords} vehicles={vehicles} drivers={drivers} />;
             case 'driver-management':
                 return <DriverManagement drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} fuelRecords={fuelRecords} incidents={drivingIncidents} repairs={repairs} setIncidents={setDrivingIncidents} />;
+            case 'driver-matrix':
+                return <DriverMatrixPage drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} incidents={drivingIncidents} />;
             case 'warranty-insurance':
                 return <WarrantyInsuranceManagement
                     partWarranties={partWarranties}
@@ -414,6 +420,12 @@ const AppContent: React.FC<AppContentProps> = ({
                 return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} />;
             case 'repair-categories':
                 return <RepairCategoryManagement repairCategories={repairCategories} setRepairCategories={setRepairCategories} />;
+            case 'safety-plan':
+                return <SafetyPlanTable drivers={drivers} />;
+            case 'safety-check':
+                return <SafetyCheckPage drivers={drivers} />;
+            case 'incab-assessment':
+                return <IncabAssessmentPage drivers={drivers} />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:
