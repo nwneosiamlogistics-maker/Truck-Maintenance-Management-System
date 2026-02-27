@@ -5,7 +5,7 @@ import {
     Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
     Shield, Calendar, Clock, ClipboardCheck, Disc, Box, ShoppingCart,
     File, Store, Users, PenTool, UserCog, BookOpen, Wallet, Fuel,
-    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers, ShieldCheck, FlaskConical
+    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers, ShieldCheck, FlaskConical, Table2
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -128,6 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 { id: 'technicians', icon: <UserCog size={20} />, label: 'จัดการช่าง' },
                 { id: 'technicianWorkLog', icon: <BookOpen size={20} />, label: 'ประวัติงานซ่อมช่าง' },
                 { id: 'driver-management', icon: <User size={20} />, label: 'จัดการพนักงานขับรถ' },
+                { id: 'driver-matrix', icon: <Table2 size={20} />, label: 'Driver Matrix' },
             ]
         },
         {

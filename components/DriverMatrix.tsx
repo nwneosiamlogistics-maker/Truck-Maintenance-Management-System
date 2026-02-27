@@ -982,47 +982,77 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                             ) : <span className="text-slate-300">-</span>}
                                         </TD>
 
-                                        {/* รูปภาพรถ */}
-                                        {(['vehicleFrontPhoto', 'safetyBeltPhoto', 'vehicleLeftPhoto', 'vehicleRightPhoto', 'vehicleBackPhoto'] as const).map(field => (
-                                            <TD key={field}>
-                                                {driver[field] ? (
-                                                    <a href={driver[field] as string} target="_blank" rel="noreferrer">
-                                                        <img src={driver[field] as string} alt={field} className="w-10 h-10 object-cover rounded-lg mx-auto border border-slate-200 hover:scale-105 transition-transform" />
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-slate-200 text-lg">📷</span>
-                                                )}
-                                            </TD>
-                                        ))}
+                                        {/* รูปภาพรถ — คลิกดู / อัปโหลด / เปลี่ยนรูป → NAS */}
+                                        {([
+                                            { field: 'vehicleFrontPhoto', label: 'หน้ารถ', slug: 'front' },
+                                            { field: 'safetyBeltPhoto',   label: 'เข็มขัด', slug: 'belt' },
+                                            { field: 'vehicleLeftPhoto',  label: 'ซ้าย',    slug: 'left' },
+                                            { field: 'vehicleRightPhoto', label: 'ขวา',    slug: 'right' },
+                                            { field: 'vehicleBackPhoto',  label: 'หลัง',   slug: 'back' },
+                                        ] as const).map(({ field, label, slug }) => {
+                                            const url = driver[field] as string | undefined;
+                                            const inputId = `photo-${driver.id}-${slug}`;
+                                            const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                const path = `truck-maintenance/driver/${driver.id}/${Date.now()}_${slug}.webp`;
+                                                const uploaded = await uploadToNAS(file, path);
+                                                if (uploaded) await updateDriver(driver.id, { [field]: uploaded } as Partial<Driver>, `รูป${label}:`);
+                                                e.target.value = '';
+                                            };
+                                            return (
+                                                <TD key={field}>
+                                                    {url ? (
+                                                        <div className="relative group flex justify-center">
+                                                            <a href={url} target="_blank" rel="noreferrer" title={`ดูรูป${label}`}>
+                                                                <img src={url} alt={label} className="w-10 h-10 object-cover rounded-lg border border-slate-200 hover:scale-110 transition-transform cursor-zoom-in" />
+                                                            </a>
+                                                            <label htmlFor={inputId} className="absolute -top-1 -right-1 cursor-pointer bg-blue-500 hover:bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity" title="เปลี่ยนรูป">
+                                                                ✎
+                                                                <input id={inputId} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                                                            </label>
+                                                        </div>
+                                                    ) : (
+                                                        <label htmlFor={inputId} className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-pink-500 transition-colors" title={`อัปโหลดรูป${label}`}>
+                                                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                            <span className="text-[9px]">{label}</span>
+                                                            <input id={inputId} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                                                        </label>
+                                                    )}
+                                                </TD>
+                                            );
+                                        })}
 
                                         {/* กล่องปฐมพยาบาล */}
                                         <TD>
                                             {driver.firstAidBoxPhoto ? (
-                                                <div className="relative group">
-                                                    <a href={driver.firstAidBoxPhoto} target="_blank" rel="noreferrer">
-                                                        <img src={driver.firstAidBoxPhoto} alt="กล่องปฐมพยาบาล" className="w-10 h-10 object-cover rounded-lg mx-auto border border-slate-200 hover:scale-105 transition-transform" />
+                                                <div className="relative group flex justify-center">
+                                                    <a href={driver.firstAidBoxPhoto} target="_blank" rel="noreferrer" title="ดูรูปกล่องปฐมพยาบาล">
+                                                        <img src={driver.firstAidBoxPhoto} alt="กล่องปฐมพยาบาล" className="w-10 h-10 object-cover rounded-lg mx-auto border border-slate-200 hover:scale-110 transition-transform cursor-zoom-in" />
                                                     </a>
-                                                    <label className="absolute -top-1 -right-1 cursor-pointer bg-blue-500 hover:bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity" title="เปลี่ยนรูป">
-                                                        +
-                                                        <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                                                    <label htmlFor={`photo-${driver.id}-firstaid`} className="absolute -top-1 -right-1 cursor-pointer bg-blue-500 hover:bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity" title="เปลี่ยนรูป">
+                                                        ✎
+                                                        <input id={`photo-${driver.id}-firstaid`} type="file" accept="image/*" className="hidden" onChange={async e => {
                                                             const file = e.target.files?.[0];
                                                             if (!file) return;
                                                             const path = `truck-maintenance/driver/${driver.id}/${Date.now()}_firstAidBox.webp`;
-                                                            const url = await uploadFileToStorage(file, path);
+                                                            const url = await uploadToNAS(file, path);
                                                             if (url) await updateDriver(driver.id, { firstAidBoxPhoto: url }, 'รูปกล่องปฐมพยาบาล:');
+                                                            e.target.value = '';
                                                         }} />
                                                     </label>
                                                 </div>
                                             ) : (
-                                                <label className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-blue-400 transition-colors" title="อัปโหลดรูปกล่องปฐมพยาบาล">
-                                                    <span className="text-xl">🩺</span>
-                                                    <span className="text-[9px]">อัปโหลด</span>
-                                                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                                                <label htmlFor={`photo-${driver.id}-firstaid`} className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-blue-400 transition-colors" title="อัปโหลดรูปกล่องปฐมพยาบาล">
+                                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                    <span className="text-[9px]">ปฐมพยาบาล</span>
+                                                    <input id={`photo-${driver.id}-firstaid`} type="file" accept="image/*" className="hidden" onChange={async e => {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
                                                         const path = `truck-maintenance/driver/${driver.id}/${Date.now()}_firstAidBox.webp`;
-                                                        const url = await uploadFileToStorage(file, path);
+                                                        const url = await uploadToNAS(file, path);
                                                         if (url) await updateDriver(driver.id, { firstAidBoxPhoto: url }, 'รูปกล่องปฐมพยาบาล:');
+                                                        e.target.value = '';
                                                     }} />
                                                 </label>
                                             )}
@@ -1031,31 +1061,33 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                         {/* ไฟฉาย */}
                                         <TD>
                                             {driver.flashlightPhoto ? (
-                                                <div className="relative group">
-                                                    <a href={driver.flashlightPhoto} target="_blank" rel="noreferrer">
-                                                        <img src={driver.flashlightPhoto} alt="ไฟฉาย" className="w-10 h-10 object-cover rounded-lg mx-auto border border-slate-200 hover:scale-105 transition-transform" />
+                                                <div className="relative group flex justify-center">
+                                                    <a href={driver.flashlightPhoto} target="_blank" rel="noreferrer" title="ดูรูปไฟฉาย">
+                                                        <img src={driver.flashlightPhoto} alt="ไฟฉาย" className="w-10 h-10 object-cover rounded-lg mx-auto border border-slate-200 hover:scale-110 transition-transform cursor-zoom-in" />
                                                     </a>
-                                                    <label className="absolute -top-1 -right-1 cursor-pointer bg-blue-500 hover:bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity" title="เปลี่ยนรูป">
-                                                        +
-                                                        <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                                                    <label htmlFor={`photo-${driver.id}-flashlight`} className="absolute -top-1 -right-1 cursor-pointer bg-blue-500 hover:bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity" title="เปลี่ยนรูป">
+                                                        ✎
+                                                        <input id={`photo-${driver.id}-flashlight`} type="file" accept="image/*" className="hidden" onChange={async e => {
                                                             const file = e.target.files?.[0];
                                                             if (!file) return;
                                                             const path = `truck-maintenance/driver/${driver.id}/${Date.now()}_flashlight.webp`;
-                                                            const url = await uploadFileToStorage(file, path);
+                                                            const url = await uploadToNAS(file, path);
                                                             if (url) await updateDriver(driver.id, { flashlightPhoto: url }, 'รูปไฟฉาย:');
+                                                            e.target.value = '';
                                                         }} />
                                                     </label>
                                                 </div>
                                             ) : (
-                                                <label className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-yellow-400 transition-colors" title="อัปโหลดรูปไฟฉาย">
-                                                    <span className="text-xl">🔦</span>
-                                                    <span className="text-[9px]">อัปโหลด</span>
-                                                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                                                <label htmlFor={`photo-${driver.id}-flashlight`} className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-yellow-400 transition-colors" title="อัปโหลดรูปไฟฉาย">
+                                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                    <span className="text-[9px]">ไฟฉาย</span>
+                                                    <input id={`photo-${driver.id}-flashlight`} type="file" accept="image/*" className="hidden" onChange={async e => {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
                                                         const path = `truck-maintenance/driver/${driver.id}/${Date.now()}_flashlight.webp`;
-                                                        const url = await uploadFileToStorage(file, path);
+                                                        const url = await uploadToNAS(file, path);
                                                         if (url) await updateDriver(driver.id, { flashlightPhoto: url }, 'รูปไฟฉาย:');
+                                                        e.target.value = '';
                                                     }} />
                                                 </label>
                                             )}

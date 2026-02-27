@@ -131,6 +131,10 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'จัดการพนักงานขับรถ',
         subtitle: 'ข้อมูลคนขับและประเมินผลการทำงาน'
     },
+    'driver-matrix': {
+        title: 'Driver Matrix',
+        subtitle: 'ตารางสถานะและข้อมูลประจำตัวพนักงานขับรถ'
+    },
     'warranty-insurance': {
         title: 'การรับประกันและประกันภัย',
         subtitle: 'จัดการการรับประกันอะไหล่และเคลมประกันรถ'

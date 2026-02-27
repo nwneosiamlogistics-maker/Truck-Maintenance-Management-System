@@ -1,6 +1,6 @@
 
 
-export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories' | 'safety-plan' | 'safety-check' | 'incab-assessment';
+export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'driver-matrix' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories' | 'safety-plan' | 'safety-check' | 'incab-assessment';
 
 export type RepairCategoryCode = 'ENG' | 'TRA' | 'SUS' | 'BRK' | 'ELE' | 'AC' | 'TIR' | 'BOD' | 'HYD' | 'COO' | 'FUE' | 'PM' | 'OTH';
 
