@@ -4,6 +4,8 @@ import type { PurchaseRequisition, PurchaseRequisitionStatus, StockItem, StockTr
 import PurchaseRequisitionModal from './PurchaseRequisitionModal';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
+import { uploadToNAS } from '../utils/nasUpload';
+import { uploadFileToStorage } from '../utils/fileUpload';
 
 interface PurchaseRequisitionProps {
     purchaseRequisitions: PurchaseRequisition[];
@@ -36,6 +38,9 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
     const [expandedPrIds, setExpandedPrIds] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [receivingPr, setReceivingPr] = useState<PurchaseRequisition | null>(null);
+    const [receiveFiles, setReceiveFiles] = useState<string[]>([]);
+    const [isReceiveUploading, setIsReceiveUploading] = useState(false);
 
     const toggleExpand = (prId: string) => {
         setExpandedPrIds(prev => {
@@ -192,11 +197,61 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
         }
     };
 
+    const handleReceiveFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0 || !receivingPr) return;
+        setIsReceiveUploading(true);
+        const uploaded: string[] = [];
+        let failCount = 0;
+        for (const file of Array.from(files)) {
+            try {
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const ext = file.name.split('.').pop()?.toLowerCase() || '';
+                const path = `truck-maintenance/receive-pr/${receivingPr.prNumber}/${Date.now()}_${safeName}`;
+                const url = ext === 'pdf'
+                    ? await uploadToNAS(file, path)
+                    : await uploadFileToStorage(file, path);
+                uploaded.push(url);
+            } catch (err) {
+                console.error('Upload error:', err);
+                failCount++;
+            }
+        }
+        setIsReceiveUploading(false);
+        e.target.value = '';
+        if (uploaded.length > 0) {
+            setReceiveFiles(prev => [...prev, ...uploaded]);
+            addToast(`อัปโหลดสำเร็จ ${uploaded.length} ไฟล์${failCount > 0 ? ` (ล้มเหลว ${failCount})` : ''}`, 'success');
+        } else {
+            addToast('อัปโหลดไม่สำเร็จ กรุณาลองใหม่', 'error');
+        }
+    };
+
+    const handleConfirmReceivePr = () => {
+        if (!receivingPr) return;
+        const updatedRequisition: PurchaseRequisition = {
+            ...receivingPr,
+            status: 'รับของแล้ว',
+            updatedAt: new Date().toISOString(),
+            photos: receiveFiles,
+        };
+        setPurchaseRequisitions(prev => prev.map(p => p.id === updatedRequisition.id ? updatedRequisition : p));
+        handleReceiveStock(updatedRequisition);
+        setReceivingPr(null);
+        setReceiveFiles([]);
+    };
+
     const handleQuickStatusUpdate = async (pr: PurchaseRequisition, newStatus: PurchaseRequisitionStatus) => {
-        const prompts = {
+        // รับของแล้ว → เปิด modal บังคับแนบไฟล์
+        if (newStatus === 'รับของแล้ว') {
+            setReceivingPr(pr);
+            setReceiveFiles([]);
+            return;
+        }
+
+        const prompts: Partial<Record<PurchaseRequisitionStatus, string>> = {
             'อนุมัติแล้ว': `คุณต้องการอนุมัติใบขอซื้อ ${pr.prNumber} ใช่หรือไม่?`,
             'รอสินค้า': `ยืนยันการสั่งซื้อสำหรับ ${pr.prNumber} ใช่หรือไม่?`,
-            'รับของแล้ว': `ยืนยันการรับของสำหรับ ${pr.prNumber} ใช่หรือไม่?`
         };
         const promptMessage = prompts[newStatus];
         if (promptMessage) {
@@ -207,17 +262,12 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
         let updatedRequisition: PurchaseRequisition = { ...pr, status: newStatus, updatedAt: new Date().toISOString() };
 
         if (newStatus === 'อนุมัติแล้ว' && !pr.approvalDate) {
-            updatedRequisition.approverName = 'ผู้จัดการ'; // Placeholder for user system
+            updatedRequisition.approverName = 'ผู้จัดการ';
             updatedRequisition.approvalDate = new Date().toISOString();
         }
 
         setPurchaseRequisitions(prev => prev.map(p => p.id === updatedRequisition.id ? updatedRequisition : p));
-
-        if (newStatus === 'รับของแล้ว') {
-            handleReceiveStock(updatedRequisition);
-        } else {
-            addToast(`อัปเดตสถานะ ${pr.prNumber} เป็น "${newStatus}" เรียบร้อย`, 'success');
-        }
+        addToast(`อัปเดตสถานะ ${pr.prNumber} เป็น "${newStatus}" เรียบร้อย`, 'success');
     };
 
     const getStatusBadge = (status: PurchaseRequisitionStatus) => {
@@ -389,6 +439,36 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                                         )}
                                                     </tbody>
                                                 </table>
+
+                                                {pr.quotationFiles && pr.quotationFiles.length > 0 && (
+                                                    <div className="mt-3 pt-3 border-t border-blue-200">
+                                                        <h5 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-1">
+                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                                            ใบเสนอราคา ({pr.quotationFiles.length} ไฟล์)
+                                                        </h5>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {pr.quotationFiles.map((url, idx) => {
+                                                                const isPdf = url.toLowerCase().includes('.pdf');
+                                                                const fileName = decodeURIComponent(url.split('/').pop()?.split('?').shift() || `ไฟล์ ${idx + 1}`);
+                                                                return isPdf ? (
+                                                                    <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors shadow-sm">
+                                                                        <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
+                                                                        <span className="text-xs text-gray-600 max-w-[120px] truncate">{fileName}</span>
+                                                                    </a>
+                                                                ) : (
+                                                                    <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                                                                        className="relative group block w-20 h-20 rounded-lg overflow-hidden border border-amber-200 shadow-sm hover:shadow-md transition-shadow flex-shrink-0">
+                                                                        <img src={url} alt={`ใบเสนอราคา ${idx + 1}`} className="w-full h-full object-cover" />
+                                                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                                                                            <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                                        </div>
+                                                                    </a>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -448,6 +528,96 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                     initialRequisition={editingRequisition}
                     suppliers={suppliers}
                 />
+            )}
+
+            {/* Receive PR Modal — บังคับแนบไฟล์ */}
+            {receivingPr && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 z-[102] flex justify-center items-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800">รับของ — {receivingPr.prNumber}</h3>
+                            <button onClick={() => { setReceivingPr(null); setReceiveFiles([]); }} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                            <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                                <p><strong>ผู้จำหน่าย:</strong> {receivingPr.supplier}</p>
+                                <p><strong>ยอดรวม:</strong> {formatCurrency(receivingPr.totalAmount)} บาท</p>
+                            </div>
+
+                            <div className="border-2 border-dashed border-red-300 rounded-xl p-4 bg-red-50">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                        <h4 className="font-semibold text-red-700 flex items-center gap-1">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                            หลักฐานการรับของ <span className="text-red-500">*</span>
+                                        </h4>
+                                        <p className="text-xs text-red-500 mt-0.5">บังคับแนบอย่างน้อย 1 ไฟล์ก่อนยืนยัน</p>
+                                    </div>
+                                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isReceiveUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
+                                        {isReceiveUploading ? (
+                                            <>
+                                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                กำลังอัปโหลด...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                                แนบไฟล์
+                                            </>
+                                        )}
+                                        <input type="file" accept="image/*,.pdf,image/heic,image/heif" multiple disabled={isReceiveUploading} onChange={handleReceiveFileUpload} className="hidden" aria-label="แนบหลักฐานการรับของ" />
+                                    </label>
+                                </div>
+                                <p className="text-xs text-gray-500 mb-3">รองรับ: รูปภาพ (JPG, PNG, HEIC) และ PDF — อัปโหลดไปยัง NAS</p>
+
+                                {receiveFiles.length === 0 ? (
+                                    <div className="text-center py-5 text-red-400">
+                                        <svg className="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        <p className="text-sm font-medium">ยังไม่มีไฟล์ — กรุณาแนบหลักฐานการรับของ</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {receiveFiles.map((url, idx) => {
+                                            const isPdf = url.toLowerCase().includes('.pdf');
+                                            const fileName = decodeURIComponent(url.split('/').pop()?.split('?').shift() || `ไฟล์ ${idx + 1}`);
+                                            return (
+                                                <div key={url} className="relative group">
+                                                    {isPdf ? (
+                                                        <a href={url} target="_blank" rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm">
+                                                            <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
+                                                            <span className="text-xs text-gray-600 max-w-[100px] truncate">{fileName}</span>
+                                                        </a>
+                                                    ) : (
+                                                        <a href={url} target="_blank" rel="noopener noreferrer"
+                                                            className="block w-20 h-20 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                                                            <img src={url} alt={`หลักฐาน ${idx + 1}`} className="w-full h-full object-cover" />
+                                                        </a>
+                                                    )}
+                                                    <button type="button" onClick={() => setReceiveFiles(prev => prev.filter(f => f !== url))}
+                                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                        title="ลบไฟล์นี้" aria-label="ลบไฟล์">×</button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="p-6 border-t flex justify-end gap-3 bg-gray-50">
+                            <button type="button" onClick={() => { setReceivingPr(null); setReceiveFiles([]); }}
+                                className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                            <button type="button" onClick={handleConfirmReceivePr}
+                                disabled={receiveFiles.length === 0 || isReceiveUploading}
+                                title={receiveFiles.length === 0 ? 'กรุณาแนบหลักฐานการรับของก่อน' : ''}
+                                className={`px-8 py-2 text-base font-medium text-white rounded-lg transition-colors ${receiveFiles.length === 0 || isReceiveUploading ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
+                                {isReceiveUploading ? 'กำลังอัปโหลด...' : 'ยืนยันการรับของ'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
