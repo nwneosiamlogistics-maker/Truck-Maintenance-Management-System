@@ -20,9 +20,13 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ po }) => {
     const TARGET_ROWS = 12;
     const emptyRowsCount = Math.max(0, TARGET_ROWS - po.items.length);
 
-    // Calculate effective VAT rate
-    const vatRate = po.subtotal > 0 && po.vatAmount > 0 ? (po.vatAmount / po.subtotal) * 100 : 0;
-    // Format to 2 decimal places if needed, but remove trailing zeros for integer rates
+    // Use stored vatRate directly; fallback to back-calculation from netBeforeVat (not subtotal)
+    const vatRate = (po as any).vatRate != null
+        ? (po as any).vatRate
+        : ((po as any).netBeforeVat > 0 && po.vatAmount > 0
+            ? (po.vatAmount / (po as any).netBeforeVat) * 100
+            : (po.subtotal > 0 && po.vatAmount > 0 ? (po.vatAmount / po.subtotal) * 100 : 0));
+    // Format: remove trailing zeros for whole numbers
     const formattedVatRate = vatRate % 1 === 0 ? vatRate.toFixed(0) : vatRate.toFixed(2);
 
     // Determine WHT Label

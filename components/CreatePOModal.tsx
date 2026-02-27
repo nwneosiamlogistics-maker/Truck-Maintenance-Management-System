@@ -170,8 +170,10 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                 ...formData,
                 status: 'Ordered',
                 items,
+                netBeforeVat,
                 subtotal,
                 vatAmount,
+                vatRate: isVatEnabled || isPriceIncVat ? vatRate : 0,
                 whtAmount,
                 totalAmount,
                 linkedPrIds: selectedPRs.map(pr => pr.id),
@@ -352,16 +354,28 @@ const CreatePOModal: React.FC<CreatePOModalProps> = ({ selectedPRs, onClose, onS
                                         <span className="text-[10px] text-blue-600">(Price Includes VAT)</span>
                                     </div>
                                 </label>
+                                {isPriceIncVat && (
+                                    <div className="flex items-center gap-1 bg-white border border-blue-200 rounded px-2 py-1">
+                                        <span className="text-[10px] text-blue-500">VAT</span>
+                                        <input
+                                            type="number"
+                                            value={vatRate}
+                                            onChange={e => setVatRate(Number(e.target.value))}
+                                            className="w-10 bg-transparent text-center focus:outline-none font-bold text-blue-700 text-sm"
+                                            min="0" max="100" step="0.01"
+                                            aria-label="VAT Rate for Price Includes VAT"
+                                        />
+                                        <span className="text-[10px] font-bold text-blue-400">%</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="w-80 space-y-3 bg-gray-50 p-6 rounded-2xl border border-gray-100 relative">
-                                {/* Net Before VAT — แสดงเฉพาะเมื่อเปิด VAT */}
-                                {isVatEnabled && (
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-gray-500">ก่อน VAT (Net)</span>
-                                        <span className="font-medium text-gray-700">{formatCurrency(netBeforeVat)}</span>
-                                    </div>
-                                )}
+                                {/* Net Before VAT — แสดงเสมอ */}
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">ก่อน VAT (Net)</span>
+                                    <span className="font-medium text-gray-700">{formatCurrency(netBeforeVat)}</span>
+                                </div>
 
                                 {/* Standard VAT */}
                                 <div className="flex justify-between items-center text-sm pt-1">
