@@ -1,7 +1,7 @@
 
 import { MaintenancePlan, Repair, Vehicle, PartWarranty, CargoInsurancePolicy, PurchaseOrder, PurchaseRequisition, PurchaseRequisitionStatus, StockItem, MaintenanceBudget } from "../types";
 import { database } from "../firebase/firebase";
-import { ref, get, set } from "firebase/database";
+import { ref, get, set, runTransaction } from "firebase/database";
 
 // Telegram Configuration — ค่าจาก .env (VITE_TELEGRAM_BOT_TOKEN, VITE_TELEGRAM_CHAT_ID)
 const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '';
@@ -517,18 +517,35 @@ export const checkAndSendLowStockAlert = async (stock: StockItem[]) => {
     const NOW = new Date();
     if (NOW.getHours() < 10) return;
 
-    const lastSentDate = await getLastSentDate('lastLowStockAlertDate');
-    const todayStr = NOW.toDateString();
-    if (lastSentDate === todayStr) return;
-
     if (!stock || stock.length === 0) return;
+
+    const todayStr = NOW.toDateString();
+
+    // Atomic check-and-set ป้องกัน race condition ระหว่าง 2 tabs/devices
+    const metaRef = ref(database, '_telegramMeta/lastLowStockAlertDate');
+    let shouldSend = false;
+    try {
+        await runTransaction(metaRef, (current: string | null) => {
+            if (current === todayStr) {
+                // ส่งแล้ววันนี้ — ยกเลิก transaction (return undefined = abort)
+                return undefined;
+            }
+            // ยังไม่ส่ง — claim slot ทันที
+            shouldSend = true;
+            return todayStr;
+        });
+    } catch {
+        // Firebase transaction ล้มเหลว — fallback ตรวจ lastSentDate แบบเดิม
+        const lastSentDate = await getLastSentDate('lastLowStockAlertDate');
+        if (lastSentDate === todayStr) return;
+        shouldSend = true;
+    }
+
+    if (!shouldSend) return;
 
     const lowStockItems = stock.filter(s => s.quantity <= s.minStock);
 
-    if (lowStockItems.length === 0) {
-        await setLastSentDate('lastLowStockAlertDate', todayStr);
-        return;
-    }
+    if (lowStockItems.length === 0) return;
 
     let message = `📦 <b>แจ้งเตือนสต็อกอะไหล่ต่ำ</b>\n(${NOW.toLocaleDateString('th-TH')})\n`;
     message += `\n🔴 <b>ต่ำกว่าจุดสั่งซื้อ (${lowStockItems.length} รายการ):</b>\n`;
@@ -541,9 +558,13 @@ export const checkAndSendLowStockAlert = async (stock: StockItem[]) => {
 
     message += `\n📋 กรุณาดำเนินการสั่งซื้อในระบบ`;
 
-    if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
-        await setLastSentDate('lastLowStockAlertDate', todayStr);
+    const sent = await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' });
+    if (sent) {
         console.log('[Telegram-LowStock] Alert sent successfully.');
+    } else {
+        // ส่งไม่สำเร็จ — reset flag ให้ลองใหม่รอบหน้า
+        await set(metaRef, null);
+        console.warn('[Telegram-LowStock] Send failed, reset flag.');
     }
 };
 
