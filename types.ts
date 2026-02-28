@@ -751,10 +751,22 @@ export interface Driver {
         bookingDate?: string;
         startDate?: string;
         endDate?: string;
+        trainingDate?: string; // วันที่อบรมจริง
+        status?: 'pending' | 'near_due' | 'due_today' | 'overdue' | 'completed' | 'waived';
+        dueDate120?: string; // hireDate + 120 days (cache)
+        evidence?: {
+            id: string;
+            name: string;
+            url: string;
+            type: 'image' | 'pdf';
+            uploadedAt: string;
+        }[];
+        trainer?: string;
+        provider?: string;
+        note?: string;
+        nextRefreshDate?: string;
         preTest?: number;
         postTest?: number;
-        trainer?: string;
-        nextRefreshDate?: string;
         record2022?: string;
         record2023?: string;
     };

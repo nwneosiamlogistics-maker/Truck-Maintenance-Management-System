@@ -10,7 +10,7 @@ import Header from './components/Header';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import Login from './components/Login';
-import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus, checkAndSendWarrantyInsuranceAlerts, checkAndSendLowStockAlert, sendBudgetAlertTelegramNotification } from './utils/telegramService';
+import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus, checkAndSendWarrantyInsuranceAlerts, checkAndSendLowStockAlert, sendBudgetAlertTelegramNotification, checkAndSendDailyProcurementSummary } from './utils/telegramService';
 import { checkAndGenerateSystemNotifications } from './utils/notificationEngine';
 
 // Lazy Load Pages
@@ -113,17 +113,18 @@ const AppContent: React.FC<AppContentProps> = ({
             checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
             checkAndSendLowStockAlert(stock);
             sendBudgetAlertTelegramNotification(budgets, repairs, fuelRecords);
+            checkAndSendDailyProcurementSummary(purchaseRequisitions, purchaseOrders);
         }, 5000);
 
         return () => clearTimeout(timer);
-    }, [maintenancePlans, repairs, vehicles, technicians, partWarranties, cargoPolicies, stock, budgets, fuelRecords]);
+    }, [maintenancePlans, repairs, vehicles, technicians, partWarranties, cargoPolicies, stock, budgets, fuelRecords, purchaseRequisitions, purchaseOrders]);
 
     // System Auto-Notifications Engine - use refs to avoid stale closures
     const stockRef = useRef(stock);
     const plansRef = useRef(maintenancePlans);
     const repairsRef = useRef(repairs);
     const notificationsRef = useRef(notifications);
-    
+
     // Keep refs updated
     React.useEffect(() => {
         stockRef.current = stock;
@@ -135,9 +136,9 @@ const AppContent: React.FC<AppContentProps> = ({
     React.useEffect(() => {
         const checkNotifications = () => {
             const updated = checkAndGenerateSystemNotifications(
-                notificationsRef.current, 
-                stockRef.current, 
-                plansRef.current, 
+                notificationsRef.current,
+                stockRef.current,
+                plansRef.current,
                 repairsRef.current
             );
             if (updated !== notificationsRef.current) {
