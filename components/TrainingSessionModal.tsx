@@ -40,6 +40,9 @@ const TrainingSessionModal: React.FC<TrainingSessionModalProps> = ({
         location: existingSession?.location ?? '',
         capacity: existingSession?.capacity ?? 0,
         note: existingSession?.note ?? '',
+        coordinator: existingSession?.coordinator ?? '',
+        planStartTime: existingSession?.planStartTime ?? '08:00',
+        planEndTime: existingSession?.planEndTime ?? '16:00',
     });
     const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>(existingSession?.attendeeIds ?? []);
     const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
@@ -113,6 +116,9 @@ const TrainingSessionModal: React.FC<TrainingSessionModalProps> = ({
                 attendeeIds: selectedDriverIds,
                 evidencePhotos: uploadedUrls,
                 note: sessionForm.note,
+                coordinator: sessionForm.coordinator || undefined,
+                planStartTime: sessionForm.planStartTime || undefined,
+                planEndTime: sessionForm.planEndTime || undefined,
                 createdAt: existingSession?.createdAt ?? new Date().toISOString(),
                 createdBy: 'Admin',
             };
@@ -234,9 +240,24 @@ const TrainingSessionModal: React.FC<TrainingSessionModalProps> = ({
                                 aria-label="วันที่สิ้นสุด" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                         </div>
                         <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">เวลาเริ่ม</label>
+                            <input type="time" value={sessionForm.planStartTime} onChange={e => setSessionForm(p => ({ ...p, planStartTime: e.target.value }))}
+                                aria-label="เวลาเริ่ม" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">เวลาสิ้นสุด</label>
+                            <input type="time" value={sessionForm.planEndTime} onChange={e => setSessionForm(p => ({ ...p, planEndTime: e.target.value }))}
+                                aria-label="เวลาสิ้นสุด" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div>
                             <label className="block text-xs font-semibold text-slate-600 mb-1">วิทยากร *</label>
                             <input type="text" value={sessionForm.trainer} onChange={e => setSessionForm(p => ({ ...p, trainer: e.target.value }))}
                                 placeholder="ชื่อวิทยากร" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">ผู้ประสานงาน</label>
+                            <input type="text" value={sessionForm.coordinator} onChange={e => setSessionForm(p => ({ ...p, coordinator: e.target.value }))}
+                                placeholder="ชื่อผู้ประสานงาน" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 mb-1">สถานที่</label>
@@ -250,7 +271,7 @@ const TrainingSessionModal: React.FC<TrainingSessionModalProps> = ({
                                     aria-label="วันที่อบรมจริง" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                             </div>
                         )}
-                        <div>
+                        <div className={mode === 'done' ? '' : 'col-span-2'}>
                             <label className="block text-xs font-semibold text-slate-600 mb-1">หมายเหตุ</label>
                             <input type="text" value={sessionForm.note} onChange={e => setSessionForm(p => ({ ...p, note: e.target.value }))}
                                 placeholder="หมายเหตุเพิ่มเติม" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />

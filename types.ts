@@ -769,7 +769,24 @@ export interface Driver {
         postTest?: number;
         record2022?: string;
         record2023?: string;
+        evidencePhotos?: string[];
     };
+
+    // ประวัติการอบรมทั้งหมด (sync จาก SafetyPlan เมื่อบันทึกผลอบรมสำเร็จ)
+    trainingRecords?: {
+        sessionId: string;
+        topicId: string;
+        topicCode: string;
+        topicName: string;
+        actualDate: string;       // ISO date
+        bookingDate?: string;     // วันที่จอง (จาก TrainingPlan.bookingDate)
+        location?: string;
+        trainer?: string;
+        preTest?: number;
+        postTest?: number;
+        evidencePhotos?: string[];
+        year: number;
+    }[];
 
     // Incab Coaching
     incabCoaching?: {
@@ -1362,6 +1379,9 @@ export interface TrainingSession {
     evidencePhotos: string[];    // NAS URLs
     certificateUrl?: string;
     note?: string;
+    coordinator?: string;        // ผู้ประสานงานการอบรม
+    planStartTime?: string;      // เวลาเริ่ม เช่น '08:00'
+    planEndTime?: string;        // เวลาสิ้นสุด เช่น '16:00'
     createdAt: string;
     createdBy?: string;
 }

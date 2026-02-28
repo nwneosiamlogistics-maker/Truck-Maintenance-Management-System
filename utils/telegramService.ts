@@ -896,14 +896,14 @@ ${po.linkedPrNumbers && po.linkedPrNumbers.length > 0 ? `📝 <b>PR ที่เ
     return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: messageText, parse_mode: 'HTML' });
 };
 
-// ==================== 8. สรุปรายวัน PR/PO ค้าง (08:00 น. เวลาไทย) ====================
+// ==================== 8. สรุปรายวัน PR/PO ค้าง (10:00 น. เวลาไทย) ====================
 export const checkAndSendDailyProcurementSummary = async (
     purchaseRequisitions: PurchaseRequisition[],
     purchaseOrders: PurchaseOrder[]
 ) => {
     const NOW = new Date();
-    // 08:00 AM (Thailand time via browser locale)
-    if (NOW.getHours() < 8) return;
+    // 10:00 AM (Thailand time via browser locale)
+    if (NOW.getHours() < 10) return;
 
     const lastSentDate = await getLastSentDate('lastProcurementSummaryDate');
     const todayStr = NOW.toDateString();
@@ -943,7 +943,7 @@ export const checkAndSendDailyProcurementSummary = async (
         return;
     }
 
-    let message = `📋 <b>สรุปการจัดซื้อค้างประจำวัน</b>\n(${NOW.toLocaleDateString('th-TH')} เวลา 08:00 น.)\n`;
+    let message = `📋 <b>สรุปการจัดซื้อค้างประจำวัน</b>\n(${NOW.toLocaleDateString('th-TH')} เวลา 10:00 น.)\n`;
     message += `\n<b>📊 ภาพรวม: ${totalPending} รายการค้างดำเนินการ</b>\n`;
 
     if (pendingApproval.length > 0) {
