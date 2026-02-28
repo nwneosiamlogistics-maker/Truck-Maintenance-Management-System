@@ -86,6 +86,10 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ driver, onClose, onSave
         notes: driver?.notes || '',
         photos: driver?.photos || [] as string[],
         idCard: (driver as any)?.idCard || '',
+        certificate: {
+            certificateNo: driver?.certificate?.certificateNo || '',
+            issuedDate: driver?.certificate?.issuedDate || '',
+        },
     });
 
     const [certificationInput, setCertificationInput] = useState('');

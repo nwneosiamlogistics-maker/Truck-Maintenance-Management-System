@@ -273,7 +273,52 @@ export const dailyWarrantyInsuranceAlert = onSchedule(
     }
 );
 
-// ==================== 3. Daily Repair Status Summary (18:30) ====================
+// ==================== 3. Daily Low Stock Alert (10:00) ====================
+
+export const dailyLowStockAlert = onSchedule(
+    {
+        schedule: '0 10 * * *',  // 10:00 ICT
+        timeZone: 'Asia/Bangkok',
+        region: 'asia-southeast1',
+        secrets: [telegramBotToken, telegramChatId],
+    },
+    async () => {
+        console.log('[CF] dailyLowStockAlert triggered');
+
+        const stock = await readArray('stock');
+
+        if (stock.length === 0) {
+            console.log('[CF] No stock data. Skipping.');
+            return;
+        }
+
+        const lowStockItems = stock.filter((s: any) =>
+            typeof s.quantity === 'number' &&
+            typeof s.minStock === 'number' &&
+            s.quantity <= s.minStock
+        );
+
+        if (lowStockItems.length === 0) {
+            console.log('[CF] No low stock items. Skipping.');
+            return;
+        }
+
+        let message = `📦 <b>แจ้งเตือนสต็อกอะไหล่ต่ำ</b>\n(${thaiDate()})\n`;
+        message += `\n🔴 <b>ต่ำกว่าจุดสั่งซื้อ (${lowStockItems.length} รายการ):</b>\n`;
+
+        lowStockItems.slice(0, 15).forEach((s: any) => {
+            const icon = s.quantity === 0 ? '❌' : '⚠️';
+            message += `${icon} ${s.name} [${s.code}]: คงเหลือ ${s.quantity}/${s.minStock} ${s.unit}\n`;
+        });
+        if (lowStockItems.length > 15) message += `... และอีก ${lowStockItems.length - 15} รายการ\n`;
+
+        message += `\n📋 กรุณาดำเนินการสั่งซื้อในระบบ`;
+
+        await sendTelegram(telegramBotToken.value(), telegramChatId.value(), message);
+    }
+);
+
+// ==================== 4. Daily Repair Status Summary (18:30) ====================
 
 export const dailyRepairStatusSummary = onSchedule(
     {
