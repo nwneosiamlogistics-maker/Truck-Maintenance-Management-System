@@ -1485,7 +1485,6 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                                     {latest.result === 'pass' ? '✓ ผ่าน' : '✗ ไม่ผ่าน'}
                                                                 </span>
                                                                 <div className="text-[10px] text-slate-400 mt-0.5 font-bold">{latest.totalScore}/100</div>
-                                                                <div className="text-[10px] text-slate-400">{new Date(latest.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</div>
                                                                 {onOpenIncab && (
                                                                     <button onClick={() => onOpenIncab(driver)}
                                                                         className="mt-0.5 px-1.5 py-0.5 bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-700 rounded text-[9px] transition-colors">
@@ -1507,12 +1506,10 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                             </div>
                                                         )}
                                                     </TD>
-                                                    <TD highlight={nearDue || overDue}>
-                                                        {nextDate ? (
-                                                            <span className={`text-xs font-semibold ${overDue ? 'text-red-600' : nearDue ? 'text-amber-600' : 'text-slate-500'
-                                                                }`}>
-                                                                {overDue ? `เกิน ${Math.abs(daysToNext!)} วัน` : daysToNext === 0 ? 'วันนี้' : `${daysToNext} วัน`}
-                                                                <div className="text-[10px] font-normal text-slate-400">{new Date(nextDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</div>
+                                                    <TD>
+                                                        {latest?.date ? (
+                                                            <span className="text-xs text-slate-600">
+                                                                {new Date(latest.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
                                                             </span>
                                                         ) : <span className="text-slate-300 text-xs">-</span>}
                                                     </TD>
