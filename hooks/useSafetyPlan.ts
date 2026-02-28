@@ -22,6 +22,15 @@ export const useSafetyPlan = (year: number) => {
 
 // ==================== HELPERS ====================
 
+/** ตรวจสอบว่าเป็นพนักงานใหม่หรือไม่ (hireDate ≤ 120 วันจากวันนี้) */
+export const isNewEmployee = (driver: Driver): boolean => {
+    if (!driver.hireDate) return false;
+    const hire = new Date(driver.hireDate);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - hire.getTime()) / 86400000);
+    return diffDays <= 120;
+};
+
 export const computePlanStatus = (plan: TrainingPlan): TrainingPlan['status'] => {
     if (plan.actualDate) return 'done';
     if (plan.bookingDate || plan.sessionId) return 'booked';
@@ -61,14 +70,12 @@ export const generatePlansForDriver = (
     for (const topic of topics) {
         if (!topic.isActive) continue;
 
-        // ข้าม new_employee ถ้าไม่ใช่พนักงานใหม่ (hireDate ภายในปีนี้)
+        // ข้าม new_employee ถ้าไม่ใช่พนักงานใหม่ (hireDate ≤ 120 วันจากวันนี้)
         if (topic.target === 'new_employee') {
-            const hire = driver.hireDate ? new Date(driver.hireDate) : null;
-            if (!hire || hire.getFullYear() !== year) continue;
+            if (!isNewEmployee(driver)) continue;
         }
         if (topic.target === 'existing_employee') {
-            const hire = driver.hireDate ? new Date(driver.hireDate) : null;
-            if (hire && hire.getFullYear() === year) continue;
+            if (isNewEmployee(driver)) continue;
         }
 
         // ตรวจว่ามีแผนนี้อยู่แล้วหรือไม่
@@ -82,7 +89,7 @@ export const generatePlansForDriver = (
             const lastDone = existingPlans
                 .filter(p => p.driverId === driver.id && (p.topicCode === 'defensive' || p.topicCode === 'defensive_refresh') && p.status === 'done' && p.actualDate)
                 .sort((a, b) => (b.actualDate ?? '').localeCompare(a.actualDate ?? ''))
-                [0]?.actualDate;
+            [0]?.actualDate;
             dueDate = computeDefensiveDueDate(driver, lastDone);
         }
 

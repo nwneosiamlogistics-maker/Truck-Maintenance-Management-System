@@ -18,6 +18,39 @@ function stripUndefined<T>(value: T): T {
     return value;
 }
 
+/**
+ * Firebase returns arrays as objects with numeric string keys: {"0":{...},"1":{...}}
+ * This function recursively converts them back to proper arrays at every nesting level.
+ * It detects "array-like objects" by checking if all keys are numeric strings.
+ */
+function deepNormalizeFirebase(data: unknown): unknown {
+    if (data === null || data === undefined) return data;
+    if (Array.isArray(data)) return data.map(deepNormalizeFirebase);
+    if (typeof data === 'object') {
+        const keys = Object.keys(data as object);
+        // Firebase-encoded arrays ALWAYS start from key "0" and are sequential integers.
+        // objects like months: {1: 'planned', 6: 'done'} won't have key "0" so are NOT arrays.
+        const isFirebaseArray =
+            keys.length > 0 &&
+            keys.every(k => /^\d+$/.test(k)) &&
+            keys.includes('0') &&
+            // sequential check: max key === keys.length - 1
+            Math.max(...keys.map(Number)) === keys.length - 1;
+        if (isFirebaseArray) {
+            return keys
+                .sort((a, b) => Number(a) - Number(b))
+                .map(k => deepNormalizeFirebase((data as Record<string, unknown>)[k]));
+        }
+        // Regular object — recurse into values only
+        const result: Record<string, unknown> = {};
+        for (const k of keys) {
+            result[k] = deepNormalizeFirebase((data as Record<string, unknown>)[k]);
+        }
+        return result;
+    }
+    return data;
+}
+
 type SetValue<T> = React.Dispatch<React.SetStateAction<T>>;
 
 export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, SetValue<T>] {
@@ -38,12 +71,8 @@ export function useFirebase<T>(key: string, initialValue: T | (() => T)): [T, Se
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Firebase returns objects for arrays, so we need to convert them back.
-        if (Array.isArray(resolvedInitial) && data && typeof data === 'object' && !Array.isArray(data)) {
-            setValueState(Object.values(data) as T);
-        } else {
-            setValueState(data ?? resolvedInitial);
-        }
+        // Firebase returns arrays as objects with numeric keys — normalize recursively at every level
+        setValueState(deepNormalizeFirebase(data) as T ?? resolvedInitial);
       } else {
         // Path doesn't exist, initialize it.
         const dataToSet = resolvedInitial;

@@ -9,12 +9,13 @@ interface Props {
     existingSession?: TrainingSession | null;
     existingPlans: TrainingPlan[];
     year: number;
+    initialAttendeeId?: string;  // pre-select driver เมื่อเปิดจาก individual tab
     onSave: (session: TrainingSession, plans: TrainingPlan[]) => void;
     onClose: () => void;
 }
 
 export default function TrainingActualModal({
-    topic, drivers, existingSession, existingPlans, year, onSave, onClose
+    topic, drivers, existingSession, existingPlans, year, initialAttendeeId, onSave, onClose
 }: Props) {
     const { addToast } = useToast();
 
@@ -34,6 +35,15 @@ export default function TrainingActualModal({
             existingSession.attendeeIds.forEach(id => {
                 const plan = existingPlans.find(p => p.driverId === id && p.sessionId === existingSession.id);
                 m.set(id, { preTest: String(plan?.preTest ?? ''), postTest: String(plan?.postTest ?? '') });
+            });
+        }
+        // เพิ่ม initialAttendeeId เสมอ (ไม่ว่าจะมี existingSession หรือไม่)
+        // เพื่อให้ driver ที่เลือกใน individual tab ถูก pre-select เสมอ
+        if (initialAttendeeId && !m.has(initialAttendeeId)) {
+            const existingPlan = existingPlans.find(p => p.driverId === initialAttendeeId && p.topicId === topic.id && p.year === year);
+            m.set(initialAttendeeId, {
+                preTest: String(existingPlan?.preTest ?? ''),
+                postTest: String(existingPlan?.postTest ?? ''),
             });
         }
         return m;
@@ -91,6 +101,7 @@ export default function TrainingActualModal({
     };
 
     const handleSave = async () => {
+        console.log('[TrainingActualModal] handleSave called — topic:', topic.code, '| attendees:', attendees.size, '| actualDate:', actualDate, '| trainer:', trainer);
         if (!actualDate) { addToast('กรุณาระบุวันที่อบรมจริง', 'warning'); return; }
         if (!trainer.trim()) { addToast('กรุณาระบุวิทยากร/ผู้สอน', 'warning'); return; }
         if (attendees.size === 0) { addToast('กรุณาเลือกผู้เข้าอบรมอย่างน้อย 1 คน', 'warning'); return; }

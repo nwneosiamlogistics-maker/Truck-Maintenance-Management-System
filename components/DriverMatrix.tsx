@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { confirmAction } from '../utils';
+import { isNewEmployee } from '../hooks/useSafetyPlan';
 import Training120Modal from './Training120Modal';
 
 interface DriverMatrixProps {
@@ -371,8 +372,8 @@ const TH: React.FC<{ children: React.ReactNode; sub?: string; className?: string
     </th>
 );
 
-const TD: React.FC<{ children: React.ReactNode; className?: string; highlight?: boolean }> = ({ children, className = '', highlight }) => (
-    <td className={`border border-slate-200 px-1.5 py-1 text-center align-middle ${highlight ? 'bg-amber-50' : ''} ${className}`}>
+const TD: React.FC<{ children?: React.ReactNode; className?: string; highlight?: boolean; rowSpan?: number }> = ({ children, className = '', highlight, rowSpan }) => (
+    <td rowSpan={rowSpan} className={`border border-slate-200 px-1.5 py-1 text-center align-middle ${highlight ? 'bg-amber-50' : ''} ${className}`}>
         {children}
     </td>
 );
@@ -493,34 +494,108 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
     };
 
     const computeDefensiveStatus = (driver: Driver) => {
-        const dueDateStr = computeDefensiveDueDate(driver);
-        const days = daysBetween(dueDateStr);
-        const trainingDate = driver.defensiveDriving?.trainingDate;
-        if (driver.defensiveDriving?.status === 'waived') return { status: 'waived' as const, dueDateStr, days };
-        if (trainingDate) return { status: 'completed' as const, dueDateStr, days };
-        if (days === 0) return { status: 'due_today' as const, dueDateStr, days };
-        if (typeof days === 'number' && days < 0) return { status: 'overdue' as const, dueDateStr, days };
-        if (typeof days === 'number' && days <= 30) return { status: 'near_due' as const, dueDateStr, days };
-        return { status: 'pending' as const, dueDateStr, days };
-    };
+        if (driver.defensiveDriving?.status === 'waived') return { status: 'waived' as const };
 
-    const statusChip = (status: Driver['defensiveDriving'] extends infer X ? X extends { status?: infer S } ? S : never : never, days?: number | null) => {
-        const map: Record<string, { text: string; className: string }> = {
-            completed: { text: 'สำเร็จ', className: 'bg-emerald-100 text-emerald-700' },
-            near_due: { text: 'ใกล้ครบ', className: 'bg-amber-100 text-amber-700' },
-            due_today: { text: 'ครบกำหนดวันนี้', className: 'bg-red-100 text-red-700' },
-            overdue: { text: 'หมดกำหนด', className: 'bg-red-200 text-red-800' },
-            pending: { text: 'รอดำเนินการ', className: 'bg-slate-100 text-slate-600' },
-            waived: { text: 'ผ่อนผัน', className: 'bg-purple-100 text-purple-700' },
-        };
-        const d = map[String(status)] || map.pending;
-        const daysText = days === null || days === undefined ? '' : days >= 0 ? `${days} วัน` : `+${Math.abs(days)} วัน`;
-        return (
-            <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${d.className}`}>
-                <span>{d.text}</span>
-                {daysText && <span className="text-[10px] opacity-80">{daysText}</span>}
-            </div>
-        );
+        // อ่าน trainingDate จาก defensiveDriving ก่อน
+        // fallback 1: startDate ของ defensiveDriving (กรณี manual input startDate แต่ไม่ได้ set trainingDate)
+        // fallback 2: trainingRecords สำหรับ defensive/defensive_refresh (sync จาก SafetyPlan, รองรับ custom code)
+        const rawTRForStatus = driver.trainingRecords ?? [];
+        const allRecordsForStatus = Array.isArray(rawTRForStatus) ? rawTRForStatus : Object.values(rawTRForStatus as Record<string, NonNullable<typeof driver.trainingRecords>[0]>);
+        const trainingDate = driver.defensiveDriving?.trainingDate
+            ?? driver.defensiveDriving?.startDate
+            ?? allRecordsForStatus
+                .filter(r =>
+                    r.topicCode === 'defensive'
+                    || r.topicCode === 'defensive_refresh'
+                    || r.topicCode?.toLowerCase().includes('defensive')
+                    || r.topicName?.toLowerCase().includes('defensive')
+                )
+                .sort((a, b) => b.actualDate.localeCompare(a.actualDate))[0]?.actualDate;
+
+        // 1. ถ้าอบรมแล้ว -> ตรวจสอบการ Refresh (12 เดือน)
+        if (trainingDate) {
+            const d = new Date(trainingDate);
+            d.setFullYear(d.getFullYear() + 1);
+            const refreshDate = d.toISOString().split('T')[0];
+            const days = daysBetween(refreshDate) ?? 0;
+
+            if (days < 0) return { status: 'refresh_overdue' as const, date: refreshDate, days: Math.abs(days) };
+            if (days <= 30) return { status: 'refresh_near' as const, date: refreshDate, days };
+            return { status: 'completed' as const, date: trainingDate };
+        }
+
+        // 2. ถ้ายังไม่เคยอบรม -> ตรวจว่าเป็น พนง. ใหม่ หรือ เดิม
+        const isNew = isNewEmployee(driver);
+        const dueDate = computeDefensiveDueDate(driver);
+        const days = daysBetween(dueDate) ?? 0;
+
+        if (!isNew) {
+            return { status: 'never_trained' as const, date: dueDate, days: Math.abs(days) };
+        }
+
+        // 3. พนง. ใหม่ -> ดู countdown 120 วัน
+        if (days < 0) return { status: 'overdue' as const, date: dueDate, days: Math.abs(days) };
+        if (days <= 30) return { status: 'near_due' as const, date: dueDate, days };
+        return { status: 'pending' as const, date: dueDate, days };
+    };
+    const statusChip = (status: string, days?: number, date?: string) => {
+        const dayStr = days !== undefined ? (days > 999 ? "999+" : days) : "";
+
+        switch (status) {
+            case 'completed':
+                return (
+                    <div className="inline-flex flex-col items-center">
+                        <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">✅ สำเร็จ</span>
+                        {date && <span className="text-[9px] text-emerald-600 mt-0.5 font-medium">{formatDate(date)}</span>}
+                    </div>
+                );
+            case 'refresh_near':
+                return (
+                    <div className="inline-flex flex-col items-center">
+                        <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-bold">🔄 ต้อง Refresh</span>
+                        <span className="text-[9px] text-amber-600 mt-0.5 font-medium">เหลือ {days} วัน</span>
+                    </div>
+                );
+            case 'refresh_overdue':
+                return (
+                    <div className="inline-flex flex-col items-center">
+                        <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-[10px] font-bold">🟠 Refresh เกินกำหนด</span>
+                        <span className="text-[9px] text-orange-600 mt-0.5 font-medium">เกิน {dayStr} วัน</span>
+                    </div>
+                );
+            case 'near_due':
+                return (
+                    <div className="inline-flex flex-col items-center">
+                        <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-bold">⚠️ ใกล้กำหนด</span>
+                        <span className="text-[9px] text-yellow-600 mt-0.5 font-medium">เหลือ {days} วัน</span>
+                    </div>
+                );
+            case 'overdue':
+                return (
+                    <div className="inline-flex flex-col items-center">
+                        <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-[10px] font-bold">🔴 เกินกำหนด</span>
+                        <span className="text-[9px] text-red-600 mt-0.5 font-medium">เกิน {dayStr} วัน</span>
+                    </div>
+                );
+            case 'never_trained':
+                return (
+                    <div className="inline-flex flex-col items-center">
+                        <span className="bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full text-[10px] font-bold italic">🔴 ไม่เคยอบรม</span>
+                        <span className="text-[9px] text-slate-400 mt-0.5">พนง.เดิม</span>
+                    </div>
+                );
+            case 'pending':
+                return (
+                    <div className="inline-flex flex-col items-center">
+                        <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-[10px] font-medium border border-blue-100">⏳ รอดำเนินการ</span>
+                        <span className="text-[9px] text-blue-500 mt-0.5 font-medium">เหลือ {days} วัน</span>
+                    </div>
+                );
+            case 'waived':
+                return <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-[10px] font-bold">⛔ ยกเว้น</span>;
+            default:
+                return <span className="text-slate-300">-</span>;
+        }
     };
 
     const handleSaveTraining120 = async (driverId: string, patch: Partial<NonNullable<Driver['defensiveDriving']>>) => {
@@ -610,6 +685,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                 <TH colSpan={10} className="bg-indigo-600 text-white py-2">ข้อมูลรถที่รับผิดชอบ</TH>
                                 <TH colSpan={7} className="bg-pink-600 text-white py-2">รูปภาพรถ / อุปกรณ์</TH>
                                 <TH colSpan={10} className="bg-cyan-700 text-white py-2">Defensive Driving Program & Refresh Training</TH>
+                                <TH colSpan={2} className="bg-teal-700 text-white py-2">Safety Training History<br /><span className="font-normal" style={{ fontSize: '0.85em' }}>ประวัติอบรมทั้งหมด</span></TH>
                                 <TH colSpan={2} className="bg-violet-600 text-white py-2">Incab Coaching</TH>
                                 <TH colSpan={2} className="bg-rose-600 text-white py-2">Certificate</TH>
                                 <TH rowSpan={3} className="bg-slate-700 text-white min-w-[80px] sticky right-0 z-10">จัดการ</TH>
@@ -677,6 +753,9 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                 <TH rowSpan={2} className="min-w-[80px] bg-cyan-50 text-cyan-900">Trainer</TH>
                                 <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">Next Training<br /><span style={{ fontSize: '0.85em' }}>Refresh</span></TH>
                                 <TH rowSpan={2} className="min-w-[80px] bg-cyan-50 text-cyan-900">Record</TH>
+                                {/* Training History */}
+                                <TH rowSpan={2} className="min-w-[160px] bg-teal-50 text-teal-900">หัวข้ออบรม (ปีนี้)<br /><span style={{ fontSize: '0.85em' }}>จากแผนความปลอดภัย</span></TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-teal-50 text-teal-900">อบรมแล้ว<br />(Total)</TH>
                                 {/* Incab */}
                                 <TH rowSpan={2} className="min-w-[60px] bg-violet-50 text-violet-900">Score</TH>
                                 <TH rowSpan={2} className="min-w-[80px] bg-violet-50 text-violet-900">Date</TH>
@@ -720,8 +799,50 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
 
                                 const photoUrl = driver.photos?.[0];
 
+                                // รวม defensive records จาก trainingRecords + fallback จาก defensiveDriving object
+                                const defensiveRecords = (() => {
+                                    // normalize: Firebase อาจ return nested array เป็น object {0:{...},1:{...}}
+                                    const rawTR = driver.trainingRecords ?? [];
+                                    if (rawTR && (Array.isArray(rawTR) ? (rawTR as unknown[]).length > 0 : Object.keys(rawTR as object).length > 0)) {
+                                        console.log(`[DriverMatrix] driver=${driver.name} trainingRecords:`, rawTR);
+                                    }
+                                    const allRecords = Array.isArray(rawTR) ? rawTR : Object.values(rawTR as Record<string, NonNullable<typeof driver.trainingRecords>[0]>);
+                                    const fromTraining = allRecords
+                                        .filter(r =>
+                                            r.topicCode === 'defensive'
+                                            || r.topicCode === 'defensive_refresh'
+                                            || r.topicCode?.toLowerCase().includes('defensive')
+                                            || r.topicName?.toLowerCase().includes('defensive')
+                                        )
+                                        .sort((a, b) => b.actualDate.localeCompare(a.actualDate));
+                                    if (fromTraining.length > 0) return fromTraining;
+                                    // fallback: สร้าง record จาก defensiveDriving object (ข้อมูลเก่าที่กรอกมือ)
+                                    const dd = driver.defensiveDriving;
+                                    const trainingDate = dd?.trainingDate || dd?.startDate;
+                                    if (trainingDate) {
+                                        return [{
+                                            sessionId: '',
+                                            topicId: '',
+                                            topicCode: 'defensive' as string,
+                                            topicName: dd?.plan || 'Defensive Driving',
+                                            actualDate: trainingDate,
+                                            location: undefined as string | undefined,
+                                            trainer: dd?.trainer,
+                                            preTest: dd?.preTest,
+                                            postTest: dd?.postTest,
+                                            evidencePhotos: [] as string[],
+                                            year: new Date(trainingDate).getFullYear(),
+                                            _fromDD: true, // flag ว่ามาจาก defensiveDriving object
+                                            _dd: dd,
+                                        }];
+                                    }
+                                    return [] as typeof fromTraining;
+                                })();
+                                const fmtDate = (d?: string) => { if (!d) return '-'; const dt = new Date(d); return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }); };
+
                                 return (
-                                    <tr key={driver.id} className={`hover:bg-blue-50/30 transition-colors ${rowBg}`}>
+                                    <React.Fragment key={driver.id}>
+                                    <tr className={`hover:bg-blue-50/30 transition-colors ${rowBg}`}>
                                         {/* ลำดับ */}
                                         <TD className="font-bold text-slate-500 w-8">{idx + 1}</TD>
 
@@ -1144,61 +1265,207 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                             )}
                                         </TD>
 
-                                        {/* Defensive Driving */}
-                                        <TD>
-                                            {safetyTopics.length > 0 ? (
-                                                <SelectCell
-                                                    value={driver.defensiveDriving?.plan || ''}
-                                                    options={[
-                                                        { value: '', label: '-' },
-                                                        ...safetyTopics.filter(t => t.isActive).map(t => ({ value: t.name, label: t.name }))
-                                                    ]}
-                                                    onSave={v => updateNested(driver.id, 'defensiveDriving', { plan: v })}
-                                                />
-                                            ) : (
-                                                <EditCell value={driver.defensiveDriving?.plan || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { plan: v })} placeholder="-" />
-                                            )}
-                                        </TD>
+                                        {/* Defensive Driving — แสดงอัตโนมัติจาก defensiveRecords ทุก session ในแถวเดียว */}
                                         {(() => {
-                                            const { status, dueDateStr, days } = computeDefensiveStatus(driver);
+                                            const dd = driver.defensiveDriving;
+                                            const { status, date, days } = computeDefensiveStatus(driver);
                                             return (
-                                                <TD className="space-y-1">
-                                                    <div>{statusChip(status, days)}</div>
-                                                    <div className="text-[10px] text-slate-400">กำหนด: {dueDateStr || '-'}</div>
-                                                    <button
-                                                        onClick={() => setTrainingModalDriver(driver)}
-                                                        type="button"
-                                                        className="mt-1 inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
-                                                        title="บันทึกอบรม 120 วัน">
-                                                        ✎ บันทึกอบรม
-                                                    </button>
-                                                </TD>
+                                                <>
+                                                    {/* Plan — แสดงชื่อทุก session ซ้อนกัน */}
+                                                    <TD className="relative">
+                                                        {isNewEmployee(driver) && (
+                                                            <div className="absolute -top-1 -left-1 z-10">
+                                                                <span className="bg-emerald-500 text-white text-[8px] px-1 rounded shadow-sm font-bold uppercase tracking-tighter">NEW</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex flex-col gap-1">
+                                                            {defensiveRecords.length > 0 ? defensiveRecords.map((r, ri) => (
+                                                                <span key={ri} className="text-[10px] font-semibold text-cyan-800 bg-cyan-50 px-1.5 py-0.5 rounded leading-tight">
+                                                                    {r.topicName || 'Defensive Driving'}
+                                                                </span>
+                                                            )) : (
+                                                                <span className="text-slate-300 text-xs">-</span>
+                                                            )}
+                                                        </div>
+                                                    </TD>
+                                                    {/* ได้รับอบรม 120 วัน */}
+                                                    <TD className="space-y-1">
+                                                        <div>{statusChip(status, days, date)}</div>
+                                                        {status !== 'completed' && date && <div className="text-[10px] text-slate-400">กำหนด: {fmtDate(date)}</div>}
+                                                    </TD>
+                                                    {/* Booking Date — อัตโนมัติจาก trainingRecords.bookingDate */}
+                                                    <TD className={defensiveRecords.some(r => r.bookingDate) ? 'bg-cyan-50/60' : ''}>
+                                                        {defensiveRecords.some(r => r.bookingDate) ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                {defensiveRecords.map((r, ri) => (
+                                                                    r.bookingDate ? (
+                                                                        <span key={ri} className="text-xs font-semibold text-cyan-700 block">{fmtDate(r.bookingDate)}</span>
+                                                                    ) : (
+                                                                        <span key={ri} className="text-slate-300 text-xs block">-</span>
+                                                                    )
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <EditCell
+                                                                value={dd?.bookingDate || ''}
+                                                                onSave={v => updateNested(driver.id, 'defensiveDriving', { bookingDate: v })}
+                                                                type="date"
+                                                                placeholder="-"
+                                                            />
+                                                        )}
+                                                    </TD>
+                                                    {/* วันเริ่มอบรม — แสดงทุก session ซ้อนกัน */}
+                                                    <TD className={defensiveRecords.length > 0 ? 'bg-cyan-50' : ''}>
+                                                        {defensiveRecords.length > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                {defensiveRecords.map((r, ri) => (
+                                                                    <span key={ri} className="text-xs font-semibold text-cyan-700 block">{fmtDate(r.actualDate)}</span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <EditCell value={dd?.startDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { startDate: v })} type="date" placeholder="-" />
+                                                        )}
+                                                    </TD>
+                                                    {/* วันสิ้นสุด */}
+                                                    <TD>
+                                                        <EditCell value={dd?.endDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { endDate: v })} type="date" placeholder="-" />
+                                                    </TD>
+                                                    {/* Pre Test — แสดงทุก session */}
+                                                    <TD className={defensiveRecords.some(r => r.preTest !== undefined) ? 'bg-cyan-50' : ''}>
+                                                        {defensiveRecords.length > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                {defensiveRecords.map((r, ri) => (
+                                                                    <span key={ri} className="text-xs font-bold text-cyan-700 block">{r.preTest !== undefined ? r.preTest : '-'}</span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <EditCell value={dd?.preTest !== undefined ? String(dd.preTest) : ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { preTest: Number(v) })} type="number" placeholder="-" />
+                                                        )}
+                                                    </TD>
+                                                    {/* Post Test — แสดงทุก session */}
+                                                    <TD className={defensiveRecords.some(r => r.postTest !== undefined) ? 'bg-cyan-50' : ''}>
+                                                        {defensiveRecords.length > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                {defensiveRecords.map((r, ri) => (
+                                                                    <span key={ri} className="text-xs font-bold text-cyan-700 block">{r.postTest !== undefined ? r.postTest : '-'}</span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <EditCell value={dd?.postTest !== undefined ? String(dd.postTest) : ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { postTest: Number(v) })} type="number" placeholder="-" />
+                                                        )}
+                                                    </TD>
+                                                    {/* Trainer — แสดงทุก session */}
+                                                    <TD className={defensiveRecords.some(r => r.trainer) ? 'bg-cyan-50' : ''}>
+                                                        {defensiveRecords.length > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                {defensiveRecords.map((r, ri) => (
+                                                                    <span key={ri} className="text-xs text-cyan-700 block">{r.trainer || '-'}</span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <EditCell value={dd?.trainer || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { trainer: v })} placeholder="-" />
+                                                        )}
+                                                    </TD>
+                                                    {/* Next Refresh — แสดงทุก session */}
+                                                    <TD className={defensiveRecords.length > 0 ? 'bg-amber-50' : ''}>
+                                                        {defensiveRecords.length > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                {defensiveRecords.map((r, ri) => {
+                                                                    const nr = r.actualDate ? (() => { const d = new Date(r.actualDate); d.setFullYear(d.getFullYear() + 1); return d.toISOString().split('T')[0]; })() : dd?.nextRefreshDate;
+                                                                    return <span key={ri} className="text-xs font-semibold text-amber-700 block">{fmtDate(nr)}</span>;
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <EditCell value={dd?.nextRefreshDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { nextRefreshDate: v })} type="date" placeholder="-" />
+                                                        )}
+                                                    </TD>
+                                                    {/* Record — แสดง evidencePhotos จาก trainingRecords */}
+                                                    <TD>
+                                                        {(() => {
+                                                            const photos = defensiveRecords.flatMap(r => r.evidencePhotos ?? []).filter(Boolean);
+                                                            return photos.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1 justify-center">
+                                                                    {photos.map((url, pi) => {
+                                                                        const isPdf = url.toLowerCase().includes('.pdf');
+                                                                        return isPdf ? (
+                                                                            <a key={pi} href={url} target="_blank" rel="noreferrer"
+                                                                                className="flex items-center gap-1 px-1.5 py-1 bg-red-50 border border-red-200 rounded text-[10px] text-red-700 hover:bg-red-100">
+                                                                                📄
+                                                                            </a>
+                                                                        ) : (
+                                                                            <a key={pi} href={url} target="_blank" rel="noreferrer" title={`หลักฐาน ${pi + 1}`}>
+                                                                                <img src={url} alt="" className="w-10 h-10 object-cover rounded border border-slate-200 hover:scale-110 transition-transform" />
+                                                                            </a>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex flex-col items-center gap-1">
+                                                                    <span className="text-slate-300 text-xs">-</span>
+                                                                    <label className="cursor-pointer px-1.5 py-0.5 bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 rounded text-[10px] border border-slate-200 transition-colors">
+                                                                        📷
+                                                                        <input type="file" accept="image/*,.pdf" multiple className="hidden" onChange={async e => {
+                                                                            const files = Array.from(e.target.files ?? []);
+                                                                            if (!files.length) return;
+                                                                            const urls: string[] = [];
+                                                                            for (const file of files) {
+                                                                                const path = `truck-maintenance/driver/${driver.id}/dd_evidence/${Date.now()}_${file.name}`;
+                                                                                const url = await uploadToNAS(file, path);
+                                                                                if (url) urls.push(url);
+                                                                            }
+                                                                            if (urls.length) {
+                                                                                await updateNested(driver.id, 'defensiveDriving', { evidencePhotos: [...(dd?.evidencePhotos ?? []), ...urls] });
+                                                                            }
+                                                                            e.target.value = '';
+                                                                        }} />
+                                                                    </label>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </TD>
+                                                </>
                                             );
                                         })()}
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.bookingDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { bookingDate: v })} type="date" placeholder="-" />
-                                        </TD>
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.startDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { startDate: v })} type="date" placeholder="-" />
-                                        </TD>
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.endDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { endDate: v })} type="date" placeholder="-" />
-                                        </TD>
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.preTest !== undefined ? String(driver.defensiveDriving.preTest) : ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { preTest: Number(v) })} type="number" placeholder="-" />
-                                        </TD>
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.postTest !== undefined ? String(driver.defensiveDriving.postTest) : ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { postTest: Number(v) })} type="number" placeholder="-" />
-                                        </TD>
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.trainer || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { trainer: v })} placeholder="-" />
-                                        </TD>
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.nextRefreshDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { nextRefreshDate: v })} type="date" placeholder="-" />
-                                        </TD>
-                                        <TD>
-                                            <EditCell value={driver.defensiveDriving?.record2022 || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { record2022: v })} placeholder="Record" />
-                                        </TD>
+
+                                        {/* Safety Training History — จาก trainingRecords ที่ sync มาจาก SafetyPlan */}
+                                        {(() => {
+                                            const currentYear = new Date().getFullYear();
+                                            const records = (driver.trainingRecords ?? []).filter(r => r.year === currentYear);
+                                            const THAI_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+                                            const fmtShort = (d: string) => { const dt = new Date(d); return isNaN(dt.getTime()) ? d : `${dt.getDate()} ${THAI_M[dt.getMonth()]}`; };
+                                            return (
+                                                <>
+                                                    <TD>
+                                                        {records.length > 0 ? (
+                                                            <div className="flex flex-col gap-1 py-0.5">
+                                                                {records.map((r, i) => (
+                                                                    <div key={i} className="flex items-center gap-1">
+                                                                        <span className="inline-block px-1.5 py-0.5 bg-teal-100 text-teal-800 rounded text-[9px] font-semibold leading-tight max-w-[140px] truncate" title={r.topicName}>
+                                                                            {r.topicName}
+                                                                        </span>
+                                                                        <span className="text-[9px] text-slate-400 shrink-0">{fmtShort(r.actualDate)}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-300 text-xs">-</span>
+                                                        )}
+                                                    </TD>
+                                                    <TD>
+                                                        {records.length > 0 ? (
+                                                            <div className="text-center">
+                                                                <span className="inline-block px-2 py-0.5 bg-teal-600 text-white rounded-full text-xs font-bold">
+                                                                    {records.length}
+                                                                </span>
+                                                                <div className="text-[9px] text-slate-400 mt-0.5">หัวข้อ</div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-300 text-xs">0</span>
+                                                        )}
+                                                    </TD>
+                                                </>
+                                            );
+                                        })()}
 
                                         {/* Incab Coaching — linked to IncabAssessment */}
                                         {(() => {
@@ -1285,6 +1552,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                             </div>
                                         </TD>
                                     </tr>
+                                    </React.Fragment>
                                 );
                             })}
                         </tbody>
@@ -1402,9 +1670,9 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                         PDF {i + 1}
                                                     </a>
                                                 ) : (
-                                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" title={`รูปภาพ ${i + 1}`}
                                                         className="block w-10 h-10 rounded overflow-hidden border border-gray-200 hover:opacity-80">
-                                                        <img src={url} alt="" className="w-full h-full object-cover" />
+                                                        <img src={url} alt={`รูปภาพ ${i + 1}`} className="w-full h-full object-cover" />
                                                     </a>
                                                 );
                                             })}
@@ -1423,8 +1691,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                         <button
                                             onClick={() => { setCriminalRemarkFound('ไม่พบ'); setCriminalRemarkText(''); }}
                                             className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all ${criminalRemarkFound === 'ไม่พบ'
-                                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-[1.02]'
-                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
+                                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-[1.02]'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
                                                 }`}
                                         >
                                             <span className="block text-lg">✅</span>
@@ -1433,8 +1701,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                         <button
                                             onClick={() => setCriminalRemarkFound('พบ')}
                                             className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all ${criminalRemarkFound === 'พบ'
-                                                    ? 'bg-red-600 border-red-600 text-white shadow-md scale-[1.02]'
-                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-red-400 hover:text-red-700'
+                                                ? 'bg-red-600 border-red-600 text-white shadow-md scale-[1.02]'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:border-red-400 hover:text-red-700'
                                                 }`}
                                         >
                                             <span className="block text-lg">⚠️</span>
@@ -1493,8 +1761,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                         disabled={criminalFiles.length === 0 || isCriminalUploading}
                                         title={criminalFiles.length === 0 ? 'กรุณาแนบหลักฐานก่อน' : ''}
                                         className={`px-6 py-2 text-sm font-medium text-white rounded-lg flex items-center gap-1.5 transition-colors ${criminalFiles.length === 0 || isCriminalUploading
-                                                ? 'bg-gray-300 cursor-not-allowed'
-                                                : 'bg-blue-600 hover:bg-blue-700'
+                                            ? 'bg-gray-300 cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700'
                                             }`}
                                     >
                                         ถัดไป: ระบุคดี
@@ -1506,8 +1774,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                         onClick={handleConfirmCriminal}
                                         disabled={!criminalRemarkFound || (criminalRemarkFound === 'พบ' && !criminalRemarkText.trim())}
                                         className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors ${!criminalRemarkFound || (criminalRemarkFound === 'พบ' && !criminalRemarkText.trim())
-                                                ? 'bg-gray-300 cursor-not-allowed'
-                                                : 'bg-emerald-600 hover:bg-emerald-700'
+                                            ? 'bg-gray-300 cursor-not-allowed'
+                                            : 'bg-emerald-600 hover:bg-emerald-700'
                                             }`}
                                     >
                                         ยืนยันบันทึก

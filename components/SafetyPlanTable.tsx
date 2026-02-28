@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import type { SafetyTopic, TrainingSession, TrainingPlan, Driver } from '../types';
-import { useSafetyPlan, generateDefaultTopicsForYear, generatePlansForDriver, computePlanStatus } from '../hooks/useSafetyPlan';
+import { useSafetyPlan, generateDefaultTopicsForYear, generatePlansForDriver, computePlanStatus, isNewEmployee } from '../hooks/useSafetyPlan';
 import TrainingSessionModal from './TrainingSessionModal';
 import TrainingActualModal from './TrainingActualModal';
 import TrainingActualPrintModal from './TrainingActualPrintModal';
 import { formatCurrency, confirmAction, showAlert } from '../utils';
+import { useToast } from '../context/ToastContext';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { database } from '../firebase/firebase';
+import { ref, update, get } from 'firebase/database';
 
 interface SafetyPlanTableProps {
     drivers: Driver[];
@@ -56,6 +59,7 @@ interface CellStatus {
 type SafetyPlanTab = 'overview' | 'individual' | 'group';
 
 const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }) => {
+    const { addToast } = useToast();
     const currentYear = new Date().getFullYear();
     const [year, setYear] = useState(currentYear);
     const { topics, setTopics, sessions, setSessions, plans, setPlans } = useSafetyPlan(year);
@@ -67,6 +71,7 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
 
     const [modalTopic, setModalTopic] = useState<SafetyTopic | null>(null);
     const [actualModalTopic, setActualModalTopic] = useState<SafetyTopic | null>(null);
+    const [actualModalPreselect, setActualModalPreselect] = useState<string | null>(null); // driverId ที่ pre-select ใน modal
     const [printData, setPrintData] = useState<{ session: TrainingSession; plans: TrainingPlan[]; topic: SafetyTopic } | null>(null);
     const [editTopic, setEditTopic] = useState<SafetyTopic | null>(null);
     const [showAddTopic, setShowAddTopic] = useState(false);
@@ -183,26 +188,72 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
         });
     };
 
-    const handleSaveActual = (session: TrainingSession, updatedPlans: TrainingPlan[]) => {
+    const handleSaveActual = (session: TrainingSession, updatedPlans: TrainingPlan[], topicOverride?: SafetyTopic) => {
+        // ใช้ topicOverride ก่อนเสมอ เพื่อหลีกเลี่ยง race condition ที่ actualModalTopic ถูก set เป็น null ก่อน callback จะ run
+        const resolvedTopic = topicOverride ?? actualModalTopic;
+        console.log('[handleSaveActual] called — resolvedTopic:', resolvedTopic?.code, '| updatedPlans:', updatedPlans.length, '| drivers:', drivers.length);
         handleSaveSession(session);
         handleUpdatePlans(updatedPlans);
-        if (actualModalTopic) {
-            setPrintData({ session, plans: updatedPlans, topic: actualModalTopic });
+        if (resolvedTopic) {
+            setPrintData({ session, plans: updatedPlans, topic: resolvedTopic });
         }
 
-        // ===== Phase 3: Sync to Driver.defensiveDriving =====
-        if (setDrivers && actualModalTopic) {
-            const topicCode = actualModalTopic.code;
-            const isDefensive = topicCode === 'defensive' || topicCode === 'defensive_refresh';
-            if (isDefensive) {
-                const donePlans = updatedPlans.filter(p => p.status === 'done');
-                if (donePlans.length > 0) {
-                    setDrivers(prevDrivers => prevDrivers.map(driver => {
-                        const driverPlan = donePlans.find(p => p.driverId === driver.id);
-                        if (!driverPlan) return driver;
+        // ===== Sync to Driver: trainingRecords (ทุกหัวข้อ) + defensiveDriving (เฉพาะ defensive) =====
+        try {
+        if (resolvedTopic) {
+            const topicCode = resolvedTopic.code;
+            const topicName = resolvedTopic.name;
+            const topicId = resolvedTopic.id;
+            // ตรวจสอบว่าเป็นหัวข้อ Defensive Driving หรือไม่ (รองรับ default code + custom code)
+            const isDefensive = topicCode === 'defensive'
+                || topicCode === 'defensive_refresh'
+                || topicCode?.toLowerCase().includes('defensive')
+                || resolvedTopic.name?.toLowerCase().includes('defensive');
+            const donePlans = updatedPlans.filter(p => p.status === 'done');
+            console.log('[SafetyPlan] donePlans:', donePlans.length, donePlans.map(p => p.driverId));
+            console.log('[SafetyPlan] drivers available:', drivers.length, drivers.map(d => d.id));
+            console.log('[SafetyPlan] isDefensive:', isDefensive, 'topicCode:', topicCode);
+
+            if (donePlans.length > 0) {
+                // คำนวณ updatedDriver สำหรับแต่ละ driver ที่อบรมสำเร็จ
+                const driverUpdates: Driver[] = [];
+
+                for (const driver of drivers) {
+                    const driverPlan = donePlans.find(p => p.driverId === driver.id);
+                    if (!driverPlan) continue;
+
+                    // --- 1) sync trainingRecords (ทุกหัวข้อ) ---
+                    // normalize: Firebase อาจ return nested array เป็น object {0:{...},1:{...}}
+                    const rawRecords = driver.trainingRecords ?? [];
+                    const existingRecords = Array.isArray(rawRecords) ? rawRecords : Object.values(rawRecords as Record<string, typeof rawRecords[0]>);
+                    const filteredRecords = existingRecords.filter(r => r.sessionId !== session.id);
+                    const newRecord = {
+                        sessionId: session.id,
+                        topicId,
+                        topicCode,
+                        topicName,
+                        actualDate: driverPlan.actualDate ?? session.startDate,
+                        bookingDate: driverPlan.bookingDate ?? session.startDate,
+                        location: session.location,
+                        trainer: driverPlan.trainer ?? session.trainer,
+                        preTest: driverPlan.preTest,
+                        postTest: driverPlan.postTest,
+                        evidencePhotos: session.evidencePhotos,
+                        year: session.year,
+                    };
+                    const updatedRecords = [...filteredRecords, newRecord];
+
+                    // --- 2) sync defensiveDriving (เฉพาะหัวข้อ defensive) ---
+                    let updatedDriver: Driver = {
+                        ...driver,
+                        trainingRecords: updatedRecords,
+                        updatedAt: new Date().toISOString(),
+                    };
+
+                    if (isDefensive) {
                         const existing = driver.defensiveDriving || {};
-                        return {
-                            ...driver,
+                        updatedDriver = {
+                            ...updatedDriver,
                             defensiveDriving: {
                                 ...existing,
                                 trainingDate: driverPlan.actualDate || existing.trainingDate,
@@ -222,11 +273,54 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
                                     return existing.nextRefreshDate;
                                 })(),
                             },
-                            updatedAt: new Date().toISOString(),
                         };
-                    }));
+                    }
+
+                    driverUpdates.push(updatedDriver);
+                }
+
+                if (driverUpdates.length > 0) {
+                    console.log('[SafetyPlan] Syncing', driverUpdates.length, 'drivers to Firebase');
+                    // 1) Optimistic UI update ผ่าน setDrivers
+                    if (setDrivers) {
+                        setDrivers(prevDrivers => prevDrivers.map(d => {
+                            const upd = driverUpdates.find(u => u.id === d.id);
+                            return upd ?? d;
+                        }));
+                    }
+                    // 2) Firebase direct update — get snapshot ก่อนเพื่อหา key จริง
+                    get(ref(database, 'drivers')).then(snapshot => {
+                        if (!snapshot.exists()) return;
+                        const fbData = snapshot.val() as Record<string, { id?: string }>;
+                        for (const updatedDriver of driverUpdates) {
+                            // หา Firebase key ที่ตรงกับ driver.id
+                            const fbKey = Object.keys(fbData).find(k => fbData[k]?.id === updatedDriver.id);
+                            if (!fbKey) {
+                                console.warn(`[SafetyPlan] ไม่พบ Firebase key สำหรับ driver.id=${updatedDriver.id}`);
+                                continue;
+                            }
+                            const patch: Record<string, unknown> = {
+                                trainingRecords: updatedDriver.trainingRecords ?? [],
+                                updatedAt: updatedDriver.updatedAt,
+                            };
+                            if (updatedDriver.defensiveDriving) {
+                                patch.defensiveDriving = updatedDriver.defensiveDriving;
+                            }
+                            update(ref(database, `drivers/${fbKey}`), patch)
+                                .then(() => console.log(`[SafetyPlan] ✅ Firebase update drivers/${fbKey} (${updatedDriver.id}) OK`))
+                                .catch(err => console.error(`[SafetyPlan] ❌ Firebase update drivers/${fbKey} failed:`, err));
+                        }
+                    }).catch(err => console.error('[SafetyPlan] ❌ get drivers snapshot failed:', err));
+                    addToast(`✅ Sync ข้อมูลอบรม → Driver Matrix สำเร็จ (${driverUpdates.length} คน)`, 'success');
+                } else {
+                    console.warn('[SafetyPlan] driverUpdates ว่าง — donePlans:', donePlans.map(p => p.driverId), '| drivers:', drivers.map(d => d.id));
+                    addToast('⚠️ ไม่พบ driver ที่ต้อง sync — กรุณาตรวจ console log', 'warning');
                 }
             }
+        }
+        } catch (err) {
+            console.error('[SafetyPlan] ❌ sync error:', err);
+            addToast(`❌ Sync error: ${err instanceof Error ? err.message : String(err)}`, 'error');
         }
     };
 
@@ -446,14 +540,10 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
     const filteredGroupDrivers = useMemo(() => {
         if (groupFilter === 'all') return drivers;
         if (groupFilter === 'new_employee') {
-            const sixMonthsAgo = new Date();
-            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            return drivers.filter(d => d.hireDate && new Date(d.hireDate) >= sixMonthsAgo);
+            return drivers.filter(d => isNewEmployee(d));
         }
         if (groupFilter === 'existing_employee') {
-            const sixMonthsAgo = new Date();
-            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            return drivers.filter(d => !d.hireDate || new Date(d.hireDate) < sixMonthsAgo);
+            return drivers.filter(d => !isNewEmployee(d));
         }
         return drivers;
     }, [drivers, groupFilter]);
@@ -635,7 +725,7 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
                                                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusLabel}</span>
                                                 </td>
                                                 <td className="px-3 py-2.5 text-center">
-                                                    <button onClick={() => setActualModalTopic(ip.topic)}
+                                                    <button onClick={() => { setActualModalTopic(ip.topic); setActualModalPreselect(selectedDriverId || null); }}
                                                         className="text-xs text-emerald-600 hover:text-emerald-800 px-2 py-1 rounded-lg border border-emerald-300 hover:bg-emerald-50 font-semibold transition-colors">
                                                         ✓ Actual
                                                     </button>
@@ -668,8 +758,8 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
                             <select value={groupFilter} onChange={e => setGroupFilter(e.target.value)}
                                 aria-label="กรองกลุ่มพนักงาน" className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50">
                                 <option value="all">ทุกคน ({drivers.length} คน)</option>
-                                <option value="new_employee">พนง.ใหม่ (≤ 6 เดือน)</option>
-                                <option value="existing_employee">พนง.เดิม ({'>'} 6 เดือน)</option>
+                                <option value="new_employee">พนง.ใหม่ (≤ 120 วัน)</option>
+                                <option value="existing_employee">พนง.เดิม ({'>'} 120 วัน)</option>
                             </select>
                             <label className="text-sm font-semibold text-slate-600">📋 หัวข้อ:</label>
                             <select value={groupTopicFilter} onChange={e => setGroupTopicFilter(e.target.value)}
@@ -856,7 +946,7 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
                                                     {topic.isMandatory && <span className="text-[10px] bg-red-50 text-red-600 font-bold px-1.5 py-0.5 rounded-full">MUST DO</span>}
                                                 </div>
                                                 <div className="ml-auto flex gap-1 shrink-0">
-                                                    <button onClick={() => setActualModalTopic(topic)} title="บันทึกการอบรมจริง"
+                                                    <button onClick={() => { setActualModalTopic(topic); setActualModalPreselect(null); }} title="บันทึกการอบรมจริง"
                                                         className="text-xs text-emerald-600 hover:text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300 hover:bg-emerald-50 font-semibold">✓ Actual</button>
                                                     {(() => {
                                                         const topicSession = sessions.find(s => s.topicId === topic.id);
@@ -1111,11 +1201,15 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }
                 <TrainingActualModal
                     topic={actualModalTopic}
                     drivers={drivers}
-                    existingSession={sessions.find(s => s.topicId === actualModalTopic.id) ?? null}
+                    existingSession={sessions.find(s => s.topicId === actualModalTopic.id && s.year === year) ?? null}
                     existingPlans={plans}
                     year={year}
-                    onSave={handleSaveActual}
-                    onClose={() => setActualModalTopic(null)}
+                    initialAttendeeId={actualModalPreselect ?? undefined}
+                    onSave={(session, updatedPlans) => {
+                        const capturedTopic = actualModalTopic;
+                        handleSaveActual(session, updatedPlans, capturedTopic);
+                    }}
+                    onClose={() => { setActualModalTopic(null); setActualModalPreselect(null); }}
                 />
             )}
 
