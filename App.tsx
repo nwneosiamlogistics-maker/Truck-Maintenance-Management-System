@@ -111,7 +111,7 @@ const AppContent: React.FC<AppContentProps> = ({
             // checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
             checkAndSendDailyRepairStatus(repairs, technicians);
             checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
-            checkAndSendLowStockAlert(stock);
+            // checkAndSendLowStockAlert(stock);  // ย้ายไป Cloud Function dailyLowStockAlert (10:00 ICT) แล้ว
             sendBudgetAlertTelegramNotification(budgets, repairs, fuelRecords);
             checkAndSendDailyProcurementSummary(purchaseRequisitions, purchaseOrders);
         }, 5000);
