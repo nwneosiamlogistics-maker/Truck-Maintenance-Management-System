@@ -11,10 +11,11 @@ import autoTable from 'jspdf-autotable';
 
 interface SafetyPlanTableProps {
     drivers: Driver[];
+    setDrivers?: React.Dispatch<React.SetStateAction<Driver[]>>;
 }
 
-const THAI_MONTHS_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-const MONTH_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const THAI_MONTHS_SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const MONTH_FULL = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
 const QUARTER_COLORS: Record<number, string> = {
     0: 'bg-blue-50',   // Q1: ม.ค.–มี.ค.
@@ -41,7 +42,7 @@ const fmtDateShort = (d?: string) => {
     if (!d) return '';
     const dt = new Date(d);
     if (isNaN(dt.getTime())) return '';
-    return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+    return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
 };
 
 interface CellStatus {
@@ -52,10 +53,17 @@ interface CellStatus {
     plans: TrainingPlan[];
 }
 
-const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
+type SafetyPlanTab = 'overview' | 'individual' | 'group';
+
+const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers, setDrivers }) => {
     const currentYear = new Date().getFullYear();
     const [year, setYear] = useState(currentYear);
     const { topics, setTopics, sessions, setSessions, plans, setPlans } = useSafetyPlan(year);
+
+    const [activeTab, setActiveTab] = useState<SafetyPlanTab>('overview');
+    const [selectedDriverId, setSelectedDriverId] = useState<string>('');
+    const [groupFilter, setGroupFilter] = useState<string>('all');
+    const [groupTopicFilter, setGroupTopicFilter] = useState<string>('all');
 
     const [modalTopic, setModalTopic] = useState<SafetyTopic | null>(null);
     const [actualModalTopic, setActualModalTopic] = useState<SafetyTopic | null>(null);
@@ -181,6 +189,45 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
         if (actualModalTopic) {
             setPrintData({ session, plans: updatedPlans, topic: actualModalTopic });
         }
+
+        // ===== Phase 3: Sync to Driver.defensiveDriving =====
+        if (setDrivers && actualModalTopic) {
+            const topicCode = actualModalTopic.code;
+            const isDefensive = topicCode === 'defensive' || topicCode === 'defensive_refresh';
+            if (isDefensive) {
+                const donePlans = updatedPlans.filter(p => p.status === 'done');
+                if (donePlans.length > 0) {
+                    setDrivers(prevDrivers => prevDrivers.map(driver => {
+                        const driverPlan = donePlans.find(p => p.driverId === driver.id);
+                        if (!driverPlan) return driver;
+                        const existing = driver.defensiveDriving || {};
+                        return {
+                            ...driver,
+                            defensiveDriving: {
+                                ...existing,
+                                trainingDate: driverPlan.actualDate || existing.trainingDate,
+                                startDate: session.startDate || existing.startDate,
+                                endDate: session.endDate || existing.endDate,
+                                preTest: driverPlan.preTest ?? existing.preTest,
+                                postTest: driverPlan.postTest ?? existing.postTest,
+                                trainer: driverPlan.trainer || session.trainer || existing.trainer,
+                                status: 'completed',
+                                dueDate120: existing.dueDate120,
+                                nextRefreshDate: (() => {
+                                    if (driverPlan.actualDate) {
+                                        const d = new Date(driverPlan.actualDate);
+                                        d.setFullYear(d.getFullYear() + 1);
+                                        return d.toISOString().split('T')[0];
+                                    }
+                                    return existing.nextRefreshDate;
+                                })(),
+                            },
+                            updatedAt: new Date().toISOString(),
+                        };
+                    }));
+                }
+            }
+        }
     };
 
     const handleDeleteTopic = async (topicId: string) => {
@@ -236,7 +283,7 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
     // ==================== EXPORT ====================
 
     const buildExportRows = () => {
-        const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+        const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
         const STATUS_LABEL: Record<string, string> = { done: '✓', booked: 'B', planned: '•', overdue: '⚠', partial: '~', none: '' };
         return topics.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder).map((topic, idx) => {
             const comp = topicCompliance[topic.id] ?? { done: 0, total: 0 };
@@ -309,7 +356,7 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
         doc.setFont('helvetica', 'normal');
         doc.text(`Year: ${year + 543} (C.E. ${year})   Compliance: ${compliancePct}%   Topics: ${topics.filter(t => t.isActive).length}`, 14, 23);
 
-        const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const STATUS_LABEL: Record<string, string> = { done: 'OK', booked: 'B', planned: '-', overdue: '!!', partial: '~', none: '' };
 
         const head = [['#', 'หัวข้อ / กิจกรรม', 'กลุ่มเป้าหมาย', 'ผู้รับผิดชอบ', 'งบประมาณ', 'By Legal',
@@ -359,7 +406,7 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
                     else if (val === 'B') data.cell.styles.fillColor = [59, 130, 246];
                     else if (val === '!!') data.cell.styles.fillColor = [239, 68, 68];
                     else if (val === '~') data.cell.styles.fillColor = [251, 191, 36];
-                    if (['OK','B','!!','~'].includes(val)) data.cell.styles.textColor = 255;
+                    if (['OK', 'B', '!!', '~'].includes(val)) data.cell.styles.textColor = 255;
                 }
             },
         });
@@ -375,6 +422,62 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
 
         doc.save(`SafetyPlan_${year + 543}_${new Date().toISOString().split('T')[0]}.pdf`);
     };
+
+    // ==================== INDIVIDUAL TAB ====================
+    const selectedDriver = useMemo(() => drivers.find(d => d.id === selectedDriverId), [drivers, selectedDriverId]);
+
+    const individualPlans = useMemo(() => {
+        if (!selectedDriverId) return [];
+        return topics.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder).map(topic => {
+            const driverPlans = plans.filter(p => p.driverId === selectedDriverId && p.topicId === topic.id && p.year === year);
+            const donePlan = driverPlans.find(p => p.status === 'done');
+            const activePlan = donePlan || driverPlans[0];
+            return { topic, plan: activePlan || null, allPlans: driverPlans };
+        });
+    }, [selectedDriverId, topics, plans, year]);
+
+    const individualCompliance = useMemo(() => {
+        const total = individualPlans.length;
+        const done = individualPlans.filter(ip => ip.plan?.status === 'done').length;
+        return { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
+    }, [individualPlans]);
+
+    // ==================== GROUP TAB ====================
+    const filteredGroupDrivers = useMemo(() => {
+        if (groupFilter === 'all') return drivers;
+        if (groupFilter === 'new_employee') {
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            return drivers.filter(d => d.hireDate && new Date(d.hireDate) >= sixMonthsAgo);
+        }
+        if (groupFilter === 'existing_employee') {
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            return drivers.filter(d => !d.hireDate || new Date(d.hireDate) < sixMonthsAgo);
+        }
+        return drivers;
+    }, [drivers, groupFilter]);
+
+    const groupTopics = useMemo(() => {
+        const active = topics.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+        if (groupTopicFilter === 'all') return active;
+        return active.filter(t => t.id === groupTopicFilter);
+    }, [topics, groupTopicFilter]);
+
+    const groupComplianceMatrix = useMemo(() => {
+        return filteredGroupDrivers.map(driver => {
+            const topicStatuses = groupTopics.map(topic => {
+                const driverPlans = plans.filter(p => p.driverId === driver.id && p.topicId === topic.id && p.year === year);
+                const done = driverPlans.filter(p => p.status === 'done').length;
+                const total = driverPlans.length;
+                const activePlan = driverPlans.find(p => p.status === 'done') || driverPlans[0];
+                return { topic, done, total, plan: activePlan || null };
+            });
+            const totalPlans = topicStatuses.reduce((s, ts) => s + ts.total, 0);
+            const doneAll = topicStatuses.reduce((s, ts) => s + ts.done, 0);
+            return { driver, topicStatuses, totalPlans, doneAll, pct: totalPlans > 0 ? Math.round((doneAll / totalPlans) * 100) : 0 };
+        });
+    }, [filteredGroupDrivers, groupTopics, plans, year]);
 
     return (
         <div className="space-y-4">
@@ -393,6 +496,20 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
 
                 <div className="h-6 w-px bg-slate-200" />
 
+                {/* Tabs */}
+                <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                    {([['overview', '📊 ภาพรวมหัวข้อ'], ['individual', '👤 รายบุคคล'], ['group', '👥 รายกลุ่ม']] as const).map(([tab, label]) => (
+                        <button key={tab} onClick={() => setActiveTab(tab)}
+                            className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-all ${activeTab === tab
+                                ? 'bg-white text-slate-800 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="h-6 w-px bg-slate-200" />
+
                 {/* Stats */}
                 <div className="flex items-center gap-4 text-sm">
                     <span className="text-slate-500">หัวข้อ: <strong className="text-slate-700">{topics.filter(t => t.isActive).length}</strong></span>
@@ -403,269 +520,501 @@ const SafetyPlanTable: React.FC<SafetyPlanTableProps> = ({ drivers }) => {
                 </div>
 
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
-                    {topics.length === 0 && (
-                        <button onClick={handleInitDefaultTopics}
-                            className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl shadow transition-colors">
-                            🏗 สร้างหัวข้อเริ่มต้น
-                        </button>
+                    {activeTab === 'overview' && (
+                        <>
+                            {topics.length === 0 && (
+                                <button onClick={handleInitDefaultTopics}
+                                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl shadow transition-colors">
+                                    🏗 สร้างหัวข้อเริ่มต้น
+                                </button>
+                            )}
+                            <button onClick={() => { setEditTopic(null); setNewTopic({ target: 'all', isMandatory: true, windowStart: `${year}-01-01`, windowEnd: `${year}-12-31` }); setShowAddTopic(true); }}
+                                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition-colors">
+                                + เพิ่มหัวข้อ
+                            </button>
+                            <button onClick={handleGeneratePlan}
+                                className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl shadow transition-colors">
+                                ⚡ Generate แผนทั้งปี
+                            </button>
+                            <div className="h-6 w-px bg-slate-200" />
+                        </>
                     )}
-                    <button onClick={() => { setEditTopic(null); setNewTopic({ target: 'all', isMandatory: true, windowStart: `${year}-01-01`, windowEnd: `${year}-12-31` }); setShowAddTopic(true); }}
-                        className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition-colors">
-                        + เพิ่มหัวข้อ
-                    </button>
-                    <button onClick={handleGeneratePlan}
-                        className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl shadow transition-colors">
-                        ⚡ Generate แผนทั้งปี
-                    </button>
-                    <div className="h-6 w-px bg-slate-200" />
                     <button onClick={handleExportExcel}
                         className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow transition-colors flex items-center gap-1.5">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
                         Excel
                     </button>
                     <button onClick={handleExportPDF}
                         className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow transition-colors flex items-center gap-1.5">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="15" x2="15" y2="15" /></svg>
                         PDF
                     </button>
                 </div>
             </div>
 
-            {/* ===== Legend ===== */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs text-slate-600 items-center">
-                <span className="font-semibold text-slate-500">สัญลักษณ์:</span>
-                <span className="flex items-center gap-1.5">
-                    <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
-                        <span className="bg-blue-100 text-blue-700 py-0.5 font-bold">แผน</span>
-                        <span className="bg-slate-50 text-slate-300 py-0.5">จริง</span>
-                    </span>
-                    จองแล้ว / มีแผน
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
-                        <span className="bg-slate-100 text-slate-500 py-0.5 font-bold">แผน</span>
-                        <span className="bg-green-500 text-white py-0.5 font-bold">จริง</span>
-                    </span>
-                    อบรมสำเร็จ
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
-                        <span className="bg-slate-100 text-slate-500 py-0.5 font-bold">แผน</span>
-                        <span className="bg-amber-400 text-white py-0.5 font-bold">จริง</span>
-                    </span>
-                    บางส่วน
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
-                        <span className="bg-red-100 text-red-700 py-0.5 font-bold">แผน</span>
-                        <span className="bg-slate-50 text-slate-300 py-0.5">จริง</span>
-                    </span>
-                    เกินกำหนด
-                </span>
-            </div>
+            {/* ===== Tab Content ===== */}
 
-            {/* ===== Table ===== */}
-            <div className="overflow-x-auto rounded-2xl shadow border border-slate-100">
-                <table className="w-full text-sm border-collapse min-w-[1200px]">
-                    <thead>
-                        {/* Row 1: Title + Q Groups */}
-                        <tr>
-                            <th colSpan={6} className="bg-green-700 text-white text-center py-3 px-4 font-bold text-base" style={{ letterSpacing: '0.03em' }}>
-                                SAFETY AND HEALTH ENVIRONMENT MASTER PLAN — ปี {year + 543} (C.E. {year})
-                            </th>
-                            <th colSpan={3} className="bg-blue-600 text-white text-center py-3 font-bold text-xs">Q1<br /><span className="font-normal opacity-80">ม.ค. – มี.ค.</span></th>
-                            <th colSpan={3} className="bg-green-600 text-white text-center py-3 font-bold text-xs">Q2<br /><span className="font-normal opacity-80">เม.ย. – มิ.ย.</span></th>
-                            <th colSpan={3} className="bg-amber-500 text-white text-center py-3 font-bold text-xs">Q3<br /><span className="font-normal opacity-80">ก.ค. – ก.ย.</span></th>
-                            <th colSpan={3} className="bg-purple-600 text-white text-center py-3 font-bold text-xs">Q4<br /><span className="font-normal opacity-80">ต.ค. – ธ.ค.</span></th>
-                            <th rowSpan={2} className="bg-slate-600 text-white text-center py-3 px-2 font-semibold text-xs min-w-[80px]">ผลสำเร็จ</th>
-                            <th rowSpan={2} className="bg-slate-600 text-white text-center py-3 px-2 font-semibold text-xs min-w-[60px]">หมายเหตุ</th>
-                        </tr>
-                        {/* Row 2: Column headers */}
-                        <tr className="bg-slate-700 text-white text-xs">
-                            <th className="px-2 py-2 text-center font-semibold w-8">ลำดับ</th>
-                            <th className="px-3 py-2 text-left font-semibold min-w-[200px]">หัวข้อ / กิจกรรม</th>
-                            <th className="px-2 py-2 text-center font-semibold min-w-[80px]">กลุ่มเป้าหมาย</th>
-                            <th className="px-2 py-2 text-center font-semibold min-w-[90px]">ผู้รับผิดชอบ</th>
-                            <th className="px-2 py-2 text-center font-semibold min-w-[70px]">งบประมาณ</th>
-                            <th className="px-2 py-2 text-center font-semibold min-w-[60px]">By Legal</th>
-                            {THAI_MONTHS_SHORT.map((m, i) => (
-                                <th key={i} className={`px-1 py-2 text-center font-semibold w-14 ${QUARTER_COLORS[i]?.replace('bg-', 'bg-opacity-20 text-') ?? ''}`}>{m}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {topics.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder).map((topic, idx) => {
-                            const comp = topicCompliance[topic.id] ?? { done: 0, total: 0 };
-                            const pct = comp.total > 0 ? Math.round((comp.done / comp.total) * 100) : null;
-                            return (
-                                <tr key={topic.id} className="hover:bg-slate-50 group">
-                                    <td className="px-2 py-2.5 text-center text-slate-400 font-mono text-xs">{idx + 1}</td>
-                                    <td className="px-3 py-2.5">
-                                        <div className="flex items-start gap-2">
-                                            <div>
-                                                <p className="font-semibold text-slate-800 leading-tight">{topic.name}</p>
-                                                {topic.description && <p className="text-xs text-slate-400 mt-0.5">{topic.description}</p>}
-                                                {topic.isMandatory && <span className="text-[10px] bg-red-50 text-red-600 font-bold px-1.5 py-0.5 rounded-full">MUST DO</span>}
-                                            </div>
-                                            <div className="ml-auto flex gap-1 shrink-0">
-                                                <button onClick={() => setActualModalTopic(topic)} title="บันทึกการอบรมจริง"
-                                                    className="text-xs text-emerald-600 hover:text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300 hover:bg-emerald-50 font-semibold">✓ Actual</button>
-                                                {(() => {
-                                                    const topicSession = sessions.find(s => s.topicId === topic.id);
-                                                    if (!topicSession) return null;
-                                                    const topicPlans = plans.filter(p => p.topicId === topic.id && p.status === 'done');
-                                                    return (
-                                                        <button
-                                                            onClick={() => setPrintData({ session: topicSession, plans: topicPlans, topic })}
-                                                            title="พิมพ์บันทึกการอบรม"
-                                                            className="text-xs text-blue-600 hover:text-blue-800 px-1.5 py-0.5 rounded border border-blue-200 hover:bg-blue-50">
-                                                            🖨
-                                                        </button>
-                                                    );
-                                                })()}
-                                                <button onClick={() => openEditTopic(topic)} title="แก้ไข"
-                                                    className="text-xs text-blue-500 hover:text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 hover:bg-blue-50">✎</button>
-                                                <button onClick={() => handleDeleteTopic(topic.id)} title="ลบ"
-                                                    className="text-xs text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded border border-red-200 hover:bg-red-50">✕</button>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center">
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${topic.target === 'all' ? 'bg-teal-50 text-teal-700' : topic.target === 'new_employee' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
-                                            {TARGET_LABEL[topic.target]}
-                                        </span>
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center text-xs text-slate-600">{topic.inCharge ?? '-'}</td>
-                                    <td className="px-2 py-2.5 text-center text-xs font-mono text-slate-600">
-                                        {topic.budget ? formatCurrency(topic.budget) : '-'}
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center text-xs text-slate-600">{topic.byLegal ?? '-'}</td>
+            {/* ------- INDIVIDUAL TAB ------- */}
+            {activeTab === 'individual' && (
+                <div className="space-y-4">
+                    {/* Driver Selector */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-5 py-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <label className="text-sm font-semibold text-slate-600">👤 เลือกพนักงาน:</label>
+                            <select value={selectedDriverId} onChange={e => setSelectedDriverId(e.target.value)}
+                                aria-label="เลือกพนักงาน" className="flex-1 max-w-md px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">— กรุณาเลือกพนักงาน —</option>
+                                {drivers.sort((a, b) => a.name.localeCompare(b.name)).map(d => (
+                                    <option key={d.id} value={d.id}>{d.employeeId} — {d.name}</option>
+                                ))}
+                            </select>
+                            {selectedDriver && (
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold ${individualCompliance.pct >= 80 ? 'bg-green-50 text-green-700 border border-green-200' :
+                                    individualCompliance.pct >= 50 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                        'bg-red-50 text-red-700 border border-red-200'
+                                    }`}>
+                                    🎯 Compliance: {individualCompliance.pct}% ({individualCompliance.done}/{individualCompliance.total})
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                                    {/* Month cells — Plan (top) + Actual (bottom) */}
-                                    {Array.from({ length: 12 }, (_, m) => {
-                                        const cell = cellStatus[topic.id]?.[m];
-                                        const inWindow = topic.windowStart && topic.windowEnd
-                                            ? m >= new Date(topic.windowStart).getMonth() && m <= new Date(topic.windowEnd).getMonth()
-                                            : true;
-
-                                        // Plan row: ใช้ session.startDate หรือ plan.bookingDate หรือ plan.dueDate
-                                        const planSession = cell?.sessions[0];
-                                        const planDate = planSession?.startDate
-                                            ?? cell?.plans.find(p => p.bookingDate)?.bookingDate
-                                            ?? cell?.plans.find(p => p.dueDate)?.dueDate;
-                                        const planDateFmt = planDate ? fmtDateShort(planDate) : null;
-
-                                        // Actual row: plan.actualDate ของ done plans
-                                        const donePlans = cell?.plans.filter(p => p.status === 'done' && p.actualDate) ?? [];
-                                        const actualDate = donePlans[0]?.actualDate;
-                                        const actualDateFmt = actualDate ? fmtDateShort(actualDate) : null;
-                                        const doneCount = cell?.doneCount ?? 0;
-                                        const totalCount = cell?.totalCount ?? 0;
-
-                                        const hasData = cell && cell.status !== 'none';
-
+                    {/* Individual Plan Table */}
+                    {selectedDriver ? (
+                        <div className="overflow-x-auto rounded-2xl shadow border border-slate-100">
+                            <table className="w-full text-sm border-collapse min-w-[900px]">
+                                <thead>
+                                    <tr className="bg-slate-700 text-white">
+                                        <th className="px-3 py-2.5 text-center w-8">ลำดับ</th>
+                                        <th className="px-3 py-2.5 text-left min-w-[200px]">หัวข้อ / กิจกรรม</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[80px]">กลุ่มเป้าหมาย</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[90px]">กำหนดส่ง<br /><span className="font-normal text-xs opacity-80">Due Date</span></th>
+                                        <th className="px-3 py-2.5 text-center min-w-[80px] bg-blue-600">Plan Date</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[80px] bg-indigo-600">Booking</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[80px] bg-emerald-600">Actual Date</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[60px]">Pre Test</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[60px]">Post Test</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[80px]">Trainer</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[80px]">สถานะ</th>
+                                        <th className="px-3 py-2.5 text-center min-w-[80px]">บันทึก Actual</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {individualPlans.map((ip, idx) => {
+                                        const p = ip.plan;
+                                        const statusColor = !p ? 'text-slate-300' :
+                                            p.status === 'done' ? 'bg-emerald-100 text-emerald-700' :
+                                                p.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                                                    p.status === 'booked' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-slate-100 text-slate-600';
+                                        const statusLabel = !p ? '—' :
+                                            p.status === 'done' ? '✅ สำเร็จ' :
+                                                p.status === 'overdue' ? '⚠️ เกินกำหนด' :
+                                                    p.status === 'booked' ? '📅 จองแล้ว' :
+                                                        '⏳ แผน';
                                         return (
-                                            <td key={m} className={`px-0.5 py-0.5 text-center ${QUARTER_COLORS[m]} border-l border-slate-100`}>
-                                                <button
-                                                    onClick={() => inWindow ? setModalTopic(topic) : undefined}
-                                                    title={`${MONTH_FULL[m]} — ${topic.name}`}
-                                                    className={`w-full rounded-lg transition-all text-[9px] overflow-hidden
-                                                        ${!inWindow ? 'opacity-20 cursor-default' : 'hover:ring-2 hover:ring-offset-1 hover:ring-blue-400 cursor-pointer'}`}
-                                                >
-                                                    {/* ชั้นบน — แผน */}
-                                                    <div className={`px-1 py-1 flex flex-col items-center min-h-[28px] justify-center
-                                                        ${!hasData ? 'bg-transparent' :
-                                                          cell.status === 'overdue' ? 'bg-red-100 text-red-700' :
-                                                          cell.status === 'booked' ? 'bg-blue-100 text-blue-700' :
-                                                          cell.status === 'planned' ? 'bg-slate-100 text-slate-500' :
-                                                          'bg-slate-100 text-slate-500'}`}
-                                                    >
-                                                        {hasData && planDateFmt ? (
-                                                            <>
-                                                                <span className="text-[8px] font-bold opacity-60">แผน</span>
-                                                                <span className="font-semibold">{planDateFmt}</span>
-                                                            </>
-                                                        ) : inWindow ? (
-                                                            <span className="text-slate-200 text-[10px]">—</span>
-                                                        ) : null}
-                                                    </div>
-
-                                                    {/* เส้นคั่น */}
-                                                    {inWindow && <div className="h-px bg-slate-200" />}
-
-                                                    {/* ชั้นล่าง — จริง */}
-                                                    <div className={`px-1 py-1 flex flex-col items-center min-h-[28px] justify-center
-                                                        ${!hasData ? 'bg-transparent' :
-                                                          cell.status === 'done' ? 'bg-green-500 text-white' :
-                                                          cell.status === 'partial' ? 'bg-amber-400 text-white' :
-                                                          'bg-slate-50 text-slate-300'}`}
-                                                    >
-                                                        {cell?.status === 'done' || cell?.status === 'partial' ? (
-                                                            <>
-                                                                <span className="text-[8px] font-bold opacity-80">จริง</span>
-                                                                {actualDateFmt && <span className="font-semibold">{actualDateFmt}</span>}
-                                                                {totalCount > 0 && (
-                                                                    <span className="text-[8px] font-normal opacity-90">
-                                                                        {doneCount}/{totalCount}
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        ) : hasData ? (
-                                                            <span className="text-[9px] opacity-40">—</span>
-                                                        ) : inWindow ? (
-                                                            <span className="text-slate-200 text-[10px]">—</span>
-                                                        ) : null}
-                                                    </div>
-                                                </button>
-                                            </td>
+                                            <tr key={ip.topic.id} className="hover:bg-slate-50">
+                                                <td className="px-3 py-2.5 text-center text-slate-400 font-mono text-xs">{idx + 1}</td>
+                                                <td className="px-3 py-2.5">
+                                                    <div className="font-semibold text-slate-800">{ip.topic.name}</div>
+                                                    {ip.topic.isMandatory && <span className="text-[10px] bg-red-50 text-red-600 font-bold px-1.5 py-0.5 rounded-full">MUST DO</span>}
+                                                </td>
+                                                <td className="px-3 py-2.5 text-center">
+                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ip.topic.target === 'all' ? 'bg-teal-50 text-teal-700' : ip.topic.target === 'new_employee' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
+                                                        {TARGET_LABEL[ip.topic.target]}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2.5 text-center text-xs text-slate-600 whitespace-nowrap">{p?.dueDate ? fmtDateShort(p.dueDate) : '—'}</td>
+                                                <td className="px-3 py-2.5 text-center text-xs text-blue-700 bg-blue-50 whitespace-nowrap">{p?.dueDate ? fmtDateShort(p.dueDate) : '—'}</td>
+                                                <td className="px-3 py-2.5 text-center text-xs text-indigo-700 bg-indigo-50 whitespace-nowrap">{p?.bookingDate ? fmtDateShort(p.bookingDate) : '—'}</td>
+                                                <td className="px-3 py-2.5 text-center text-xs font-bold text-emerald-700 bg-emerald-50 whitespace-nowrap">{p?.actualDate ? fmtDateShort(p.actualDate) : '—'}</td>
+                                                <td className="px-3 py-2.5 text-center text-xs font-mono">{p?.preTest ?? '—'}</td>
+                                                <td className="px-3 py-2.5 text-center text-xs font-mono">{p?.postTest ?? '—'}</td>
+                                                <td className="px-3 py-2.5 text-center text-xs text-slate-600 truncate max-w-[80px]" title={p?.trainer}>{p?.trainer || '—'}</td>
+                                                <td className="px-3 py-2.5 text-center">
+                                                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusLabel}</span>
+                                                </td>
+                                                <td className="px-3 py-2.5 text-center">
+                                                    <button onClick={() => setActualModalTopic(ip.topic)}
+                                                        className="text-xs text-emerald-600 hover:text-emerald-800 px-2 py-1 rounded-lg border border-emerald-300 hover:bg-emerald-50 font-semibold transition-colors">
+                                                        ✓ Actual
+                                                    </button>
+                                                </td>
+                                            </tr>
                                         );
                                     })}
+                                    {individualPlans.length === 0 && (
+                                        <tr><td colSpan={12} className="py-12 text-center text-slate-400">ยังไม่มีหัวข้อสำหรับปีนี้ กรุณา Generate แผนก่อน</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 py-16 text-center">
+                            <p className="text-4xl mb-3">👤</p>
+                            <p className="text-slate-500 font-semibold">กรุณาเลือกพนักงานเพื่อดูแผนความปลอดภัยรายบุคคล</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
-                                    {/* ผลสำเร็จ */}
-                                    <td className="px-2 py-2.5 text-center">
-                                        {pct !== null ? (
-                                            <div className="flex flex-col items-center gap-1">
-                                                <span className={`text-xs font-bold ${pct >= 80 ? 'text-green-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                                                    {pct}%
+            {/* ------- GROUP TAB ------- */}
+            {activeTab === 'group' && (
+                <div className="space-y-4">
+                    {/* Filters */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-5 py-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <label className="text-sm font-semibold text-slate-600">👥 กลุ่ม:</label>
+                            <select value={groupFilter} onChange={e => setGroupFilter(e.target.value)}
+                                aria-label="กรองกลุ่มพนักงาน" className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50">
+                                <option value="all">ทุกคน ({drivers.length} คน)</option>
+                                <option value="new_employee">พนง.ใหม่ (≤ 6 เดือน)</option>
+                                <option value="existing_employee">พนง.เดิม ({'>'} 6 เดือน)</option>
+                            </select>
+                            <label className="text-sm font-semibold text-slate-600">📋 หัวข้อ:</label>
+                            <select value={groupTopicFilter} onChange={e => setGroupTopicFilter(e.target.value)}
+                                aria-label="กรองหัวข้อ" className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50">
+                                <option value="all">ทุกหัวข้อ</option>
+                                {topics.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder).map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                            <div className="ml-auto flex items-center gap-2 text-xs text-slate-500 bg-blue-50 px-3 py-2 rounded-xl border border-blue-100">
+                                แสดง {filteredGroupDrivers.length} คน × {groupTopics.length} หัวข้อ
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Group Compliance Matrix */}
+                    <div className="overflow-x-auto rounded-2xl shadow border border-slate-100">
+                        <table className="w-full text-sm border-collapse">
+                            <thead>
+                                <tr className="bg-slate-700 text-white">
+                                    <th className="px-3 py-2.5 text-center w-8 sticky left-0 bg-slate-700 z-10">ลำดับ</th>
+                                    <th className="px-3 py-2.5 text-left min-w-[80px] sticky left-8 bg-slate-700 z-10">รหัส</th>
+                                    <th className="px-3 py-2.5 text-left min-w-[140px] sticky left-[112px] bg-slate-700 z-10">ชื่อพนักงาน</th>
+                                    {groupTopics.map(t => (
+                                        <th key={t.id} className="px-2 py-2.5 text-center min-w-[80px]">
+                                            <div className="text-xs leading-tight">{t.name}</div>
+                                        </th>
+                                    ))}
+                                    <th className="px-3 py-2.5 text-center min-w-[80px] bg-slate-600">Compliance</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {groupComplianceMatrix.map((row, idx) => (
+                                    <tr key={row.driver.id} className="hover:bg-slate-50">
+                                        <td className="px-3 py-2 text-center text-slate-400 font-mono text-xs sticky left-0 bg-white z-10">{idx + 1}</td>
+                                        <td className="px-3 py-2 font-mono text-xs text-blue-700 sticky left-8 bg-white z-10">{row.driver.employeeId}</td>
+                                        <td className="px-3 py-2 text-sm font-medium text-slate-800 sticky left-[112px] bg-white z-10 truncate max-w-[160px]" title={row.driver.name}>{row.driver.name}</td>
+                                        {row.topicStatuses.map(ts => {
+                                            const isDone = ts.done > 0 && ts.done >= ts.total;
+                                            const isPartial = ts.done > 0 && ts.done < ts.total;
+                                            const isOverdue = ts.plan?.status === 'overdue';
+                                            const noData = ts.total === 0;
+                                            return (
+                                                <td key={ts.topic.id} className={`px-2 py-2 text-center ${isDone ? 'bg-emerald-50' : isOverdue ? 'bg-red-50' : isPartial ? 'bg-amber-50' : ''}`}>
+                                                    {noData ? (
+                                                        <span className="text-slate-200 text-xs">—</span>
+                                                    ) : isDone ? (
+                                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅</span>
+                                                    ) : isOverdue ? (
+                                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold">⚠️</span>
+                                                    ) : isPartial ? (
+                                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">~</span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold">⏳</span>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                        <td className="px-3 py-2 text-center">
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <span className={`text-xs font-bold ${row.pct >= 80 ? 'text-green-600' : row.pct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                                    {row.pct}%
                                                 </span>
-                                                <span className="text-[10px] text-slate-400">{comp.done}/{comp.total}</span>
+                                                <span className="text-[10px] text-slate-400">{row.doneAll}/{row.totalPlans}</span>
                                                 <div className="w-12 bg-slate-100 rounded-full h-1.5">
-                                                    <div className={`h-1.5 rounded-full ${pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-500'}`}
-                                                        style={{ width: `${pct}%` }} />
+                                                    <div className={`h-1.5 rounded-full ${row.pct >= 80 ? 'bg-green-500' : row.pct >= 50 ? 'bg-amber-400' : 'bg-red-500'}`}
+                                                        style={{ width: `${row.pct}%` }} />
                                                 </div>
                                             </div>
-                                        ) : <span className="text-slate-300 text-xs">-</span>}
-                                    </td>
-                                    <td className="px-2 py-2.5 text-xs text-slate-400 max-w-[80px] truncate" title={topic.remark}>{topic.remark ?? ''}</td>
-                                </tr>
-                            );
-                        })}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {groupComplianceMatrix.length === 0 && (
+                                    <tr><td colSpan={groupTopics.length + 4} className="py-12 text-center text-slate-400">ไม่พบข้อมูล</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
 
-                        {topics.length === 0 && (
+                    {/* Group Summary */}
+                    {groupComplianceMatrix.length > 0 && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-5 py-4">
+                            <div className="flex flex-wrap items-center gap-6">
+                                <div className="text-sm text-slate-600">
+                                    📊 <strong>สรุปกลุ่ม:</strong> {filteredGroupDrivers.length} คน
+                                </div>
+                                {(() => {
+                                    const totalAll = groupComplianceMatrix.reduce((s, r) => s + r.totalPlans, 0);
+                                    const doneAll = groupComplianceMatrix.reduce((s, r) => s + r.doneAll, 0);
+                                    const pctAll = totalAll > 0 ? Math.round((doneAll / totalAll) * 100) : 0;
+                                    return (
+                                        <>
+                                            <div className="text-sm">
+                                                ✅ สำเร็จ: <strong className="text-emerald-600">{doneAll}</strong> / {totalAll} รายการ
+                                            </div>
+                                            <div className={`text-sm font-bold ${pctAll >= 80 ? 'text-green-600' : pctAll >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                                Compliance รวม: {pctAll}%
+                                            </div>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ------- OVERVIEW TAB ------- */}
+            {activeTab === 'overview' && (<>
+                {/* ===== Legend ===== */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-1 text-xs text-slate-600 items-center">
+                    <span className="font-semibold text-slate-500">สัญลักษณ์:</span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
+                            <span className="bg-blue-100 text-blue-700 py-0.5 font-bold">แผน</span>
+                            <span className="bg-slate-50 text-slate-300 py-0.5">จริง</span>
+                        </span>
+                        จองแล้ว / มีแผน
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
+                            <span className="bg-slate-100 text-slate-500 py-0.5 font-bold">แผน</span>
+                            <span className="bg-green-500 text-white py-0.5 font-bold">จริง</span>
+                        </span>
+                        อบรมสำเร็จ
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
+                            <span className="bg-slate-100 text-slate-500 py-0.5 font-bold">แผน</span>
+                            <span className="bg-amber-400 text-white py-0.5 font-bold">จริง</span>
+                        </span>
+                        บางส่วน
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                        <span className="inline-flex flex-col w-10 rounded overflow-hidden border border-slate-200 text-[8px] text-center leading-tight">
+                            <span className="bg-red-100 text-red-700 py-0.5 font-bold">แผน</span>
+                            <span className="bg-slate-50 text-slate-300 py-0.5">จริง</span>
+                        </span>
+                        เกินกำหนด
+                    </span>
+                </div>
+
+                {/* ===== Table ===== */}
+                <div className="overflow-x-auto rounded-2xl shadow border border-slate-100">
+                    <table className="w-full text-sm border-collapse min-w-[1200px]">
+                        <thead>
+                            {/* Row 1: Title + Q Groups */}
                             <tr>
-                                <td colSpan={20} className="py-16 text-center">
-                                    <div className="text-slate-400 text-sm">
-                                        <p className="text-4xl mb-3">📋</p>
-                                        <p className="font-semibold">ยังไม่มีหัวข้อความปลอดภัยสำหรับปี {year + 543}</p>
-                                        <p className="text-xs mt-1">กด "สร้างหัวข้อเริ่มต้น" เพื่อสร้างหัวข้อ Safety Induction Q1–Q4 + Defensive Driving อัตโนมัติ</p>
-                                    </div>
-                                </td>
+                                <th colSpan={6} className="bg-green-700 text-white text-center py-3 px-4 font-bold text-base" style={{ letterSpacing: '0.03em' }}>
+                                    SAFETY AND HEALTH ENVIRONMENT MASTER PLAN — ปี {year + 543} (C.E. {year})
+                                </th>
+                                <th colSpan={3} className="bg-blue-600 text-white text-center py-3 font-bold text-xs">Q1<br /><span className="font-normal opacity-80">ม.ค. – มี.ค.</span></th>
+                                <th colSpan={3} className="bg-green-600 text-white text-center py-3 font-bold text-xs">Q2<br /><span className="font-normal opacity-80">เม.ย. – มิ.ย.</span></th>
+                                <th colSpan={3} className="bg-amber-500 text-white text-center py-3 font-bold text-xs">Q3<br /><span className="font-normal opacity-80">ก.ค. – ก.ย.</span></th>
+                                <th colSpan={3} className="bg-purple-600 text-white text-center py-3 font-bold text-xs">Q4<br /><span className="font-normal opacity-80">ต.ค. – ธ.ค.</span></th>
+                                <th rowSpan={2} className="bg-slate-600 text-white text-center py-3 px-2 font-semibold text-xs min-w-[80px]">ผลสำเร็จ</th>
+                                <th rowSpan={2} className="bg-slate-600 text-white text-center py-3 px-2 font-semibold text-xs min-w-[60px]">หมายเหตุ</th>
                             </tr>
-                        )}
+                            {/* Row 2: Column headers */}
+                            <tr className="bg-slate-700 text-white text-xs">
+                                <th className="px-2 py-2 text-center font-semibold w-8">ลำดับ</th>
+                                <th className="px-3 py-2 text-left font-semibold min-w-[200px]">หัวข้อ / กิจกรรม</th>
+                                <th className="px-2 py-2 text-center font-semibold min-w-[80px]">กลุ่มเป้าหมาย</th>
+                                <th className="px-2 py-2 text-center font-semibold min-w-[90px]">ผู้รับผิดชอบ</th>
+                                <th className="px-2 py-2 text-center font-semibold min-w-[70px]">งบประมาณ</th>
+                                <th className="px-2 py-2 text-center font-semibold min-w-[60px]">By Legal</th>
+                                {THAI_MONTHS_SHORT.map((m, i) => (
+                                    <th key={i} className={`px-1 py-2 text-center font-semibold w-14 ${QUARTER_COLORS[i]?.replace('bg-', 'bg-opacity-20 text-') ?? ''}`}>{m}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {topics.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder).map((topic, idx) => {
+                                const comp = topicCompliance[topic.id] ?? { done: 0, total: 0 };
+                                const pct = comp.total > 0 ? Math.round((comp.done / comp.total) * 100) : null;
+                                return (
+                                    <tr key={topic.id} className="hover:bg-slate-50 group">
+                                        <td className="px-2 py-2.5 text-center text-slate-400 font-mono text-xs">{idx + 1}</td>
+                                        <td className="px-3 py-2.5">
+                                            <div className="flex items-start gap-2">
+                                                <div>
+                                                    <p className="font-semibold text-slate-800 leading-tight">{topic.name}</p>
+                                                    {topic.description && <p className="text-xs text-slate-400 mt-0.5">{topic.description}</p>}
+                                                    {topic.isMandatory && <span className="text-[10px] bg-red-50 text-red-600 font-bold px-1.5 py-0.5 rounded-full">MUST DO</span>}
+                                                </div>
+                                                <div className="ml-auto flex gap-1 shrink-0">
+                                                    <button onClick={() => setActualModalTopic(topic)} title="บันทึกการอบรมจริง"
+                                                        className="text-xs text-emerald-600 hover:text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-300 hover:bg-emerald-50 font-semibold">✓ Actual</button>
+                                                    {(() => {
+                                                        const topicSession = sessions.find(s => s.topicId === topic.id);
+                                                        if (!topicSession) return null;
+                                                        const topicPlans = plans.filter(p => p.topicId === topic.id && p.status === 'done');
+                                                        return (
+                                                            <button
+                                                                onClick={() => setPrintData({ session: topicSession, plans: topicPlans, topic })}
+                                                                title="พิมพ์บันทึกการอบรม"
+                                                                className="text-xs text-blue-600 hover:text-blue-800 px-1.5 py-0.5 rounded border border-blue-200 hover:bg-blue-50">
+                                                                🖨
+                                                            </button>
+                                                        );
+                                                    })()}
+                                                    <button onClick={() => openEditTopic(topic)} title="แก้ไข"
+                                                        className="text-xs text-blue-500 hover:text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 hover:bg-blue-50">✎</button>
+                                                    <button onClick={() => handleDeleteTopic(topic.id)} title="ลบ"
+                                                        className="text-xs text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded border border-red-200 hover:bg-red-50">✕</button>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-2 py-2.5 text-center">
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${topic.target === 'all' ? 'bg-teal-50 text-teal-700' : topic.target === 'new_employee' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
+                                                {TARGET_LABEL[topic.target]}
+                                            </span>
+                                        </td>
+                                        <td className="px-2 py-2.5 text-center text-xs text-slate-600">{topic.inCharge ?? '-'}</td>
+                                        <td className="px-2 py-2.5 text-center text-xs font-mono text-slate-600">
+                                            {topic.budget ? formatCurrency(topic.budget) : '-'}
+                                        </td>
+                                        <td className="px-2 py-2.5 text-center text-xs text-slate-600">{topic.byLegal ?? '-'}</td>
 
-                        {/* Footer: Budget total */}
-                        {topics.length > 0 && (
-                            <tr className="bg-slate-700 text-white font-bold">
-                                <td colSpan={4} className="px-3 py-2.5 text-sm text-right">GRAND TOTAL BUDGET</td>
-                                <td className="px-2 py-2.5 text-center text-sm font-mono text-yellow-300">
-                                    {totalBudget > 0 ? formatCurrency(totalBudget) : '-'}
-                                </td>
-                                <td colSpan={14} />
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                                        {/* Month cells — Plan (top) + Actual (bottom) */}
+                                        {Array.from({ length: 12 }, (_, m) => {
+                                            const cell = cellStatus[topic.id]?.[m];
+                                            const inWindow = topic.windowStart && topic.windowEnd
+                                                ? m >= new Date(topic.windowStart).getMonth() && m <= new Date(topic.windowEnd).getMonth()
+                                                : true;
+
+                                            // Plan row: ใช้ session.startDate หรือ plan.bookingDate หรือ plan.dueDate
+                                            const planSession = cell?.sessions[0];
+                                            const planDate = planSession?.startDate
+                                                ?? cell?.plans.find(p => p.bookingDate)?.bookingDate
+                                                ?? cell?.plans.find(p => p.dueDate)?.dueDate;
+                                            const planDateFmt = planDate ? fmtDateShort(planDate) : null;
+
+                                            // Actual row: plan.actualDate ของ done plans
+                                            const donePlans = cell?.plans.filter(p => p.status === 'done' && p.actualDate) ?? [];
+                                            const actualDate = donePlans[0]?.actualDate;
+                                            const actualDateFmt = actualDate ? fmtDateShort(actualDate) : null;
+                                            const doneCount = cell?.doneCount ?? 0;
+                                            const totalCount = cell?.totalCount ?? 0;
+
+                                            const hasData = cell && cell.status !== 'none';
+
+                                            return (
+                                                <td key={m} className={`px-0.5 py-0.5 text-center ${QUARTER_COLORS[m]} border-l border-slate-100`}>
+                                                    <button
+                                                        onClick={() => inWindow ? setModalTopic(topic) : undefined}
+                                                        title={`${MONTH_FULL[m]} — ${topic.name}`}
+                                                        className={`w-full rounded-lg transition-all text-[9px] overflow-hidden
+                                                        ${!inWindow ? 'opacity-20 cursor-default' : 'hover:ring-2 hover:ring-offset-1 hover:ring-blue-400 cursor-pointer'}`}
+                                                    >
+                                                        {/* ชั้นบน — แผน */}
+                                                        <div className={`px-1 py-1 flex flex-col items-center min-h-[28px] justify-center
+                                                        ${!hasData ? 'bg-transparent' :
+                                                                cell.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                                                                    cell.status === 'booked' ? 'bg-blue-100 text-blue-700' :
+                                                                        cell.status === 'planned' ? 'bg-slate-100 text-slate-500' :
+                                                                            'bg-slate-100 text-slate-500'}`}
+                                                        >
+                                                            {hasData && planDateFmt ? (
+                                                                <>
+                                                                    <span className="text-[8px] font-bold opacity-60">แผน</span>
+                                                                    <span className="font-semibold">{planDateFmt}</span>
+                                                                </>
+                                                            ) : inWindow ? (
+                                                                <span className="text-slate-200 text-[10px]">—</span>
+                                                            ) : null}
+                                                        </div>
+
+                                                        {/* เส้นคั่น */}
+                                                        {inWindow && <div className="h-px bg-slate-200" />}
+
+                                                        {/* ชั้นล่าง — จริง */}
+                                                        <div className={`px-1 py-1 flex flex-col items-center min-h-[28px] justify-center
+                                                        ${!hasData ? 'bg-transparent' :
+                                                                cell.status === 'done' ? 'bg-green-500 text-white' :
+                                                                    cell.status === 'partial' ? 'bg-amber-400 text-white' :
+                                                                        'bg-slate-50 text-slate-300'}`}
+                                                        >
+                                                            {cell?.status === 'done' || cell?.status === 'partial' ? (
+                                                                <>
+                                                                    <span className="text-[8px] font-bold opacity-80">จริง</span>
+                                                                    {actualDateFmt && <span className="font-semibold">{actualDateFmt}</span>}
+                                                                    {totalCount > 0 && (
+                                                                        <span className="text-[8px] font-normal opacity-90">
+                                                                            {doneCount}/{totalCount}
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            ) : hasData ? (
+                                                                <span className="text-[9px] opacity-40">—</span>
+                                                            ) : inWindow ? (
+                                                                <span className="text-slate-200 text-[10px]">—</span>
+                                                            ) : null}
+                                                        </div>
+                                                    </button>
+                                                </td>
+                                            );
+                                        })}
+
+                                        {/* ผลสำเร็จ */}
+                                        <td className="px-2 py-2.5 text-center">
+                                            {pct !== null ? (
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className={`text-xs font-bold ${pct >= 80 ? 'text-green-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                                        {pct}%
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">{comp.done}/{comp.total}</span>
+                                                    <div className="w-12 bg-slate-100 rounded-full h-1.5">
+                                                        <div className={`h-1.5 rounded-full ${pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-500'}`}
+                                                            style={{ width: `${pct}%` }} />
+                                                    </div>
+                                                </div>
+                                            ) : <span className="text-slate-300 text-xs">-</span>}
+                                        </td>
+                                        <td className="px-2 py-2.5 text-xs text-slate-400 max-w-[80px] truncate" title={topic.remark}>{topic.remark ?? ''}</td>
+                                    </tr>
+                                );
+                            })}
+
+                            {topics.length === 0 && (
+                                <tr>
+                                    <td colSpan={20} className="py-16 text-center">
+                                        <div className="text-slate-400 text-sm">
+                                            <p className="text-4xl mb-3">📋</p>
+                                            <p className="font-semibold">ยังไม่มีหัวข้อความปลอดภัยสำหรับปี {year + 543}</p>
+                                            <p className="text-xs mt-1">กด "สร้างหัวข้อเริ่มต้น" เพื่อสร้างหัวข้อ Safety Induction Q1–Q4 + Defensive Driving อัตโนมัติ</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+
+                            {/* Footer: Budget total */}
+                            {topics.length > 0 && (
+                                <tr className="bg-slate-700 text-white font-bold">
+                                    <td colSpan={4} className="px-3 py-2.5 text-sm text-right">GRAND TOTAL BUDGET</td>
+                                    <td className="px-2 py-2.5 text-center text-sm font-mono text-yellow-300">
+                                        {totalBudget > 0 ? formatCurrency(totalBudget) : '-'}
+                                    </td>
+                                    <td colSpan={14} />
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </>)}
 
             {/* ===== Add/Edit Topic Modal ===== */}
             {showAddTopic && (
