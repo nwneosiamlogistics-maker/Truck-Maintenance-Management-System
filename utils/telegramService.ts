@@ -13,6 +13,11 @@ interface TelegramMessage {
     parse_mode?: 'Markdown' | 'HTML';
 }
 
+// Forward declarations — assigned after sendToTelegram is defined (needed for sendRepairStatusTelegramNotification)
+let sendPhotoToTelegram: (photoUrl: string, caption: string, maxRetries?: number) => Promise<boolean>;
+let sendMediaGroupToTelegram: (photoUrls: string[], caption: string, maxRetries?: number) => Promise<boolean>;
+let sendSmartPhotoNotification: (caption: string, photoUrls?: string[]) => Promise<boolean>;
+
 export const sendRepairStatusTelegramNotification = async (repair: Repair, oldStatus: string, newStatus: string) => {
     console.log(`[Telegram] Sending status update for ${repair.repairOrderNo}: ${oldStatus} -> ${newStatus}`);
 
@@ -37,6 +42,11 @@ export const sendRepairStatusTelegramNotification = async (repair: Repair, oldSt
         durationInfo = `\n⏱ <b>ใช้เวลาทั้งสิ้น:</b> ${durationText}`;
     }
 
+    const repairPhotos = (repair.photos || []).filter(url => url && url.trim());
+    const photoInfo = repairPhotos.length > 0
+        ? `\n📸 <b>ภาพถ่ายแนบ:</b> ${repairPhotos.length} รูป`
+        : '';
+
     const messageText = `
 <b>${statusEmoji} อัปเดตสถานะงานซ่อม</b>
 
@@ -45,11 +55,17 @@ export const sendRepairStatusTelegramNotification = async (repair: Repair, oldSt
 📋 <b>อาการ/งาน:</b> ${repair.problemDescription}
 
 🔄 <b>สถานะเดิม:</b> ${oldStatus}
-➡ <b>สถานะใหม่:</b> <b>${newStatus}</b>${durationInfo}
+➡ <b>สถานะใหม่:</b> <b>${newStatus}</b>${durationInfo}${photoInfo}
 
 📅 <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}
 `.trim();
 
+    // มีรูป → ส่งรูปจาก NAS เป็น Photo/Album (ทุกสถานะ)
+    if (repairPhotos.length > 0) {
+        return sendSmartPhotoNotification(messageText, repairPhotos);
+    }
+
+    // สถานะอื่น → ข้อความอย่างเดียว
     return sendToTelegram({
         chat_id: TELEGRAM_CHAT_ID,
         text: messageText,
@@ -595,7 +611,7 @@ export const checkBotStatus = async (): Promise<{ ok: boolean; message: string }
 // =====================================================================================
 
 // --- Helper: ส่งรูปเดียว (sendPhoto) ---
-const sendPhotoToTelegram = async (photoUrl: string, caption: string, maxRetries = 3): Promise<boolean> => {
+sendPhotoToTelegram = async (photoUrl: string, caption: string, maxRetries = 3): Promise<boolean> => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             const url = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/sendPhoto';
@@ -639,7 +655,7 @@ const sendPhotoToTelegram = async (photoUrl: string, caption: string, maxRetries
 };
 
 // --- Helper: ส่งหลายรูปเป็น Album (sendMediaGroup) ---
-const sendMediaGroupToTelegram = async (photoUrls: string[], caption: string, maxRetries = 3): Promise<boolean> => {
+sendMediaGroupToTelegram = async (photoUrls: string[], caption: string, maxRetries = 3): Promise<boolean> => {
     const photos = photoUrls.slice(0, 10); // Telegram limit: 10 photos per album
 
     const media = photos.map((photoUrl, index) => ({
@@ -689,7 +705,7 @@ const sendMediaGroupToTelegram = async (photoUrls: string[], caption: string, ma
 };
 
 // --- Smart Photo Notification: เลือกวิธีส่งอัตโนมัติตามจำนวนรูป ---
-const sendSmartPhotoNotification = async (caption: string, photoUrls?: string[]): Promise<boolean> => {
+sendSmartPhotoNotification = async (caption: string, photoUrls?: string[]): Promise<boolean> => {
     const photos = (photoUrls || []).filter(url => url && url.trim());
 
     if (photos.length === 0) {
