@@ -422,7 +422,7 @@ const AppContent: React.FC<AppContentProps> = ({
             case 'repair-categories':
                 return <RepairCategoryManagement repairCategories={repairCategories} setRepairCategories={setRepairCategories} />;
             case 'safety-plan':
-                return <SafetyPlanTable drivers={drivers} />;
+                return <SafetyPlanTable drivers={drivers} setDrivers={setDrivers} />;
             case 'safety-check':
                 return <SafetyCheckPage drivers={drivers} />;
             case 'incab-assessment':

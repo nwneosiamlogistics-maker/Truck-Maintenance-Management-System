@@ -20,6 +20,7 @@ interface DriverMatrixProps {
     onEditDriver?: (driver: Driver) => void;
     onDeleteDriver?: (driver: Driver) => void;
     onOpenIncab?: (driver: Driver) => void;
+    onDefensiveTrainingSaved?: (driverId: string, patch: Partial<NonNullable<Driver['defensiveDriving']>>) => void;
 }
 
 // ---- helpers ----
@@ -40,7 +41,7 @@ const daysBetween = (dateStr: string) => {
     return Math.ceil((d.getTime() - Date.now()) / 86400000);
 };
 
-const THAI_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
 // Convert date string to Thai display: dd Mon. พ.ศ.
 // Handles both CE (YYYY-MM-DD) and BE (BBBB-MM-DD where BBBB > 2400) stored formats
@@ -93,7 +94,7 @@ const CriminalBadge: React.FC<{ result?: string }> = ({ result }) => {
 const formatThaiId = (raw: string): string => {
     const digits = raw.replace(/\D/g, '').slice(0, 13);
     if (digits.length === 0) return '';
-    const p = [digits.slice(0,1), digits.slice(1,5), digits.slice(5,10), digits.slice(10,12), digits.slice(12,13)].filter(Boolean);
+    const p = [digits.slice(0, 1), digits.slice(1, 5), digits.slice(5, 10), digits.slice(10, 12), digits.slice(12, 13)].filter(Boolean);
     return p.join('-');
 };
 
@@ -158,10 +159,10 @@ const IdCardCell: React.FC<{ value: string; onSave: (v: string) => void }> = ({ 
                     className="w-full px-1 py-0.5 border border-blue-400 rounded outline-none bg-blue-50 font-mono min-w-[120px]"
                 />
                 {val.length > 0 && (
-                    <span className="font-mono text-slate-400" style={{fontSize:'0.8em'}}>{masked}</span>
+                    <span className="font-mono text-slate-400" style={{ fontSize: '0.8em' }}>{masked}</span>
                 )}
                 {val.length === 13 && !validateThaiId(val) && (
-                    <span className="text-red-500" style={{fontSize:'0.8em'}}>Checksum ไม่ถูกต้อง</span>
+                    <span className="text-red-500" style={{ fontSize: '0.8em' }}>Checksum ไม่ถูกต้อง</span>
                 )}
             </div>
         );
@@ -181,8 +182,8 @@ const IdCardCell: React.FC<{ value: string; onSave: (v: string) => void }> = ({ 
             <div className={`font-mono whitespace-nowrap ${isInvalid ? 'text-red-600' : 'text-slate-700'}`}>
                 {formatThaiId(digits)}
             </div>
-            {isValid && <div className="text-emerald-600" style={{fontSize:'0.75em'}}>✓ ถูกต้อง</div>}
-            {isInvalid && <div className="text-red-500" style={{fontSize:'0.75em'}}>✗ Checksum ผิด</div>}
+            {isValid && <div className="text-emerald-600" style={{ fontSize: '0.75em' }}>✓ ถูกต้อง</div>}
+            {isInvalid && <div className="text-red-500" style={{ fontSize: '0.75em' }}>✗ Checksum ผิด</div>}
         </div>
     );
 };
@@ -252,9 +253,8 @@ const VehiclePlateCell: React.FC<{
                             <button
                                 key={v.id}
                                 onMouseDown={() => handleSelect(v.licensePlate)}
-                                className={`w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors border-b border-slate-50 ${
-                                    isSelected ? 'bg-blue-100' : ''
-                                }`}
+                                className={`w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors border-b border-slate-50 ${isSelected ? 'bg-blue-100' : ''
+                                    }`}
                             >
                                 <div className={`font-mono font-bold text-sm ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
                                     {isSelected ? '✓ ' : ''}{v.licensePlate}
@@ -378,7 +378,7 @@ const TD: React.FC<{ children: React.ReactNode; className?: string; highlight?: 
 );
 
 // ---- main component ----
-const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicles, incidents, safetyChecks = [], safetyTopics = [], trainingPlans = [], incabAssessments = [], zoom: zoomProp, onEditDriver, onDeleteDriver, onOpenIncab }) => {
+const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicles, incidents, safetyChecks = [], safetyTopics = [], trainingPlans = [], incabAssessments = [], zoom: zoomProp, onEditDriver, onDeleteDriver, onOpenIncab, onDefensiveTrainingSaved }) => {
     const { addToast } = useToast();
     const [filter, setFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -527,6 +527,10 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
         const due = computeDefensiveDueDate(drivers.find(d => d.id === driverId)!);
         await updateNested(driverId, 'defensiveDriving', { ...patch, dueDate120: due }, 'อบรม 120 วัน');
         setTrainingModalDriver(null);
+        // Sync to TrainingPlan
+        if (onDefensiveTrainingSaved) {
+            onDefensiveTrainingSaved(driverId, patch);
+        }
     };
 
     const updateNested = async <K extends keyof Driver>(id: string, key: K, patch: Partial<NonNullable<Driver[K]>>, label?: string) => {
@@ -598,10 +602,10 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                             <tr>
                                 <TH rowSpan={3} className="bg-slate-600 text-white w-8">ลำดับ</TH>
                                 <TH colSpan={9} className="bg-blue-600 text-white py-2">ข้อมูลพนักงานขับรถ</TH>
-                                <TH colSpan={4} className="bg-emerald-600 text-white py-2">อบรมความปลอดภัย<br/><span className="font-normal" style={{fontSize:'0.85em'}}>Safety Induction</span></TH>
-                                <TH colSpan={3} className="bg-red-500 text-white py-2">ประวัติอุบัติเหตุล่าสุด<br/><span className="font-normal" style={{fontSize:'0.85em'}}>Accident Record</span></TH>
-                                <TH colSpan={5} className="bg-purple-600 text-white py-2">ใบขับขี่<br/><span className="font-normal" style={{fontSize:'0.85em'}}>Driving License</span></TH>
-                                <TH colSpan={2} className="bg-orange-500 text-white py-2">ตรวจสารเสพติด / แอลกอฮอล์<br/><span className="font-normal" style={{fontSize:'0.85em'}}>Drug Test &amp; Alcohol Check</span></TH>
+                                <TH colSpan={4} className="bg-emerald-600 text-white py-2">อบรมความปลอดภัย<br /><span className="font-normal" style={{ fontSize: '0.85em' }}>Safety Induction</span></TH>
+                                <TH colSpan={3} className="bg-red-500 text-white py-2">ประวัติอุบัติเหตุล่าสุด<br /><span className="font-normal" style={{ fontSize: '0.85em' }}>Accident Record</span></TH>
+                                <TH colSpan={5} className="bg-purple-600 text-white py-2">ใบขับขี่<br /><span className="font-normal" style={{ fontSize: '0.85em' }}>Driving License</span></TH>
+                                <TH colSpan={2} className="bg-orange-500 text-white py-2">ตรวจสารเสพติด / แอลกอฮอล์<br /><span className="font-normal" style={{ fontSize: '0.85em' }}>Drug Test &amp; Alcohol Check</span></TH>
                                 <TH colSpan={2} className="bg-teal-600 text-white py-2">GPS / กล้อง</TH>
                                 <TH colSpan={10} className="bg-indigo-600 text-white py-2">ข้อมูลรถที่รับผิดชอบ</TH>
                                 <TH colSpan={7} className="bg-pink-600 text-white py-2">รูปภาพรถ / อุปกรณ์</TH>
@@ -613,15 +617,15 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                             {/* Group header row 2 */}
                             <tr className="bg-slate-50">
                                 {/* Employee Info */}
-                                <TH rowSpan={2} className="min-w-[70px] bg-blue-50 text-blue-900">รหัส<br/><span style={{fontSize:'0.85em'}}>Employee ID</span></TH>
-                                <TH rowSpan={2} className="min-w-[110px] bg-blue-50 text-blue-900">หมายเลขบัตรประชาชน<br/><span style={{fontSize:'0.85em'}}>ID Number</span></TH>
-                                <TH rowSpan={2} className="min-w-[130px] bg-blue-50 text-blue-900">ชื่อพนักงาน<br/><span style={{fontSize:'0.85em'}}>Name</span></TH>
-                                <TH rowSpan={2} className="min-w-[90px] bg-blue-50 text-blue-900">วันเริ่มงาน<br/><span style={{fontSize:'0.85em'}}>Started date</span></TH>
-                                <TH rowSpan={2} className="min-w-[60px] bg-blue-50 text-blue-900">รูป พขร.<br/><span style={{fontSize:'0.85em'}}>Picture</span></TH>
-                                <TH rowSpan={2} className="min-w-[80px] bg-blue-50 text-blue-900">ผลตรวจ<br/>อาชญากรรม</TH>
-                                <TH rowSpan={2} className="min-w-[100px] bg-blue-50 text-blue-900">คดีที่พบ<br/><span style={{fontSize:'0.85em'}}>Remark</span></TH>
-                                <TH rowSpan={2} className="min-w-[90px] bg-blue-50 text-blue-900">วัน/เดือน/ปีเกิด<br/><span style={{fontSize:'0.85em'}}>Date of Birth</span></TH>
-                                <TH rowSpan={2} className="min-w-[90px] bg-blue-50 text-blue-900">เบอร์โทร<br/><span style={{fontSize:'0.85em'}}>Telephone</span></TH>
+                                <TH rowSpan={2} className="min-w-[70px] bg-blue-50 text-blue-900">รหัส<br /><span style={{ fontSize: '0.85em' }}>Employee ID</span></TH>
+                                <TH rowSpan={2} className="min-w-[110px] bg-blue-50 text-blue-900">หมายเลขบัตรประชาชน<br /><span style={{ fontSize: '0.85em' }}>ID Number</span></TH>
+                                <TH rowSpan={2} className="min-w-[130px] bg-blue-50 text-blue-900">ชื่อพนักงาน<br /><span style={{ fontSize: '0.85em' }}>Name</span></TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-blue-50 text-blue-900">วันเริ่มงาน<br /><span style={{ fontSize: '0.85em' }}>Started date</span></TH>
+                                <TH rowSpan={2} className="min-w-[60px] bg-blue-50 text-blue-900">รูป พขร.<br /><span style={{ fontSize: '0.85em' }}>Picture</span></TH>
+                                <TH rowSpan={2} className="min-w-[80px] bg-blue-50 text-blue-900">ผลตรวจ<br />อาชญากรรม</TH>
+                                <TH rowSpan={2} className="min-w-[100px] bg-blue-50 text-blue-900">คดีที่พบ<br /><span style={{ fontSize: '0.85em' }}>Remark</span></TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-blue-50 text-blue-900">วัน/เดือน/ปีเกิด<br /><span style={{ fontSize: '0.85em' }}>Date of Birth</span></TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-blue-50 text-blue-900">เบอร์โทร<br /><span style={{ fontSize: '0.85em' }}>Telephone</span></TH>
                                 {/* Safety Induction Q1-Q4 */}
                                 <TH rowSpan={2} className="bg-emerald-50 text-emerald-900">Q1</TH>
                                 <TH rowSpan={2} className="bg-emerald-50 text-emerald-900">Q2</TH>
@@ -636,10 +640,10 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                 <TH rowSpan={2} className="min-w-[60px] bg-purple-50 text-purple-900">ประเภท</TH>
                                 <TH rowSpan={2} className="min-w-[80px] bg-purple-50 text-purple-900">วันอนุญาต</TH>
                                 <TH rowSpan={2} className="min-w-[90px] bg-purple-50 text-purple-900">วันหมดอายุ</TH>
-                                <TH rowSpan={2} className="min-w-[80px] bg-purple-50 text-purple-900">กำหนดต่อ<br/><span style={{fontSize:'0.85em'}}>Lead time</span></TH>
+                                <TH rowSpan={2} className="min-w-[80px] bg-purple-50 text-purple-900">กำหนดต่อ<br /><span style={{ fontSize: '0.85em' }}>Lead time</span></TH>
                                 {/* Safety Check latest */}
-                                <TH rowSpan={2} className="min-w-[90px] bg-orange-50 text-orange-900">แอลกอฮอล์<br/><span style={{fontSize:'0.85em'}}>ล่าสุด</span></TH>
-                                <TH rowSpan={2} className="min-w-[90px] bg-orange-50 text-orange-900">สารเสพติด<br/><span style={{fontSize:'0.85em'}}>ล่าสุด</span></TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-orange-50 text-orange-900">แอลกอฮอล์<br /><span style={{ fontSize: '0.85em' }}>ล่าสุด</span></TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-orange-50 text-orange-900">สารเสพติด<br /><span style={{ fontSize: '0.85em' }}>ล่าสุด</span></TH>
                                 {/* GPS */}
                                 <TH rowSpan={2} className="min-w-[100px] bg-teal-50 text-teal-900">GPS Provider</TH>
                                 <TH rowSpan={2} className="min-w-[100px] bg-teal-50 text-teal-900">Facing Camera</TH>
@@ -650,28 +654,28 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                 <TH rowSpan={2} className="min-w-[90px] bg-indigo-50 text-indigo-900">วันหมดอายุภาษี</TH>
                                 <TH rowSpan={2} className="min-w-[70px] bg-indigo-50 text-indigo-900">จังหวัด</TH>
                                 <TH rowSpan={2} className="min-w-[60px] bg-indigo-50 text-indigo-900">เชื้อเพลิง</TH>
-                                <TH rowSpan={2} className="min-w-[70px] bg-indigo-50 text-indigo-900">วันหมดอายุ<br/>ประกัน</TH>
-                                <TH rowSpan={2} className="min-w-[70px] bg-indigo-50 text-indigo-900">วันหมดอายุ<br/>พรบ.</TH>
-                                <TH rowSpan={2} className="min-w-[60px] bg-indigo-50 text-indigo-900">อายุรถ<br/><span style={{fontSize:'0.85em'}}>(ปี)</span></TH>
-                                <TH rowSpan={2} className="min-w-[140px] bg-indigo-50 text-indigo-900">หมายเลขตัวถัง<br/>ตัวเครื่อง</TH>
+                                <TH rowSpan={2} className="min-w-[70px] bg-indigo-50 text-indigo-900">วันหมดอายุ<br />ประกัน</TH>
+                                <TH rowSpan={2} className="min-w-[70px] bg-indigo-50 text-indigo-900">วันหมดอายุ<br />พรบ.</TH>
+                                <TH rowSpan={2} className="min-w-[60px] bg-indigo-50 text-indigo-900">อายุรถ<br /><span style={{ fontSize: '0.85em' }}>(ปี)</span></TH>
+                                <TH rowSpan={2} className="min-w-[140px] bg-indigo-50 text-indigo-900">หมายเลขตัวถัง<br />ตัวเครื่อง</TH>
                                 {/* Photos */}
-                                <TH rowSpan={2} className="min-w-[65px] bg-pink-50 text-pink-900">รูปหน้ารถ<br/>+อุปกรณ์</TH>
+                                <TH rowSpan={2} className="min-w-[65px] bg-pink-50 text-pink-900">รูปหน้ารถ<br />+อุปกรณ์</TH>
                                 <TH rowSpan={2} className="min-w-[65px] bg-pink-50 text-pink-900">คาดเข็มขัด</TH>
                                 <TH rowSpan={2} className="min-w-[55px] bg-pink-50 text-pink-900">ซ้าย</TH>
                                 <TH rowSpan={2} className="min-w-[55px] bg-pink-50 text-pink-900">ขวา</TH>
                                 <TH rowSpan={2} className="min-w-[55px] bg-pink-50 text-pink-900">หลัง</TH>
-                                <TH rowSpan={2} className="min-w-[65px] bg-pink-50 text-pink-900">กล่อง<br/>ปฐมพยาบาล</TH>
+                                <TH rowSpan={2} className="min-w-[65px] bg-pink-50 text-pink-900">กล่อง<br />ปฐมพยาบาล</TH>
                                 <TH rowSpan={2} className="min-w-[65px] bg-pink-50 text-pink-900">ไฟฉาย</TH>
                                 {/* Defensive Driving */}
                                 <TH rowSpan={2} className="min-w-[60px] bg-cyan-50 text-cyan-900">Plan</TH>
-                                <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">ได้รับอบรม<br/>ภายใน 120 วัน</TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">ได้รับอบรม<br />ภายใน 120 วัน</TH>
                                 <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">Booking Date</TH>
                                 <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">วันเริ่มอบรม</TH>
                                 <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">วันสิ้นสุด</TH>
                                 <TH rowSpan={2} className="min-w-[65px] bg-cyan-50 text-cyan-900">Pre Test</TH>
                                 <TH rowSpan={2} className="min-w-[65px] bg-cyan-50 text-cyan-900">Post Test</TH>
                                 <TH rowSpan={2} className="min-w-[80px] bg-cyan-50 text-cyan-900">Trainer</TH>
-                                <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">Next Training<br/><span style={{fontSize:'0.85em'}}>Refresh</span></TH>
+                                <TH rowSpan={2} className="min-w-[90px] bg-cyan-50 text-cyan-900">Next Training<br /><span style={{ fontSize: '0.85em' }}>Refresh</span></TH>
                                 <TH rowSpan={2} className="min-w-[80px] bg-cyan-50 text-cyan-900">Record</TH>
                                 {/* Incab */}
                                 <TH rowSpan={2} className="min-w-[60px] bg-violet-50 text-violet-900">Score</TH>
@@ -712,7 +716,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
 
                                 const rowBg = driver.status === 'terminated' ? 'bg-slate-50 opacity-60' :
                                     driver.status === 'suspended' ? 'bg-red-50' :
-                                    driver.status === 'on_leave' ? 'bg-amber-50' : '';
+                                        driver.status === 'on_leave' ? 'bg-amber-50' : '';
 
                                 const photoUrl = driver.photos?.[0];
 
@@ -775,8 +779,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                                 <a key={i} href={url} target="_blank" rel="noopener noreferrer"
                                                                     className="flex items-center gap-0.5 px-1 py-0.5 bg-red-50 border border-red-200 rounded hover:bg-red-100"
                                                                     title="ดู PDF">
-                                                                    <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
-                                                                    <span style={{fontSize:'0.8em'}} className="text-red-600">PDF</span>
+                                                                    <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
+                                                                    <span style={{ fontSize: '0.8em' }} className="text-red-600">PDF</span>
                                                                 </a>
                                                             ) : (
                                                                 <a key={i} href={url} target="_blank" rel="noopener noreferrer"
@@ -909,27 +913,25 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                     <TD>
                                                         {alcAtt ? (
                                                             <div className="text-center">
-                                                                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                                                                    alcAtt.result === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                                }`}>
+                                                                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${alcAtt.result === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                                    }`}>
                                                                     {alcAtt.result === 'pass' ? '✓ ผ่าน' : '✗ ไม่ผ่าน'}
                                                                 </span>
                                                                 {alcAtt.alcoholLevel !== undefined && (
                                                                     <div className="text-[10px] text-slate-400 mt-0.5">{alcAtt.alcoholLevel.toFixed(2)} mg%</div>
                                                                 )}
-                                                                <div className="text-[10px] text-slate-400">{new Date(latestAlcohol.date).toLocaleDateString('th-TH', {day:'numeric',month:'short',year:'2-digit'})}</div>
+                                                                <div className="text-[10px] text-slate-400">{new Date(latestAlcohol.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</div>
                                                             </div>
                                                         ) : <span className="text-slate-300 text-xs">-</span>}
                                                     </TD>
                                                     <TD>
                                                         {subAtt ? (
                                                             <div className="text-center">
-                                                                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                                                                    subAtt.result === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                                }`}>
+                                                                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subAtt.result === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                                    }`}>
                                                                     {subAtt.result === 'pass' ? '✓ ผ่าน' : '✗ ไม่ผ่าน'}
                                                                 </span>
-                                                                <div className="text-[10px] text-slate-400 mt-0.5">{new Date(latestSubstance.date).toLocaleDateString('th-TH', {day:'numeric',month:'short',year:'2-digit'})}</div>
+                                                                <div className="text-[10px] text-slate-400 mt-0.5">{new Date(latestSubstance.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</div>
                                                             </div>
                                                         ) : <span className="text-slate-300 text-xs">-</span>}
                                                     </TD>
@@ -1034,10 +1036,10 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                         {/* รูปภาพรถ — คลิกดู / อัปโหลด / เปลี่ยนรูป → NAS */}
                                         {([
                                             { field: 'vehicleFrontPhoto', label: 'หน้ารถ', slug: 'front' },
-                                            { field: 'safetyBeltPhoto',   label: 'เข็มขัด', slug: 'belt' },
-                                            { field: 'vehicleLeftPhoto',  label: 'ซ้าย',    slug: 'left' },
-                                            { field: 'vehicleRightPhoto', label: 'ขวา',    slug: 'right' },
-                                            { field: 'vehicleBackPhoto',  label: 'หลัง',   slug: 'back' },
+                                            { field: 'safetyBeltPhoto', label: 'เข็มขัด', slug: 'belt' },
+                                            { field: 'vehicleLeftPhoto', label: 'ซ้าย', slug: 'left' },
+                                            { field: 'vehicleRightPhoto', label: 'ขวา', slug: 'right' },
+                                            { field: 'vehicleBackPhoto', label: 'หลัง', slug: 'back' },
                                         ] as const).map(({ field, label, slug }) => {
                                             const url = driver[field] as string | undefined;
                                             const inputId = `photo-${driver.id}-${slug}`;
@@ -1063,7 +1065,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                         </div>
                                                     ) : (
                                                         <label htmlFor={inputId} className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-pink-500 transition-colors" title={`อัปโหลดรูป${label}`}>
-                                                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
                                                             <span className="text-[9px]">{label}</span>
                                                             <input id={inputId} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
                                                         </label>
@@ -1093,7 +1095,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                 </div>
                                             ) : (
                                                 <label htmlFor={`photo-${driver.id}-firstaid`} className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-blue-400 transition-colors" title="อัปโหลดรูปกล่องปฐมพยาบาล">
-                                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
                                                     <span className="text-[9px]">ปฐมพยาบาล</span>
                                                     <input id={`photo-${driver.id}-firstaid`} type="file" accept="image/*" className="hidden" onChange={async e => {
                                                         const file = e.target.files?.[0];
@@ -1128,7 +1130,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                 </div>
                                             ) : (
                                                 <label htmlFor={`photo-${driver.id}-flashlight`} className="cursor-pointer flex flex-col items-center gap-0.5 text-slate-300 hover:text-yellow-400 transition-colors" title="อัปโหลดรูปไฟฉาย">
-                                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
                                                     <span className="text-[9px]">ไฟฉาย</span>
                                                     <input id={`photo-${driver.id}-flashlight`} type="file" accept="image/*" className="hidden" onChange={async e => {
                                                         const file = e.target.files?.[0];
@@ -1240,9 +1242,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                     </TD>
                                                     <TD highlight={nearDue || overDue}>
                                                         {nextDate ? (
-                                                            <span className={`text-xs font-semibold ${
-                                                                overDue ? 'text-red-600' : nearDue ? 'text-amber-600' : 'text-slate-500'
-                                                            }`}>
+                                                            <span className={`text-xs font-semibold ${overDue ? 'text-red-600' : nearDue ? 'text-amber-600' : 'text-slate-500'
+                                                                }`}>
                                                                 {overDue ? `เกิน ${Math.abs(daysToNext!)} วัน` : daysToNext === 0 ? 'วันนี้' : `${daysToNext} วัน`}
                                                                 <div className="text-[10px] font-normal text-slate-400">{new Date(nextDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</div>
                                                             </span>
@@ -1347,7 +1348,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                             </label>
                                             <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isCriminalUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
                                                 {isCriminalUploading ? (
-                                                    <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>อัปโหลด...</>
+                                                    <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>อัปโหลด...</>
                                                 ) : (
                                                     <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>แนบไฟล์</>
                                                 )}
@@ -1367,8 +1368,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                 const isPdf = url.toLowerCase().includes('.pdf');
                                                 return isPdf ? (
                                                     <div key={i} className="flex items-center gap-1 px-2 py-1 bg-white border border-red-200 rounded-lg shadow-sm">
-                                                        <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
-                                                        <span className="text-xs text-gray-600 max-w-[80px] truncate">PDF {i+1}</span>
+                                                        <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
+                                                        <span className="text-xs text-gray-600 max-w-[80px] truncate">PDF {i + 1}</span>
                                                         <button onClick={() => setCriminalFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label="ลบไฟล์" title="ลบไฟล์" className="text-red-400 hover:text-red-600 ml-1">
                                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                                         </button>
@@ -1397,8 +1398,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                 return isPdf ? (
                                                     <a key={i} href={url} target="_blank" rel="noopener noreferrer"
                                                         className="flex items-center gap-1 px-2 py-1 bg-red-50 border border-red-200 rounded text-xs text-red-600 hover:bg-red-100">
-                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
-                                                        PDF {i+1}
+                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
+                                                        PDF {i + 1}
                                                     </a>
                                                 ) : (
                                                     <a key={i} href={url} target="_blank" rel="noopener noreferrer"
@@ -1421,22 +1422,20 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                     <div className="flex gap-3 mb-4">
                                         <button
                                             onClick={() => { setCriminalRemarkFound('ไม่พบ'); setCriminalRemarkText(''); }}
-                                            className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all ${
-                                                criminalRemarkFound === 'ไม่พบ'
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all ${criminalRemarkFound === 'ไม่พบ'
                                                     ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-[1.02]'
                                                     : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
-                                            }`}
+                                                }`}
                                         >
                                             <span className="block text-lg">✅</span>
                                             ไม่พบคดี
                                         </button>
                                         <button
                                             onClick={() => setCriminalRemarkFound('พบ')}
-                                            className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all ${
-                                                criminalRemarkFound === 'พบ'
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all ${criminalRemarkFound === 'พบ'
                                                     ? 'bg-red-600 border-red-600 text-white shadow-md scale-[1.02]'
                                                     : 'bg-white border-slate-200 text-slate-600 hover:border-red-400 hover:text-red-700'
-                                            }`}
+                                                }`}
                                         >
                                             <span className="block text-lg">⚠️</span>
                                             พบคดี
@@ -1454,9 +1453,8 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                 placeholder="ระบุประเภทคดี, เลขคดี, วันที่คดี หรือรายละเอียดที่เกี่ยวข้อง..."
                                                 rows={3}
                                                 aria-label="รายละเอียดคดี"
-                                                className={`w-full px-3 py-2 border-2 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200 ${
-                                                    !criminalRemarkText.trim() ? 'border-red-400 bg-red-50' : 'border-emerald-400 bg-white'
-                                                }`}
+                                                className={`w-full px-3 py-2 border-2 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200 ${!criminalRemarkText.trim() ? 'border-red-400 bg-red-50' : 'border-emerald-400 bg-white'
+                                                    }`}
                                             />
                                             {!criminalRemarkText.trim() && (
                                                 <p className="text-xs text-red-500 mt-1">❗ กรุณาระบุรายละเอียดคดีที่พบ</p>
@@ -1494,11 +1492,10 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                         onClick={() => setCriminalStep(2)}
                                         disabled={criminalFiles.length === 0 || isCriminalUploading}
                                         title={criminalFiles.length === 0 ? 'กรุณาแนบหลักฐานก่อน' : ''}
-                                        className={`px-6 py-2 text-sm font-medium text-white rounded-lg flex items-center gap-1.5 transition-colors ${
-                                            criminalFiles.length === 0 || isCriminalUploading
+                                        className={`px-6 py-2 text-sm font-medium text-white rounded-lg flex items-center gap-1.5 transition-colors ${criminalFiles.length === 0 || isCriminalUploading
                                                 ? 'bg-gray-300 cursor-not-allowed'
                                                 : 'bg-blue-600 hover:bg-blue-700'
-                                        }`}
+                                            }`}
                                     >
                                         ถัดไป: ระบุคดี
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -1508,11 +1505,10 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                     <button
                                         onClick={handleConfirmCriminal}
                                         disabled={!criminalRemarkFound || (criminalRemarkFound === 'พบ' && !criminalRemarkText.trim())}
-                                        className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
-                                            !criminalRemarkFound || (criminalRemarkFound === 'พบ' && !criminalRemarkText.trim())
+                                        className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors ${!criminalRemarkFound || (criminalRemarkFound === 'พบ' && !criminalRemarkText.trim())
                                                 ? 'bg-gray-300 cursor-not-allowed'
                                                 : 'bg-emerald-600 hover:bg-emerald-700'
-                                        }`}
+                                            }`}
                                     >
                                         ยืนยันบันทึก
                                     </button>
@@ -1521,7 +1517,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                         </div>
                     </div>
                 </div>
-            , document.body)}
+                , document.body)}
 
             {trainingModalDriver && createPortal(
                 <Training120Modal

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Driver, DrivingIncident, Vehicle } from '../types';
+import type { Driver, DrivingIncident, Vehicle, TrainingPlan } from '../types';
 import DriverMatrix from './DriverMatrix';
 import IncabAssessmentModal from './IncabAssessmentModal';
 import IncabAssessmentPrintModal from './IncabAssessmentPrintModal';
@@ -22,7 +22,7 @@ const DriverMatrixPage: React.FC<DriverMatrixPageProps> = ({ drivers, setDrivers
     const { addToast } = useToast();
     const year = new Date().getFullYear();
     const { checks: safetyChecks } = useSafetyChecks(year);
-    const { topics: safetyTopics, plans: trainingPlans } = useSafetyPlan(year);
+    const { topics: safetyTopics, plans: trainingPlans, setPlans } = useSafetyPlan(year);
     const { assessments: incabAssessments, addAssessment, updateAssessment } = useIncabAssessments(year);
 
     const [matrixZoom, setMatrixZoom] = useState(1);
@@ -50,6 +50,61 @@ const DriverMatrixPage: React.FC<DriverMatrixPageProps> = ({ drivers, setDrivers
         }
         setIncabModalDriver(null);
         addToast('บันทึก Incab Coaching สำเร็จ', 'success');
+    };
+
+    // ===== Phase 3: Sync Defensive Driving → TrainingPlan =====
+    const handleDefensiveTrainingSaved = (driverId: string, patch: Partial<NonNullable<Driver['defensiveDriving']>>) => {
+        const now = new Date().toISOString();
+        // Find defensive topic for this year
+        const defensiveTopic = safetyTopics.find(t =>
+            t.isActive && (t.code === 'defensive' || t.code === 'defensive_refresh')
+        );
+        if (!defensiveTopic) return;
+
+        setPlans((prev: TrainingPlan[]) => {
+            const arr = Array.isArray(prev) ? prev : [];
+            const existingPlan = arr.find(
+                p => p.driverId === driverId
+                    && p.topicId === defensiveTopic.id
+                    && p.year === year
+            );
+
+            if (existingPlan) {
+                // Update existing plan
+                return arr.map(p => {
+                    if (p.id !== existingPlan.id) return p;
+                    return {
+                        ...p,
+                        actualDate: patch.trainingDate || p.actualDate,
+                        trainer: patch.trainer || p.trainer,
+                        preTest: patch.preTest ?? p.preTest,
+                        postTest: patch.postTest ?? p.postTest,
+                        status: patch.trainingDate ? 'done' as const : p.status,
+                        updatedAt: now,
+                    };
+                });
+            } else {
+                // Create new plan
+                const newPlan: TrainingPlan = {
+                    id: `PLN-${driverId}-${defensiveTopic.id}-${Date.now()}`,
+                    year,
+                    driverId,
+                    topicId: defensiveTopic.id,
+                    topicCode: defensiveTopic.code,
+                    dueDate: defensiveTopic.windowEnd,
+                    status: patch.trainingDate ? 'done' : 'planned',
+                    actualDate: patch.trainingDate,
+                    trainer: patch.trainer,
+                    preTest: patch.preTest,
+                    postTest: patch.postTest,
+                    evidencePhotos: [],
+                    createdAt: now,
+                    updatedAt: now,
+                };
+                return [...arr, newPlan];
+            }
+        });
+        addToast('Sync ข้อมูลอบรมไปยัง Safety Plan สำเร็จ', 'info');
     };
 
     return (
@@ -102,6 +157,7 @@ const DriverMatrixPage: React.FC<DriverMatrixPageProps> = ({ drivers, setDrivers
                 onEditDriver={driver => setEditingDriver(driver)}
                 onDeleteDriver={handleDeleteDriver}
                 onOpenIncab={driver => setIncabModalDriver(driver)}
+                onDefensiveTrainingSaved={handleDefensiveTrainingSaved}
             />
 
             {/* Edit Driver Modal */}
