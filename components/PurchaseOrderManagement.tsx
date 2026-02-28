@@ -6,7 +6,7 @@ import CreatePOModal from './CreatePOModal';
 import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency, formatTotalCurrency } from '../utils';
-import { sendNewPOTelegramNotification } from '../utils/telegramService';
+import { sendNewPOTelegramNotification, sendPOReceivedTelegramNotification, sendPOCancelledTelegramNotification } from '../utils/telegramService';
 import PhotoUpload from './PhotoUpload';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
@@ -229,7 +229,7 @@ const TrackingView: React.FC<{
                                                 <a key={`${url}-${idx}`} href={url} target="_blank" rel="noopener noreferrer"
                                                     className="flex items-center gap-1 px-1.5 py-1 bg-white border border-gray-200 rounded hover:bg-gray-50 shadow-sm flex-shrink-0"
                                                     title={fileName}>
-                                                    <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
+                                                    <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
                                                     <span className="text-[10px] text-gray-600 max-w-[60px] truncate">{fileName}</span>
                                                 </a>
                                             ) : (
@@ -452,7 +452,7 @@ const ReceivePOModal: React.FC<{
                                 </label>
                                 <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
                                     {isUploading ? (
-                                        <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>อัปโหลด...</>
+                                        <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>อัปโหลด...</>
                                     ) : (
                                         <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>แนบไฟล์</>
                                     )}
@@ -477,7 +477,7 @@ const ReceivePOModal: React.FC<{
                                             {isPdf ? (
                                                 <a href={url} target="_blank" rel="noopener noreferrer"
                                                     className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm">
-                                                    <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
+                                                    <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
                                                     <span className="text-xs text-gray-600 max-w-[100px] truncate">{fileName}</span>
                                                 </a>
                                             ) : (
@@ -737,6 +737,13 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         }));
 
         addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย`, 'success');
+
+        // Send Telegram notification with photos
+        const linkedPrNums = (po.linkedPrNumbers || []).length > 0
+            ? po.linkedPrNumbers
+            : purchaseRequisitions.filter(pr => po.linkedPrIds.includes(pr.id)).map(pr => pr.prNumber);
+        sendPOReceivedTelegramNotification({ ...po, status: 'Received', photos: safePhotos }, linkedPrNums);
+
         setReceivingPO(null);
         setPoPhotos([]);
     };
@@ -760,6 +767,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             }
 
             addToast('ยกเลิกใบสั่งซื้อสำเร็จ สถานะ PR ที่เกี่ยวข้องถูกคืนค่าเป็น "อนุมัติแล้ว"', 'info');
+            if (po) sendPOCancelledTelegramNotification(po);
         }
     };
 

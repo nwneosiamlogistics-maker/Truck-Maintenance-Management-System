@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
+import { sendNewPRTelegramNotification, sendPRApprovedTelegramNotification, sendPRStatusUpdateTelegramNotification, sendPRReceivedTelegramNotification, sendPRCancelledTelegramNotification } from '../utils/telegramService';
 
 interface PurchaseRequisitionProps {
     purchaseRequisitions: PurchaseRequisition[];
@@ -170,6 +171,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
             };
             setPurchaseRequisitions(prev => [newRequisition, ...prev]);
             addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
+            sendNewPRTelegramNotification(newRequisition);
         }
         setIsModalOpen(false);
     };
@@ -186,6 +188,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
 
     const handleCancelRequisition = async (prId: string, prNumber: string) => {
         if (await promptForPasswordAsync('ยกเลิกใบขอซื้อ')) {
+            const cancelledPr = purchaseRequisitions.find(pr => pr.id === prId);
             setPurchaseRequisitions(prev =>
                 prev.map(pr =>
                     pr.id === prId
@@ -194,6 +197,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                 )
             );
             addToast(`ยกเลิกใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
+            if (cancelledPr) sendPRCancelledTelegramNotification({ ...cancelledPr, status: 'ยกเลิก' });
         }
     };
 
@@ -237,6 +241,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
         };
         setPurchaseRequisitions(prev => prev.map(p => p.id === updatedRequisition.id ? updatedRequisition : p));
         handleReceiveStock(updatedRequisition);
+        sendPRReceivedTelegramNotification(updatedRequisition);
         setReceivingPr(null);
         setReceiveFiles([]);
     };
@@ -268,6 +273,13 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
 
         setPurchaseRequisitions(prev => prev.map(p => p.id === updatedRequisition.id ? updatedRequisition : p));
         addToast(`อัปเดตสถานะ ${pr.prNumber} เป็น "${newStatus}" เรียบร้อย`, 'success');
+
+        // Telegram Notifications
+        if (newStatus === 'อนุมัติแล้ว') {
+            sendPRApprovedTelegramNotification(updatedRequisition);
+        } else {
+            sendPRStatusUpdateTelegramNotification(updatedRequisition, pr.status, newStatus);
+        }
     };
 
     const getStatusBadge = (status: PurchaseRequisitionStatus) => {
@@ -453,7 +465,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                                                 return isPdf ? (
                                                                     <a key={url} href={url} target="_blank" rel="noopener noreferrer"
                                                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors shadow-sm">
-                                                                        <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
+                                                                        <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
                                                                         <span className="text-xs text-gray-600 max-w-[120px] truncate">{fileName}</span>
                                                                     </a>
                                                                 ) : (
@@ -537,7 +549,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                         <div className="p-6 border-b flex justify-between items-center">
                             <h3 className="text-xl font-bold text-gray-800">รับของ — {receivingPr.prNumber}</h3>
                             <button onClick={() => { setReceivingPr(null); setReceiveFiles([]); }} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
                         <div className="p-6 space-y-4 overflow-y-auto flex-1">
@@ -558,7 +570,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                     <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isReceiveUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
                                         {isReceiveUploading ? (
                                             <>
-                                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
                                                 กำลังอัปโหลด...
                                             </>
                                         ) : (
@@ -587,7 +599,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                                     {isPdf ? (
                                                         <a href={url} target="_blank" rel="noopener noreferrer"
                                                             className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm">
-                                                            <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
+                                                            <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
                                                             <span className="text-xs text-gray-600 max-w-[100px] truncate">{fileName}</span>
                                                         </a>
                                                     ) : (

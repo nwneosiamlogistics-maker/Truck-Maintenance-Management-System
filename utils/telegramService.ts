@@ -1,5 +1,5 @@
 
-import { MaintenancePlan, Repair, Vehicle, PartWarranty, CargoInsurancePolicy, PurchaseOrder, StockItem, MaintenanceBudget } from "../types";
+import { MaintenancePlan, Repair, Vehicle, PartWarranty, CargoInsurancePolicy, PurchaseOrder, PurchaseRequisition, PurchaseRequisitionStatus, StockItem, MaintenanceBudget } from "../types";
 import { database } from "../firebase/firebase";
 import { ref, get, set } from "firebase/database";
 
@@ -12,6 +12,11 @@ interface TelegramMessage {
     text: string;
     parse_mode?: 'Markdown' | 'HTML';
 }
+
+// Forward declarations — assigned after sendToTelegram is defined (needed for sendRepairStatusTelegramNotification)
+let sendPhotoToTelegram: (photoUrl: string, caption: string, maxRetries?: number) => Promise<boolean>;
+let sendMediaGroupToTelegram: (photoUrls: string[], caption: string, maxRetries?: number) => Promise<boolean>;
+let sendSmartPhotoNotification: (caption: string, photoUrls?: string[]) => Promise<boolean>;
 
 export const sendRepairStatusTelegramNotification = async (repair: Repair, oldStatus: string, newStatus: string) => {
     console.log(`[Telegram] Sending status update for ${repair.repairOrderNo}: ${oldStatus} -> ${newStatus}`);
@@ -37,6 +42,11 @@ export const sendRepairStatusTelegramNotification = async (repair: Repair, oldSt
         durationInfo = `\n⏱ <b>ใช้เวลาทั้งสิ้น:</b> ${durationText}`;
     }
 
+    const repairPhotos = (repair.photos || []).filter(url => url && url.trim());
+    const photoInfo = repairPhotos.length > 0
+        ? `\n📸 <b>ภาพถ่ายแนบ:</b> ${repairPhotos.length} รูป`
+        : '';
+
     const messageText = `
 <b>${statusEmoji} อัปเดตสถานะงานซ่อม</b>
 
@@ -45,11 +55,17 @@ export const sendRepairStatusTelegramNotification = async (repair: Repair, oldSt
 📋 <b>อาการ/งาน:</b> ${repair.problemDescription}
 
 🔄 <b>สถานะเดิม:</b> ${oldStatus}
-➡ <b>สถานะใหม่:</b> <b>${newStatus}</b>${durationInfo}
+➡ <b>สถานะใหม่:</b> <b>${newStatus}</b>${durationInfo}${photoInfo}
 
 📅 <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}
 `.trim();
 
+    // มีรูป → ส่งรูปจาก NAS เป็น Photo/Album (ทุกสถานะ)
+    if (repairPhotos.length > 0) {
+        return sendSmartPhotoNotification(messageText, repairPhotos);
+    }
+
+    // สถานะอื่น → ข้อความอย่างเดียว
     return sendToTelegram({
         chat_id: TELEGRAM_CHAT_ID,
         text: messageText,
@@ -589,3 +605,408 @@ export const checkBotStatus = async (): Promise<{ ok: boolean; message: string }
         return { ok: false, message: `ไม่สามารถเชื่อมต่อกับ Proxy Server ได้: ${error instanceof Error ? error.message : 'Unknown'}` };
     }
 };
+
+// =====================================================================================
+// ======================== PROCUREMENT NOTIFICATION SYSTEM ============================
+// =====================================================================================
+
+// --- Helper: ส่งรูปเดียว (sendPhoto) ---
+sendPhotoToTelegram = async (photoUrl: string, caption: string, maxRetries = 3): Promise<boolean> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const url = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/sendPhoto';
+            if (attempt === 1) console.log(`[Telegram-Photo] Sending photo to chat...`);
+            else console.log(`[Telegram-Photo] Retry attempt ${attempt}/${maxRetries}...`);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    photo: photoUrl,
+                    caption: caption.substring(0, 1024), // Telegram caption limit
+                    parse_mode: 'HTML',
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[Telegram-Photo] API Error:', errorText);
+                if (attempt === maxRetries) {
+                    // Fallback: ส่งเป็นข้อความแทน ถ้าส่งรูปไม่ได้
+                    console.log('[Telegram-Photo] Falling back to text message...');
+                    return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: caption + `\n\n📸 รูปภาพ: ${photoUrl}`, parse_mode: 'HTML' });
+                }
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+                continue;
+            }
+
+            console.log('[Telegram-Photo] Photo sent successfully');
+            return true;
+        } catch (error) {
+            console.error(`[Telegram-Photo] Error (attempt ${attempt}):`, error);
+            if (attempt === maxRetries) {
+                return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: caption, parse_mode: 'HTML' });
+            }
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+        }
+    }
+    return false;
+};
+
+// --- Helper: ส่งหลายรูปเป็น Album (sendMediaGroup) ---
+sendMediaGroupToTelegram = async (photoUrls: string[], caption: string, maxRetries = 3): Promise<boolean> => {
+    const photos = photoUrls.slice(0, 10); // Telegram limit: 10 photos per album
+
+    const media = photos.map((photoUrl, index) => ({
+        type: 'photo' as const,
+        media: photoUrl,
+        ...(index === 0 ? { caption: caption.substring(0, 1024), parse_mode: 'HTML' as const } : {}),
+    }));
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const url = '/telegram-api/bot' + TELEGRAM_BOT_TOKEN + '/sendMediaGroup';
+            if (attempt === 1) console.log(`[Telegram-Album] Sending ${photos.length} photos as album...`);
+            else console.log(`[Telegram-Album] Retry attempt ${attempt}/${maxRetries}...`);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    media: media,
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[Telegram-Album] API Error:', errorText);
+                if (attempt === maxRetries) {
+                    // Fallback: ส่งเป็นรูปเดียว (รูปแรก) แทน
+                    console.log('[Telegram-Album] Falling back to single photo...');
+                    return sendPhotoToTelegram(photos[0], caption);
+                }
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+                continue;
+            }
+
+            console.log('[Telegram-Album] Album sent successfully');
+            return true;
+        } catch (error) {
+            console.error(`[Telegram-Album] Error (attempt ${attempt}):`, error);
+            if (attempt === maxRetries) {
+                return sendPhotoToTelegram(photos[0], caption);
+            }
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+        }
+    }
+    return false;
+};
+
+// --- Smart Photo Notification: เลือกวิธีส่งอัตโนมัติตามจำนวนรูป ---
+sendSmartPhotoNotification = async (caption: string, photoUrls?: string[]): Promise<boolean> => {
+    const photos = (photoUrls || []).filter(url => url && url.trim());
+
+    if (photos.length === 0) {
+        return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: caption, parse_mode: 'HTML' });
+    }
+
+    if (photos.length === 1) {
+        return sendPhotoToTelegram(photos[0], caption);
+    }
+
+    return sendMediaGroupToTelegram(photos, caption);
+};
+
+// --- Helper: คำนวณระยะเวลาจากวันที่สร้างจนถึงปัจจุบัน ---
+const calcProcurementDuration = (startDateStr: string): string => {
+    const startDate = new Date(startDateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - startDate.getTime();
+
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    let text = "";
+    if (days > 0) text += `${days} วัน `;
+    if (hours > 0) text += `${hours} ชม. `;
+    if (minutes > 0 || text === "") text += `${minutes} นาที`;
+    return text.trim();
+};
+
+// --- Helper: สร้างรายการสินค้า summary ---
+const formatPRItems = (items: { name: string; quantity: number }[], maxShow = 5): string => {
+    const lines = items.slice(0, maxShow).map(i => `  - ${i.name} x${i.quantity}`).join('\n');
+    const more = items.length > maxShow ? `\n  ... และอีก ${items.length - maxShow} รายการ` : '';
+    return lines + more;
+};
+
+// ==================== 1. แจ้งเตือน PR ใหม่ (สร้าง/ส่งขออนุมัติ) ====================
+export const sendNewPRTelegramNotification = async (pr: PurchaseRequisition) => {
+    const messageText = `
+📝 <b>ใบขอซื้อใหม่ (PR)</b>
+
+🔢 <b>เลขที่:</b> ${pr.prNumber}
+👤 <b>ผู้ขอ:</b> ${pr.requesterName}
+🏢 <b>แผนก:</b> ${pr.department}
+🏪 <b>ผู้จำหน่าย:</b> ${pr.supplier}
+📋 <b>ประเภท:</b> ${pr.requestType}
+📦 <b>งบประมาณ:</b> ${pr.budgetStatus}
+
+<b>📋 รายการ (${pr.items.length}):</b>
+${formatPRItems(pr.items)}
+
+💰 <b>มูลค่ารวม:</b> ฿${pr.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+📅 <b>ต้องการภายใน:</b> ${new Date(pr.dateNeeded).toLocaleDateString('th-TH')}
+🔄 <b>สถานะ:</b> ${pr.status}
+
+⏰ <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}`.trim();
+
+    return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: messageText, parse_mode: 'HTML' });
+};
+
+// ==================== 2. แจ้งเตือน PR อนุมัติ ====================
+export const sendPRApprovedTelegramNotification = async (pr: PurchaseRequisition) => {
+    const messageText = `
+✅ <b>PR อนุมัติแล้ว!</b>
+
+🔢 <b>เลขที่:</b> ${pr.prNumber}
+👤 <b>ผู้อนุมัติ:</b> ${pr.approverName || 'ผู้จัดการ'}
+📅 <b>วันที่อนุมัติ:</b> ${pr.approvalDate ? new Date(pr.approvalDate).toLocaleDateString('th-TH') : new Date().toLocaleDateString('th-TH')}
+
+🏪 <b>ผู้จำหน่าย:</b> ${pr.supplier}
+💰 <b>มูลค่า:</b> ฿${pr.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+
+📌 <b>ขั้นตอนต่อไป:</b> สร้างใบสั่งซื้อ (PO)
+
+⏰ <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}`.trim();
+
+    return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: messageText, parse_mode: 'HTML' });
+};
+
+// ==================== 3. แจ้งเตือน PR เปลี่ยนสถานะ (ทั่วไป) ====================
+export const sendPRStatusUpdateTelegramNotification = async (
+    pr: PurchaseRequisition,
+    oldStatus: string,
+    newStatus: string
+) => {
+    const statusEmoji: Record<string, string> = {
+        'ฉบับร่าง': '📝',
+        'รออนุมัติ': '⏳',
+        'อนุมัติแล้ว': '✅',
+        'ออก PO แล้ว': '📦',
+        'รอสินค้า': '🚚',
+        'รับของแล้ว': '📋',
+        'ยกเลิก': '❌',
+    };
+
+    const emoji = statusEmoji[newStatus] || '🔄';
+
+    const messageText = `
+${emoji} <b>อัปเดตสถานะใบขอซื้อ</b>
+
+🔢 <b>เลขที่:</b> ${pr.prNumber}
+👤 <b>ผู้ขอ:</b> ${pr.requesterName}
+🏪 <b>ผู้จำหน่าย:</b> ${pr.supplier}
+💰 <b>มูลค่า:</b> ฿${pr.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+
+🔄 <b>สถานะเดิม:</b> ${oldStatus}
+➡ <b>สถานะใหม่:</b> <b>${newStatus}</b>
+
+⏰ <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}`.trim();
+
+    return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: messageText, parse_mode: 'HTML' });
+};
+
+// ==================== 4. แจ้งเตือน PR รับของแล้ว (พร้อมรูปภาพ) ====================
+export const sendPRReceivedTelegramNotification = async (pr: PurchaseRequisition) => {
+    const duration = calcProcurementDuration(pr.createdAt);
+
+    const caption = `
+📋 <b>รับสินค้าเรียบร้อย! (PR)</b>
+
+🔢 <b>PR:</b> ${pr.prNumber}
+${pr.relatedPoNumber ? `📦 <b>PO:</b> ${pr.relatedPoNumber}` : ''}
+🏪 <b>ผู้จำหน่าย:</b> ${pr.supplier}
+👤 <b>ผู้ขอ:</b> ${pr.requesterName}
+📦 <b>รับครบ:</b> ${pr.items.length} รายการ
+💰 <b>มูลค่ารวม:</b> ฿${pr.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+
+⏱ <b>ใช้เวลาทั้งกระบวนการ:</b> ${duration}
+${pr.photos && pr.photos.length > 0 ? `📸 <b>ภาพถ่ายแนบ:</b> ${pr.photos.length} รูป` : ''}
+
+✅ กระบวนการจัดซื้อเสร็จสมบูรณ์`.trim();
+
+    return sendSmartPhotoNotification(caption, pr.photos);
+};
+
+// ==================== 5. แจ้งเตือน PO รับของแล้ว (พร้อมรูปภาพ) ====================
+export const sendPOReceivedTelegramNotification = async (po: PurchaseOrder, linkedPrNumbers?: string[]) => {
+    const duration = calcProcurementDuration(po.createdAt);
+
+    const caption = `
+📋 <b>รับสินค้าเรียบร้อย! (PO)</b>
+
+🔢 <b>PO:</b> ${po.poNumber}
+${linkedPrNumbers && linkedPrNumbers.length > 0 ? `📝 <b>PR ที่เกี่ยวข้อง:</b> ${linkedPrNumbers.join(', ')}` : ''}
+🏢 <b>ผู้จำหน่าย:</b> ${po.supplierName}
+👤 <b>ผู้ขอ:</b> ${po.requesterName || '-'}
+
+<b>📦 รายการ (${po.items.length}):</b>
+${po.items.slice(0, 5).map(i => `  - ${i.name} x${i.quantity}`).join('\n')}${po.items.length > 5 ? `\n  ... และอีก ${po.items.length - 5} รายการ` : ''}
+
+💰 <b>มูลค่ารวม:</b> ฿${po.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+⏱ <b>ใช้เวลาทั้งกระบวนการ:</b> ${duration}
+${po.photos && po.photos.length > 0 ? `📸 <b>ภาพถ่ายแนบ:</b> ${po.photos.length} รูป` : ''}
+
+✅ กระบวนการจัดซื้อเสร็จสมบูรณ์`.trim();
+
+    return sendSmartPhotoNotification(caption, po.photos);
+};
+
+// ==================== 6. แจ้งเตือน PR ยกเลิก ====================
+export const sendPRCancelledTelegramNotification = async (pr: PurchaseRequisition) => {
+    const messageText = `
+❌ <b>ใบขอซื้อถูกยกเลิก</b>
+
+🔢 <b>เลขที่:</b> ${pr.prNumber}
+👤 <b>ผู้ขอ:</b> ${pr.requesterName}
+🏪 <b>ผู้จำหน่าย:</b> ${pr.supplier}
+💰 <b>มูลค่า:</b> ฿${pr.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+
+⏰ <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}`.trim();
+
+    return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: messageText, parse_mode: 'HTML' });
+};
+
+// ==================== 7. แจ้งเตือน PO ยกเลิก ====================
+export const sendPOCancelledTelegramNotification = async (po: PurchaseOrder) => {
+    const messageText = `
+❌ <b>ใบสั่งซื้อถูกยกเลิก</b>
+
+🔢 <b>PO:</b> ${po.poNumber}
+🏢 <b>ผู้จำหน่าย:</b> ${po.supplierName}
+💰 <b>มูลค่า:</b> ฿${po.totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+${po.linkedPrNumbers && po.linkedPrNumbers.length > 0 ? `📝 <b>PR ที่เกี่ยวข้อง:</b> ${po.linkedPrNumbers.join(', ')} (คืนสถานะเป็น "อนุมัติแล้ว")` : ''}
+
+⏰ <b>เวลา:</b> ${new Date().toLocaleString('th-TH')}`.trim();
+
+    return sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: messageText, parse_mode: 'HTML' });
+};
+
+// ==================== 8. สรุปรายวัน PR/PO ค้าง (08:00 น. เวลาไทย) ====================
+export const checkAndSendDailyProcurementSummary = async (
+    purchaseRequisitions: PurchaseRequisition[],
+    purchaseOrders: PurchaseOrder[]
+) => {
+    const NOW = new Date();
+    // 08:00 AM (Thailand time via browser locale)
+    if (NOW.getHours() < 8) return;
+
+    const lastSentDate = await getLastSentDate('lastProcurementSummaryDate');
+    const todayStr = NOW.toDateString();
+    if (lastSentDate === todayStr) return;
+
+    if ((!purchaseRequisitions || purchaseRequisitions.length === 0) && (!purchaseOrders || purchaseOrders.length === 0)) {
+        console.log('[Telegram-Procurement] No data loaded yet. Skipping.');
+        return;
+    }
+
+    console.log('[Telegram-Procurement] Checking daily procurement summary...');
+
+    const calcDaysAgo = (dateStr: string) => Math.floor((NOW.getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+    const calcDaysUntil = (dateStr: string) => Math.ceil((new Date(dateStr).getTime() - NOW.getTime()) / (1000 * 60 * 60 * 24));
+
+    // PR ค้างในแต่ละสถานะ
+    const pendingApproval = purchaseRequisitions.filter(pr => pr.status === 'รออนุมัติ');
+    const approvedNoPO = purchaseRequisitions.filter(pr => pr.status === 'อนุมัติแล้ว');
+    const waitingGoods = purchaseRequisitions.filter(pr => pr.status === 'รอสินค้า');
+
+    // PO ที่สั่งแล้วยังไม่ได้รับ
+    const orderedPOs = purchaseOrders.filter(po => po.status === 'Ordered');
+    // PO ที่เลยกำหนดส่ง
+    const overduePOs = orderedPOs.filter(po => po.deliveryDate && calcDaysUntil(po.deliveryDate) < 0);
+    // PO ที่กำหนดส่งวันนี้/พรุ่งนี้
+    const urgentPOs = orderedPOs.filter(po => {
+        if (!po.deliveryDate) return false;
+        const daysUntil = calcDaysUntil(po.deliveryDate);
+        return daysUntil >= 0 && daysUntil <= 1;
+    });
+
+    const totalPending = pendingApproval.length + approvedNoPO.length + waitingGoods.length + orderedPOs.length;
+
+    if (totalPending === 0) {
+        console.log('[Telegram-Procurement] No pending procurement items.');
+        await setLastSentDate('lastProcurementSummaryDate', todayStr);
+        return;
+    }
+
+    let message = `📋 <b>สรุปการจัดซื้อค้างประจำวัน</b>\n(${NOW.toLocaleDateString('th-TH')} เวลา 08:00 น.)\n`;
+    message += `\n<b>📊 ภาพรวม: ${totalPending} รายการค้างดำเนินการ</b>\n`;
+
+    if (pendingApproval.length > 0) {
+        message += `\n⏳ <b>รออนุมัติ (${pendingApproval.length} รายการ):</b>\n`;
+        pendingApproval.slice(0, 5).forEach(pr => {
+            const daysAgo = calcDaysAgo(pr.createdAt);
+            message += `- ${pr.prNumber}: ${pr.supplier} (฿${pr.totalAmount.toLocaleString()}) — ค้าง ${daysAgo} วัน\n`;
+        });
+        if (pendingApproval.length > 5) message += `  ... และอีก ${pendingApproval.length - 5} รายการ\n`;
+    }
+
+    if (approvedNoPO.length > 0) {
+        message += `\n✅ <b>อนุมัติแล้ว รอออก PO (${approvedNoPO.length} รายการ):</b>\n`;
+        approvedNoPO.slice(0, 5).forEach(pr => {
+            const daysAgo = calcDaysAgo(pr.approvalDate || pr.updatedAt);
+            message += `- ${pr.prNumber}: ${pr.supplier} (฿${pr.totalAmount.toLocaleString()}) — ค้าง ${daysAgo} วัน\n`;
+        });
+        if (approvedNoPO.length > 5) message += `  ... และอีก ${approvedNoPO.length - 5} รายการ\n`;
+    }
+
+    if (orderedPOs.length > 0) {
+        message += `\n🚚 <b>PO สั่งแล้ว รอรับสินค้า (${orderedPOs.length} รายการ):</b>\n`;
+
+        // เลยกำหนดส่ง
+        if (overduePOs.length > 0) {
+            overduePOs.slice(0, 5).forEach(po => {
+                const daysOverdue = Math.abs(calcDaysUntil(po.deliveryDate!));
+                message += `⚠️ ${po.poNumber} → ${po.supplierName} (฿${po.totalAmount.toLocaleString()}) — <b>เลย ${daysOverdue} วัน!</b>\n`;
+            });
+        }
+
+        // กำหนดส่งวันนี้/พรุ่งนี้
+        if (urgentPOs.length > 0) {
+            urgentPOs.forEach(po => {
+                const daysUntil = calcDaysUntil(po.deliveryDate!);
+                const label = daysUntil === 0 ? 'วันนี้!' : 'พรุ่งนี้!';
+                message += `🔔 ${po.poNumber} → ${po.supplierName} (฿${po.totalAmount.toLocaleString()}) — กำหนดส่ง${label}\n`;
+            });
+        }
+
+        // ที่เหลือ
+        const normalPOs = orderedPOs.filter(po => !overduePOs.includes(po) && !urgentPOs.includes(po));
+        normalPOs.slice(0, 3).forEach(po => {
+            const deliveryInfo = po.deliveryDate ? `กำหนดส่ง: ${new Date(po.deliveryDate).toLocaleDateString('th-TH')}` : 'ไม่ระบุกำหนดส่ง';
+            message += `- ${po.poNumber} → ${po.supplierName} (฿${po.totalAmount.toLocaleString()}) — ${deliveryInfo}\n`;
+        });
+        if (normalPOs.length > 3) message += `  ... และอีก ${normalPOs.length - 3} รายการ\n`;
+    }
+
+    if (waitingGoods.length > 0) {
+        message += `\n📦 <b>PR รอสินค้า (${waitingGoods.length} รายการ):</b>\n`;
+        waitingGoods.slice(0, 5).forEach(pr => {
+            const daysAgo = calcDaysAgo(pr.updatedAt);
+            message += `- ${pr.prNumber}: ${pr.supplier} (฿${pr.totalAmount.toLocaleString()}) — รอ ${daysAgo} วัน\n`;
+        });
+        if (waitingGoods.length > 5) message += `  ... และอีก ${waitingGoods.length - 5} รายการ\n`;
+    }
+
+    message += `\n📌 กรุณาติดตามรายการค้างในระบบจัดซื้อ`;
+
+    if (await sendToTelegram({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })) {
+        await setLastSentDate('lastProcurementSummaryDate', todayStr);
+        console.log('[Telegram-Procurement] Daily procurement summary sent.');
+    }
+};
+

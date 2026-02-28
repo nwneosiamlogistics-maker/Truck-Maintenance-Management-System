@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { confirmAction } from '../utils';
+import Training120Modal from './Training120Modal';
 
 interface DriverMatrixProps {
     drivers: Driver[];
@@ -382,6 +383,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
     const [filter, setFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const effectiveZoom = zoomProp ?? 1;
+    const [trainingModalDriver, setTrainingModalDriver] = useState<Driver | null>(null);
 
     // --- Criminal check upload modal ---
     const [criminalModal, setCriminalModal] = useState<{ driver: Driver; pendingResult: string } | null>(null);
@@ -475,6 +477,56 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
         if (!ok) return;
         setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...patch, updatedAt: new Date().toISOString() } : d));
         addToast('บันทึกข้อมูลสำเร็จ', 'success');
+    };
+
+    // ---- Defensive Driving 120d helpers ----
+    const computeDefensiveDueDate = (driver: Driver) => {
+        if (driver.defensiveDriving?.dueDate120) return driver.defensiveDriving.dueDate120;
+        if (driver.hireDate) {
+            const d = new Date(driver.hireDate);
+            d.setDate(d.getDate() + 120);
+            return d.toISOString().split('T')[0];
+        }
+        const d = new Date();
+        d.setDate(d.getDate() + 120);
+        return d.toISOString().split('T')[0];
+    };
+
+    const computeDefensiveStatus = (driver: Driver) => {
+        const dueDateStr = computeDefensiveDueDate(driver);
+        const days = daysBetween(dueDateStr);
+        const trainingDate = driver.defensiveDriving?.trainingDate;
+        if (driver.defensiveDriving?.status === 'waived') return { status: 'waived' as const, dueDateStr, days };
+        if (trainingDate) return { status: 'completed' as const, dueDateStr, days };
+        if (days === 0) return { status: 'due_today' as const, dueDateStr, days };
+        if (typeof days === 'number' && days < 0) return { status: 'overdue' as const, dueDateStr, days };
+        if (typeof days === 'number' && days <= 30) return { status: 'near_due' as const, dueDateStr, days };
+        return { status: 'pending' as const, dueDateStr, days };
+    };
+
+    const statusChip = (status: Driver['defensiveDriving'] extends infer X ? X extends { status?: infer S } ? S : never : never, days?: number | null) => {
+        const map: Record<string, { text: string; className: string }> = {
+            completed: { text: 'สำเร็จ', className: 'bg-emerald-100 text-emerald-700' },
+            near_due: { text: 'ใกล้ครบ', className: 'bg-amber-100 text-amber-700' },
+            due_today: { text: 'ครบกำหนดวันนี้', className: 'bg-red-100 text-red-700' },
+            overdue: { text: 'หมดกำหนด', className: 'bg-red-200 text-red-800' },
+            pending: { text: 'รอดำเนินการ', className: 'bg-slate-100 text-slate-600' },
+            waived: { text: 'ผ่อนผัน', className: 'bg-purple-100 text-purple-700' },
+        };
+        const d = map[String(status)] || map.pending;
+        const daysText = days === null || days === undefined ? '' : days >= 0 ? `${days} วัน` : `+${Math.abs(days)} วัน`;
+        return (
+            <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${d.className}`}>
+                <span>{d.text}</span>
+                {daysText && <span className="text-[10px] opacity-80">{daysText}</span>}
+            </div>
+        );
+    };
+
+    const handleSaveTraining120 = async (driverId: string, patch: Partial<NonNullable<Driver['defensiveDriving']>>) => {
+        const due = computeDefensiveDueDate(drivers.find(d => d.id === driverId)!);
+        await updateNested(driverId, 'defensiveDriving', { ...patch, dueDate120: due }, 'อบรม 120 วัน');
+        setTrainingModalDriver(null);
     };
 
     const updateNested = async <K extends keyof Driver>(id: string, key: K, patch: Partial<NonNullable<Driver[K]>>, label?: string) => {
@@ -656,10 +708,7 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                 // License expiry days
                                 const licExpDays = driver.licenseExpiry ? daysBetween(driver.licenseExpiry) : null;
 
-                                // 120-day deadline from hireDate
-                                const hireDate = driver.hireDate ? new Date(driver.hireDate) : null;
-                                const deadline120 = hireDate ? new Date(hireDate.getTime() + 120 * 86400000) : null;
-                                const deadline120Str = deadline120 ? deadline120.toISOString().split('T')[0] : undefined;
+                                const deadline120Str = computeDefensiveDueDate(driver);
 
                                 const rowBg = driver.status === 'terminated' ? 'bg-slate-50 opacity-60' :
                                     driver.status === 'suspended' ? 'bg-red-50' :
@@ -1108,9 +1157,22 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                                                 <EditCell value={driver.defensiveDriving?.plan || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { plan: v })} placeholder="-" />
                                             )}
                                         </TD>
-                                        <TD highlight={!!(deadline120Str && daysBetween(deadline120Str) !== null && (daysBetween(deadline120Str) ?? 0) <= 14)}>
-                                            <ExpiryBadge dateStr={deadline120Str} />
-                                        </TD>
+                                        {(() => {
+                                            const { status, dueDateStr, days } = computeDefensiveStatus(driver);
+                                            return (
+                                                <TD className="space-y-1">
+                                                    <div>{statusChip(status, days)}</div>
+                                                    <div className="text-[10px] text-slate-400">กำหนด: {dueDateStr || '-'}</div>
+                                                    <button
+                                                        onClick={() => setTrainingModalDriver(driver)}
+                                                        type="button"
+                                                        className="mt-1 inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+                                                        title="บันทึกอบรม 120 วัน">
+                                                        ✎ บันทึกอบรม
+                                                    </button>
+                                                </TD>
+                                            );
+                                        })()}
                                         <TD>
                                             <EditCell value={driver.defensiveDriving?.bookingDate || ''} onSave={v => updateNested(driver.id, 'defensiveDriving', { bookingDate: v })} type="date" placeholder="-" />
                                         </TD>
@@ -1460,6 +1522,15 @@ const DriverMatrix: React.FC<DriverMatrixProps> = ({ drivers, setDrivers, vehicl
                     </div>
                 </div>
             , document.body)}
+
+            {trainingModalDriver && createPortal(
+                <Training120Modal
+                    driver={trainingModalDriver}
+                    onSave={patch => handleSaveTraining120(trainingModalDriver.id, patch)}
+                    onClose={() => setTrainingModalDriver(null)}
+                />,
+                document.body
+            )}
         </div>
     );
 };
