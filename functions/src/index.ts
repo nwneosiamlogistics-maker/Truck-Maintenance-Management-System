@@ -1,4 +1,5 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onValueWritten } from 'firebase-functions/v2/database';
 import { initializeApp } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { defineSecret } from 'firebase-functions/params';
@@ -385,5 +386,259 @@ export const dailyRepairStatusSummary = onSchedule(
         message += `\n✅ ตรวจสอบรายละเอียดเพิ่มเติมในระบบ`;
 
         await sendTelegram(telegramBotToken.value(), telegramChatId.value(), message);
+    }
+);
+
+// ==================== Helper: Send Telegram with Photos ====================
+
+async function sendTelegramWithPhotos(
+    token: string,
+    chatId: string,
+    text: string,
+    photos: string[]
+): Promise<void> {
+    const validPhotos = (photos || []).filter(p => typeof p === 'string' && p.startsWith('http'));
+
+    if (validPhotos.length === 0) {
+        // 0 รูป → sendMessage ล้วน
+        await sendTelegram(token, chatId, text);
+    } else if (validPhotos.length === 1) {
+        // 1 รูป → sendPhoto + caption
+        try {
+            const url = `https://api.telegram.org/bot${token}/sendPhoto`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    photo: validPhotos[0],
+                    caption: text,
+                    parse_mode: 'HTML',
+                }),
+            });
+            if (!res.ok) {
+                console.error('[Telegram] sendPhoto error:', await res.text());
+                await sendTelegram(token, chatId, text);
+            }
+        } catch (e) {
+            console.error('[Telegram] sendPhoto exception:', e);
+            await sendTelegram(token, chatId, text);
+        }
+    } else {
+        // 2+ รูป → sendMediaGroup (album) + caption บนรูปแรก
+        try {
+            const media = validPhotos.slice(0, 10).map((url, i) => ({
+                type: 'photo',
+                media: url,
+                ...(i === 0 ? { caption: text, parse_mode: 'HTML' } : {}),
+            }));
+            const url = `https://api.telegram.org/bot${token}/sendMediaGroup`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, media }),
+            });
+            if (!res.ok) {
+                console.error('[Telegram] sendMediaGroup error:', await res.text());
+                await sendTelegram(token, chatId, text);
+            }
+        } catch (e) {
+            console.error('[Telegram] sendMediaGroup exception:', e);
+            await sendTelegram(token, chatId, text);
+        }
+    }
+}
+
+// ==================== 5. Repair Created/Status Changed ====================
+
+export const onRepairWrite = onValueWritten(
+    {
+        ref: '/repairs/{repairId}',
+        region: 'asia-southeast1',
+        secrets: [telegramBotToken, telegramChatId],
+    },
+    async (event) => {
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        if (!after) return;
+
+        const isNew = !before;
+        const statusChanged = before && before.status !== after.status;
+
+        if (!isNew && !statusChanged) return;
+
+        console.log('[CF] onRepairWrite — repairId:', event.params.repairId, 'isNew:', isNew, 'status:', after.status);
+
+        const priorityIcon: Record<string, string> = { 'สูง': '🔴', 'กลาง': '🟡', 'ต่ำ': '🟢' };
+        const icon = priorityIcon[after.priority] || '🔔';
+        const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
+        const dateStr = after.createdAt
+            ? new Date(after.createdAt).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit' })
+            : thaiDate();
+
+        let message = '';
+        let sendPhotos: string[] = [];
+
+        if (isNew) {
+            // สร้างใบแจ้งซ่อมใหม่ — ส่งรูป
+            sendPhotos = photos;
+            const photoNote = photos.length === 0 ? '\n⚠️ <i>ไม่มีรูปหลักฐาน</i>' : '';
+            message = `🔔 <b>แจ้งซ่อมใหม่</b>\n`;
+            message += `เลขที่: <b>${after.repairOrderNo || '-'}</b>\n`;
+            message += `ทะเบียน: <b>${after.licensePlate || '-'}</b>`;
+            if (after.vehicleType) message += ` | ${after.vehicleType}`;
+            message += `\nปัญหา: ${after.problemDescription || '-'}\n`;
+            message += `ความเร่งด่วน: ${icon} ${after.priority || '-'}\n`;
+            message += `ผู้แจ้ง: ${after.reportedBy || '-'} | วันที่: ${dateStr}`;
+            if (after.repairLocation) message += `\nสถานที่: ${after.repairLocation}`;
+            message += photoNote;
+        } else {
+            // สถานะเปลี่ยน
+            const header = `เลขที่: <b>${after.repairOrderNo || '-'}</b> | ทะเบียน: <b>${after.licensePlate || '-'}</b>\n`;
+            const footer = `ปัญหา: ${after.problemDescription || '-'}`;
+
+            if (after.status === 'กำลังซ่อม') {
+                message = `🔧 <b>เริ่มซ่อมแล้ว</b>\n` + header;
+                if (after.assignedTechnicianId || after.externalTechnicianName) {
+                    message += `ช่าง: ${after.externalTechnicianName || after.assignedTechnicianId}\n`;
+                }
+                message += footer;
+            } else if (after.status === 'รออะไหล่') {
+                message = `⏳ <b>รออะไหล่</b>\n` + header + footer;
+            } else if (after.status === 'ซ่อมเสร็จ') {
+                // ซ่อมเสร็จ — ส่งรูป
+                sendPhotos = photos;
+                const photoNote = photos.length === 0 ? '\n⚠️ <i>ไม่มีรูปหลักฐาน</i>' : '';
+                message = `✅ <b>ซ่อมเสร็จแล้ว</b>\n` + header;
+                if (after.repairEndDate) {
+                    const endStr = new Date(after.repairEndDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit' });
+                    message += `วันที่เสร็จ: ${endStr}\n`;
+                }
+                if (after.repairCost) message += `ค่าใช้จ่าย: ฿${after.repairCost.toLocaleString()}\n`;
+                message += footer + photoNote;
+            } else if (after.status === 'ยกเลิก') {
+                message = `❌ <b>ยกเลิกงานซ่อม</b>\n` + header + footer;
+            } else {
+                return;
+            }
+        }
+
+        await sendTelegramWithPhotos(telegramBotToken.value(), telegramChatId.value(), message, sendPhotos);
+    }
+);
+
+// ==================== 6. PO Created/Status Changed ====================
+
+export const onPurchaseOrderWrite = onValueWritten(
+    {
+        ref: '/purchaseOrders/{poId}',
+        region: 'asia-southeast1',
+        secrets: [telegramBotToken, telegramChatId],
+    },
+    async (event) => {
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        if (!after) return;
+
+        const isNew = !before;
+        const statusChanged = before && before.status !== after.status;
+        if (!isNew && !statusChanged) return;
+
+        console.log('[CF] onPurchaseOrderWrite — poId:', event.params.poId, 'isNew:', isNew, 'status:', after.status);
+
+        const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
+        const deliveryStr = after.deliveryDate
+            ? new Date(after.deliveryDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit' })
+            : '-';
+        const header = `เลขที่: <b>${after.poNumber || '-'}</b>\nSupplier: ${after.supplierName || '-'}\nยอดรวม: ฿${(after.totalAmount || 0).toLocaleString()}`;
+
+        let message = '';
+        let sendPhotos: string[] = [];
+
+        if (isNew || after.status === 'Draft') {
+            message = `🛒 <b>สร้าง PO ใหม่</b>\n` + header;
+            if (after.requesterName) message += `\nผู้ขอ: ${after.requesterName}`;
+            message += `\nกำหนดส่ง: ${deliveryStr}`;
+        } else if (after.status === 'Ordered') {
+            message = `📦 <b>สั่งซื้อแล้ว</b>\n` + header;
+            message += `\nกำหนดส่ง: ${deliveryStr}`;
+        } else if (after.status === 'Received') {
+            // รับสินค้า — ส่งรูป
+            sendPhotos = photos;
+            const photoNote = photos.length === 0 ? '\n⚠️ <i>ไม่มีรูปหลักฐานการรับสินค้า</i>' : '';
+            const dateStr = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit' });
+            message = `✅ <b>รับสินค้าเรียบร้อยแล้ว</b>\n` + header;
+            message += `\nกำหนดส่ง: ${deliveryStr} | รับจริง: ${dateStr}`;
+            if (after.contactReceiver) message += `\nผู้รับ: ${after.contactReceiver}`;
+            if (after.deliveryLocation) message += `\nสถานที่รับ: ${after.deliveryLocation}`;
+            message += photoNote;
+        } else if (after.status === 'Cancelled') {
+            message = `❌ <b>ยกเลิก PO</b>\n` + header;
+            if (after.notes) message += `\nหมายเหตุ: ${after.notes}`;
+        } else {
+            return;
+        }
+
+        await sendTelegramWithPhotos(telegramBotToken.value(), telegramChatId.value(), message, sendPhotos);
+    }
+);
+
+// ==================== 7. PR Created/Status Changed ====================
+
+export const onPurchaseRequisitionWrite = onValueWritten(
+    {
+        ref: '/purchaseRequisitions/{prId}',
+        region: 'asia-southeast1',
+        secrets: [telegramBotToken, telegramChatId],
+    },
+    async (event) => {
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        if (!after) return;
+
+        const isNew = !before;
+        const statusChanged = before && before.status !== after.status;
+        if (!isNew && !statusChanged) return;
+
+        console.log('[CF] onPurchaseRequisitionWrite — prId:', event.params.prId, 'isNew:', isNew, 'status:', after.status);
+
+        const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
+        const header = `เลขที่: <b>${after.prNumber || '-'}</b>\nSupplier: ${after.supplier || '-'}\nยอดรวม: ฿${(after.totalAmount || 0).toLocaleString()}`;
+
+        let message = '';
+        let sendPhotos: string[] = [];
+
+        if (isNew) {
+            // สร้าง PR ใหม่ — ส่งรูป
+            sendPhotos = photos;
+            const photoNote = photos.length === 0 ? '\n⚠️ <i>ไม่มีรูปหลักฐาน</i>' : '';
+            message = `📋 <b>สร้าง PR ใหม่</b>\n` + header;
+            if (after.requesterName) message += `\nผู้ขอ: ${after.requesterName}`;
+            if (after.department) message += ` | แผนก: ${after.department}`;
+            message += photoNote;
+        } else {
+            switch (after.status) {
+                case 'รออนุมัติ':
+                    message = `📤 <b>ส่งอนุมัติแล้ว</b>\n` + header;
+                    if (after.requesterName) message += `\nผู้ขอ: ${after.requesterName}`;
+                    break;
+                case 'อนุมัติแล้ว':
+                    message = `✅ <b>PR อนุมัติแล้ว</b>\n` + header;
+                    if (after.approverName) message += `\nผู้อนุมัติ: ${after.approverName}`;
+                    break;
+                case 'ออก PO แล้ว':
+                    message = `🛒 <b>ออก PO แล้ว</b>\n` + header;
+                    if (after.relatedPoNumber) message += `\nเลข PO: ${after.relatedPoNumber}`;
+                    break;
+                case 'ยกเลิก':
+                    message = `❌ <b>ยกเลิก PR</b>\n` + header;
+                    if (after.notes) message += `\nหมายเหตุ: ${after.notes}`;
+                    break;
+                default:
+                    return;
+            }
+        }
+
+        await sendTelegramWithPhotos(telegramBotToken.value(), telegramChatId.value(), message, sendPhotos);
     }
 );
