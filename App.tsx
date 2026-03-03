@@ -10,7 +10,7 @@ import Header from './components/Header';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import Login from './components/Login';
-import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus, checkAndSendWarrantyInsuranceAlerts, checkAndSendLowStockAlert, sendBudgetAlertTelegramNotification, checkAndSendDailyProcurementSummary } from './utils/telegramService';
+import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendWarrantyInsuranceAlerts, checkAndSendLowStockAlert } from './utils/telegramService';
 import { checkAndGenerateSystemNotifications } from './utils/notificationEngine';
 
 // Lazy Load Pages
@@ -109,11 +109,11 @@ const AppContent: React.FC<AppContentProps> = ({
     React.useEffect(() => {
         const timer = setTimeout(() => {
             // checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
-            checkAndSendDailyRepairStatus(repairs, technicians);
+            // checkAndSendDailyRepairStatus — ย้ายไป Cloud Function onRepairWrite แล้ว
             checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
             // checkAndSendLowStockAlert(stock);  // ย้ายไป Cloud Function dailyLowStockAlert (10:00 ICT) แล้ว
-            sendBudgetAlertTelegramNotification(budgets, repairs, fuelRecords);
-            checkAndSendDailyProcurementSummary(purchaseRequisitions, purchaseOrders);
+            // sendBudgetAlertTelegramNotification — ยกเลิกแล้ว (ฝั่ง frontend)
+            // checkAndSendDailyProcurementSummary — ยกเลิกแล้ว (ฝั่ง frontend)
         }, 5000);
 
         return () => clearTimeout(timer);
