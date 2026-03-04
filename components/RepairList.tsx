@@ -9,7 +9,8 @@ import { promptForPasswordAsync, confirmAction, formatDateTime24h, calculateStoc
 import { Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 // // import { sendRepairStatusLineNotification } from '../utils/lineService';
-import { sendRepairStatusTelegramNotification } from '../utils/telegramService';
+// Telegram notifications are handled exclusively by Firebase Cloud Function (onRepairWrite)
+// to prevent duplicate messages. Do NOT add sendRepairStatusTelegramNotification here.
 import { uploadFileToStorage } from '../utils/fileUpload';
 
 interface RepairListProps {
@@ -90,10 +91,8 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
         setEditingRepair(null);
         addToast(`อัปเดตใบแจ้งซ่อม ${updatedRepair.repairOrderNo} สำเร็จ`, 'success');
 
-        // 🔥 Intensive Update: Send Telegram if status changed via Modal
-        if (originalRepair && originalRepair.status !== updatedRepair.status) {
-            sendRepairStatusTelegramNotification(originalRepair, originalRepair.status, updatedRepair.status);
-        }
+        // ℹ️ Telegram notification is handled by Firebase Cloud Function (onRepairWrite)
+        // ไม่ต้องส่ง Telegram ที่นี่ เพราะ Cloud Function จะส่งให้อัตโนมัติทุกครั้งที่ Firebase อัปเดต
 
         if (originalRepair?.status !== 'ซ่อมเสร็จ' && updatedRepair.status === 'ซ่อมเสร็จ') {
             const hasParts = updatedRepair.parts && updatedRepair.parts.length > 0;
@@ -320,8 +319,8 @@ const RepairList: React.FC<RepairListProps> = ({ repairs, setRepairs, technician
                 setAddUsedPartsRepair(updatedRepair);
             }
 
-            // Send Telegram Notification
-            sendRepairStatusTelegramNotification(repair, repair.status, newStatus);
+            // ℹ️ Telegram notification is handled by Firebase Cloud Function (onRepairWrite)
+            // ไม่ต้องส่ง Telegram ที่นี่ เพราะ Cloud Function จะส่งให้อัตโนมัติทุกครั้งที่ Firebase อัปเดต
         }
     }
 

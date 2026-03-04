@@ -10,7 +10,7 @@ import Header from './components/Header';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import Login from './components/Login';
-import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendWarrantyInsuranceAlerts, checkAndSendLowStockAlert } from './utils/telegramService';
+import { checkAndSendWarrantyInsuranceAlerts } from './utils/telegramService';
 import { checkAndGenerateSystemNotifications } from './utils/notificationEngine';
 
 // Lazy Load Pages
@@ -177,10 +177,9 @@ const AppContent: React.FC<AppContentProps> = ({
     };
 
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
-        const newRepair = addRepairLogic(newRepairData);
-        if (newRepair) {
-            sendRepairStatusTelegramNotification(newRepair, 'สร้างใบแจ้งซ่อม', newRepair.status);
-        }
+        addRepairLogic(newRepairData);
+        // ℹ️ Telegram notification for new repair is handled by Firebase Cloud Function (onRepairWrite, isNew=true)
+        // ไม่ต้องส่ง Telegram ที่นี่ เพราะ Cloud Function จะส่งให้อัตโนมัติทุกครั้งที่มีการเขียนเข้า Firebase
         setActiveTab('list');
     };
 

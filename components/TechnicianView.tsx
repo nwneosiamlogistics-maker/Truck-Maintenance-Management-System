@@ -4,7 +4,8 @@ import { useToast } from '../context/ToastContext';
 import { calculateStockStatus } from '../utils';
 import { Camera, CheckCircle2, Clock, Package, PlayCircle, FileText, Image as ImageIcon, X } from 'lucide-react';
 // import { sendRepairStatusLineNotification } from '../utils/lineService';
-import { sendRepairStatusTelegramNotification } from '../utils/telegramService';
+// Telegram notifications are handled exclusively by Firebase Cloud Function (onRepairWrite)
+// to prevent duplicate messages. Do NOT add sendRepairStatusTelegramNotification here.
 
 interface TechnicianViewProps {
     repairs: Repair[];
@@ -405,8 +406,8 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
 
             addToast(`อัปเดตสถานะใบซ่อม ${updatedRepair.repairOrderNo} เป็น "${newStatus}"`, 'success');
 
-            // Send Telegram Notification
-            sendRepairStatusTelegramNotification(repairToUpdate, repairToUpdate.status, newStatus);
+            // ℹ️ Telegram notification is handled by Firebase Cloud Function (onRepairWrite)
+            // ไม่ต้องส่ง Telegram ที่นี่ เพราะ Cloud Function จะส่งให้อัตโนมัติทุกครั้งที่ Firebase อัปเดต
         } else if (updates.notes !== undefined) {
             addToast(`บันทึกหมายเหตุสำหรับ ${updatedRepair.repairOrderNo} แล้ว`, 'success');
         } else if (updates.attachments !== undefined) {
