@@ -6,7 +6,8 @@ import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
-import { sendNewPRTelegramNotification, sendPRApprovedTelegramNotification, sendPRStatusUpdateTelegramNotification, sendPRReceivedTelegramNotification, sendPRCancelledTelegramNotification } from '../utils/telegramService';
+// Telegram notifications are handled by Cloud Functions (onPurchaseRequisitionWrite)
+// to avoid duplicate messages — do NOT add frontend Telegram calls here
 
 interface PurchaseRequisitionProps {
     purchaseRequisitions: PurchaseRequisition[];
@@ -171,7 +172,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
             };
             setPurchaseRequisitions(prev => [newRequisition, ...prev]);
             addToast(`สร้างใบขอซื้อ ${newRequisition.prNumber} สำเร็จ`, 'success');
-            sendNewPRTelegramNotification(newRequisition);
+            // Telegram notification handled by Cloud Function onPurchaseRequisitionWrite
         }
         setIsModalOpen(false);
     };
@@ -197,7 +198,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                 )
             );
             addToast(`ยกเลิกใบขอซื้อ ${prNumber} สำเร็จ`, 'info');
-            if (cancelledPr) sendPRCancelledTelegramNotification({ ...cancelledPr, status: 'ยกเลิก' });
+            // Telegram notification handled by Cloud Function onPurchaseRequisitionWrite
         }
     };
 
@@ -241,7 +242,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
         };
         setPurchaseRequisitions(prev => prev.map(p => p.id === updatedRequisition.id ? updatedRequisition : p));
         handleReceiveStock(updatedRequisition);
-        sendPRReceivedTelegramNotification(updatedRequisition);
+        // Telegram notification handled by Cloud Function onPurchaseRequisitionWrite
         setReceivingPr(null);
         setReceiveFiles([]);
     };
@@ -273,13 +274,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
 
         setPurchaseRequisitions(prev => prev.map(p => p.id === updatedRequisition.id ? updatedRequisition : p));
         addToast(`อัปเดตสถานะ ${pr.prNumber} เป็น "${newStatus}" เรียบร้อย`, 'success');
-
-        // Telegram Notifications
-        if (newStatus === 'อนุมัติแล้ว') {
-            sendPRApprovedTelegramNotification(updatedRequisition);
-        } else {
-            sendPRStatusUpdateTelegramNotification(updatedRequisition, pr.status, newStatus);
-        }
+        // Telegram notification handled by Cloud Function onPurchaseRequisitionWrite
     };
 
     const getStatusBadge = (status: PurchaseRequisitionStatus) => {

@@ -6,7 +6,8 @@ import CreatePOModal from './CreatePOModal';
 import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency, formatTotalCurrency } from '../utils';
-import { sendNewPOTelegramNotification, sendPOReceivedTelegramNotification, sendPOCancelledTelegramNotification } from '../utils/telegramService';
+// Telegram notifications are handled by Cloud Functions (onPurchaseOrderWrite)
+// to avoid duplicate messages — do NOT add frontend Telegram calls here
 import PhotoUpload from './PhotoUpload';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
@@ -664,7 +665,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         }));
 
         addToast(`สร้างใบสั่งซื้อ ${newPoNumber} สำเร็จ`, 'success');
-        sendNewPOTelegramNotification(newPO);
+        // Telegram notification handled by Cloud Function onPurchaseOrderWrite
         setIsCreateModalOpen(false);
         setSelectedPRIds(new Set());
         setActiveLocalTab('po-list');
@@ -738,11 +739,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
 
         addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย`, 'success');
 
-        // Send Telegram notification with photos
-        const linkedPrNums = (po.linkedPrNumbers || []).length > 0
-            ? po.linkedPrNumbers
-            : purchaseRequisitions.filter(pr => po.linkedPrIds.includes(pr.id)).map(pr => pr.prNumber);
-        sendPOReceivedTelegramNotification({ ...po, status: 'Received', photos: safePhotos }, linkedPrNums);
+        // Telegram notification handled by Cloud Function onPurchaseOrderWrite (status → Received)
 
         setReceivingPO(null);
         setPoPhotos([]);
@@ -767,7 +764,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             }
 
             addToast('ยกเลิกใบสั่งซื้อสำเร็จ สถานะ PR ที่เกี่ยวข้องถูกคืนค่าเป็น "อนุมัติแล้ว"', 'info');
-            if (po) sendPOCancelledTelegramNotification(po);
+            // Telegram notification handled by Cloud Function onPurchaseOrderWrite (status → Cancelled)
         }
     };
 
