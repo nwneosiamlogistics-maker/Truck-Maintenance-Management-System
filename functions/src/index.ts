@@ -50,6 +50,22 @@ function thaiDate(): string {
     return new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
 }
 
+// Helper: look up technician name from RTDB by ID
+// Returns name if found, falls back to the raw ID so the message still makes sense
+async function getTechnicianName(id: string | null | undefined): Promise<string | null> {
+    if (!id) return null;
+    try {
+        const snapshot = await getDatabase().ref('technicians').once('value');
+        if (!snapshot.exists()) return id;
+        const data = snapshot.val();
+        const list: any[] = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
+        const found = list.find((t: any) => t.id === id || t.technicianId === id);
+        return found?.name || found?.fullName || id;
+    } catch {
+        return id; // fallback to raw ID on error
+    }
+}
+
 // ==================== 1. Daily Maintenance Summary (08:30) ====================
 
 export const dailyMaintenanceSummary = onSchedule(
@@ -483,6 +499,15 @@ export const onRepairWrite = onValueWritten(
             // สร้างใบแจ้งซ่อมใหม่ — ส่งรูป
             sendPhotos = photos;
             const photoNote = photos.length === 0 ? '\n⚠️ <i>ไม่มีรูปหลักฐาน</i>' : '';
+
+            // Lookup ชื่อช่างที่อาจถูกมอบหมายตั้งแต่สร้างใบ
+            let techDisplay = '';
+            if (after.externalTechnicianName) {
+                techDisplay = after.externalTechnicianName;
+            } else if (after.assignedTechnicianId) {
+                techDisplay = await getTechnicianName(after.assignedTechnicianId) || after.assignedTechnicianId;
+            }
+
             message = `🔔 <b>แจ้งซ่อมใหม่</b>\n`;
             message += `เลขที่: <b>${after.repairOrderNo || '-'}</b>\n`;
             message += `ทะเบียน: <b>${after.licensePlate || '-'}</b>`;
@@ -491,6 +516,7 @@ export const onRepairWrite = onValueWritten(
             message += `ความเร่งด่วน: ${icon} ${after.priority || '-'}\n`;
             message += `ผู้แจ้ง: ${after.reportedBy || '-'} | วันที่: ${dateStr}`;
             if (after.repairLocation) message += `\nสถานที่: ${after.repairLocation}`;
+            if (techDisplay) message += `\nมอบหมายช่าง: ${techDisplay}`;
             message += photoNote;
         } else {
             // สถานะเปลี่ยน
@@ -498,9 +524,28 @@ export const onRepairWrite = onValueWritten(
             const footer = `ปัญหา: ${after.problemDescription || '-'}`;
 
             if (after.status === 'กำลังซ่อม') {
+                // Lookup ชื่อช่างจาก RTDB แทนการใช้ ID โดยตรง
+                let techDisplay = '';
+                if (after.externalTechnicianName) {
+                    techDisplay = after.externalTechnicianName;
+                } else if (after.assignedTechnicianId) {
+                    techDisplay = await getTechnicianName(after.assignedTechnicianId) || after.assignedTechnicianId;
+                }
+
+                // รวมช่างผู้ช่วยด้วย (ถ้ามี)
+                if (Array.isArray(after.assistantTechnicianIds) && after.assistantTechnicianIds.length > 0) {
+                    const assistantNames = await Promise.all(
+                        after.assistantTechnicianIds.map((aid: string) => getTechnicianName(aid))
+                    );
+                    const validNames = assistantNames.filter(Boolean);
+                    if (validNames.length > 0) {
+                        techDisplay += ` (ผู้ช่วย: ${validNames.join(', ')})`;
+                    }
+                }
+
                 message = `🔧 <b>เริ่มซ่อมแล้ว</b>\n` + header;
-                if (after.assignedTechnicianId || after.externalTechnicianName) {
-                    message += `ช่าง: ${after.externalTechnicianName || after.assignedTechnicianId}\n`;
+                if (techDisplay) {
+                    message += `ช่าง: ${techDisplay}\n`;
                 }
                 message += footer;
             } else if (after.status === 'รออะไหล่') {
@@ -525,6 +570,7 @@ export const onRepairWrite = onValueWritten(
 
         await sendTelegramWithPhotos(telegramBotToken.value(), telegramChatId.value(), message, sendPhotos);
     }
+
 );
 
 // ==================== 6. PO Created/Status Changed ====================

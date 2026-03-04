@@ -228,6 +228,11 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
 
     const handleConfirmReceivePr = () => {
         if (!receivingPr) return;
+        // 📸 Mandatory photo validation for PR receive
+        if (!receiveFiles || receiveFiles.length === 0) {
+            addToast('📸 กรุณาแนบรูปภาพหรือไฟล์หลักฐานอย่างน้อย 1 ไฟล์', 'warning');
+            return;
+        }
         const updatedRequisition: PurchaseRequisition = {
             ...receivingPr,
             status: 'รับของแล้ว',
@@ -303,21 +308,63 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                         <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
                     </>
                 );
-            case 'ออก PO แล้ว':
+            case 'ออก PO แล้ว': {
+                const linkedPO = (pr as any).relatedPoNumber;
                 return (
-                    <>
-                        <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
-                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
-                    </>
+                    <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-2">
+                            {linkedPO ? (
+                                <button
+                                    disabled
+                                    title={`PR นี้ผูก PO อยู่ (${linkedPO}) กรุณารับของผ่าน PO แทน`}
+                                    onClick={() => addToast(`⚠️ PR นี้ผูกกับ ${linkedPO} อยู่ — กรุณารับของผ่านหน้า "ใบสั่งซื้อ (PO)" แทน`, 'warning')}
+                                    className="text-gray-400 bg-gray-100 border border-gray-300 font-medium px-3 py-1 rounded-md text-sm cursor-not-allowed flex items-center gap-1"
+                                >
+                                    🔒 รับของ (ผ่าน PO)
+                                </button>
+                            ) : (
+                                <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
+                            )}
+                            <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                        </div>
+                        {linkedPO && (
+                            <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
+                                📋 ผูก PO: {linkedPO}
+                            </span>
+                        )}
+                    </div>
                 );
-            case 'รอสินค้า':
+            }
+            case 'รอสินค้า': {
+                const linkedPO2 = (pr as any).relatedPoNumber;
                 return (
-                    <>
-                        <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
-                        <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
-                        <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
-                    </>
+                    <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-2">
+                            {linkedPO2 ? (
+                                <button
+                                    disabled
+                                    title={`PR นี้ผูก PO อยู่ (${linkedPO2}) กรุณารับของผ่าน PO แทน`}
+                                    onClick={() => addToast(`⚠️ PR นี้ผูกกับ ${linkedPO2} อยู่ — กรุณารับของผ่านหน้า "ใบสั่งซื้อ (PO)" แทน`, 'warning')}
+                                    className="text-gray-400 bg-gray-100 border border-gray-300 font-medium px-3 py-1 rounded-md text-sm cursor-not-allowed flex items-center gap-1"
+                                >
+                                    🔒 รับของ (ผ่าน PO)
+                                </button>
+                            ) : (
+                                <button onClick={() => handleQuickStatusUpdate(pr, 'รับของแล้ว')} className="text-white bg-purple-500 hover:bg-purple-600 font-medium px-3 py-1 rounded-md text-sm">รับของ</button>
+                            )}
+                            <button onClick={() => handleOpenModal(pr)} className="text-gray-600 hover:text-gray-800 font-medium">ดู</button>
+                            {!linkedPO2 && (
+                                <button onClick={() => handleCancelRequisition(pr.id, pr.prNumber)} className="text-red-500 hover:text-red-700 font-medium ml-2">ยกเลิก</button>
+                            )}
+                        </div>
+                        {linkedPO2 && (
+                            <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
+                                📋 ผูก PO: {linkedPO2}
+                            </span>
+                        )}
+                    </div>
                 );
+            }
             case 'รับของแล้ว':
             case 'ยกเลิก':
                 return <button onClick={() => handleOpenModal(pr)} className="text-blue-600 hover:text-blue-800 font-medium">ดู</button>;
@@ -525,7 +572,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                         <div className="p-6 border-b flex justify-between items-center">
                             <h3 className="text-xl font-bold text-gray-800">รับของ — {receivingPr.prNumber}</h3>
                             <button onClick={() => { setReceivingPr(null); setReceiveFiles([]); }} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
                         <div className="p-6 space-y-4 overflow-y-auto flex-1">
@@ -549,7 +596,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                         {/* เลือกไฟล์จากเครื่อง */}
                                         <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isReceiveUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
                                             {isReceiveUploading ? (
-                                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>อัปโหลด...</>
+                                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>อัปโหลด...</>
                                             ) : (
                                                 <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>แนบไฟล์</>
                                             )}
@@ -572,7 +619,7 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
                                                 <div key={url} className="relative group">
                                                     {isPdf ? (
                                                         <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm">
-                                                            <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z"/></svg>
+                                                            <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
                                                             <span className="text-xs text-gray-600 max-w-[100px] truncate">{fileName}</span>
                                                         </a>
                                                     ) : (
