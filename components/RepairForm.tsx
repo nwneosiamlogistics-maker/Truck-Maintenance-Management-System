@@ -574,6 +574,13 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
         // Ensure photos is an array before saving
         repairData.photos = Array.isArray(formData.photos) ? formData.photos : [];
 
+        // 📸 Mandatory photo validation
+        if (repairData.photos.length === 0) {
+            addToast('📸 กรุณาแนบรูปภาพหลักฐานอย่างน้อย 1 รูปก่อนบันทึก', 'warning');
+            setIsSubmitting(false);
+            return;
+        }
+
         if (repairData.vehicleType === 'อื่นๆ') {
             if (!otherVehicleType.trim()) {
                 addToast('กรุณาระบุประเภทรถ', 'warning');
@@ -609,6 +616,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 if (!hasChecklistForToday) {
                     setIsMandatoryChecklistOpen(true);
                     addToast('กรุณาทำรายการตรวจเช็ค (Checklist) ก่อนดำเนินการต่อ', 'info');
+                    return false;
+                }
+                if (!formData.photos || formData.photos.length === 0) {
+                    addToast('📸 กรุณาแนบรูปภาพหลักฐานอย่างน้อย 1 รูปก่อนดำเนินการต่อ', 'warning');
                     return false;
                 }
                 break;
@@ -861,12 +872,25 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 required
                                 placeholder="ระบุอาการเสียโดยละเอียด หรือเลือกจากรูปด้านบน..."
                             ></textarea>
-                            <PhotoUpload
-                                photos={formData.photos || []}
-                                onChange={(photos) => setFormData({ ...formData, photos })}
-                                entity="repair"
-                                entityId="new"
-                            />
+                            <div className={`rounded-2xl border-2 transition-all ${(!formData.photos || formData.photos.length === 0) ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}>
+                                <div className="px-4 pt-3 flex items-center gap-2">
+                                    <span className={`text-xs font-black uppercase tracking-widest ${(!formData.photos || formData.photos.length === 0) ? 'text-red-600' : 'text-green-600'}`}>
+                                        📸 รูปภาพหลักฐาน <span className="text-red-500">*</span>
+                                    </span>
+                                    {(!formData.photos || formData.photos.length === 0) && (
+                                        <span className="text-xs text-red-500 font-bold">(บังคับต้องแนบอย่างน้อย 1 รูป)</span>
+                                    )}
+                                    {formData.photos && formData.photos.length > 0 && (
+                                        <span className="text-xs text-green-600 font-bold">✓ แนบแล้ว {formData.photos.length} รูป</span>
+                                    )}
+                                </div>
+                                <PhotoUpload
+                                    photos={formData.photos || []}
+                                    onChange={(photos) => setFormData({ ...formData, photos })}
+                                    entity="repair"
+                                    entityId="new"
+                                />
+                            </div>
                             {(() => {
                                 const mainName = formData.repairCategory.split(' > ')[0];
                                 const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);

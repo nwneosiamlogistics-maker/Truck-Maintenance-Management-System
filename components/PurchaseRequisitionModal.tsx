@@ -441,6 +441,12 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             return;
         }
 
+        // 📎 Mandatory file attachment validation
+        if (isEditable && (!quotationFiles || quotationFiles.length === 0)) {
+            addToast('📎 กรุณาแนบรูปภาพหรือไฟล์ใบเสนอราคา/หลักฐานอย่างน้อย 1 ไฟล์', 'warning');
+            return;
+        }
+
         const itemsToSave = safeItems.map(({ rowId, ...rest }) => rest);
         const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount, vatRate: isVatEnabled ? vatRate : 0, quotationFiles } as any;
 
@@ -603,17 +609,19 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                     </div>
 
                     {/* Quotation Files Section */}
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div className={`p-4 rounded-xl border-2 transition-all ${isEditable && quotationFiles.length === 0 ? 'bg-red-50 border-red-300' : quotationFiles.length > 0 ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-200'}`}>
                         <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-base text-amber-800 flex items-center gap-2">
+                            <h4 className={`font-semibold text-base flex items-center gap-2 ${isEditable && quotationFiles.length === 0 ? 'text-red-700' : quotationFiles.length > 0 ? 'text-green-700' : 'text-amber-800'}`}>
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                ใบเสนอราคา (Quotation)
+                                📎 ใบเสนอราคา / หลักฐาน
+                                {isEditable && <span className="text-red-500 font-bold">*</span>}
+                                {quotationFiles.length > 0 && <span className="text-xs text-green-600 font-bold ml-1">✓ แนบแล้ว {quotationFiles.length} ไฟล์</span>}
                             </h4>
                             {isEditable && (
                                 <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isUploadingQuotation ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}>
                                     {isUploadingQuotation ? (
                                         <>
-                                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
                                             กำลังอัปโหลด...
                                         </>
                                     ) : (
@@ -634,10 +642,12 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                 </label>
                             )}
                         </div>
-                        <p className="text-xs text-amber-600 mb-3">รองรับ: รูปภาพ (JPG, PNG, HEIC) และ PDF — อัปโหลดไปยัง NAS โดยตรง</p>
+                        <p className={`text-xs mb-3 ${isEditable && quotationFiles.length === 0 ? 'text-red-600 font-semibold' : 'text-amber-600'}`}>
+                            {isEditable && quotationFiles.length === 0 ? '⚠️ บังคับต้องแนบอย่างน้อย 1 ไฟล์ (รูปภาพหรือ PDF) ก่อนบันทึก' : 'รองรับ: รูปภาพ (JPG, PNG, HEIC) และ PDF'}
+                        </p>
 
                         {quotationFiles.length === 0 ? (
-                            <p className="text-sm text-amber-500 text-center py-4">ยังไม่มีไฟล์ใบเสนอราคา</p>
+                            <p className="text-sm text-center py-4 text-red-400 font-medium">📎 ยังไม่มีไฟล์แนบ — กรุณาแนบไฟล์ก่อนบันทึก</p>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {quotationFiles.map((url, idx) => {
@@ -647,7 +657,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                                         <div key={url} className="relative group border border-amber-200 rounded-lg overflow-hidden bg-white shadow-sm">
                                             {isPdf ? (
                                                 <a href={url} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-3 h-24 hover:bg-amber-50 transition-colors">
-                                                    <svg className="w-10 h-10 text-red-500 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8.5 17.5h-1v-5h1.8c.9 0 1.5.6 1.5 1.5s-.6 1.5-1.5 1.5H8.5v2zm3.5 0h-1v-5h1.5c1.1 0 2 .9 2 2.5s-.9 2.5-2 2.5zm4.5-4h-1.5v1h1.3v.8h-1.3v2.2H14v-5h2.5v1z"/></svg>
+                                                    <svg className="w-10 h-10 text-red-500 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8.5 17.5h-1v-5h1.8c.9 0 1.5.6 1.5 1.5s-.6 1.5-1.5 1.5H8.5v2zm3.5 0h-1v-5h1.5c1.1 0 2 .9 2 2.5s-.9 2.5-2 2.5zm4.5-4h-1.5v1h1.3v.8h-1.3v2.2H14v-5h2.5v1z" /></svg>
                                                     <span className="text-[10px] text-gray-500 text-center truncate w-full px-1">{fileName}</span>
                                                 </a>
                                             ) : (
