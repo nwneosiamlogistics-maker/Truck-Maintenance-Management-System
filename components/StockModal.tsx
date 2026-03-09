@@ -86,6 +86,40 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
             }
         }
 
+        // 🚨 กฎเหล็ก: ป้องกันการเพิ่ม/ลดปริมาณสต๊อกโดยตรง (ต้องใส่รหัสผ่าน)
+        const STOCK_ADJUST_PASSWORD = '1234';
+        
+        if (item) {
+            const originalQuantity = item.quantity || 0;
+            const newQuantity = formData.quantity || 0;
+            
+            // ถ้าปริมาณเปลี่ยนแปลง → ต้องใส่รหัสผ่าน
+            if (newQuantity !== originalQuantity) {
+                const password = window.prompt(
+                    `⚠️ คุณกำลังปรับปริมาณสต๊อกโดยตรง\n\n` +
+                    `จาก: ${originalQuantity} → เป็น: ${newQuantity}\n\n` +
+                    `กรุณาใส่รหัสผ่านเพื่อยืนยัน:`
+                );
+                if (password !== STOCK_ADJUST_PASSWORD) {
+                    addToast('❌ รหัสผ่านไม่ถูกต้อง — ไม่สามารถปรับปริมาณได้', 'error');
+                    return;
+                }
+            }
+        }
+
+        // กรณีสร้างรายการใหม่: ต้องใส่รหัสผ่านถ้าปริมาณ > 0
+        if (!item && formData.quantity > 0 && !sourceRepairOrderNo) {
+            const password = window.prompt(
+                `⚠️ คุณกำลังสร้างรายการใหม่ที่มีปริมาณเริ่มต้น > 0\n\n` +
+                `ตามกฎระบบ การรับสินค้าควรรับผ่านใบ PO\n\n` +
+                `กรุณาใส่รหัสผ่านเพื่อยืนยัน:`
+            );
+            if (password !== STOCK_ADJUST_PASSWORD) {
+                addToast('❌ รหัสผ่านไม่ถูกต้อง — กรุณาใส่ปริมาณเป็น 0 แล้วรับจาก PO', 'error');
+                return;
+            }
+        }
+
         setIsSubmitting(true);
         try {
             const newStatus = calculateStockStatus(formData.quantity, formData.minStock, formData.maxStock);
@@ -141,7 +175,13 @@ const StockModal: React.FC<StockModalProps> = ({ item, onSave, onClose, existing
                                 title="จำนวน"
                                 placeholder="0"
                             />
-                            {item && <p className="text-xs text-gray-500 mt-1">การแก้ไขจำนวนที่นี่จะสร้างรายการ "ปรับสต็อก" ในประวัติ</p>}
+                            {item ? (
+                                <p className="text-xs text-orange-600 mt-1 font-medium">
+                                    🔐 การปรับปริมาณต้องใส่รหัสผ่าน (แนะนำรับของผ่าน PO)
+                                </p>
+                            ) : (
+                                <p className="text-xs text-gray-500 mt-1">แนะนำให้ใส่ 0 แล้วรับของจาก PO (หรือใส่รหัสผ่านยืนยัน)</p>
+                            )}
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

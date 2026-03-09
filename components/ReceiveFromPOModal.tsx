@@ -61,6 +61,8 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         setPhotos(prev => prev.filter(f => f !== url));
     };
 
+    const [isProcessing, setIsProcessing] = useState(false);
+
     const handleReceive = () => {
         const prToReceive = receivablePrs.find(pr => pr.id === selectedPrId);
         if (!prToReceive) {
@@ -69,6 +71,20 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         }
         if (photos.length === 0) {
             addToast('กรุณาแนบหลักฐานการรับของอย่างน้อย 1 ไฟล์', 'warning');
+            return;
+        }
+
+        // ป้องกันการกดซ้ำ (Double-click protection)
+        if (isProcessing) {
+            addToast('กำลังดำเนินการ กรุณารอสักครู่...', 'warning');
+            return;
+        }
+        setIsProcessing(true);
+
+        // ตรวจสอบว่า PR นี้ยังอยู่ในสถานะ "รอสินค้า" อยู่หรือไม่ (ป้องกันรับซ้ำ)
+        if (prToReceive.status !== 'รอสินค้า') {
+            addToast(`ใบขอซื้อนี้มีสถานะ "${prToReceive.status}" แล้ว ไม่สามารถรับของซ้ำได้`, 'error');
+            setIsProcessing(false);
             return;
         }
 
@@ -118,6 +134,7 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         ));
 
         addToast(`รับของสำหรับใบขอซื้อ ${prToReceive.prNumber} สำเร็จ`, 'success');
+        setIsProcessing(false);
         onClose();
     };
 
@@ -232,11 +249,11 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
                     <button
                         type="button"
                         onClick={handleReceive}
-                        disabled={!selectedPrId || photos.length === 0 || isUploading}
-                        title={!selectedPrId ? 'กรุณาเลือกใบขอซื้อ' : photos.length === 0 ? 'กรุณาแนบหลักฐานการรับของก่อน' : ''}
-                        className={`px-8 py-2 text-base font-medium text-white rounded-lg transition-colors ${(!selectedPrId || photos.length === 0 || isUploading) ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                        disabled={!selectedPrId || photos.length === 0 || isUploading || isProcessing}
+                        title={!selectedPrId ? 'กรุณาเลือกใบขอซื้อ' : photos.length === 0 ? 'กรุณาแนบหลักฐานการรับของก่อน' : isProcessing ? 'กำลังดำเนินการ...' : ''}
+                        className={`px-8 py-2 text-base font-medium text-white rounded-lg transition-colors ${(!selectedPrId || photos.length === 0 || isUploading || isProcessing) ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                     >
-                        {isUploading ? 'กำลังอัปโหลด...' : 'ยืนยันการรับของ'}
+                        {isProcessing ? 'กำลังบันทึก...' : isUploading ? 'กำลังอัปโหลด...' : 'ยืนยันการรับของ'}
                     </button>
                 </div>
             </div>

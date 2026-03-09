@@ -50,6 +50,37 @@ function thaiDate(): string {
     return new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
 }
 
+// ==================== Deduplication Cache ====================
+// ป้องกัน Cloud Function ส่งข้อความซ้ำภายใน DEDUP_WINDOW_MS
+// เกิดเนื่องจาก useFirebase hook อาจ write Firebase หลายครั้ง (optimistic update + server echo)
+// เพิ่มเป็น 5 นาทีเพื่อป้องกันการบันทึกซ้ำภายในช่วงเวลาสั้นๆ
+const DEDUP_WINDOW_MS = 300_000; // 5 นาที (300,000 ms)
+
+/**
+ * ตรวจสอบว่าเคยส่งข้อความสำหรับ key นี้ภายใน window หรือยัง
+ * ถ้ายัง → บันทึก timestamp แล้ว return true (ผ่าน)
+ * ถ้าซ้ำ → return false (block)
+ */
+async function checkAndSetDedup(dedupKey: string): Promise<boolean> {
+    const db = getDatabase();
+    const dedupRef = db.ref(`_telegram_dedup/${dedupKey}`);
+    const snapshot = await dedupRef.once('value');
+    const lastSent: number = snapshot.val() || 0;
+    const now = Date.now();
+
+    if (now - lastSent < DEDUP_WINDOW_MS) {
+        console.log(`[Dedup] BLOCKED duplicate for key: ${dedupKey} (sent ${Math.round((now - lastSent) / 1000)}s ago)`);
+        return false; // ซ้ำ — ห้ามส่ง
+    }
+
+    // บันทึก timestamp ใหม่
+    await dedupRef.set(now);
+    // ลบ key หลัง 5 นาทีเพื่อประหยัด storage
+    setTimeout(() => dedupRef.remove().catch(() => { }), 300_000);
+    return true; // ผ่าน — ส่งได้
+}
+
+
 // Helper: look up technician name from RTDB by ID
 // Returns name if found, falls back to the raw ID so the message still makes sense
 async function getTechnicianName(id: string | null | undefined): Promise<string | null> {
@@ -483,6 +514,11 @@ export const onRepairWrite = onValueWritten(
 
         if (!isNew && !statusChanged) return;
 
+        // Deduplication: ป้องกันส่งซ้ำภายใน 30 วินาที
+        const dedupStatus = isNew ? 'new' : after.status;
+        const dedupKey = `repair_${event.params.repairId}_${dedupStatus}`;
+        if (!await checkAndSetDedup(dedupKey)) return;
+
         console.log('[CF] onRepairWrite — repairId:', event.params.repairId, 'isNew:', isNew, 'status:', after.status);
 
         const priorityIcon: Record<string, string> = { 'สูง': '🔴', 'กลาง': '🟡', 'ต่ำ': '🟢' };
@@ -590,6 +626,11 @@ export const onPurchaseOrderWrite = onValueWritten(
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
 
+        // Deduplication: ป้องกันส่งซ้ำภายใน 30 วินาที
+        const dedupStatus = isNew ? 'new' : after.status;
+        const dedupKey = `po_${event.params.poId}_${dedupStatus}`;
+        if (!await checkAndSetDedup(dedupKey)) return;
+
         console.log('[CF] onPurchaseOrderWrite — poId:', event.params.poId, 'isNew:', isNew, 'status:', after.status);
 
         const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
@@ -645,6 +686,11 @@ export const onPurchaseRequisitionWrite = onValueWritten(
         const isNew = !before;
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
+
+        // Deduplication: ป้องกันส่งซ้ำภายใน 30 วินาที
+        const dedupStatus = isNew ? 'new' : after.status;
+        const dedupKey = `pr_${event.params.prId}_${dedupStatus}`;
+        if (!await checkAndSetDedup(dedupKey)) return;
 
         console.log('[CF] onPurchaseRequisitionWrite — prId:', event.params.prId, 'isNew:', isNew, 'status:', after.status);
 

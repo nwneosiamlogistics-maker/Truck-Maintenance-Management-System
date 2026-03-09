@@ -106,18 +106,17 @@ const AppContent: React.FC<AppContentProps> = ({
 
     // Daily Maintenance, Repair Status & Warranty/Insurance Check
     // ปิดการส่ง Maintenance Summary จากฝั่ง Frontend เพื่อหลีกเลี่ยงการแจ้งเตือนซ้ำกับ Cloud Function
-    React.useEffect(() => {
-        const timer = setTimeout(() => {
-            // checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
-            // checkAndSendDailyRepairStatus — ย้ายไป Cloud Function onRepairWrite แล้ว
-            checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
-            // checkAndSendLowStockAlert(stock);  // ย้ายไป Cloud Function dailyLowStockAlert (10:00 ICT) แล้ว
-            // sendBudgetAlertTelegramNotification — ยกเลิกแล้ว (ฝั่ง frontend)
-            // checkAndSendDailyProcurementSummary — ยกเลิกแล้ว (ฝั่ง frontend)
-        }, 5000);
-
-        return () => clearTimeout(timer);
-    }, [maintenancePlans, repairs, vehicles, technicians, partWarranties, cargoPolicies, stock, budgets, fuelRecords, purchaseRequisitions, purchaseOrders]);
+    // Daily Telegram alerts — ย้ายไป Cloud Functions ทั้งหมดแล้ว เพื่อป้องกันการแจ้งเตือนซ้ำซ้อน
+    // - dailyMaintenanceSummary (08:30)
+    // - dailyWarrantyInsuranceAlert (09:00)
+    // - dailyLowStockAlert (10:00)
+    // - dailyRepairStatusSummary (18:30)
+    // React.useEffect(() => {
+    //     const timer = setTimeout(() => {
+    //         checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
+    //     }, 5000);
+    //     return () => clearTimeout(timer);
+    // }, [partWarranties, vehicles, cargoPolicies]);
 
     // System Auto-Notifications Engine - use refs to avoid stale closures
     const stockRef = useRef(stock);
