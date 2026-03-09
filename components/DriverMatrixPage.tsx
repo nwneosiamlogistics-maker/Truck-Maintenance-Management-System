@@ -9,8 +9,6 @@ import { useSafetyPlan } from '../hooks/useSafetyPlan';
 import { useIncabAssessments } from '../hooks/useIncabAssessments';
 import { confirmAction } from '../utils';
 import { useToast } from '../context/ToastContext';
-import { exportToCSV } from '../utils/exportUtils';
-import { Download } from 'lucide-react';
 import type { IncabAssessment } from '../types';
 
 interface DriverMatrixPageProps {
@@ -40,52 +38,6 @@ const DriverMatrixPage: React.FC<DriverMatrixPageProps> = ({ drivers, setDrivers
         if (!ok) return;
         setDrivers(prev => prev.filter(d => d.id !== driver.id));
         addToast(`ลบข้อมูล ${driver.name} สำเร็จ`, 'success');
-    };
-
-    // Export to Excel/CSV
-    const handleExportDriverMatrix = () => {
-        if (!drivers || drivers.length === 0) {
-            addToast('ไม่มีข้อมูลพนักงานขับรถ', 'warning');
-            return;
-        }
-
-        const formatDate = (dateStr?: string) => {
-            if (!dateStr) return '-';
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return dateStr;
-            return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
-        };
-
-        const exportData = drivers.map(d => {
-            const primaryVehicle = vehicles.find(v => v.id === d.primaryVehicle);
-            const assignedVehiclesList = d.assignedVehicles?.map(vId => vehicles.find(v => v.id === vId)?.licensePlate).filter(Boolean).join(', ') || '-';
-            const driverIncidents = incidents.filter(i => i.driverId === d.id);
-            
-            return {
-                'รหัสพนักงาน': d.employeeId || '-',
-                'ชื่อ-นามสกุล': d.name,
-                'ชื่อเล่น': d.nickname || '-',
-                'เลขบัตรประชาชน': d.idCard || '-',
-                'เบอร์โทร': d.phone || '-',
-                'วันที่เริ่มงาน': formatDate(d.hireDate),
-                'รถประจำ': primaryVehicle?.licensePlate || '-',
-                'รถที่มอบหมาย': assignedVehiclesList,
-                'ใบขับขี่หมดอายุ': formatDate(d.licenseExpiry),
-                'ประเภทใบขับขี่': d.licenseClass || '-',
-                'ตรวจประวัติอาชญากรรม': d.criminalCheck?.result || '-',
-                'วันที่ตรวจประวัติ': formatDate(d.criminalCheck?.checkedDate),
-                'อบรม Defensive (วันที่)': formatDate(d.defensiveDriving?.trainingDate),
-                'อบรม Defensive (ผู้สอน)': d.defensiveDriving?.trainer || '-',
-                'Pre-Test': d.defensiveDriving?.preTest ?? '-',
-                'Post-Test': d.defensiveDriving?.postTest ?? '-',
-                'จำนวน Incident': driverIncidents.length,
-                'คะแนนความปลอดภัย': d.safetyScore || 0,
-                'สถานะ': d.status || 'Active',
-            };
-        });
-
-        exportToCSV('Driver_Matrix', exportData);
-        addToast('Export ข้อมูล Driver Matrix สำเร็จ', 'success');
     };
 
     const handleSaveIncab = (a: IncabAssessment) => {
@@ -164,17 +116,8 @@ const DriverMatrixPage: React.FC<DriverMatrixPageProps> = ({ drivers, setDrivers
                         <h2 className="text-3xl font-bold text-slate-800">Driver Matrix</h2>
                         <p className="text-gray-500 mt-1">ตารางสถานะและข้อมูลประจำตัวพนักงานขับรถ</p>
                     </div>
-                    {/* Export & Zoom Controls */}
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={handleExportDriverMatrix}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95"
-                            title="Export to Excel/CSV"
-                        >
-                            <Download size={18} />
-                            <span>Export</span>
-                        </button>
-                        <div className="flex items-center gap-1 bg-slate-100 rounded-xl px-2 py-1.5 border border-slate-200 shrink-0">
+                    {/* Zoom Controls */}
+                    <div className="flex items-center gap-1 bg-slate-100 rounded-xl px-2 py-1.5 border border-slate-200 shrink-0">
                         <span className="text-xs text-slate-500 mr-1">ขนาดตัวอักษร:</span>
                         <button
                             onClick={() => setMatrixZoom(matrixZoomLevels[Math.max(0, matrixZoomIdx - 1)])}
@@ -196,7 +139,6 @@ const DriverMatrixPage: React.FC<DriverMatrixPageProps> = ({ drivers, setDrivers
                             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white disabled:opacity-30 text-slate-600 transition-colors">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6M7 10h6" /></svg>
                         </button>
-                        </div>
                     </div>
                 </div>
             </div>

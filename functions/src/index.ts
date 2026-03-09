@@ -509,17 +509,26 @@ export const onRepairWrite = onValueWritten(
         const after = event.data.after.val();
         if (!after) return;
 
+        // 🚨 Array Shift Protection:
+        // useFirebase เก็บ repairs เป็น array — เมื่อเพิ่ม/ลบรายการ index จะเลื่อน
+        // ทำให้ before กับ after เป็นคนละใบซ่อม → ต้องตรวจ ID จริง
+        if (before && after && before.id && after.id && before.id !== after.id) {
+            console.log(`[CF] onRepairWrite — SKIP array shift (before.id=${before.id}, after.id=${after.id})`);
+            return;
+        }
+
         const isNew = !before;
         const statusChanged = before && before.status !== after.status;
 
         if (!isNew && !statusChanged) return;
 
-        // Deduplication: ป้องกันส่งซ้ำภายใน 30 วินาที
+        // Deduplication: ใช้ ID จริงของใบซ่อม (ไม่ใช่ array index) เป็น key
+        const actualId = after.id || after.repairOrderNo || event.params.repairId;
         const dedupStatus = isNew ? 'new' : after.status;
-        const dedupKey = `repair_${event.params.repairId}_${dedupStatus}`;
+        const dedupKey = `repair_${actualId}_${dedupStatus}`;
         if (!await checkAndSetDedup(dedupKey)) return;
 
-        console.log('[CF] onRepairWrite — repairId:', event.params.repairId, 'isNew:', isNew, 'status:', after.status);
+        console.log('[CF] onRepairWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
         const priorityIcon: Record<string, string> = { 'สูง': '🔴', 'กลาง': '🟡', 'ต่ำ': '🟢' };
         const icon = priorityIcon[after.priority] || '🔔';
@@ -622,16 +631,23 @@ export const onPurchaseOrderWrite = onValueWritten(
         const after = event.data.after.val();
         if (!after) return;
 
+        // 🚨 Array Shift Protection
+        if (before && after && before.id && after.id && before.id !== after.id) {
+            console.log(`[CF] onPurchaseOrderWrite — SKIP array shift (before.id=${before.id}, after.id=${after.id})`);
+            return;
+        }
+
         const isNew = !before;
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
 
-        // Deduplication: ป้องกันส่งซ้ำภายใน 30 วินาที
+        // Deduplication: ใช้ ID จริง (ไม่ใช่ array index)
+        const actualId = after.id || after.poNumber || event.params.poId;
         const dedupStatus = isNew ? 'new' : after.status;
-        const dedupKey = `po_${event.params.poId}_${dedupStatus}`;
+        const dedupKey = `po_${actualId}_${dedupStatus}`;
         if (!await checkAndSetDedup(dedupKey)) return;
 
-        console.log('[CF] onPurchaseOrderWrite — poId:', event.params.poId, 'isNew:', isNew, 'status:', after.status);
+        console.log('[CF] onPurchaseOrderWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
         const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
         const deliveryStr = after.deliveryDate
@@ -683,16 +699,23 @@ export const onPurchaseRequisitionWrite = onValueWritten(
         const after = event.data.after.val();
         if (!after) return;
 
+        // 🚨 Array Shift Protection
+        if (before && after && before.id && after.id && before.id !== after.id) {
+            console.log(`[CF] onPurchaseRequisitionWrite — SKIP array shift (before.id=${before.id}, after.id=${after.id})`);
+            return;
+        }
+
         const isNew = !before;
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
 
-        // Deduplication: ป้องกันส่งซ้ำภายใน 30 วินาที
+        // Deduplication: ใช้ ID จริง (ไม่ใช่ array index)
+        const actualId = after.id || after.prNumber || event.params.prId;
         const dedupStatus = isNew ? 'new' : after.status;
-        const dedupKey = `pr_${event.params.prId}_${dedupStatus}`;
+        const dedupKey = `pr_${actualId}_${dedupStatus}`;
         if (!await checkAndSetDedup(dedupKey)) return;
 
-        console.log('[CF] onPurchaseRequisitionWrite — prId:', event.params.prId, 'isNew:', isNew, 'status:', after.status);
+        console.log('[CF] onPurchaseRequisitionWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
         const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
         const header = `เลขที่: <b>${after.prNumber || '-'}</b>\nSupplier: ${after.supplier || '-'}\nยอดรวม: ฿${(after.totalAmount || 0).toLocaleString()}`;
