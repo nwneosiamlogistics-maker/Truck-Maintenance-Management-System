@@ -50,34 +50,41 @@ function thaiDate(): string {
     return new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
 }
 
-// ==================== Deduplication Cache ====================
-// ป้องกัน Cloud Function ส่งข้อความซ้ำภายใน DEDUP_WINDOW_MS
-// เกิดเนื่องจาก useFirebase hook อาจ write Firebase หลายครั้ง (optimistic update + server echo)
-// เพิ่มเป็น 5 นาทีเพื่อป้องกันการบันทึกซ้ำภายในช่วงเวลาสั้นๆ
-const DEDUP_WINDOW_MS = 300_000; // 5 นาที (300,000 ms)
+// ==================== Status-Based Deduplication ====================
+// แก้ปัญหาแจ้งเตือนซ้ำจาก:
+// 1. useFirebase เขียนทั้ง array → deepNormalizeFirebase ทำให้ข้อมูลดู "เปลี่ยน" → trigger ซ้ำ
+// 2. Time-based dedup (5 นาที) หมดอายุ → ส่งซ้ำได้
+// 3. setTimeout ใน Cloud Function ไม่น่าเชื่อถือ
+//
+// วิธีใหม่: จำ "สถานะล่าสุดที่แจ้งเตือนไปแล้ว" ของแต่ละรายการ (ไม่มีหมดอายุ)
+// ส่งแจ้งเตือนเฉพาะเมื่อสถานะเปลี่ยนจริงจากครั้งล่าสุดที่แจ้งไป
+
+interface DedupRecord {
+    status: string;   // สถานะล่าสุดที่แจ้งเตือน
+    ts: number;       // timestamp ที่แจ้ง
+}
 
 /**
- * ตรวจสอบว่าเคยส่งข้อความสำหรับ key นี้ภายใน window หรือยัง
- * ถ้ายัง → บันทึก timestamp แล้ว return true (ผ่าน)
- * ถ้าซ้ำ → return false (block)
+ * ตรวจสอบว่าสถานะปัจจุบันเคยแจ้งเตือนไปแล้วหรือยัง
+ * ถ้ายัง (สถานะใหม่จริง) → บันทึกแล้ว return true (ส่งได้)
+ * ถ้าเคยแจ้งสถานะนี้แล้ว → return false (block)
  */
-async function checkAndSetDedup(dedupKey: string): Promise<boolean> {
+async function checkAndSetDedup(dedupKey: string, currentStatus: string): Promise<boolean> {
     const db = getDatabase();
     const dedupRef = db.ref(`_telegram_dedup/${dedupKey}`);
     const snapshot = await dedupRef.once('value');
-    const lastSent: number = snapshot.val() || 0;
-    const now = Date.now();
+    const record: DedupRecord | null = snapshot.val();
 
-    if (now - lastSent < DEDUP_WINDOW_MS) {
-        console.log(`[Dedup] BLOCKED duplicate for key: ${dedupKey} (sent ${Math.round((now - lastSent) / 1000)}s ago)`);
-        return false; // ซ้ำ — ห้ามส่ง
+    // เคยแจ้งสถานะนี้ไปแล้ว → block
+    if (record && record.status === currentStatus) {
+        console.log(`[Dedup] BLOCKED — already notified ${dedupKey} with status "${currentStatus}" at ${new Date(record.ts).toISOString()}`);
+        return false;
     }
 
-    // บันทึก timestamp ใหม่
-    await dedupRef.set(now);
-    // ลบ key หลัง 5 นาทีเพื่อประหยัด storage
-    setTimeout(() => dedupRef.remove().catch(() => { }), 300_000);
-    return true; // ผ่าน — ส่งได้
+    // สถานะใหม่ → บันทึกและอนุญาตส่ง
+    await dedupRef.set({ status: currentStatus, ts: Date.now() } as DedupRecord);
+    console.log(`[Dedup] ALLOWED — ${dedupKey} status changed to "${currentStatus}"`);
+    return true;
 }
 
 
@@ -522,11 +529,11 @@ export const onRepairWrite = onValueWritten(
 
         if (!isNew && !statusChanged) return;
 
-        // Deduplication: ใช้ ID จริงของใบซ่อม (ไม่ใช่ array index) เป็น key
+        // Deduplication: ใช้ ID จริงของใบซ่อม + status-based (ไม่หมดอายุ)
         const actualId = after.id || after.repairOrderNo || event.params.repairId;
         const dedupStatus = isNew ? 'new' : after.status;
-        const dedupKey = `repair_${actualId}_${dedupStatus}`;
-        if (!await checkAndSetDedup(dedupKey)) return;
+        const dedupKey = `repair_${actualId}`;
+        if (!await checkAndSetDedup(dedupKey, dedupStatus)) return;
 
         console.log('[CF] onRepairWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
@@ -641,11 +648,11 @@ export const onPurchaseOrderWrite = onValueWritten(
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
 
-        // Deduplication: ใช้ ID จริง (ไม่ใช่ array index)
+        // Deduplication: ใช้ ID จริง + status-based (ไม่หมดอายุ)
         const actualId = after.id || after.poNumber || event.params.poId;
         const dedupStatus = isNew ? 'new' : after.status;
-        const dedupKey = `po_${actualId}_${dedupStatus}`;
-        if (!await checkAndSetDedup(dedupKey)) return;
+        const dedupKey = `po_${actualId}`;
+        if (!await checkAndSetDedup(dedupKey, dedupStatus)) return;
 
         console.log('[CF] onPurchaseOrderWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
@@ -709,11 +716,11 @@ export const onPurchaseRequisitionWrite = onValueWritten(
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
 
-        // Deduplication: ใช้ ID จริง (ไม่ใช่ array index)
+        // Deduplication: ใช้ ID จริง + status-based (ไม่หมดอายุ)
         const actualId = after.id || after.prNumber || event.params.prId;
         const dedupStatus = isNew ? 'new' : after.status;
-        const dedupKey = `pr_${actualId}_${dedupStatus}`;
-        if (!await checkAndSetDedup(dedupKey)) return;
+        const dedupKey = `pr_${actualId}`;
+        if (!await checkAndSetDedup(dedupKey, dedupStatus)) return;
 
         console.log('[CF] onPurchaseRequisitionWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
