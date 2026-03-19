@@ -89,39 +89,46 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         }
 
         const safePhotos = Array.isArray(photos) ? photos : [];
+        const safeItems = Array.isArray(prToReceive.items) ? prToReceive.items : [];
+        const linkedItems = safeItems.filter(item => item.stockId);
+        const unlinkedItems = safeItems.filter(item => !item.stockId);
 
-        // 1. Update stock
+        // แจ้งเตือนถ้ามีรายการที่ไม่ผูกกับสต็อก
+        if (unlinkedItems.length > 0) {
+            addToast(`⚠️ ${unlinkedItems.length} รายการไม่ผูกกับสต็อก (เพิ่มด้วย "เพิ่มรายการเอง") จะไม่อัพเดทยอดสต็อก: ${unlinkedItems.map(i => i.name).join(', ')}`, 'warning');
+        }
+
+        if (linkedItems.length === 0) {
+            addToast('❌ ไม่มีรายการใดผูกกับสต็อก — ยอดสต็อกจะไม่เปลี่ยนแปลง กรุณาตรวจสอบใบขอซื้อ', 'error');
+        }
+
+        // 1. Update stock — ใช้ Number() ป้องกัน string concatenation + สร้าง object ใหม่ (ไม่ mutate)
         setStock(prevStock => {
-            const newStock = [...prevStock];
-            (prToReceive.items || []).forEach(item => {
-                if (item.stockId) { // Only update items that are part of the stock
-                    const stockIndex = newStock.findIndex(s => s.id === item.stockId);
-                    if (stockIndex > -1) {
-                        const stockItem = newStock[stockIndex];
-                        const newQuantity = stockItem.quantity + item.quantity;
-                        stockItem.quantity = newQuantity;
-                        stockItem.status = calculateStockStatus(newQuantity, stockItem.minStock, stockItem.maxStock);
-                    }
+            return prevStock.map(s => {
+                const matchingItem = linkedItems.find(item => item.stockId === s.id);
+                if (matchingItem) {
+                    const addedQty = Number(matchingItem.quantity) || 0;
+                    const newQuantity = Number(s.quantity) + addedQty;
+                    return { ...s, quantity: newQuantity, status: calculateStockStatus(newQuantity, s.minStock, s.maxStock) };
                 }
+                return s;
             });
-            return newStock;
         });
 
         // 2. Create transactions
-        const newTransactions: StockTransaction[] = (prToReceive.items || [])
-            .filter(item => item.stockId) // Only create transactions for stock items
-            .map(item => ({
-                id: `TXN-IN-${Date.now()}-${item.stockId}`,
-                stockItemId: item.stockId,
-                stockItemName: item.name,
-                type: 'รับเข้า',
-                quantity: item.quantity,
-                transactionDate: new Date().toISOString(),
-                actor: 'ระบบ (รับจากใบขอซื้อ)',
-                notes: `จากใบขอซื้อเลขที่ ${prToReceive.prNumber}`,
-                documentNumber: prToReceive.prNumber,
-                pricePerUnit: item.unitPrice,
-            }));
+        const now = new Date().toISOString();
+        const newTransactions: StockTransaction[] = linkedItems.map(item => ({
+            id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
+            stockItemId: item.stockId,
+            stockItemName: item.name,
+            type: 'รับเข้า',
+            quantity: Number(item.quantity) || 0,
+            transactionDate: now,
+            actor: 'ระบบ (รับจากใบขอซื้อ)',
+            notes: `จากใบขอซื้อเลขที่ ${prToReceive.prNumber}`,
+            documentNumber: prToReceive.prNumber,
+            pricePerUnit: Number(item.unitPrice) || 0,
+        }));
         if (newTransactions.length > 0) {
             setTransactions(prev => [...newTransactions, ...prev]);
         }
@@ -129,11 +136,11 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         // 3. Update PR status
         setPurchaseRequisitions(prev => prev.map(pr =>
             pr.id === selectedPrId
-                ? { ...pr, status: 'รับของแล้ว', updatedAt: new Date().toISOString(), photos: safePhotos }
+                ? { ...pr, status: 'รับของแล้ว' as const, updatedAt: now, photos: safePhotos }
                 : pr
         ));
 
-        addToast(`รับของสำหรับใบขอซื้อ ${prToReceive.prNumber} สำเร็จ`, 'success');
+        addToast(`รับของสำหรับใบขอซื้อ ${prToReceive.prNumber} สำเร็จ${linkedItems.length > 0 ? ` (อัพเดทสต็อก ${linkedItems.length} รายการ)` : ''}`, 'success');
         setIsProcessing(false);
         onClose();
     };
