@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import ReactDOMServer from 'react-dom/server';
-import type { DrivingIncident, Driver, Vehicle } from '../types';
+import type { DrivingIncident, Driver, Vehicle, FileAttachment } from '../types';
+import PhotoUpload from './PhotoUpload';
 import { formatCurrency } from '../utils';
 import { exportToCSV } from '../utils/exportUtils';
 import {
@@ -1329,6 +1330,49 @@ ${pagesHtml}
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">รายละเอียดการบาดเจ็บ</label>
                                             <textarea value={editingIncident.injuries || ''} onChange={e => setEditingIncident({ ...editingIncident, injuries: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุอาการบาดเจ็บ (ถ้ามี)..." />
+                                        </div>
+                                    </div>
+
+                                    {/* 5.2 หลักฐาน (Evidences) — เหมือนแบบฟอร์มการสอบสวนอุบัติเหตุ */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">7. หลักฐาน (Evidences)</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปที่เกิดเหตุ</p>
+                                                <PhotoUpload
+                                                    photos={(editingIncident.photos || []).map(p => typeof p === 'string' ? p : (p as FileAttachment).url)}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id}
+                                                />
+                                            </div>
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปแนวเบรก</p>
+                                                <PhotoUpload
+                                                    photos={editingIncident.skidMarkPhotos || []}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, skidMarkPhotos: photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id + '-skid'}
+                                                />
+                                            </div>
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> ใบกำกับขนส่ง</p>
+                                                <PhotoUpload
+                                                    photos={editingIncident.transportDocs || []}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, transportDocs: photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id + '-docs'}
+                                                />
+                                            </div>
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> กราฟ GPS</p>
+                                                <PhotoUpload
+                                                    photos={editingIncident.gpsPhotos || []}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, gpsPhotos: photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id + '-gps'}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

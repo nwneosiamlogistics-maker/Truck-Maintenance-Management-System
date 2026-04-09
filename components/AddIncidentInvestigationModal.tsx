@@ -136,11 +136,11 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
         recommendations: [],
         investigationTeam: [],
 
-        evidences: {
-            incidentPhotos: [],
-            skidPhotos: [],
-            transportDocs: [],
-            gpsGraphs: [],
+        evidence: {
+            accidentPhotos: [],
+            skidMarkPhotos: [],
+            transportManifest: [],
+            gpsData: [],
         },
 
         siteConditions: {},
@@ -603,10 +603,10 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                         <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
                                             <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปที่เกิดเหตุ</p>
                                             <PhotoUpload
-                                                photos={formData.evidences?.incidentPhotos || []}
+                                                photos={formData.evidence?.accidentPhotos || []}
                                                 onChange={(photos) => setFormData(prev => ({
                                                     ...prev,
-                                                    evidences: { ...prev.evidences, incidentPhotos: photos }
+                                                    evidence: { ...prev.evidence, accidentPhotos: photos }
                                                 }))}
                                                 entity="incident-investigation"
                                                 entityId={formData.reportNo || 'new'}
@@ -615,10 +615,10 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                         <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
                                             <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปแนวเบรก</p>
                                             <PhotoUpload
-                                                photos={formData.evidences?.skidPhotos || []}
+                                                photos={formData.evidence?.skidMarkPhotos || []}
                                                 onChange={(photos) => setFormData(prev => ({
                                                     ...prev,
-                                                    evidences: { ...prev.evidences, skidPhotos: photos }
+                                                    evidence: { ...prev.evidence, skidMarkPhotos: photos }
                                                 }))}
                                                 entity="incident-investigation"
                                                 entityId={(formData.reportNo || 'new') + '-skid'}
@@ -627,10 +627,10 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                         <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
                                             <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> ใบกำกับขนส่ง</p>
                                             <PhotoUpload
-                                                photos={formData.evidences?.transportDocs || []}
+                                                photos={formData.evidence?.transportManifest || []}
                                                 onChange={(photos) => setFormData(prev => ({
                                                     ...prev,
-                                                    evidences: { ...prev.evidences, transportDocs: photos }
+                                                    evidence: { ...prev.evidence, transportManifest: photos }
                                                 }))}
                                                 entity="incident-investigation"
                                                 entityId={(formData.reportNo || 'new') + '-docs'}
@@ -639,10 +639,10 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                         <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
                                             <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> กราฟ GPS</p>
                                             <PhotoUpload
-                                                photos={formData.evidences?.gpsGraphs || []}
+                                                photos={formData.evidence?.gpsData || []}
                                                 onChange={(photos) => setFormData(prev => ({
                                                     ...prev,
-                                                    evidences: { ...prev.evidences, gpsGraphs: photos }
+                                                    evidence: { ...prev.evidence, gpsData: photos }
                                                 }))}
                                                 entity="incident-investigation"
                                                 entityId={(formData.reportNo || 'new') + '-gps'}

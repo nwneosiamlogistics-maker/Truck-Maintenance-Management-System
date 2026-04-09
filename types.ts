@@ -892,6 +892,9 @@ export interface DrivingIncident {
 
     // Evidence
     photos?: FileAttachment[] | string[];
+    skidMarkPhotos?: string[];
+    transportDocs?: string[];
+    gpsPhotos?: string[];
     policeReport?: FileAttachment;
 
 
@@ -1290,10 +1293,10 @@ export interface IncidentInvestigationReport {
 
     // 5.2 Evidence
     evidence: {
-        accidentPhotos?: FileAttachment[];
-        skidMarkPhotos?: FileAttachment[];
-        transportManifest?: FileAttachment[];
-        gpsData?: FileAttachment[];
+        accidentPhotos?: string[];
+        skidMarkPhotos?: string[];
+        transportManifest?: string[];
+        gpsData?: string[];
     };
 
     createdAt: string;
