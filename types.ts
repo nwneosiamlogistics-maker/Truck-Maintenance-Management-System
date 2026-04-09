@@ -897,8 +897,112 @@ export interface DrivingIncident {
     gpsPhotos?: string[];
     policeReport?: FileAttachment;
 
-
     pointsDeducted?: number;
+
+    // Notifications (5.1)
+    notifications?: {
+        policeNotified?: boolean;
+        insuranceNotified?: boolean;
+        managerNotified?: boolean;
+        safetyTeamNotified?: boolean;
+    };
+
+    // Drug & Alcohol Test (6)
+    drugAlcoholTest?: {
+        alcoholResult?: 'Not Tested' | 'Found' | 'Not Found';
+        alcoholValueMg?: string;
+        drugResult?: 'Not Tested' | 'Found' | 'Not Found';
+    };
+
+    // Injured Persons (8)
+    injuredEmployees?: Array<{ name: string; age?: number; jobTitle?: string; injuryNature?: string }>;
+    injuredThirdParties?: Array<{ name: string; age?: number; jobTitle?: string; injuryNature?: string }>;
+
+    // Damaged Products (9)
+    damagedProducts?: Array<{ name: string; quantity?: number; estimatedLoss?: number }>;
+
+    // Environmental Impact (10)
+    envImpactDetails?: string;
+    envEstimatedLoss?: number;
+
+    // Damaged Properties (11)
+    damagedProperties?: Array<{ description: string; owner?: 'Company' | '3rd Party'; estimatedLoss?: number }>;
+
+    // Authorities & Media (12-13)
+    authoritiesInvolved?: string;
+    mediaCoverage?: string;
+    mediaDetails?: string;
+
+    // Effect on Equipment / Product (14)
+    effectOnEquipment?: string;
+    effectOnProductQuality?: string;
+
+    // Preventive Actions (15)
+    preventiveActions?: Array<{ action: string; responsiblePerson?: string; dueDate?: string; completedDate?: string }>;
+
+    // Recommendations (16)
+    recommendations?: Array<{ recommendation: string; responsiblePerson?: string }>;
+
+    // Investigation Team (17)
+    investigationTeam?: Array<{ name: string; position: string; company: string }>;
+
+    // Management Review (18)
+    managementReview?: {
+        requireMoreInvestigation?: boolean;
+        reviewerName?: string;
+        reviewerPosition?: string;
+        reviewerCompany?: string;
+        reviewedDate?: string;
+    };
+
+    // Top Management Acknowledge (19)
+    topManagementAcknowledge?: {
+        name?: string;
+        position?: string;
+        company?: string;
+        date?: string;
+    };
+
+    // SCAT Analysis
+    scatAnalysis?: {
+        immediateCategory?: string;
+        basicCategory?: string;
+    };
+
+    // Why-Why Analysis
+    whyWhyAnalysis?: {
+        problem?: string;
+        roots?: any[];
+    };
+
+    // Root Cause Checklist (14)
+    rootCauseAnalysis?: {
+        personalFactors: string[];
+        routeHazardous: string[];
+        truckCondition: string[];
+        environment: string[];
+        companyPolicy: string[];
+        remarks?: string;
+    };
+
+    // Site Conditions
+    siteConditions?: {
+        roadSurface?: string;
+        lighting?: string;
+        visibility?: string;
+        locationType?: string;
+        locationTypeOther?: string;
+    };
+
+    // Linked Claims
+    relatedVehicleClaimId?: string;
+    relatedCargoClaimId?: string;
+
+    // Investigator
+    investigatorName?: string;
+    investigationDate?: string;
+
+    status?: 'Open' | 'Investigating' | 'Closed';
 
     createdAt: string;
     createdBy: string;

@@ -689,23 +689,117 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                     </div>
                                 </div>
 
-                                {/* Damages List */}
+                                {/* 8. Injured Persons */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-                                    <h4 className="font-bold text-slate-800 border-b pb-2">ความเสียหาย (Damages)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        {/* Product Damage */}
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-2">สินค้าเสียหาย (Product)</label>
-                                            <div className="border border-dashed border-slate-300 p-4 rounded-xl text-center text-slate-400 hover:bg-slate-50 cursor-pointer">
-                                                + เพิ่มรายการสินค้าเสียหาย
+                                    <h4 className="font-bold text-slate-800 border-b pb-2">8. รายชื่อผู้บาดเจ็บ (Injured Persons)</h4>
+                                    <div className="space-y-4">
+                                        <h5 className="font-bold text-sm text-slate-600">พนักงานบริษัท (Employees)</h5>
+                                        {(formData.injuredEmployees || []).map((emp, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                                                <input type="text" placeholder="ชื่อ-นามสกุล" value={emp.name} onChange={e => { const arr = [...(formData.injuredEmployees || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setFormData({ ...formData, injuredEmployees: arr }); }} className="form-input" />
+                                                <input type="number" placeholder="อายุ" value={emp.age || ''} onChange={e => { const arr = [...(formData.injuredEmployees || [])]; arr[idx] = { ...arr[idx], age: parseInt(e.target.value) }; setFormData({ ...formData, injuredEmployees: arr }); }} className="form-input" title="อายุ" />
+                                                <input type="text" placeholder="ตำแหน่ง" value={emp.jobTitle || ''} onChange={e => { const arr = [...(formData.injuredEmployees || [])]; arr[idx] = { ...arr[idx], jobTitle: e.target.value }; setFormData({ ...formData, injuredEmployees: arr }); }} className="form-input" />
+                                                <input type="text" placeholder="ลักษณะอาการบาดเจ็บ" value={emp.injuryNature || ''} onChange={e => { const arr = [...(formData.injuredEmployees || [])]; arr[idx] = { ...arr[idx], injuryNature: e.target.value }; setFormData({ ...formData, injuredEmployees: arr }); }} className="form-input" />
+                                                <button type="button" onClick={() => { const arr = (formData.injuredEmployees || []).filter((_, i) => i !== idx); setFormData({ ...formData, injuredEmployees: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
                                             </div>
+                                        ))}
+                                        <button type="button" onClick={() => setFormData({ ...formData, injuredEmployees: [...(formData.injuredEmployees || []), { name: '', age: undefined, jobTitle: '', injuryNature: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มพนักงานบาดเจ็บ</button>
+
+                                        <h5 className="font-bold text-sm text-slate-600 mt-4">บุคคลภายนอก (Third Parties)</h5>
+                                        {(formData.injuredThirdParties || []).map((tp, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                                                <input type="text" placeholder="ชื่อ-นามสกุล" value={tp.name} onChange={e => { const arr = [...(formData.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setFormData({ ...formData, injuredThirdParties: arr }); }} className="form-input" />
+                                                <input type="number" placeholder="อายุ" value={tp.age || ''} onChange={e => { const arr = [...(formData.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], age: parseInt(e.target.value) }; setFormData({ ...formData, injuredThirdParties: arr }); }} className="form-input" title="อายุ" />
+                                                <input type="text" placeholder="ตำแหน่ง/อาชีพ" value={tp.jobTitle || ''} onChange={e => { const arr = [...(formData.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], jobTitle: e.target.value }; setFormData({ ...formData, injuredThirdParties: arr }); }} className="form-input" />
+                                                <input type="text" placeholder="ลักษณะอาการบาดเจ็บ" value={tp.injuryNature || ''} onChange={e => { const arr = [...(formData.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], injuryNature: e.target.value }; setFormData({ ...formData, injuredThirdParties: arr }); }} className="form-input" />
+                                                <button type="button" onClick={() => { const arr = (formData.injuredThirdParties || []).filter((_, i) => i !== idx); setFormData({ ...formData, injuredThirdParties: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => setFormData({ ...formData, injuredThirdParties: [...(formData.injuredThirdParties || []), { name: '', age: undefined, jobTitle: '', injuryNature: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มบุคคลภายนอกบาดเจ็บ</button>
+                                    </div>
+                                </div>
+
+                                {/* 9. Damaged Products */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2">9. สินค้าเสียหาย (Damaged Products)</h4>
+                                    {(formData.damagedProducts || []).map((prod, idx) => (
+                                        <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                            <input type="text" placeholder="ชื่อสินค้า" value={prod.name} onChange={e => { const arr = [...(formData.damagedProducts || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setFormData({ ...formData, damagedProducts: arr }); }} className="form-input" />
+                                            <input type="number" placeholder="จำนวน" value={prod.quantity || ''} onChange={e => { const arr = [...(formData.damagedProducts || [])]; arr[idx] = { ...arr[idx], quantity: parseInt(e.target.value) || 0 }; setFormData({ ...formData, damagedProducts: arr }); }} className="form-input" title="จำนวน" />
+                                            <input type="number" placeholder="ประมาณการเสียหาย (บาท)" value={prod.estimatedLoss || ''} onChange={e => { const arr = [...(formData.damagedProducts || [])]; arr[idx] = { ...arr[idx], estimatedLoss: parseFloat(e.target.value) || 0 }; setFormData({ ...formData, damagedProducts: arr }); }} className="form-input" title="ประมาณการเสียหาย" />
+                                            <button type="button" onClick={() => { const arr = (formData.damagedProducts || []).filter((_, i) => i !== idx); setFormData({ ...formData, damagedProducts: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
                                         </div>
-                                        {/* Property Damage */}
+                                    ))}
+                                    <button type="button" onClick={() => setFormData({ ...formData, damagedProducts: [...(formData.damagedProducts || []), { name: '', quantity: 0, estimatedLoss: 0 }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มรายการสินค้าเสียหาย</button>
+                                </div>
+
+                                {/* 10. Environmental Impact */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2">10. ผลกระทบต่อสิ่งแวดล้อม/ชุมชน (Environmental Impact)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-2">ทรัพย์สินเสียหาย (Property)</label>
-                                            <div className="border border-dashed border-slate-300 p-4 rounded-xl text-center text-slate-400 hover:bg-slate-50 cursor-pointer">
-                                                + เพิ่มรายการทรัพย์สินเสียหาย
-                                            </div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">รายละเอียดผลกระทบ</label>
+                                            <textarea value={formData.envProximityDetails || ''} onChange={e => setFormData({ ...formData, envProximityDetails: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุผลกระทบต่อสิ่งแวดล้อม/ชุมชนโดยรอบ..." />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">ประมาณการเสียหาย (บาท)</label>
+                                            <input type="number" value={formData.envEstimatedLoss || ''} onChange={e => setFormData({ ...formData, envEstimatedLoss: parseFloat(e.target.value) || 0 })} className="w-full form-input" placeholder="0" title="ประมาณการเสียหายสิ่งแวดล้อม" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 11. Property Damage */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2">11. ทรัพย์สินเสียหาย (Damaged Properties)</h4>
+                                    {(formData.damagedProperties || []).map((prop, idx) => (
+                                        <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                            <input type="text" placeholder="รายละเอียดทรัพย์สิน" value={prop.description} onChange={e => { const arr = [...(formData.damagedProperties || [])]; arr[idx] = { ...arr[idx], description: e.target.value }; setFormData({ ...formData, damagedProperties: arr }); }} className="form-input" />
+                                            <select value={prop.owner} onChange={e => { const arr = [...(formData.damagedProperties || [])]; arr[idx] = { ...arr[idx], owner: e.target.value as 'Company' | '3rd Party' }; setFormData({ ...formData, damagedProperties: arr }); }} className="form-select" title="เจ้าของทรัพย์สิน" aria-label="เจ้าของทรัพย์สิน">
+                                                <option value="Company">บริษัท (Company)</option>
+                                                <option value="3rd Party">บุคคลที่ 3 (3rd Party)</option>
+                                            </select>
+                                            <input type="number" placeholder="ประมาณการเสียหาย (บาท)" value={prop.estimatedLoss || ''} onChange={e => { const arr = [...(formData.damagedProperties || [])]; arr[idx] = { ...arr[idx], estimatedLoss: parseFloat(e.target.value) || 0 }; setFormData({ ...formData, damagedProperties: arr }); }} className="form-input" title="ประมาณการเสียหาย" />
+                                            <button type="button" onClick={() => { const arr = (formData.damagedProperties || []).filter((_, i) => i !== idx); setFormData({ ...formData, damagedProperties: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => setFormData({ ...formData, damagedProperties: [...(formData.damagedProperties || []), { description: '', owner: 'Company', estimatedLoss: 0 }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มรายการทรัพย์สินเสียหาย</button>
+                                </div>
+
+                                {/* 12-13. Authorities & Media */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2">12-13. หน่วยงานที่เกี่ยวข้อง & สื่อมวลชน (Authorities & Media)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">หน่วยงานภาครัฐที่เข้ามาตรวจสอบ</label>
+                                            <textarea value={formData.authoritiesInvolved || ''} onChange={e => setFormData({ ...formData, authoritiesInvolved: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ตำรวจ, กรมโรงงาน, สวล. ฯลฯ..." />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">การรายงานข่าวของสื่อมวลชน</label>
+                                            <select value={formData.mediaCoverage || 'None'} onChange={e => setFormData({ ...formData, mediaCoverage: e.target.value as any })} className="w-full form-select" title="สื่อมวลชน" aria-label="สื่อมวลชน">
+                                                <option value="None">ไม่มี (None)</option>
+                                                <option value="Radio">วิทยุ (Radio)</option>
+                                                <option value="TV">โทรทัศน์ (TV)</option>
+                                                <option value="Newspaper">หนังสือพิมพ์ (Newspaper)</option>
+                                                <option value="Other">อื่นๆ (Other)</option>
+                                            </select>
+                                            {formData.mediaCoverage && formData.mediaCoverage !== 'None' && (
+                                                <input type="text" placeholder="ระบุรายละเอียดสื่อ..." value={formData.mediaDetails || ''} onChange={e => setFormData({ ...formData, mediaDetails: e.target.value })} className="w-full form-input" />
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 14. Effect on Equipment / Product Quality */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2">14. ผลกระทบต่ออุปกรณ์ / คุณภาพสินค้า (Effect on Equipment & Product)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">ผลกระทบต่ออุปกรณ์ (Equipment)</label>
+                                            <textarea value={formData.effectOnEquipment || ''} onChange={e => setFormData({ ...formData, effectOnEquipment: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุผลกระทบต่ออุปกรณ์/เครื่องจักร..." />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">ผลกระทบต่อคุณภาพสินค้า (Product Quality)</label>
+                                            <textarea value={formData.effectOnProductQuality || ''} onChange={e => setFormData({ ...formData, effectOnProductQuality: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุผลกระทบต่อคุณภาพสินค้า..." />
                                         </div>
                                     </div>
                                 </div>
@@ -1191,37 +1285,91 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                         activeTab === 'Outcome' && (
                             <div className="space-y-8 animate-fade-in">
 
-                                {/* Preventive Action */}
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <h4 className="font-bold text-slate-800 border-b pb-2 mb-4">15. มาตรการแก้ไข (Preventive Action)</h4>
-                                    <textarea className="w-full form-textarea mb-4" placeholder="ระบุมาตรการ..." rows={3} />
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <input type="text" placeholder="ผู้รับผิดชอบ" className="form-input" />
-                                        <input type="date" placeholder="กำหนดเสร็จ" className="form-input" />
-                                        <input type="date" placeholder="เสร็จจริง" className="form-input" />
-                                    </div>
+                                {/* 15. Preventive Actions */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2 mb-2">15. มาตรการแก้ไข (Preventive Actions)</h4>
+                                    {(formData.preventiveActions || []).map((pa, idx) => (
+                                        <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end p-3 bg-slate-50 rounded-xl">
+                                            <div className="md:col-span-2">
+                                                <label className="block text-xs font-bold text-slate-500 mb-1">มาตรการ</label>
+                                                <textarea value={pa.action} onChange={e => { const arr = [...(formData.preventiveActions || [])]; arr[idx] = { ...arr[idx], action: e.target.value }; setFormData({ ...formData, preventiveActions: arr }); }} rows={2} className="w-full form-textarea text-sm" placeholder="ระบุมาตรการ..." />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1">ผู้รับผิดชอบ</label>
+                                                <input type="text" value={pa.responsiblePerson} onChange={e => { const arr = [...(formData.preventiveActions || [])]; arr[idx] = { ...arr[idx], responsiblePerson: e.target.value }; setFormData({ ...formData, preventiveActions: arr }); }} className="form-input" placeholder="ชื่อ" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1">กำหนดเสร็จ</label>
+                                                <input type="date" value={pa.dueDate} onChange={e => { const arr = [...(formData.preventiveActions || [])]; arr[idx] = { ...arr[idx], dueDate: e.target.value }; setFormData({ ...formData, preventiveActions: arr }); }} className="form-input" title="กำหนดเสร็จ" aria-label="กำหนดเสร็จ" />
+                                            </div>
+                                            <div className="flex gap-2 items-end">
+                                                <div className="flex-1">
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">เสร็จจริง</label>
+                                                    <input type="date" value={pa.completedDate || ''} onChange={e => { const arr = [...(formData.preventiveActions || [])]; arr[idx] = { ...arr[idx], completedDate: e.target.value }; setFormData({ ...formData, preventiveActions: arr }); }} className="form-input" title="เสร็จจริง" aria-label="เสร็จจริง" />
+                                                </div>
+                                                <button type="button" onClick={() => { const arr = (formData.preventiveActions || []).filter((_, i) => i !== idx); setFormData({ ...formData, preventiveActions: arr }); }} className="px-2 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => setFormData({ ...formData, preventiveActions: [...(formData.preventiveActions || []), { action: '', responsiblePerson: '', dueDate: '', completedDate: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มมาตรการแก้ไข</button>
                                 </div>
 
-                                {/* Investigation Team */}
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <h4 className="font-bold text-slate-800 border-b pb-2 mb-4">17. ทีมสอบสวน (Investigation Team)</h4>
-                                    <div className="space-y-2">
-                                        <div className="hidden sm:grid grid-cols-3 gap-4 text-sm font-bold text-slate-500 mb-2">
-                                            <div>ชื่อ-นามสกุล</div>
-                                            <div>ตำแหน่ง</div>
-                                            <div>บริษัท</div>
+                                {/* 16. Recommendations */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2 mb-2">16. ข้อเสนอแนะ (Recommendations)</h4>
+                                    {(formData.recommendations || []).map((rec, idx) => (
+                                        <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                            <div className="md:col-span-2">
+                                                <input type="text" placeholder="ข้อเสนอแนะ" value={rec.recommendation} onChange={e => { const arr = [...(formData.recommendations || [])]; arr[idx] = { ...arr[idx], recommendation: e.target.value }; setFormData({ ...formData, recommendations: arr }); }} className="form-input" />
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input type="text" placeholder="ผู้รับผิดชอบ" value={rec.responsiblePerson} onChange={e => { const arr = [...(formData.recommendations || [])]; arr[idx] = { ...arr[idx], responsiblePerson: e.target.value }; setFormData({ ...formData, recommendations: arr }); }} className="form-input flex-1" />
+                                                <button type="button" onClick={() => { const arr = (formData.recommendations || []).filter((_, i) => i !== idx); setFormData({ ...formData, recommendations: arr }); }} className="px-2 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                            </div>
                                         </div>
-                                        {/* Mock row 1 */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                            <input type="text" placeholder="Name" className="form-input" />
-                                            <input type="text" placeholder="Position" className="form-input" />
-                                            <input type="text" placeholder="Company" className="form-input" />
+                                    ))}
+                                    <button type="button" onClick={() => setFormData({ ...formData, recommendations: [...(formData.recommendations || []), { recommendation: '', responsiblePerson: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มข้อเสนอแนะ</button>
+                                </div>
+
+                                {/* 17. Investigation Team */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2 mb-2">17. ทีมสอบสวน (Investigation Team)</h4>
+                                    <div className="hidden sm:grid grid-cols-4 gap-4 text-sm font-bold text-slate-500 mb-1">
+                                        <div>ชื่อ-นามสกุล</div>
+                                        <div>ตำแหน่ง</div>
+                                        <div>บริษัท</div>
+                                        <div></div>
+                                    </div>
+                                    {(formData.investigationTeam || []).map((member, idx) => (
+                                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                                            <input type="text" placeholder="ชื่อ-นามสกุล" value={member.name} onChange={e => { const arr = [...(formData.investigationTeam || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setFormData({ ...formData, investigationTeam: arr }); }} className="form-input" />
+                                            <input type="text" placeholder="ตำแหน่ง" value={member.position} onChange={e => { const arr = [...(formData.investigationTeam || [])]; arr[idx] = { ...arr[idx], position: e.target.value }; setFormData({ ...formData, investigationTeam: arr }); }} className="form-input" />
+                                            <input type="text" placeholder="บริษัท" value={member.company} onChange={e => { const arr = [...(formData.investigationTeam || [])]; arr[idx] = { ...arr[idx], company: e.target.value }; setFormData({ ...formData, investigationTeam: arr }); }} className="form-input" />
+                                            <button type="button" onClick={() => { const arr = (formData.investigationTeam || []).filter((_, i) => i !== idx); setFormData({ ...formData, investigationTeam: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
                                         </div>
-                                        {/* Mock row 2 */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                            <input type="text" placeholder="Name" className="form-input" />
-                                            <input type="text" placeholder="Position" className="form-input" />
-                                            <input type="text" placeholder="Company" className="form-input" />
+                                    ))}
+                                    <button type="button" onClick={() => setFormData({ ...formData, investigationTeam: [...(formData.investigationTeam || []), { name: '', position: '', company: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มสมาชิกทีม</button>
+                                </div>
+
+                                {/* Status & Investigator */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                    <h4 className="font-bold text-slate-800 border-b pb-2">สถานะ & ผู้สอบสวน (Status & Investigator)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">สถานะ (Status)</label>
+                                            <select value={formData.status || 'Open'} onChange={e => setFormData({ ...formData, status: e.target.value as any })} className="w-full form-select" title="สถานะ" aria-label="สถานะ">
+                                                <option value="Open">เปิด (Open)</option>
+                                                <option value="Investigating">กำลังสอบสวน (Investigating)</option>
+                                                <option value="Closed">ปิด (Closed)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">ผู้จัดทำ (Investigator)</label>
+                                            <input type="text" value={formData.investigatorName || ''} onChange={e => setFormData({ ...formData, investigatorName: e.target.value })} className="w-full form-input" placeholder="ชื่อผู้สอบสวน" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">วันที่สอบสวน</label>
+                                            <input type="date" value={formData.investigationDate || ''} onChange={e => setFormData({ ...formData, investigationDate: e.target.value })} className="w-full form-input" title="วันที่สอบสวน" aria-label="วันที่สอบสวน" />
                                         </div>
                                     </div>
                                 </div>
