@@ -416,7 +416,7 @@ const AppContent: React.FC<AppContentProps> = ({
                     repairs={repairs}
                 />;
             case 'incident-log':
-                return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} />;
+                return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} setIncidents={setDrivingIncidents} />;
             case 'repair-categories':
                 return <RepairCategoryManagement repairCategories={repairCategories} setRepairCategories={setRepairCategories} />;
             case 'safety-plan':

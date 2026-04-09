@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import ReactDOMServer from 'react-dom/server';
 import type { DrivingIncident, Driver, Vehicle } from '../types';
 import { formatCurrency } from '../utils';
 import { exportToCSV } from '../utils/exportUtils';
@@ -6,21 +7,25 @@ import {
     Search, Download, FileText, Filter, AlertTriangle,
     TrendingDown, ShieldCheck, DollarSign, Calendar, MapPin,
     User, Truck, Info, Printer, Clock, X, Eye, FileCheck, Camera,
-    Zap, ChevronLeft, ChevronRight, ChevronDown, Trash2, Activity
+    Zap, ChevronLeft, ChevronRight, ChevronDown, Trash2, Activity,
+    Pencil, Save
 } from 'lucide-react';
 
 interface IncidentLogPageProps {
     incidents: DrivingIncident[];
     drivers: Driver[];
     vehicles: Vehicle[];
+    setIncidents: React.Dispatch<React.SetStateAction<DrivingIncident[]>>;
 }
 
-const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, vehicles }) => {
+const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, vehicles, setIncidents }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState<'all' | DrivingIncident['type']>('all');
     const [severityFilter, setSeverityFilter] = useState<'all' | DrivingIncident['severity']>('all');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [selectedIncident, setSelectedIncident] = useState<DrivingIncident | null>(null);
+    const [editingIncident, setEditingIncident] = useState<DrivingIncident | null>(null);
+    const [editTab, setEditTab] = useState<'General' | 'Details' | 'Damage' | 'Insurance'>('General');
 
     const handleSelectIncident = (incident: DrivingIncident | null) => {
         setSelectedIncident(incident);
@@ -511,6 +516,155 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
         }
     };
 
+    const handleDownloadPDF = () => {
+        if (!selectedIncident) return;
+        const incident = selectedIncident;
+
+        const pagesHtml = Array.from({ length: 10 }, (_, i) => {
+            const el = renderOfficialPage(i + 1, incident);
+            return el ? ReactDOMServer.renderToStaticMarkup(el) : '';
+        }).join('\n');
+
+        const dateStr = new Date(incident.date).toLocaleDateString('th-TH').replace(/\//g, '-');
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert('ไม่สามารถเปิดหน้าต่างได้ กรุณาอนุญาต popup');
+            return;
+        }
+
+        printWindow.document.write(`<!DOCTYPE html>
+<html lang="th"><head>
+<meta charset="UTF-8"/>
+<title>Incident_Report_${dateStr}</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0; padding: 0;
+        font-family: 'Sarabun', sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        background: #f1f5f9;
+    }
+    @page { size: A4; margin: 0; }
+    @media print {
+        html, body { background: white; }
+        .official-report-page { box-shadow: none !important; margin: 0 !important; }
+        .official-report-page:last-child { page-break-after: auto; }
+        .no-print { display: none !important; }
+    }
+    .official-report-page {
+        width: 210mm;
+        min-height: 297mm;
+        padding: 20mm 15mm;
+        margin: 10px auto;
+        position: relative;
+        font-size: 10pt;
+        line-height: 1.6;
+        background: white;
+        color: #000;
+        box-shadow: 0 4px 24px rgba(0,0,0,.12);
+        page-break-after: always;
+    }
+    .report-header-grid {
+        border: 2px solid #000;
+        display: grid;
+        grid-template-columns: 2.5fr 1fr;
+        margin-bottom: 1rem;
+    }
+    .header-box {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    .header-box-l { border-right: 2px solid #000; }
+    .checkbox-box {
+        width: 14px; height: 14px;
+        border: 1.5px solid #000;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+        vertical-align: middle;
+        background: #fff;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    .signature-line {
+        border-bottom: 1.5px solid #000;
+        flex: 1;
+        margin: 0 8px;
+        min-width: 80px;
+        display: inline-block;
+    }
+    .footer-maroon {
+        border-top: 3.5px solid #800000;
+        padding-top: 8px;
+        font-weight: 900;
+        color: #000;
+        display: flex;
+        justify-content: space-between;
+        font-size: 9pt;
+        position: absolute;
+        bottom: 10mm;
+        left: 15mm;
+        right: 15mm;
+    }
+    table, th, td {
+        border: 1.5px solid #000 !important;
+        border-collapse: collapse;
+    }
+    .why-why-tree { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 20px; }
+    .why-box { border: 2px solid #3b82f6; border-radius: 8px; padding: 10px; width: 140px; text-align: center; background: #eff6ff; font-size: 8pt; }
+    .why-header { border: 2px solid #3b82f6; border-radius: 8px; padding: 10px; width: 140px; text-align: center; background: #60a5fa; color: white; font-weight: 900; font-size: 8pt; }
+    .scat-column { border: 2px solid #000; padding: 10px; width: 100px; text-align: center; background: #fff; font-size: 8pt; min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
+    .toolbar {
+        position: sticky; top: 0; z-index: 100;
+        background: #1e293b; color: white;
+        padding: 12px 24px;
+        display: flex; align-items: center; justify-content: space-between;
+        font-family: 'Sarabun', sans-serif;
+    }
+    .toolbar button {
+        padding: 10px 28px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+        font-family: 'Sarabun', sans-serif;
+    }
+    .btn-print { background: #dc2626; color: white; }
+    .btn-print:hover { background: #b91c1c; }
+    .btn-close { background: #475569; color: white; margin-left: 8px; }
+    .btn-close:hover { background: #334155; }
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+    <span style="font-size:15px;font-weight:700;">📄 Incident Report — ${incident.type} — ${dateStr} (${10} หน้า)</span>
+    <div>
+        <button class="btn-print" onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
+        <button class="btn-close" onclick="window.close()">✕ ปิด</button>
+    </div>
+</div>
+${pagesHtml}
+</body></html>`);
+        printWindow.document.close();
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingIncident) return;
+        setIncidents(prev => prev.map(inc => inc.id === editingIncident.id ? editingIncident : inc));
+        setEditingIncident(null);
+    };
+
     // Filter Logic
     const filteredIncidents = useMemo(() => {
         const safeIncidents = Array.isArray(incidents) ? incidents : [];
@@ -676,19 +830,28 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         visibility: hidden !important;
                     }
 
+                    /* Hide ALL non-report content completely */
+                    .print-list-section,
+                    .print\:hidden {
+                        display: none !important;
+                    }
+
                     /* TARGET THE REPORT CONTAINER */
                     .official-report-container {
                         visibility: visible !important;
                         display: block !important;
-                        position: absolute !important; /* Absolute allows flowing multiple pages */
+                        position: absolute !important;
                         top: 0 !important;
                         left: 0 !important;
+                        right: auto !important;  /* Override inset-0 */
+                        bottom: auto !important;  /* Override inset-0 — KEY FIX: allows content to grow beyond 1 page */
                         width: 210mm !important;
                         height: auto !important;
                         z-index: 999999 !important;
                         background: white !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        overflow: visible !important;
                     }
                     
                     .official-report-container * {
@@ -699,14 +862,20 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         margin: 0 !important;
                         border: none !important;
                         width: 210mm !important;
-                        min-height: 297mm !important;
+                        height: 297mm !important;
                         page-break-after: always !important;
+                        page-break-inside: avoid !important;
                         background: white !important;
                         box-shadow: none !important;
                         position: relative !important;
-                        /* Ensure no offsets */
                         left: auto !important;
                         top: auto !important;
+                        overflow: hidden !important;
+                    }
+
+                    /* Prevent blank trailing page after last report page */
+                    .official-report-page:last-child {
+                        page-break-after: auto !important;
                     }
 
                     .footer-maroon {
@@ -998,10 +1167,18 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                                                     <button
                                                         onClick={() => handleSelectIncident(incident)}
                                                         className="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all shadow-sm"
-                                                        title="View Details"
-                                                        aria-label="View Details"
+                                                        title="ดูรายละเอียด"
+                                                        aria-label="ดูรายละเอียด"
                                                     >
                                                         <Eye size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingIncident({ ...incident })}
+                                                        className="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-200 rounded-xl transition-all shadow-sm"
+                                                        title="แก้ไขข้อมูล"
+                                                        aria-label="แก้ไขข้อมูล"
+                                                    >
+                                                        <Pencil size={16} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -1026,6 +1203,227 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                     </table>
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {editingIncident && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-start p-4 pt-6 overflow-y-auto" onClick={() => setEditingIncident(null)}>
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+
+                        {/* Header - เหมือน AddIncidentInvestigationModal */}
+                        <div className="p-4 sm:p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 flex-shrink-0 space-y-3">
+                            <div className="flex justify-between items-start">
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-lg sm:text-2xl font-bold text-slate-800 truncate">📝 แก้ไขข้อมูลเหตุการณ์</h3>
+                                    <p className="text-xs sm:text-sm text-slate-500 mt-1">ID: <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">{editingIncident.id}</span></p>
+                                </div>
+                                <button onClick={() => setEditingIncident(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors shrink-0 ml-2" title="ปิดหน้าต่าง" aria-label="ปิดหน้าต่าง">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Tabs - เหมือน AddIncidentInvestigationModal */}
+                            <div className="flex overflow-x-auto bg-white/50 p-1 rounded-xl backdrop-blur-sm border border-slate-200 -mx-1 sm:mx-0">
+                                {(['General', 'Details', 'Damage', 'Insurance'] as const).map((tab) => (
+                                    <button
+                                        key={tab}
+                                        type="button"
+                                        onClick={() => setEditTab(tab)}
+                                        className={`px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${editTab === tab ? 'bg-white shadow text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        {tab === 'General' && '1. ข้อมูลทั่วไป'}
+                                        {tab === 'Details' && '2. รายละเอียด'}
+                                        {tab === 'Damage' && '3. ความเสียหาย'}
+                                        {tab === 'Insurance' && '4. ประกัน & วินัย'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Body - Scrollable */}
+                        <div className="p-4 sm:p-8 overflow-y-auto flex-1 custom-scrollbar space-y-6 sm:space-y-8 bg-slate-50/50">
+
+                            {/* TAB 1: ข้อมูลทั่วไป */}
+                            {editTab === 'General' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">1. วันที่เกิดเหตุ & ข้อมูลเบื้องต้น</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">วันที่ (Date)</label>
+                                                <input type="date" value={editingIncident.date} onChange={e => setEditingIncident({ ...editingIncident, date: e.target.value })} className="w-full form-input" title="วันที่เกิดเหตุ" aria-label="วันที่เกิดเหตุ" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">เวลา (Time)</label>
+                                                <input type="time" value={editingIncident.time} onChange={e => setEditingIncident({ ...editingIncident, time: e.target.value })} className="w-full form-input" title="เวลา" aria-label="เวลา" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ประเภทเหตุการณ์</label>
+                                                <select value={editingIncident.type} onChange={e => setEditingIncident({ ...editingIncident, type: e.target.value as DrivingIncident['type'] })} className="w-full form-select" title="ประเภทเหตุการณ์" aria-label="ประเภทเหตุการณ์">
+                                                    <option value="อุบัติเหตุ">อุบัติเหตุ</option>
+                                                    <option value="ฝ่าฝืนกฎจราจร">ฝ่าฝืนกฎจราจร</option>
+                                                    <option value="การขับขี่เสี่ยง">การขับขี่เสี่ยง</option>
+                                                    <option value="อื่นๆ">อื่นๆ</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ระดับความรุนแรง</label>
+                                                <select value={editingIncident.severity} onChange={e => setEditingIncident({ ...editingIncident, severity: e.target.value as DrivingIncident['severity'] })} className="w-full form-select" title="ระดับความรุนแรง" aria-label="ระดับความรุนแรง">
+                                                    <option value="low">น้อย (Low)</option>
+                                                    <option value="medium">ปานกลาง (Medium)</option>
+                                                    <option value="high">สูง (High)</option>
+                                                    <option value="critical">วิกฤต (Critical)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">2. ผู้ประสบเหตุ / พนักงานขับรถ & ยานพาหนะ</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">พนักงานขับรถ (Driver)</label>
+                                                <select value={editingIncident.driverId} onChange={e => setEditingIncident({ ...editingIncident, driverId: e.target.value })} className="w-full form-select" title="พนักงานขับรถ" aria-label="พนักงานขับรถ">
+                                                    <option value="">-- เลือกพนักงาน --</option>
+                                                    {(Array.isArray(drivers) ? drivers : []).map(d => (
+                                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">รถที่เกิดเหตุ (Vehicle)</label>
+                                                <select value={editingIncident.vehicleId} onChange={e => setEditingIncident({ ...editingIncident, vehicleId: e.target.value })} className="w-full form-select" title="ยานพาหนะ" aria-label="ยานพาหนะ">
+                                                    <option value="">-- เลือกยานพาหนะ --</option>
+                                                    {(Array.isArray(vehicles) ? vehicles : []).map(v => (
+                                                        <option key={v.id} value={v.id}>{v.licensePlate} {v.brand ? `(${v.brand})` : ''}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">3. สถานที่เกิดเหตุ (Location)</h4>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">ระบุสถานที่</label>
+                                            <input type="text" value={editingIncident.location || ''} onChange={e => setEditingIncident({ ...editingIncident, location: e.target.value })} className="w-full form-input" placeholder="จุดที่เกิดเหตุ..." />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 2: รายละเอียด */}
+                            {editTab === 'Details' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">4. รายละเอียดเหตุการณ์ (Description) *</h4>
+                                        <textarea value={editingIncident.description || ''} onChange={e => setEditingIncident({ ...editingIncident, description: e.target.value })} rows={6} className="w-full form-textarea font-mono text-sm" placeholder="อธิบายลำดับเหตุการณ์โดยละเอียด..." />
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">5. การแก้ไขเบื้องต้น (Immediate Actions)</h4>
+                                        <textarea value={editingIncident.actionsTaken || ''} onChange={e => setEditingIncident({ ...editingIncident, actionsTaken: e.target.value })} rows={4} className="w-full form-textarea" placeholder="ระบุการดำเนินการแก้ไขเบื้องต้น..." />
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">6. การบาดเจ็บ (Injuries)</h4>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">รายละเอียดการบาดเจ็บ</label>
+                                            <textarea value={editingIncident.injuries || ''} onChange={e => setEditingIncident({ ...editingIncident, injuries: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุอาการบาดเจ็บ (ถ้ามี)..." />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 3: ความเสียหาย */}
+                            {editTab === 'Damage' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">7. ทรัพย์สินเสียหาย (Damages Summary)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ความเสียหายยานพาหนะบริษัท (บาท)</label>
+                                                <input type="number" min={0} value={editingIncident.damageToVehicle || 0} onChange={e => setEditingIncident({ ...editingIncident, damageToVehicle: Number(e.target.value) })} className="w-full form-input" title="ความเสียหายยานพาหนะ" aria-label="ความเสียหายยานพาหนะ" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ความเสียหายทรัพย์สินบุคคลที่ 3 (บาท)</label>
+                                                <input type="number" min={0} value={editingIncident.damageToProperty || 0} onChange={e => setEditingIncident({ ...editingIncident, damageToProperty: Number(e.target.value) })} className="w-full form-input" title="ความเสียหายทรัพย์สินอื่น" aria-label="ความเสียหายทรัพย์สินอื่น" />
+                                            </div>
+                                        </div>
+                                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                            <p className="text-sm font-bold text-slate-700">ยอดประเมินความเสียหายรวม: <span className="text-red-600 text-lg ml-2">฿{((editingIncident.damageToVehicle || 0) + (editingIncident.damageToProperty || 0)).toLocaleString()}</span></p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">8. บทลงโทษ (Disciplinary Action Outcome)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ค่าปรับ (บาท)</label>
+                                                <input type="number" min={0} value={editingIncident.fineAmount || 0} onChange={e => setEditingIncident({ ...editingIncident, fineAmount: Number(e.target.value) })} className="w-full form-input" title="ค่าปรับ" aria-label="ค่าปรับ" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">หักคะแนนพฤติกรรม (แต้ม)</label>
+                                                <input type="number" min={0} value={editingIncident.pointsDeducted || 0} onChange={e => setEditingIncident({ ...editingIncident, pointsDeducted: Number(e.target.value) })} className="w-full form-input" title="หักคะแนน" aria-label="หักคะแนน" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">วันลาหยุดงาน (วัน)</label>
+                                                <input type="number" min={0} value={editingIncident.lostWorkDays || 0} onChange={e => setEditingIncident({ ...editingIncident, lostWorkDays: Number(e.target.value) })} className="w-full form-input" title="วันลาหยุดงาน" aria-label="วันลาหยุดงาน" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 4: ประกัน & วินัย */}
+                            {editTab === 'Insurance' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">9. ข้อมูลประกันภัย (Insurance)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">เคลมประกัน</label>
+                                                <select value={editingIncident.insuranceClaim ? 'yes' : 'no'} onChange={e => setEditingIncident({ ...editingIncident, insuranceClaim: e.target.value === 'yes' })} className="w-full form-select" title="เคลมประกัน" aria-label="เคลมประกัน">
+                                                    <option value="no">ไม่เคลม</option>
+                                                    <option value="yes">เคลมประกัน</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">บริษัทประกัน</label>
+                                                <input type="text" value={editingIncident.insuranceProvider || ''} onChange={e => setEditingIncident({ ...editingIncident, insuranceProvider: e.target.value })} className="w-full form-input" placeholder="ชื่อบริษัทประกัน" />
+                                            </div>
+                                            {editingIncident.insuranceClaim && (
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-2">จำนวนเงินเคลม (บาท)</label>
+                                                    <input type="number" min={0} value={editingIncident.claimAmount || 0} onChange={e => setEditingIncident({ ...editingIncident, claimAmount: Number(e.target.value) })} className="w-full form-input" title="จำนวนเงินเคลม" aria-label="จำนวนเงินเคลม" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">10. มาตรการทางวินัย (Disciplinary Action)</h4>
+                                        <textarea value={editingIncident.disciplinaryAction || ''} onChange={e => setEditingIncident({ ...editingIncident, disciplinaryAction: e.target.value })} rows={4} className="w-full form-textarea" placeholder="ระบุมาตรการทางวินัย (ถ้ามี)..." />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 sm:p-6 border-t border-gray-100 bg-white flex-shrink-0 flex justify-between items-center">
+                            <p className="text-xs text-slate-400 hidden sm:block">แก้ไขล่าสุด: {new Date().toLocaleDateString('th-TH')}</p>
+                            <div className="flex gap-3 ml-auto">
+                                <button type="button" onClick={() => setEditingIncident(null)} className="px-6 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-all text-sm">
+                                    ยกเลิก
+                                </button>
+                                <button type="button" onClick={handleSaveEdit} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-xl hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl active:scale-95 text-sm">
+                                    <Save size={16} />
+                                    <span>บันทึกการแก้ไข</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Detail Modal */}
             {selectedIncident && (
@@ -1064,11 +1462,11 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
 
                         <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 print:hidden">
                             <button
-                                onClick={() => window.print()}
-                                className="flex items-center gap-2 px-6 py-3 bg-white text-slate-700 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all active:scale-95"
+                                onClick={handleDownloadPDF}
+                                className="flex items-center gap-2 px-6 py-3 font-bold rounded-xl transition-all active:scale-95 bg-red-600 text-white hover:bg-red-700 shadow-lg hover:shadow-xl"
                             >
                                 <Printer size={18} />
-                                <span>พิมพ์ใบสรุปเหตุการณ์ (A4)</span>
+                                <span>พิมพ์ / บันทึก PDF (10 หน้า)</span>
                             </button>
                             <button onClick={() => setSelectedIncident(null)} className="px-10 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all">
                                 ปิดหน้าต่าง
