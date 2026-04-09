@@ -50,6 +50,60 @@ function thaiDate(): string {
     return new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
 }
 
+// ==================== Status-Based Deduplication ====================
+// แก้ปัญหาแจ้งเตือนซ้ำจาก:
+// 1. useFirebase เขียนทั้ง array → deepNormalizeFirebase ทำให้ข้อมูลดู "เปลี่ยน" → trigger ซ้ำ
+// 2. Array โตขึ้น (prepend) → index สุดท้ายไม่เคยมี → before=null → คิดว่า "new" ผิด
+// 3. setTimeout ใน Cloud Function ไม่น่าเชื่อถือ
+//
+// วิธีแก้: จำ "สถานะล่าสุดที่แจ้ง" ถาวร + ตรวจ createdAt ป้องกัน "new ปลอม" จาก array shift
+
+interface DedupRecord {
+    status: string;   // สถานะล่าสุดที่แจ้งเตือน
+    ts: number;       // timestamp ที่แจ้ง
+}
+
+// ตรวจว่ารายการเป็น "new จริง" หรือ "new ปลอม" (จาก array shift)
+const MAX_NEW_AGE_MS = 5 * 60 * 1000; // 5 นาที — ถ้าสร้างเกิน 5 นาทีแล้วไม่ใช่ของใหม่
+
+function isGenuinelyNew(data: any): boolean {
+    if (!data?.createdAt) return true; // ไม่มี createdAt → ถือว่าใหม่ (ปลอดภัย)
+    const createdMs = new Date(data.createdAt).getTime();
+    if (isNaN(createdMs)) return true; // parse ไม่ได้ → ถือว่าใหม่
+    const ageMs = Date.now() - createdMs;
+    return ageMs < MAX_NEW_AGE_MS;
+}
+
+/**
+ * ตรวจสอบว่าสถานะปัจจุบันเคยแจ้งเตือนไปแล้วหรือยัง
+ * return true  = ส่งได้ (สถานะใหม่จริง)
+ * return false = block (เคยแจ้งแล้ว หรือเป็น array shift)
+ */
+async function checkAndSetDedup(dedupKey: string, currentStatus: string): Promise<boolean> {
+    const db = getDatabase();
+    const dedupRef = db.ref(`_telegram_dedup/${dedupKey}`);
+    const snapshot = await dedupRef.once('value');
+    const record: DedupRecord | null = snapshot.val();
+
+    // เคยแจ้งสถานะนี้ไปแล้ว → block
+    if (record && record.status === currentStatus) {
+        console.log(`[Dedup] BLOCKED — already notified ${dedupKey} with status "${currentStatus}"`);
+        return false;
+    }
+
+    // ถ้า currentStatus = 'new' แต่เคยมี record อยู่แล้ว → ไม่ใช่ของใหม่จริง (array shift)
+    if (currentStatus === 'new' && record) {
+        console.log(`[Dedup] BLOCKED — ${dedupKey} appears new but was previously notified (last: "${record.status}") → array shift`);
+        return false;
+    }
+
+    // สถานะใหม่จริง → บันทึกและอนุญาตส่ง
+    await dedupRef.set({ status: currentStatus, ts: Date.now() } as DedupRecord);
+    console.log(`[Dedup] ALLOWED — ${dedupKey} status: "${currentStatus}"`);
+    return true;
+}
+
+
 // Helper: look up technician name from RTDB by ID
 // Returns name if found, falls back to the raw ID so the message still makes sense
 async function getTechnicianName(id: string | null | undefined): Promise<string | null> {
@@ -478,12 +532,32 @@ export const onRepairWrite = onValueWritten(
         const after = event.data.after.val();
         if (!after) return;
 
+        // 🚨 Array Shift Protection:
+        // useFirebase เก็บ repairs เป็น array — เมื่อเพิ่ม/ลบรายการ index จะเลื่อน
+        // ทำให้ before กับ after เป็นคนละใบซ่อม → ต้องตรวจ ID จริง
+        if (before && after && before.id && after.id && before.id !== after.id) {
+            console.log(`[CF] onRepairWrite — SKIP array shift (before.id=${before.id}, after.id=${after.id})`);
+            return;
+        }
+
         const isNew = !before;
         const statusChanged = before && before.status !== after.status;
 
         if (!isNew && !statusChanged) return;
 
-        console.log('[CF] onRepairWrite — repairId:', event.params.repairId, 'isNew:', isNew, 'status:', after.status);
+        // 🚨 False-new protection: before=null เพราะ array โตขึ้น ไม่ใช่รายการใหม่จริง
+        if (isNew && !isGenuinelyNew(after)) {
+            console.log(`[CF] onRepairWrite — SKIP false-new (createdAt: ${after.createdAt})`);
+            return;
+        }
+
+        // Deduplication: ใช้ ID จริงของใบซ่อม + status-based (ไม่หมดอายุ)
+        const actualId = after.id || after.repairOrderNo || event.params.repairId;
+        const dedupStatus = isNew ? 'new' : after.status;
+        const dedupKey = `repair_${actualId}`;
+        if (!await checkAndSetDedup(dedupKey, dedupStatus)) return;
+
+        console.log('[CF] onRepairWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
         const priorityIcon: Record<string, string> = { 'สูง': '🔴', 'กลาง': '🟡', 'ต่ำ': '🟢' };
         const icon = priorityIcon[after.priority] || '🔔';
@@ -586,11 +660,29 @@ export const onPurchaseOrderWrite = onValueWritten(
         const after = event.data.after.val();
         if (!after) return;
 
+        // 🚨 Array Shift Protection
+        if (before && after && before.id && after.id && before.id !== after.id) {
+            console.log(`[CF] onPurchaseOrderWrite — SKIP array shift (before.id=${before.id}, after.id=${after.id})`);
+            return;
+        }
+
         const isNew = !before;
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
 
-        console.log('[CF] onPurchaseOrderWrite — poId:', event.params.poId, 'isNew:', isNew, 'status:', after.status);
+        // 🚨 False-new protection
+        if (isNew && !isGenuinelyNew(after)) {
+            console.log(`[CF] onPurchaseOrderWrite — SKIP false-new (createdAt: ${after.createdAt})`);
+            return;
+        }
+
+        // Deduplication: ใช้ ID จริง + status-based (ไม่หมดอายุ)
+        const actualId = after.id || after.poNumber || event.params.poId;
+        const dedupStatus = isNew ? 'new' : after.status;
+        const dedupKey = `po_${actualId}`;
+        if (!await checkAndSetDedup(dedupKey, dedupStatus)) return;
+
+        console.log('[CF] onPurchaseOrderWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
         const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
         const deliveryStr = after.deliveryDate
@@ -642,11 +734,29 @@ export const onPurchaseRequisitionWrite = onValueWritten(
         const after = event.data.after.val();
         if (!after) return;
 
+        // 🚨 Array Shift Protection
+        if (before && after && before.id && after.id && before.id !== after.id) {
+            console.log(`[CF] onPurchaseRequisitionWrite — SKIP array shift (before.id=${before.id}, after.id=${after.id})`);
+            return;
+        }
+
         const isNew = !before;
         const statusChanged = before && before.status !== after.status;
         if (!isNew && !statusChanged) return;
 
-        console.log('[CF] onPurchaseRequisitionWrite — prId:', event.params.prId, 'isNew:', isNew, 'status:', after.status);
+        // 🚨 False-new protection
+        if (isNew && !isGenuinelyNew(after)) {
+            console.log(`[CF] onPurchaseRequisitionWrite — SKIP false-new (createdAt: ${after.createdAt})`);
+            return;
+        }
+
+        // Deduplication: ใช้ ID จริง + status-based (ไม่หมดอายุ)
+        const actualId = after.id || after.prNumber || event.params.prId;
+        const dedupStatus = isNew ? 'new' : after.status;
+        const dedupKey = `pr_${actualId}`;
+        if (!await checkAndSetDedup(dedupKey, dedupStatus)) return;
+
+        console.log('[CF] onPurchaseRequisitionWrite — id:', actualId, 'isNew:', isNew, 'status:', after.status);
 
         const photos: string[] = Array.isArray(after.photos) ? after.photos : [];
         const header = `เลขที่: <b>${after.prNumber || '-'}</b>\nSupplier: ${after.supplier || '-'}\nยอดรวม: ฿${(after.totalAmount || 0).toLocaleString()}`;

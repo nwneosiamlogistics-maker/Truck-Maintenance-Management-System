@@ -61,6 +61,8 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         setPhotos(prev => prev.filter(f => f !== url));
     };
 
+    const [isProcessing, setIsProcessing] = useState(false);
+
     const handleReceive = () => {
         const prToReceive = receivablePrs.find(pr => pr.id === selectedPrId);
         if (!prToReceive) {
@@ -72,40 +74,61 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
             return;
         }
 
-        const safePhotos = Array.isArray(photos) ? photos : [];
+        // ป้องกันการกดซ้ำ (Double-click protection)
+        if (isProcessing) {
+            addToast('กำลังดำเนินการ กรุณารอสักครู่...', 'warning');
+            return;
+        }
+        setIsProcessing(true);
 
-        // 1. Update stock
+        // ตรวจสอบว่า PR นี้ยังอยู่ในสถานะ "รอสินค้า" อยู่หรือไม่ (ป้องกันรับซ้ำ)
+        if (prToReceive.status !== 'รอสินค้า') {
+            addToast(`ใบขอซื้อนี้มีสถานะ "${prToReceive.status}" แล้ว ไม่สามารถรับของซ้ำได้`, 'error');
+            setIsProcessing(false);
+            return;
+        }
+
+        const safePhotos = Array.isArray(photos) ? photos : [];
+        const safeItems = Array.isArray(prToReceive.items) ? prToReceive.items : [];
+        const linkedItems = safeItems.filter(item => item.stockId);
+        const unlinkedItems = safeItems.filter(item => !item.stockId);
+
+        // แจ้งเตือนถ้ามีรายการที่ไม่ผูกกับสต็อก
+        if (unlinkedItems.length > 0) {
+            addToast(`⚠️ ${unlinkedItems.length} รายการไม่ผูกกับสต็อก (เพิ่มด้วย "เพิ่มรายการเอง") จะไม่อัพเดทยอดสต็อก: ${unlinkedItems.map(i => i.name).join(', ')}`, 'warning');
+        }
+
+        if (linkedItems.length === 0) {
+            addToast('❌ ไม่มีรายการใดผูกกับสต็อก — ยอดสต็อกจะไม่เปลี่ยนแปลง กรุณาตรวจสอบใบขอซื้อ', 'error');
+        }
+
+        // 1. Update stock — ใช้ Number() ป้องกัน string concatenation + สร้าง object ใหม่ (ไม่ mutate)
         setStock(prevStock => {
-            const newStock = [...prevStock];
-            (prToReceive.items || []).forEach(item => {
-                if (item.stockId) { // Only update items that are part of the stock
-                    const stockIndex = newStock.findIndex(s => s.id === item.stockId);
-                    if (stockIndex > -1) {
-                        const stockItem = newStock[stockIndex];
-                        const newQuantity = stockItem.quantity + item.quantity;
-                        stockItem.quantity = newQuantity;
-                        stockItem.status = calculateStockStatus(newQuantity, stockItem.minStock, stockItem.maxStock);
-                    }
+            return prevStock.map(s => {
+                const matchingItem = linkedItems.find(item => item.stockId === s.id);
+                if (matchingItem) {
+                    const addedQty = Number(matchingItem.quantity) || 0;
+                    const newQuantity = Number(s.quantity) + addedQty;
+                    return { ...s, quantity: newQuantity, status: calculateStockStatus(newQuantity, s.minStock, s.maxStock) };
                 }
+                return s;
             });
-            return newStock;
         });
 
         // 2. Create transactions
-        const newTransactions: StockTransaction[] = (prToReceive.items || [])
-            .filter(item => item.stockId) // Only create transactions for stock items
-            .map(item => ({
-                id: `TXN-IN-${Date.now()}-${item.stockId}`,
-                stockItemId: item.stockId,
-                stockItemName: item.name,
-                type: 'รับเข้า',
-                quantity: item.quantity,
-                transactionDate: new Date().toISOString(),
-                actor: 'ระบบ (รับจากใบขอซื้อ)',
-                notes: `จากใบขอซื้อเลขที่ ${prToReceive.prNumber}`,
-                documentNumber: prToReceive.prNumber,
-                pricePerUnit: item.unitPrice,
-            }));
+        const now = new Date().toISOString();
+        const newTransactions: StockTransaction[] = linkedItems.map(item => ({
+            id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
+            stockItemId: item.stockId,
+            stockItemName: item.name,
+            type: 'รับเข้า',
+            quantity: Number(item.quantity) || 0,
+            transactionDate: now,
+            actor: 'ระบบ (รับจากใบขอซื้อ)',
+            notes: `จากใบขอซื้อเลขที่ ${prToReceive.prNumber}`,
+            documentNumber: prToReceive.prNumber,
+            pricePerUnit: Number(item.unitPrice) || 0,
+        }));
         if (newTransactions.length > 0) {
             setTransactions(prev => [...newTransactions, ...prev]);
         }
@@ -113,11 +136,12 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         // 3. Update PR status
         setPurchaseRequisitions(prev => prev.map(pr =>
             pr.id === selectedPrId
-                ? { ...pr, status: 'รับของแล้ว', updatedAt: new Date().toISOString(), photos: safePhotos }
+                ? { ...pr, status: 'รับของแล้ว' as const, updatedAt: now, photos: safePhotos }
                 : pr
         ));
 
-        addToast(`รับของสำหรับใบขอซื้อ ${prToReceive.prNumber} สำเร็จ`, 'success');
+        addToast(`รับของสำหรับใบขอซื้อ ${prToReceive.prNumber} สำเร็จ${linkedItems.length > 0 ? ` (อัพเดทสต็อก ${linkedItems.length} รายการ)` : ''}`, 'success');
+        setIsProcessing(false);
         onClose();
     };
 
@@ -232,11 +256,11 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
                     <button
                         type="button"
                         onClick={handleReceive}
-                        disabled={!selectedPrId || photos.length === 0 || isUploading}
-                        title={!selectedPrId ? 'กรุณาเลือกใบขอซื้อ' : photos.length === 0 ? 'กรุณาแนบหลักฐานการรับของก่อน' : ''}
-                        className={`px-8 py-2 text-base font-medium text-white rounded-lg transition-colors ${(!selectedPrId || photos.length === 0 || isUploading) ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                        disabled={!selectedPrId || photos.length === 0 || isUploading || isProcessing}
+                        title={!selectedPrId ? 'กรุณาเลือกใบขอซื้อ' : photos.length === 0 ? 'กรุณาแนบหลักฐานการรับของก่อน' : isProcessing ? 'กำลังดำเนินการ...' : ''}
+                        className={`px-8 py-2 text-base font-medium text-white rounded-lg transition-colors ${(!selectedPrId || photos.length === 0 || isUploading || isProcessing) ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                     >
-                        {isUploading ? 'กำลังอัปโหลด...' : 'ยืนยันการรับของ'}
+                        {isProcessing ? 'กำลังบันทึก...' : isUploading ? 'กำลังอัปโหลด...' : 'ยืนยันการรับของ'}
                     </button>
                 </div>
             </div>

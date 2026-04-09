@@ -687,34 +687,45 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         if (!confirmed) return;
 
         const now = new Date().toISOString();
+        const safeItems = Array.isArray(po.items) ? po.items : [];
+        const linkedItems = safeItems.filter(item => item.stockId);
+        const unlinkedItems = safeItems.filter(item => !item.stockId);
 
-        // 1. Update Stock & Transactions
+        // แจ้งเตือนถ้ามีรายการที่ไม่ผูกกับสต็อก
+        if (unlinkedItems.length > 0) {
+            addToast(`⚠️ ${unlinkedItems.length} รายการไม่ผูกกับสต็อก จะไม่อัพเดทยอดสต็อก: ${unlinkedItems.map(i => i.name).join(', ')}`, 'warning');
+        }
+
+        if (linkedItems.length === 0) {
+            addToast('❌ ไม่มีรายการใดผูกกับสต็อก — ยอดสต็อกจะไม่เปลี่ยนแปลง กรุณาตรวจสอบ PO', 'error');
+        }
+
+        // 1. Update Stock & Transactions — ใช้ Number() ป้องกัน string concatenation
         const newTransactions: StockTransaction[] = [];
         const stockUpdates = new Map<string, number>(); // stockId -> quantity to add
 
-        po.items.forEach(item => {
-            if (item.stockId) {
-                stockUpdates.set(item.stockId, (stockUpdates.get(item.stockId) || 0) + item.quantity);
+        linkedItems.forEach(item => {
+            const qty = Number(item.quantity) || 0;
+            stockUpdates.set(item.stockId!, (stockUpdates.get(item.stockId!) || 0) + qty);
 
-                newTransactions.push({
-                    id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
-                    stockItemId: item.stockId,
-                    stockItemName: item.name,
-                    type: 'รับเข้า',
-                    quantity: item.quantity,
-                    transactionDate: now,
-                    actor: 'ระบบ (รับจาก PO)',
-                    notes: `รับของจากใบสั่งซื้อ ${po.poNumber}`,
-                    documentNumber: po.poNumber,
-                    pricePerUnit: item.unitPrice,
-                });
-            }
+            newTransactions.push({
+                id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
+                stockItemId: item.stockId!,
+                stockItemName: item.name,
+                type: 'รับเข้า',
+                quantity: qty,
+                transactionDate: now,
+                actor: 'ระบบ (รับจาก PO)',
+                notes: `รับของจากใบสั่งซื้อ ${po.poNumber}`,
+                documentNumber: po.poNumber,
+                pricePerUnit: Number(item.unitPrice) || 0,
+            });
         });
 
         setStock(prevStock => prevStock.map(s => {
             if (stockUpdates.has(s.id)) {
                 const addedQty = stockUpdates.get(s.id)!;
-                const newQty = s.quantity + addedQty;
+                const newQty = Number(s.quantity) + addedQty;
                 const newStatus = calculateStockStatus(newQty, s.minStock, s.maxStock);
                 return { ...s, quantity: newQty, status: newStatus };
             }
@@ -737,7 +748,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             return pr;
         }));
 
-        addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย`, 'success');
+        addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย${linkedItems.length > 0 ? ` (อัพเดทสต็อก ${linkedItems.length} รายการ)` : ''}`, 'success');
 
         // Telegram notification handled by Cloud Function onPurchaseOrderWrite (status → Received)
 
