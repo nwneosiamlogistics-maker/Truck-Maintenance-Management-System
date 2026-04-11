@@ -163,4 +163,8 @@ export const TABS: Record<Tab, { title: string; subtitle: string }> = {
         title: 'แบบฟอร์มทดสอบพนักงานขับรถ',
         subtitle: 'บันทึกผลการทดสอบ Incab Coaching — ร่างกาย / จิตใจ / การขับขี่'
     },
+    'legal-register': {
+        title: 'ทะเบียนกฎหมายและข้อกำหนด',
+        subtitle: 'ทะเบียนกฎหมายที่เกี่ยวข้องสำหรับธุรกิจขนส่งและคลังสินค้า — ติดตามสถานะการปฏิบัติตามกฎหมาย'
+    },
 };

@@ -1,6 +1,24 @@
 
 
-export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'driver-matrix' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories' | 'safety-plan' | 'safety-check' | 'incab-assessment';
+export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'driver-matrix' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories' | 'safety-plan' | 'safety-check' | 'incab-assessment' | 'legal-register';
+
+export type LegalStatus = 'compliant' | 'in-progress' | 'non-compliant' | 'n-a';
+
+export interface LegalItem {
+    id: string;
+    section: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+    order: string;
+    name: string;
+    description: string;
+    guidelines: string;
+    evidence: string;
+    status: LegalStatus;
+    responsible?: string;
+    reviewDate?: string;
+    notes?: string;
+    createdAt: string;
+    updatedAt: string;
+}
 
 export type RepairCategoryCode = 'ENG' | 'TRA' | 'SUS' | 'BRK' | 'ELE' | 'AC' | 'TIR' | 'BOD' | 'HYD' | 'COO' | 'FUE' | 'PM' | 'OTH';
 

@@ -55,6 +55,7 @@ const RepairCategoryManagement = lazy(() => import('./components/RepairCategoryM
 const SafetyPlanTable = lazy(() => import('./components/SafetyPlanTable'));
 const SafetyCheckPage = lazy(() => import('./components/SafetyCheckPage'));
 const IncabAssessmentPage = lazy(() => import('./components/IncabAssessmentPage'));
+const LegalRegisterPage = lazy(() => import('./components/LegalRegisterPage'));
 
 
 
@@ -425,6 +426,8 @@ const AppContent: React.FC<AppContentProps> = ({
                 return <SafetyCheckPage drivers={drivers} />;
             case 'incab-assessment':
                 return <IncabAssessmentPage drivers={drivers} />;
+            case 'legal-register':
+                return <LegalRegisterPage />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:

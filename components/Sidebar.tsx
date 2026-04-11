@@ -5,7 +5,7 @@ import {
     Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
     Shield, Calendar, Clock, ClipboardCheck, Disc, Box, ShoppingCart,
     File, Store, Users, PenTool, UserCog, BookOpen, Wallet, Fuel,
-    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers, ShieldCheck, FlaskConical, Table2
+    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers, ShieldCheck, FlaskConical, Table2, Scale
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -144,6 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 { id: 'safety-plan', icon: <ShieldCheck size={20} />, label: 'แผนความปลอดภัย' },
                 { id: 'safety-check', icon: <FlaskConical size={20} />, label: 'ตรวจสาร/แอลกอฮอล์' },
                 { id: 'incab-assessment', icon: <ClipboardList size={20} />, label: 'แบบฟอร์มทดสอบพนักงานขับรถ' },
+                { id: 'legal-register', icon: <Scale size={20} />, label: 'ทะเบียนกฎหมาย' },
             ]
         },
         {
