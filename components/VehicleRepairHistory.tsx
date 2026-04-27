@@ -5,6 +5,9 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     Cell
 } from 'recharts';
+import * as XLSX from 'xlsx';
+import { FileSpreadsheet } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 // Helper function to calculate total cost for a single repair
 const calculateTotalCost = (repair: Repair): number => {
@@ -67,6 +70,7 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedVehiclePlate, setSelectedVehiclePlate] = useState<string | null>(null);
     const [viewingParts, setViewingParts] = useState<PartRequisitionItem[] | null>(null);
+    const { addToast } = useToast();
 
     const vehicleStats = useMemo(() => {
         const statsMap = new Map<string, { repairCount: number, totalCost: number }>();
@@ -120,6 +124,85 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
         return [...vehicleStats].sort((a, b) => b.totalCost - a.totalCost).slice(0, 5);
     }, [vehicleStats]);
 
+    // Export: สรุปรายการรถทั้งหมด + สถิติซ่อม
+    const handleExportFleetExcel = () => {
+        if (filteredVehicles.length === 0) {
+            addToast('ไม่มีข้อมูลให้ export', 'warning');
+            return;
+        }
+        const rows = filteredVehicles.map((v, idx) => ({
+            'ลำดับ': idx + 1,
+            'ทะเบียนรถ': v.licensePlate,
+            'ประเภทรถ': v.vehicleType || '',
+            'ยี่ห้อ': v.make || '',
+            'รุ่น': v.model || '',
+            'จำนวนครั้งที่ซ่อม': v.repairCount,
+            'ค่าซ่อมรวม (บาท)': Number((v.totalCost || 0).toFixed(2)),
+            'เฉลี่ยต่อครั้ง (บาท)': v.repairCount > 0 ? Number((v.totalCost / v.repairCount).toFixed(2)) : 0,
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 18 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'สรุปรายคัน');
+        XLSX.writeFile(wb, `Vehicle_Repair_Summary_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        addToast(`Export สรุปรายคัน ${rows.length} คันสำเร็จ`, 'success');
+    };
+
+    // Export: รายละเอียดประวัติซ่อมรถคันที่เลือก
+    const handleExportDetailExcel = () => {
+        if (!selectedVehiclePlate || selectedVehicleRepairs.length === 0) {
+            addToast('ไม่มีข้อมูลให้ export', 'warning');
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: สรุปประวัติซ่อม
+        const summaryRows = selectedVehicleRepairs.map((r, idx) => ({
+            'ลำดับ': idx + 1,
+            'วันที่ซ่อมเสร็จ': new Date(r.repairEndDate || r.createdAt).toLocaleDateString('th-TH'),
+            'เลขที่ใบซ่อม': r.repairOrderNo,
+            'อาการ/ปัญหา': r.problemDescription || '',
+            'จำนวนอะไหล่ที่ใช้': (r.parts || []).length,
+            'ค่าแรง (บาท)': Number((r.repairCost || 0).toFixed(2)),
+            'ค่าอะไหล่ (บาท)': Number(((r.parts || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0)).toFixed(2)),
+            'VAT (บาท)': Number((r.partsVat || 0).toFixed(2)),
+            'รวมทั้งสิ้น (บาท)': Number(calculateTotalCost(r).toFixed(2)),
+            'สถานะ': r.status,
+        }));
+        const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+        ws1['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 18 }, { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, ws1, 'ประวัติซ่อม');
+
+        // Sheet 2: รายละเอียดอะไหล่ทุกรายการ
+        const partRows: any[] = [];
+        selectedVehicleRepairs.forEach(r => {
+            (r.parts || []).forEach(p => {
+                partRows.push({
+                    'วันที่ซ่อมเสร็จ': new Date(r.repairEndDate || r.createdAt).toLocaleDateString('th-TH'),
+                    'เลขที่ใบซ่อม': r.repairOrderNo,
+                    'รหัสอะไหล่': p.code || '',
+                    'ชื่ออะไหล่': p.name,
+                    'แหล่งที่มา': p.source || '',
+                    'ร้านค้า': p.supplierName || '',
+                    'จำนวน': Number(p.quantity) || 0,
+                    'หน่วย': p.unit || '',
+                    'ราคา/หน่วย (บาท)': Number((p.unitPrice || 0).toFixed(2)),
+                    'รวม (บาท)': Number(((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)).toFixed(2)),
+                });
+            });
+        });
+        if (partRows.length > 0) {
+            const ws2 = XLSX.utils.json_to_sheet(partRows);
+            ws2['!cols'] = [{ wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 30 }, { wch: 12 }, { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
+            XLSX.utils.book_append_sheet(wb, ws2, 'รายละเอียดอะไหล่');
+        }
+
+        const safeName = selectedVehiclePlate.replace(/[^a-zA-Z0-9฀-๿-]/g, '_');
+        XLSX.writeFile(wb, `Repair_History_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        addToast(`Export ประวัติซ่อม ${selectedVehiclePlate} (${summaryRows.length} รายการ) สำเร็จ`, 'success');
+    };
+
     // Render Detail View
     if (selectedVehiclePlate && selectedVehicleInfo && selectedVehicleStats) {
         return (
@@ -162,8 +245,16 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
                 </div>
 
                 <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="p-8 border-b border-gray-100">
+                    <div className="p-8 border-b border-gray-100 flex justify-between items-center gap-4">
                         <h3 className="text-xl font-extrabold text-gray-800">📜 Repair History Timeline</h3>
+                        <button
+                            onClick={handleExportDetailExcel}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors"
+                            title="Export ประวัติการซ่อมรถคันนี้เป็น Excel"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export Excel
+                        </button>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-100">
@@ -272,15 +363,25 @@ const VehicleRepairHistory: React.FC<VehicleRepairHistoryProps> = ({ repairs, ve
                         </div>
                         <h3 className="text-2xl font-bold text-slate-800">Vehicle Directory</h3>
                     </div>
-                    <div className="relative w-full md:w-80">
-                        <input
-                            type="text"
-                            placeholder="Search License Plate..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-0 rounded-xl font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
-                        />
-                        <svg className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="relative w-full md:w-80">
+                            <input
+                                type="text"
+                                placeholder="Search License Plate..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border-0 rounded-xl font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+                            />
+                            <svg className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        </div>
+                        <button
+                            onClick={handleExportFleetExcel}
+                            className="flex items-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors whitespace-nowrap"
+                            title="Export สรุปรายการรถทั้งหมดเป็น Excel"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export Excel
+                        </button>
                     </div>
                 </div>
 

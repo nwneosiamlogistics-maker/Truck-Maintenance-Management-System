@@ -156,7 +156,12 @@ export interface StockItem {
     sellingPrice?: number | null;
     storageLocation?: string;
     supplier?: string;
-    status: StockStatus;
+    /**
+     * @deprecated G: ฟิลด์นี้คำนวณจาก `calculateStockStatus(quantity, minStock, maxStock)` ทุกครั้งที่ใช้ใน UI
+     * ค่าใน DB อาจ stale — อย่าใช้เป็น source of truth ให้คำนวณใหม่เสมอ
+     * เก็บไว้เพื่อ backward compat กับ data เก่า
+     */
+    status?: StockStatus;
     isRevolvingPart?: boolean;
     isFungibleUsedItem?: boolean;
     quantityReserved?: number;
@@ -239,6 +244,7 @@ export interface PurchaseOrderItem {
     totalPrice: number;
     prId?: string;
     discount?: number;
+    receivedQty?: number; // F: จำนวนที่รับจริง (อาจ < quantity ถ้าของขาดส่ง)
 }
 
 export interface PurchaseOrder {

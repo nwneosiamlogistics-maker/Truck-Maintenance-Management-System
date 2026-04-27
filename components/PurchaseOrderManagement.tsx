@@ -11,6 +11,7 @@ import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurr
 import PhotoUpload from './PhotoUpload';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
+import { useReceiveStock } from '../hooks/useReceiveStock';
 
 interface PurchaseOrderManagementProps {
     purchaseOrders: PurchaseOrder[];
@@ -370,11 +371,20 @@ const ReceivePOModal: React.FC<{
     po: PurchaseOrder;
     photos: string[];
     onChangePhotos: (photos: string[]) => void;
-    onConfirm: () => void;
+    onConfirm: (receivedQtys: number[]) => void;
 }> = ({ isOpen, onClose, po, photos, onChangePhotos, onConfirm }) => {
     const [isUploading, setIsUploading] = useState(false);
     const { addToast } = useToast();
+    // F: จำนวนรับจริงต่อ item (default = จำนวนตาม PO) — ผู้ใช้แก้ไขได้ถ้ารับจริงไม่ตรง PO
+    const [receivedQtys, setReceivedQtys] = useState<number[]>(() => (po.items || []).map(i => Number(i.quantity) || 0));
     if (!isOpen) return null;
+
+    const setQtyAt = (idx: number, value: number) => {
+        setReceivedQtys(prev => prev.map((q, i) => i === idx ? value : q));
+    };
+    const totalReceived = receivedQtys.reduce((s, q) => s + (Number(q) || 0), 0);
+    const totalOrdered = (po.items || []).reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    const hasDiscrepancy = receivedQtys.some((q, i) => Number(q) !== Number((po.items || [])[i]?.quantity || 0));
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -410,7 +420,7 @@ const ReceivePOModal: React.FC<{
         onChangePhotos(photos.filter(f => f !== url));
     };
 
-    const canConfirm = photos.length > 0 && !isUploading;
+    const canConfirm = photos.length > 0 && !isUploading && totalReceived > 0;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-[102] flex justify-center items-center p-4">
@@ -425,14 +435,63 @@ const ReceivePOModal: React.FC<{
                     {/* PO Info */}
                     <div className="border rounded-lg p-4 bg-gray-50">
                         <h4 className="font-semibold mb-2">รายการที่จะรับเข้า:</h4>
-                        <p><strong>PO:</strong> {po.poNumber} - {po.supplierName}</p>
-                        <ul className="list-disc list-inside space-y-1 mt-2 text-sm">
-                            {(po.items || []).map((item, index) => (
-                                <li key={`${item.stockId}-${index}`}>
-                                    {item.name} — จำนวน: {item.quantity} {item.unit}
-                                </li>
-                            ))}
-                        </ul>
+                        <p className="mb-2"><strong>PO:</strong> {po.poNumber} - {po.supplierName}</p>
+                        <p className="text-xs text-gray-500 mb-3">💡 ถ้ารับจริงไม่ตรงตาม PO แก้ไขจำนวนได้ ระบบจะบันทึกตามจำนวนที่รับจริง</p>
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left border-b border-gray-300">
+                                    <th className="py-1">รายการ</th>
+                                    <th className="py-1 w-24 text-center">สั่งซื้อ</th>
+                                    <th className="py-1 w-32 text-center">รับจริง</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(po.items || []).map((item, index) => {
+                                    const ordered = Number(item.quantity) || 0;
+                                    const recv = Number(receivedQtys[index]) || 0;
+                                    const diff = recv - ordered;
+                                    return (
+                                        <tr key={`${item.stockId}-${index}`} className="border-b border-gray-100">
+                                            <td className="py-1.5">
+                                                <div>{item.name}</div>
+                                                {!item.stockId && <span className="text-[10px] text-amber-600">⚠️ ไม่ผูกสต็อก</span>}
+                                            </td>
+                                            <td className="py-1.5 text-center text-gray-600">{ordered} {item.unit}</td>
+                                            <td className="py-1.5">
+                                                <div className="flex items-center gap-1 justify-center">
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        value={recv}
+                                                        onChange={e => setQtyAt(index, Math.max(0, Number(e.target.value) || 0))}
+                                                        className={`w-16 p-1 text-center border rounded ${diff !== 0 ? (diff < 0 ? 'border-amber-400 bg-amber-50' : 'border-blue-400 bg-blue-50') : 'border-gray-300'}`}
+                                                        aria-label={`จำนวนรับจริง ${item.name}`}
+                                                    />
+                                                    <span className="text-xs text-gray-500">{item.unit}</span>
+                                                </div>
+                                                {diff !== 0 && (
+                                                    <div className={`text-[10px] text-center mt-0.5 ${diff < 0 ? 'text-amber-600' : 'text-blue-600'}`}>
+                                                        {diff > 0 ? `+${diff}` : diff} จากสั่ง
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            <tfoot>
+                                <tr className="font-semibold">
+                                    <td className="pt-2">รวม</td>
+                                    <td className="pt-2 text-center">{totalOrdered}</td>
+                                    <td className="pt-2 text-center">{totalReceived}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        {hasDiscrepancy && (
+                            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                                ⚠️ จำนวนรับจริงไม่ตรงกับ PO ระบบจะบันทึกตามจำนวนที่ป้อนจริง อย่าลืมบันทึกหมายเหตุ (เช่น ของขาดส่ง, ชำรุด)
+                            </div>
+                        )}
                     </div>
 
                     {/* File Upload Section — required */}
@@ -501,9 +560,9 @@ const ReceivePOModal: React.FC<{
                     <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
                     <button
                         type="button"
-                        onClick={onConfirm}
+                        onClick={() => onConfirm(receivedQtys)}
                         disabled={!canConfirm}
-                        title={!canConfirm ? 'กรุณาแนบหลักฐานการรับของก่อน' : ''}
+                        title={!canConfirm ? (totalReceived === 0 ? 'จำนวนรับต้องมากกว่า 0' : 'กรุณาแนบหลักฐานการรับของก่อน') : ''}
                         className={`px-8 py-2 text-base font-medium text-white rounded-lg transition-colors ${canConfirm ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'}`}
                     >
                         {isUploading ? 'กำลังอัปโหลด...' : 'ยืนยันการรับของ'}
@@ -520,6 +579,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
 }) => {
     const [activeTab, setActiveLocalTab] = useState<'pending-pr' | 'po-list' | 'tracking'>('pending-pr');
     const [selectedPRIds, setSelectedPRIds] = useState<Set<string>>(new Set());
+    const { receiveItems } = useReceiveStock(setStock, setTransactions);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [expandedPOIds, setExpandedPOIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
@@ -676,71 +736,45 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         setPoPhotos([]);
     };
 
-    const handleConfirmReceivePO = async () => {
+    const handleConfirmReceivePO = async (receivedQtys?: number[]) => {
         if (!receivingPO) return;
 
         const po = receivingPO;
-        const confirmed = await confirmAction(
-            'ยืนยันการรับของ',
-            `ยืนยันการรับของสำหรับ PO: ${po.poNumber}? การกระทำนี้จะเพิ่มสต็อกสินค้าและปิด PR ที่เกี่ยวข้อง`
-        );
+        const items = po.items || [];
+        // F: ใช้จำนวนรับจริงจาก modal (ถ้าไม่ส่งมา fallback เป็นจำนวนใน PO)
+        const actualQtys = Array.isArray(receivedQtys) && receivedQtys.length === items.length
+            ? receivedQtys
+            : items.map(i => Number(i.quantity) || 0);
+
+        // ป้องกันจำนวนรับเป็น 0 ทั้งหมด
+        const totalReceived = actualQtys.reduce((s, q) => s + (Number(q) || 0), 0);
+        if (totalReceived <= 0) {
+            addToast('จำนวนรับต้องมากกว่า 0', 'warning');
+            return;
+        }
+
+        const hasDiscrepancy = actualQtys.some((q, i) => Number(q) !== Number(items[i]?.quantity || 0));
+        const confirmMsg = hasDiscrepancy
+            ? `⚠️ จำนวนรับจริงไม่ตรงกับ PO — ระบบจะบันทึกตามจำนวนที่รับจริง\nยืนยันการรับของสำหรับ PO: ${po.poNumber}?`
+            : `ยืนยันการรับของสำหรับ PO: ${po.poNumber}? การกระทำนี้จะเพิ่มสต็อกสินค้าและปิด PR ที่เกี่ยวข้อง`;
+        const confirmed = await confirmAction('ยืนยันการรับของ', confirmMsg);
         if (!confirmed) return;
 
+        // รับของผ่าน hook กลาง (B + D + E) — ใช้จำนวนรับจริง
+        const itemsToReceive = items
+            .map((i, idx) => ({ stockId: i.stockId, name: i.name, quantity: actualQtys[idx], unitPrice: i.unitPrice, unit: i.unit }))
+            .filter(i => Number(i.quantity) > 0);
+
+        const result = receiveItems(itemsToReceive, { documentNumber: po.poNumber, documentType: 'PO' });
+
         const now = new Date().toISOString();
-        const safeItems = Array.isArray(po.items) ? po.items : [];
-        const linkedItems = safeItems.filter(item => item.stockId);
-        const unlinkedItems = safeItems.filter(item => !item.stockId);
 
-        // แจ้งเตือนถ้ามีรายการที่ไม่ผูกกับสต็อก
-        if (unlinkedItems.length > 0) {
-            addToast(`⚠️ ${unlinkedItems.length} รายการไม่ผูกกับสต็อก จะไม่อัพเดทยอดสต็อก: ${unlinkedItems.map(i => i.name).join(', ')}`, 'warning');
-        }
-
-        if (linkedItems.length === 0) {
-            addToast('❌ ไม่มีรายการใดผูกกับสต็อก — ยอดสต็อกจะไม่เปลี่ยนแปลง กรุณาตรวจสอบ PO', 'error');
-        }
-
-        // 1. Update Stock & Transactions — ใช้ Number() ป้องกัน string concatenation
-        const newTransactions: StockTransaction[] = [];
-        const stockUpdates = new Map<string, number>(); // stockId -> quantity to add
-
-        linkedItems.forEach(item => {
-            const qty = Number(item.quantity) || 0;
-            stockUpdates.set(item.stockId!, (stockUpdates.get(item.stockId!) || 0) + qty);
-
-            newTransactions.push({
-                id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
-                stockItemId: item.stockId!,
-                stockItemName: item.name,
-                type: 'รับเข้า',
-                quantity: qty,
-                transactionDate: now,
-                actor: 'ระบบ (รับจาก PO)',
-                notes: `รับของจากใบสั่งซื้อ ${po.poNumber}`,
-                documentNumber: po.poNumber,
-                pricePerUnit: Number(item.unitPrice) || 0,
-            });
-        });
-
-        setStock(prevStock => prevStock.map(s => {
-            if (stockUpdates.has(s.id)) {
-                const addedQty = stockUpdates.get(s.id)!;
-                const newQty = Number(s.quantity) + addedQty;
-                const newStatus = calculateStockStatus(newQty, s.minStock, s.maxStock);
-                return { ...s, quantity: newQty, status: newStatus };
-            }
-            return s;
-        }));
-
-        if (newTransactions.length > 0) {
-            setTransactions(prev => [...newTransactions, ...prev]);
-        }
-
-        // 2. Update PO Status with photos
+        // Update PO Status with photos + บันทึก receivedQty ในแต่ละ item เพื่อ audit
         const safePhotos = Array.isArray(poPhotos) ? poPhotos : [];
-        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', photos: safePhotos } : p));
+        const updatedItems = items.map((i, idx) => ({ ...i, receivedQty: actualQtys[idx] }));
+        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', photos: safePhotos, items: updatedItems } : p));
 
-        // 3. Update Linked PRs to 'รับของแล้ว'
+        // Update Linked PRs to 'รับของแล้ว'
         setPurchaseRequisitions(prev => prev.map(pr => {
             if (po.linkedPrIds.includes(pr.id)) {
                 return { ...pr, status: 'รับของแล้ว', updatedAt: now };
@@ -748,7 +782,9 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             return pr;
         }));
 
-        addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย${linkedItems.length > 0 ? ` (อัพเดทสต็อก ${linkedItems.length} รายการ)` : ''}`, 'success');
+        if (result.success) {
+            addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย (อัพเดทสต็อก ${result.receivedCount} รายการ)`, 'success');
+        }
 
         // Telegram notification handled by Cloud Function onPurchaseOrderWrite (status → Received)
 

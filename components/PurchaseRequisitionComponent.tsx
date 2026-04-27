@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
+import { useReceiveStock } from '../hooks/useReceiveStock';
 // Telegram notifications are handled by Cloud Functions (onPurchaseRequisitionWrite)
 // to avoid duplicate messages — do NOT add frontend Telegram calls here
 
@@ -100,53 +101,17 @@ const PurchaseRequisitionComponent: React.FC<PurchaseRequisitionProps> = ({ purc
         setIsModalOpen(true);
     };
 
+    const { receiveItems } = useReceiveStock(setStock, setTransactions);
+
     const handleReceiveStock = (pr: PurchaseRequisition) => {
         if (pr.requestType === 'Product') {
-            const safeItems = Array.isArray(pr.items) ? pr.items : [];
-            const linkedItems = safeItems.filter(item => item.stockId);
-            const unlinkedItems = safeItems.filter(item => !item.stockId);
-
-            // แจ้งเตือนถ้ามีรายการที่ไม่ผูกกับสต็อก
-            if (unlinkedItems.length > 0) {
-                addToast(`⚠️ ${unlinkedItems.length} รายการไม่ผูกกับสต็อก จะไม่อัพเดทยอดสต็อก: ${unlinkedItems.map(i => i.name).join(', ')}`, 'warning');
+            const result = receiveItems(
+                (pr.items || []).map(i => ({ stockId: i.stockId, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, unit: i.unit })),
+                { documentNumber: pr.prNumber, documentType: 'PR' }
+            );
+            if (result.success) {
+                addToast(`รับของจาก ${pr.prNumber} เข้าสต็อกเรียบร้อย (อัพเดท ${result.receivedCount} รายการ)`, 'info');
             }
-
-            if (linkedItems.length === 0) {
-                addToast('❌ ไม่มีรายการใดผูกกับสต็อก — ยอดสต็อกจะไม่เปลี่ยนแปลง กรุณาตรวจสอบใบขอซื้อ', 'error');
-            }
-
-            // ใช้ Number() ป้องกัน string concatenation + สร้าง object ใหม่ (ไม่ mutate)
-            setStock(prevStock => {
-                return prevStock.map(s => {
-                    const matchingItem = linkedItems.find(item => item.stockId === s.id);
-                    if (matchingItem) {
-                        const addedQty = Number(matchingItem.quantity) || 0;
-                        const newQuantity = Number(s.quantity) + addedQty;
-                        const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
-                        return { ...s, quantity: newQuantity, status: newStatus };
-                    }
-                    return s;
-                });
-            });
-
-            const now = new Date().toISOString();
-            const newTransactions: StockTransaction[] = linkedItems.map(item => ({
-                id: `TXN-${Date.now()}-${item.stockId}-${Math.random()}`,
-                stockItemId: item.stockId!,
-                stockItemName: item.name,
-                type: 'รับเข้า',
-                quantity: Number(item.quantity) || 0,
-                transactionDate: now,
-                actor: 'ระบบ (จากใบขอซื้อ)',
-                notes: `รับของตามใบขอซื้อ ${pr.prNumber}`,
-                relatedRepairOrder: '',
-                pricePerUnit: Number(item.unitPrice) || 0,
-            }));
-
-            if (newTransactions.length > 0) {
-                setTransactions(prev => [...newTransactions, ...prev]);
-            }
-            addToast(`รับของจาก ${pr.prNumber} เข้าสต็อกเรียบร้อย${linkedItems.length > 0 ? ` (อัพเดทสต็อก ${linkedItems.length} รายการ)` : ''}`, 'info');
         } else {
             addToast(`ปิดงานใบขอซื้อ ${pr.prNumber} (${pr.requestType}) เรียบร้อย`, 'info');
         }

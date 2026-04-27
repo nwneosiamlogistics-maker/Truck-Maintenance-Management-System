@@ -202,11 +202,17 @@ const StockManagement: React.FC<StockManagementProps> = ({
         setStockModalOpen(true);
     };
 
-    const handleSaveItem = (itemData: StockItem, extras: { sourceRepairOrderNo?: string }) => {
+    const handleSaveItem = async (itemData: StockItem, extras: { sourceRepairOrderNo?: string }) => {
         const now = new Date().toISOString();
         if (itemData.id) { // Editing
             const originalItem = safeStock.find(s => s.id === itemData.id);
             if (originalItem && originalItem.quantity !== itemData.quantity) {
+                // 🔒 บังคับใส่รหัสผ่านเมื่อปรับจำนวนสต๊อกโดยตรง (bypass workflow รับ-เบิก)
+                const ok = await promptForPasswordAsync('ปรับจำนวนสต๊อก');
+                if (!ok) {
+                    addToast('ยกเลิกการปรับสต๊อก — ไม่ได้ใส่รหัสผ่าน', 'warning');
+                    return;
+                }
                 const difference = itemData.quantity - originalItem.quantity;
                 const newTransaction: StockTransaction = {
                     id: `TXN-ADJ-${Date.now()}`,
@@ -260,16 +266,33 @@ const StockManagement: React.FC<StockManagementProps> = ({
     };
 
     const handleWithdrawStock = (data: { stockItemId: string, quantity: number, reason: string, withdrawnBy: string, notes: string }) => {
+        const stockItem = safeStock.find(s => s.id === data.stockItemId);
+
+        // 🔒 Guard: ป้องกันเบิกเกินจำนวนสต๊อกที่มี (รวมถึงค่าติดลบ/ศูนย์)
+        const reqQty = Number(data.quantity) || 0;
+        if (reqQty <= 0) {
+            addToast('จำนวนที่เบิกต้องมากกว่า 0', 'warning');
+            return;
+        }
+        if (!stockItem) {
+            addToast('ไม่พบรายการสต๊อกที่เลือก', 'error');
+            return;
+        }
+        const available = Number(stockItem.quantity) || 0;
+        if (reqQty > available) {
+            addToast(`❌ เบิกเกินจำนวนคงเหลือ — ${stockItem.name} เหลือ ${available} ${stockItem.unit} (ขอเบิก ${reqQty})`, 'error');
+            return;
+        }
+
         setStock(prevStock => prevStock.map(s => {
             if (s.id === data.stockItemId) {
-                const newQuantity = Number(s.quantity) - Number(data.quantity);
+                const newQuantity = Number(s.quantity) - reqQty;
                 const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
                 return { ...s, quantity: newQuantity, status: newStatus };
             }
             return s;
         }));
 
-        const stockItem = safeStock.find(s => s.id === data.stockItemId);
         if (stockItem) {
             const year = new Date().getFullYear();
             const wdTransactionsThisYear = (Array.isArray(transactions) ? transactions : [])
@@ -298,16 +321,33 @@ const StockManagement: React.FC<StockManagementProps> = ({
     };
 
     const handleReturnStock = (data: { stockItemId: string, quantity: number, reason?: string }) => {
+        const stockItem = safeStock.find(s => s.id === data.stockItemId);
+        const reqQty = Number(data.quantity) || 0;
+
+        // 🔒 Guard: ป้องกันคืนร้านค้าเกินจำนวนสต๊อกที่มี
+        if (reqQty <= 0) {
+            addToast('จำนวนที่คืนต้องมากกว่า 0', 'warning');
+            return;
+        }
+        if (!stockItem) {
+            addToast('ไม่พบรายการสต๊อกที่เลือก', 'error');
+            return;
+        }
+        const available = Number(stockItem.quantity) || 0;
+        if (reqQty > available) {
+            addToast(`❌ คืนเกินจำนวนคงเหลือ — ${stockItem.name} เหลือ ${available} ${stockItem.unit} (ขอคืน ${reqQty})`, 'error');
+            return;
+        }
+
         setStock(prevStock => prevStock.map(s => {
             if (s.id === data.stockItemId) {
-                const newQuantity = Number(s.quantity) - Number(data.quantity);
+                const newQuantity = Number(s.quantity) - reqQty;
                 const newStatus = calculateStockStatus(newQuantity, s.minStock, s.maxStock);
                 return { ...s, quantity: newQuantity, status: newStatus };
             }
             return s;
         }));
 
-        const stockItem = safeStock.find(s => s.id === data.stockItemId);
         if (stockItem) {
             const newTransaction: StockTransaction = {
                 id: `TXN-${Date.now()}`,

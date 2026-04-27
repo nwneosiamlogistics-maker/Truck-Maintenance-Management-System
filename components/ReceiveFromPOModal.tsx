@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import type { PurchaseRequisition, StockItem, StockTransaction } from '../types';
 import { useToast } from '../context/ToastContext';
-import { calculateStockStatus } from '../utils';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
+import { useReceiveStock } from '../hooks/useReceiveStock';
 
 interface ReceiveFromPOModalProps {
     isOpen: boolean;
@@ -19,6 +19,7 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
     const [photos, setPhotos] = useState<string[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const { addToast } = useToast();
+    const { receiveItems } = useReceiveStock(setStock, setTransactions);
 
     const receivablePrs = useMemo(() => {
         return (Array.isArray(purchaseRequisitions) ? purchaseRequisitions : []).filter(
@@ -89,58 +90,24 @@ const ReceiveFromPOModal: React.FC<ReceiveFromPOModalProps> = ({ isOpen, onClose
         }
 
         const safePhotos = Array.isArray(photos) ? photos : [];
-        const safeItems = Array.isArray(prToReceive.items) ? prToReceive.items : [];
-        const linkedItems = safeItems.filter(item => item.stockId);
-        const unlinkedItems = safeItems.filter(item => !item.stockId);
 
-        // แจ้งเตือนถ้ามีรายการที่ไม่ผูกกับสต็อก
-        if (unlinkedItems.length > 0) {
-            addToast(`⚠️ ${unlinkedItems.length} รายการไม่ผูกกับสต็อก (เพิ่มด้วย "เพิ่มรายการเอง") จะไม่อัพเดทยอดสต็อก: ${unlinkedItems.map(i => i.name).join(', ')}`, 'warning');
-        }
+        // รับของผ่าน hook กลาง (B + D + E)
+        const result = receiveItems(
+            (prToReceive.items || []).map(i => ({ stockId: i.stockId, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, unit: i.unit })),
+            { documentNumber: prToReceive.prNumber, documentType: 'PR' }
+        );
 
-        if (linkedItems.length === 0) {
-            addToast('❌ ไม่มีรายการใดผูกกับสต็อก — ยอดสต็อกจะไม่เปลี่ยนแปลง กรุณาตรวจสอบใบขอซื้อ', 'error');
-        }
-
-        // 1. Update stock — ใช้ Number() ป้องกัน string concatenation + สร้าง object ใหม่ (ไม่ mutate)
-        setStock(prevStock => {
-            return prevStock.map(s => {
-                const matchingItem = linkedItems.find(item => item.stockId === s.id);
-                if (matchingItem) {
-                    const addedQty = Number(matchingItem.quantity) || 0;
-                    const newQuantity = Number(s.quantity) + addedQty;
-                    return { ...s, quantity: newQuantity, status: calculateStockStatus(newQuantity, s.minStock, s.maxStock) };
-                }
-                return s;
-            });
-        });
-
-        // 2. Create transactions
+        // Update PR status
         const now = new Date().toISOString();
-        const newTransactions: StockTransaction[] = linkedItems.map(item => ({
-            id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
-            stockItemId: item.stockId,
-            stockItemName: item.name,
-            type: 'รับเข้า',
-            quantity: Number(item.quantity) || 0,
-            transactionDate: now,
-            actor: 'ระบบ (รับจากใบขอซื้อ)',
-            notes: `จากใบขอซื้อเลขที่ ${prToReceive.prNumber}`,
-            documentNumber: prToReceive.prNumber,
-            pricePerUnit: Number(item.unitPrice) || 0,
-        }));
-        if (newTransactions.length > 0) {
-            setTransactions(prev => [...newTransactions, ...prev]);
-        }
-        
-        // 3. Update PR status
         setPurchaseRequisitions(prev => prev.map(pr =>
             pr.id === selectedPrId
                 ? { ...pr, status: 'รับของแล้ว' as const, updatedAt: now, photos: safePhotos }
                 : pr
         ));
 
-        addToast(`รับของสำหรับใบขอซื้อ ${prToReceive.prNumber} สำเร็จ${linkedItems.length > 0 ? ` (อัพเดทสต็อก ${linkedItems.length} รายการ)` : ''}`, 'success');
+        if (result.success) {
+            addToast(`รับของสำหรับใบขอซื้อ ${prToReceive.prNumber} สำเร็จ (อัพเดทสต็อก ${result.receivedCount} รายการ)`, 'success');
+        }
         setIsProcessing(false);
         onClose();
     };
