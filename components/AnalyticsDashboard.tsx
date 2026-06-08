@@ -8,6 +8,7 @@ import TechnicianPerformance from './TechnicianPerformance';
 import StockHistory from './StockHistory';
 import UsedPartReport from './UsedPartReport';
 import DriverLeaveReport from './DriverLeaveReport';
+import VehicleExpenseReport from './VehicleExpenseReport';
 
 interface AnalyticsDashboardProps {
     repairs: Repair[];
@@ -25,7 +26,7 @@ interface AnalyticsDashboardProps {
     drivers: Driver[];
 }
 
-type AnalyticsTab = 'fleet' | 'reports' | 'kpi' | 'stock-history' | 'used-parts' | 'technician-kpi' | 'driver-leave';
+type AnalyticsTab = 'fleet' | 'reports' | 'vehicle-expense' | 'kpi' | 'stock-history' | 'used-parts' | 'technician-kpi' | 'driver-leave';
 
 const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('fleet');
@@ -34,6 +35,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
         switch (activeTab) {
             case 'fleet': return <FleetKPIDashboard {...props} />;
             case 'reports': return <Reports {...props} />;
+            case 'vehicle-expense': return <VehicleExpenseReport repairs={props.repairs} vehicles={props.vehicles} />;
             case 'kpi': return <KPIDashboard {...props} />;
             case 'stock-history': return <StockHistory {...props} />;
             case 'used-parts': return <UsedPartReport usedParts={props.usedParts} deleteUsedPartDisposition={props.deleteUsedPartDisposition} />;
@@ -46,6 +48,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
     const tabs: { id: AnalyticsTab, label: string, sub: string }[] = [
         { id: 'fleet', label: 'Fleet Performance', sub: 'ประสิทธิภาพกลุ่มรถ' },
         { id: 'reports', label: 'Analysis Hub', sub: 'รายงานและสถิติ' },
+        { id: 'vehicle-expense', label: 'Vehicle Expense', sub: 'ค่าใช้จ่ายเกี่ยวกับรถ' },
         { id: 'kpi', label: 'Repair KPI', sub: 'ภาพรวมดัชนีการซ่อม' },
         { id: 'technician-kpi', label: 'Technician Hub', sub: 'ประสิทธิภาพงานช่าง' },
         { id: 'stock-history', label: 'Inventory Log', sub: 'ประวัติเบิกจ่าย' },
@@ -63,8 +66,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex flex-col items-center justify-center px-8 py-4 rounded-[2rem] transition-all duration-500 relative group ${activeTab === tab.id
-                                    ? 'bg-slate-950 text-white shadow-2xl scale-105'
-                                    : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                                ? 'bg-slate-950 text-white shadow-2xl scale-105'
+                                : 'text-slate-500 hover:bg-white hover:text-slate-900'
                                 }`}
                         >
                             <span className="text-[10px] font-black uppercase tracking-widest mb-1">{tab.label}</span>

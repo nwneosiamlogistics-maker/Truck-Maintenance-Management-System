@@ -6,7 +6,7 @@ import {
     AreaChart, Area, PieChart, Pie, Cell, Line, ComposedChart
 } from 'recharts';
 import { Download, TrendingUp, DollarSign, Activity, Award } from 'lucide-react';
-import { exportToCSV } from '../utils/exportUtils';
+import { exportSimpleXLSX } from '../utils/exportUtils';
 
 // --- Premium Styled Components ---
 
@@ -163,11 +163,14 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         const exportData = repairs.map(r => ({
             'ใบแจ้งซ่อม': r.repairOrderNo,
             'ทะเบียนรถ': r.licensePlate,
-            'ค่าแรง': r.repairCost,
-            'ค่าอะไหล่': (r.parts || []).reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0),
-            'รวมสุทธิ': calculateTotalCost(r)
+            'วันที่เปิดใบซ่อม': r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH') : '-',
+            'สถานะ': r.status,
+            'ค่าแรง (บาท)': Number(r.repairCost) || 0,
+            'ค่าอะไหล่ (บาท)': (r.parts || []).reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0),
+            'VAT (บาท)': (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0),
+            'รวมสุทธิ (บาท)': calculateTotalCost(r)
         }));
-        exportToCSV('Maintenance_Intelligence_Export', exportData);
+        exportSimpleXLSX('Maintenance_Intelligence_Export', exportData, 'รายงานวิเคราะห์', [18, 16, 18, 12, 14, 16, 14, 16]);
     };
 
     const data = useMemo(() => {
