@@ -103,7 +103,6 @@ async function checkAndSetDedup(dedupKey: string, currentStatus: string): Promis
     return true;
 }
 
-
 // Helper: look up technician name from RTDB by ID
 // Returns name if found, falls back to the raw ID so the message still makes sense
 async function getTechnicianName(id: string | null | undefined): Promise<string | null> {

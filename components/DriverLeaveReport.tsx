@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Driver, LeaveType } from '../types';
-import { Calendar, Search, Filter, Download, FileSpreadsheet, Printer, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Driver } from '../types';
+import { Search, FileSpreadsheet, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface DriverLeaveReportProps {
@@ -56,18 +56,18 @@ const DriverLeaveReport: React.FC<DriverLeaveReportProps> = ({ drivers }) => {
     return (
         <div className="space-y-12 animate-fade-in-up pb-12">
             {/* Header / Filter */}
-            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-5 lg:p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-600/5 via-transparent to-pink-600/5 pointer-events-none"></div>
                 <div className="relative z-10 text-center lg:text-left">
-                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-900 via-pink-900 to-indigo-900 leading-none">
+                    <h2 className="text-2xl lg:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-900 via-pink-900 to-indigo-900 leading-none">
                         HR Analytics
                     </h2>
-                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
+                    <p className="text-slate-400 font-black mt-2 lg:mt-4 uppercase tracking-[0.3em] lg:tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
                         <span className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse shadow-glow"></span>
                         รายงานประวัติการลางาน (Driver Attendance Hub)
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-4 mt-12 lg:mt-0 relative z-10">
+                <div className="flex flex-wrap items-center gap-4 mt-6 lg:mt-0 relative z-10">
                     <div className="bg-white/60 backdrop-blur-xl px-6 py-2 rounded-2xl border border-white shadow-xl flex flex-col">
                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">เลือกปี (Select Year)</span>
                         <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} title="เลือกปีรายงาน" className="bg-transparent text-xs font-black text-slate-700 outline-none">
@@ -80,25 +80,26 @@ const DriverLeaveReport: React.FC<DriverLeaveReportProps> = ({ drivers }) => {
             </div>
 
             {/* Main Table Card */}
-            <div className="glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl relative animate-scale-in delay-100 min-h-[600px]">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
+            <div className="glass p-4 lg:p-10 rounded-[3.5rem] border border-white/50 shadow-2xl relative animate-scale-in delay-100 min-h-[600px]">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 lg:gap-6 mb-4 lg:mb-10">
                     <div className="relative flex-1 w-full">
                         <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input type="text" placeholder="ค้นหาชื่อ หรือ รหัสพนักงาน..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50/50 pl-16 pr-8 py-4 rounded-[2rem] text-[11px] font-black uppercase tracking-widest text-slate-700 border border-slate-100 outline-none focus:ring-2 focus:ring-purple-200 transition-all shadow-inner" />
                     </div>
-                    <div className="flex gap-4">
-                        <button onClick={exportToExcel} className="p-4 bg-emerald-600 text-white rounded-[1.5rem] shadow-lg shadow-emerald-500/30 hover:scale-105 transition-all active:scale-95 flex items-center gap-3">
+                    <div className="flex gap-3 lg:gap-4 w-full md:w-auto">
+                        <button onClick={exportToExcel} className="flex-1 md:flex-none justify-center p-4 bg-emerald-600 text-white rounded-[1.5rem] shadow-lg shadow-emerald-500/30 hover:scale-105 transition-all active:scale-95 flex items-center gap-3">
                             <FileSpreadsheet size={18} />
                             <span className="text-[10px] font-black uppercase tracking-widest">Excel</span>
                         </button>
-                        <button onClick={exportToPDF} className="p-4 bg-rose-600 text-white rounded-[1.5rem] shadow-lg shadow-rose-500/30 hover:scale-105 transition-all active:scale-95 flex items-center gap-3">
+                        <button onClick={exportToPDF} className="flex-1 md:flex-none justify-center p-4 bg-rose-600 text-white rounded-[1.5rem] shadow-lg shadow-rose-500/30 hover:scale-105 transition-all active:scale-95 flex items-center gap-3">
                             <Printer size={18} />
                             <span className="text-[10px] font-black uppercase tracking-widest">PDF</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto custom-scrollbar">
+                {/* Desktop Table (>= lg) */}
+                <div className="hidden lg:block overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
@@ -161,6 +162,80 @@ const DriverLeaveReport: React.FC<DriverLeaveReportProps> = ({ drivers }) => {
                             </tr>
                         </tfoot>
                     </table>
+                </div>
+
+                {/* Mobile Card View (< lg) */}
+                <div className="lg:hidden space-y-3">
+                    {stats.map(driver => (
+                        <div key={driver.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-600 font-black text-sm shadow-sm shrink-0">
+                                        {driver.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <div className="font-black text-slate-900 text-sm">{driver.name}</div>
+                                        <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic">{driver.employeeId}</div>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="font-black text-slate-900 text-lg tabular-nums">{driver.usage.total}</div>
+                                    <div className="text-[8px] font-black uppercase text-slate-400 tracking-widest">รวม (วัน)</div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2 pt-3 border-t border-slate-50">
+                                <div className={`text-center rounded-xl py-2 ${driver.usage.sick > 0 ? 'bg-rose-50' : 'bg-slate-50/50'}`}>
+                                    <div className="text-[8px] font-black uppercase text-rose-400 tracking-wider">ลาป่วย</div>
+                                    <div className={`text-sm font-black ${driver.usage.sick > 0 ? 'text-rose-600' : 'text-slate-300'}`}>{driver.usage.sick}</div>
+                                </div>
+                                <div className={`text-center rounded-xl py-2 ${driver.usage.personal > 0 ? 'bg-indigo-50' : 'bg-slate-50/50'}`}>
+                                    <div className="text-[8px] font-black uppercase text-indigo-400 tracking-wider">ลากิจ</div>
+                                    <div className={`text-sm font-black ${driver.usage.personal > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>{driver.usage.personal}</div>
+                                </div>
+                                <div className={`text-center rounded-xl py-2 ${driver.usage.vacation > 0 ? 'bg-amber-50' : 'bg-slate-50/50'}`}>
+                                    <div className="text-[8px] font-black uppercase text-amber-400 tracking-wider">พักร้อน</div>
+                                    <div className={`text-sm font-black ${driver.usage.vacation > 0 ? 'text-amber-600' : 'text-slate-300'}`}>{driver.usage.vacation}</div>
+                                </div>
+                                <div className={`text-center rounded-xl py-2 ${driver.usage.other > 0 ? 'bg-slate-100' : 'bg-slate-50/50'}`}>
+                                    <div className="text-[8px] font-black uppercase text-slate-400 tracking-wider">อื่นๆ</div>
+                                    <div className={`text-sm font-black ${driver.usage.other > 0 ? 'text-slate-600' : 'text-slate-300'}`}>{driver.usage.other}</div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {stats.length === 0 && (
+                        <div className="text-center py-10 text-slate-400 bg-white rounded-3xl border border-slate-100 text-sm font-bold">
+                            ไม่พบข้อมูลพนักงาน
+                        </div>
+                    )}
+
+                    {/* Grand Total Card */}
+                    {stats.length > 0 && (
+                        <div className="rounded-3xl bg-gradient-to-r from-purple-900 to-pink-900 text-white p-4 mt-2">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="text-[10px] font-black uppercase tracking-widest">รวมทั้งหมด</span>
+                                <span className="text-lg font-black tabular-nums">{stats.reduce((s, d) => s + d.usage.total, 0)} <span className="text-[10px] uppercase">วัน</span></span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                                <div className="text-center">
+                                    <div className="text-[8px] font-black text-rose-300/60 uppercase">ลาป่วย</div>
+                                    <div className="text-sm font-black text-rose-300">{stats.reduce((s, d) => s + d.usage.sick, 0)}</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-[8px] font-black text-indigo-300/60 uppercase">ลากิจ</div>
+                                    <div className="text-sm font-black text-indigo-300">{stats.reduce((s, d) => s + d.usage.personal, 0)}</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-[8px] font-black text-amber-300/60 uppercase">พักร้อน</div>
+                                    <div className="text-sm font-black text-amber-300">{stats.reduce((s, d) => s + d.usage.vacation, 0)}</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-[8px] font-black text-slate-300/60 uppercase">อื่นๆ</div>
+                                    <div className="text-sm font-black text-slate-300">{stats.reduce((s, d) => s + d.usage.other, 0)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

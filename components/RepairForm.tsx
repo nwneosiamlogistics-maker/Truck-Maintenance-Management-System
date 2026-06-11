@@ -8,7 +8,7 @@ import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 import DailyChecklistForm from './DailyChecklistForm';
-
+import PhotoUpload from './PhotoUpload';
 
 interface StepperProps {
     steps: string[];
@@ -148,6 +148,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             },
             kpiTaskIds: [],
             driverId: '',
+            photos: [],
         };
     };
 
@@ -570,6 +571,16 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         const { repairOrderNo, ...repairData } = formData;
 
+        // Ensure photos is an array before saving
+        repairData.photos = Array.isArray(formData.photos) ? formData.photos : [];
+
+        // 📸 Mandatory photo validation
+        if (repairData.photos.length === 0) {
+            addToast('📸 กรุณาแนบรูปภาพหลักฐานอย่างน้อย 1 รูปก่อนบันทึก', 'warning');
+            setIsSubmitting(false);
+            return;
+        }
+
         if (repairData.vehicleType === 'อื่นๆ') {
             if (!otherVehicleType.trim()) {
                 addToast('กรุณาระบุประเภทรถ', 'warning');
@@ -605,6 +616,10 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 if (!hasChecklistForToday) {
                     setIsMandatoryChecklistOpen(true);
                     addToast('กรุณาทำรายการตรวจเช็ค (Checklist) ก่อนดำเนินการต่อ', 'info');
+                    return false;
+                }
+                if (!formData.photos || formData.photos.length === 0) {
+                    addToast('📸 กรุณาแนบรูปภาพหลักฐานอย่างน้อย 1 รูปก่อนดำเนินการต่อ', 'warning');
                     return false;
                 }
                 break;
@@ -685,7 +700,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             case 0: // ข้อมูลรถและปัญหา
                 return (
                     <div className="space-y-10 animate-fade-in-up">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 overflow-visible">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 overflow-visible text-left">
                             <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100" style={{ zIndex: 60 }}>
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ทะเบียนรถ (License Plate) *</label>
                                 <div className="relative">
@@ -720,7 +735,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 overflow-visible">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 overflow-visible text-left">
                             <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300" style={{ zIndex: 50 }}>
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">พนักงานขับรถ (Driver)</label>
                                 <div className="relative">
@@ -857,11 +872,31 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 required
                                 placeholder="ระบุอาการเสียโดยละเอียด หรือเลือกจากรูปด้านบน..."
                             ></textarea>
+                            <div className={`rounded-2xl border-2 transition-all ${(!formData.photos || formData.photos.length === 0) ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}>
+                                <div className="px-4 pt-3 flex items-center gap-2">
+                                    <span className={`text-xs font-black uppercase tracking-widest ${(!formData.photos || formData.photos.length === 0) ? 'text-red-600' : 'text-green-600'}`}>
+                                        📸 รูปภาพหลักฐาน <span className="text-red-500">*</span>
+                                    </span>
+                                    {(!formData.photos || formData.photos.length === 0) && (
+                                        <span className="text-xs text-red-500 font-bold">(บังคับต้องแนบอย่างน้อย 1 รูป)</span>
+                                    )}
+                                    {formData.photos && formData.photos.length > 0 && (
+                                        <span className="text-xs text-green-600 font-bold">✓ แนบแล้ว {formData.photos.length} รูป</span>
+                                    )}
+                                </div>
+                                <PhotoUpload
+                                    photos={formData.photos || []}
+                                    onChange={(photos) => setFormData({ ...formData, photos })}
+                                    entity="repair"
+                                    entityId="new"
+                                />
+                            </div>
                             {(() => {
                                 const mainName = formData.repairCategory.split(' > ')[0];
                                 const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
                                 if (!cat) return null;
                                 const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
+                                const subSymptoms = subName ? (cat.subCategories || []).find(s => s.nameTh === subName)?.suggestedSymptoms || [] : (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
                                 const symptoms = sub?.suggestedSymptoms || (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const unique = Array.from(new Set(symptoms));
@@ -1061,38 +1096,38 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 {formData.parts.length > 0 ? (
                                     <>
                                         <div className="overflow-x-auto -mx-0">
-                                        <div className="grid grid-cols-12 gap-5 p-8 border-b-2 border-slate-100 font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 bg-white/50 min-w-[500px]">
-                                            <div className="col-span-1 text-center">คลัง</div>
-                                            <div className="col-span-4">ชื่ออะไหล่ (Part Name)</div>
-                                            <div className="col-span-2 text-right">จำนวน</div>
-                                            <div className="col-span-2 text-right">ราคา/หน่วย</div>
-                                            <div className="col-span-3 text-right pr-4">ราคารวม</div>
-                                        </div>
-                                        <div className="max-h-[350px] overflow-y-auto">
-                                            {formData.parts.map((part) => (
-                                                <div key={part.partId} className="grid grid-cols-12 gap-5 items-center p-8 hover:bg-white transition-colors border-b border-slate-100 last:border-0 group animate-fade-in-up min-w-[500px]">
-                                                    <div className="col-span-1 flex justify-center">
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm ${part.source === 'สต็อกอู่' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                                            {part.source === 'สต็อกอู่' ? <Package size={18} /> : <CreditCard size={18} />}
+                                            <div className="grid grid-cols-12 gap-5 p-8 border-b-2 border-slate-100 font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 bg-white/50 min-w-[500px]">
+                                                <div className="col-span-1 text-center">คลัง</div>
+                                                <div className="col-span-4">ชื่ออะไหล่ (Part Name)</div>
+                                                <div className="col-span-2 text-right">จำนวน</div>
+                                                <div className="col-span-2 text-right">ราคา/หน่วย</div>
+                                                <div className="col-span-3 text-right pr-4">ราคารวม</div>
+                                            </div>
+                                            <div className="max-h-[350px] overflow-y-auto">
+                                                {formData.parts.map((part) => (
+                                                    <div key={part.partId} className="grid grid-cols-12 gap-5 items-center p-8 hover:bg-white transition-colors border-b border-slate-100 last:border-0 group animate-fade-in-up min-w-[500px]">
+                                                        <div className="col-span-1 flex justify-center">
+                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm ${part.source === 'สต็อกอู่' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                                {part.source === 'สต็อกอู่' ? <Package size={18} /> : <CreditCard size={18} />}
+                                                            </div>
+                                                        </div>
+                                                        <div className="col-span-4 pr-4">
+                                                            <p className="font-bold text-slate-800 text-sm truncate">{part.name}</p>
+                                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">{part.source}</p>
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-right font-black text-slate-800 hover:border-blue-400 focus:border-blue-500 transition-all shadow-sm" aria-label="Quantity" />
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-right font-black text-slate-800 hover:border-blue-400 focus:border-blue-500 transition-all shadow-sm ${part.source === 'สต็อกอู่' ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`} aria-label="Unit Price" />
+                                                        </div>
+                                                        <div className="col-span-3 flex items-center justify-end gap-5">
+                                                            <p className="font-black text-slate-800 text-base">{formatCurrency(part.quantity * part.unitPrice)}</p>
+                                                            <button type="button" onClick={() => removePart(part.partId)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:bg-red-50 hover:text-red-500 transition-all font-black text-xl">&times;</button>
                                                         </div>
                                                     </div>
-                                                    <div className="col-span-4 pr-4">
-                                                        <p className="font-bold text-slate-800 text-sm truncate">{part.name}</p>
-                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">{part.source}</p>
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <input type="number" value={part.quantity} min="1" onChange={(e) => updatePart(part.partId, 'quantity', parseInt(e.target.value))} className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-right font-black text-slate-800 hover:border-blue-400 focus:border-blue-500 transition-all shadow-sm" aria-label="Quantity" />
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <input type="number" value={part.unitPrice} onChange={(e) => updatePart(part.partId, 'unitPrice', parseFloat(e.target.value))} disabled={part.source === 'สต็อกอู่'} className={`w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-right font-black text-slate-800 hover:border-blue-400 focus:border-blue-500 transition-all shadow-sm ${part.source === 'สต็อกอู่' ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`} aria-label="Unit Price" />
-                                                    </div>
-                                                    <div className="col-span-3 flex items-center justify-end gap-5">
-                                                        <p className="font-black text-slate-800 text-base">{formatCurrency(part.quantity * part.unitPrice)}</p>
-                                                        <button type="button" onClick={() => removePart(part.partId)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:bg-red-50 hover:text-red-500 transition-all font-black text-xl">&times;</button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </>
                                 ) : (

@@ -1,26 +1,32 @@
 import React, { useState, useMemo } from 'react';
-import type { DrivingIncident, Driver, Vehicle } from '../types';
+import ReactDOMServer from 'react-dom/server';
+import type { DrivingIncident, Driver, Vehicle, FileAttachment } from '../types';
+import PhotoUpload from './PhotoUpload';
 import { formatCurrency } from '../utils';
 import { exportToCSV } from '../utils/exportUtils';
 import {
     Search, Download, FileText, Filter, AlertTriangle,
     TrendingDown, ShieldCheck, DollarSign, Calendar, MapPin,
     User, Truck, Info, Printer, Clock, X, Eye, FileCheck, Camera,
-    Zap, ChevronLeft, ChevronRight, ChevronDown, Trash2, Activity
+    Zap, ChevronLeft, ChevronRight, ChevronDown, Trash2, Activity,
+    Pencil, Save
 } from 'lucide-react';
 
 interface IncidentLogPageProps {
     incidents: DrivingIncident[];
     drivers: Driver[];
     vehicles: Vehicle[];
+    setIncidents: React.Dispatch<React.SetStateAction<DrivingIncident[]>>;
 }
 
-const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, vehicles }) => {
+const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, vehicles, setIncidents }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState<'all' | DrivingIncident['type']>('all');
     const [severityFilter, setSeverityFilter] = useState<'all' | DrivingIncident['severity']>('all');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [selectedIncident, setSelectedIncident] = useState<DrivingIncident | null>(null);
+    const [editingIncident, setEditingIncident] = useState<DrivingIncident | null>(null);
+    const [editTab, setEditTab] = useState<'General' | 'Details' | 'Analysis' | 'Outcome'>('General');
 
     const handleSelectIncident = (incident: DrivingIncident | null) => {
         setSelectedIncident(incident);
@@ -115,7 +121,7 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                                 <p className="font-bold italic text-sm">รูปภาพที่เกิดเหตุ (Site Photos)</p>
                                 <div className="border-2 border-slate-400 aspect-video rounded-3xl overflow-hidden bg-slate-50 flex items-center justify-center">
                                     {incident.photos && incident.photos[0] ? (
-                                        <img src={incident.photos[0].url} className="w-full h-full object-contain" alt="Site" />
+                                        <img src={typeof incident.photos[0] === 'string' ? incident.photos[0] : (incident.photos[0] as FileAttachment).url} className="w-full h-full object-contain" alt="Site" />
                                     ) : (
                                         <div className="text-slate-300 font-bold italic">Photo Area</div>
                                     )}
@@ -511,6 +517,155 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
         }
     };
 
+    const handleDownloadPDF = () => {
+        if (!selectedIncident) return;
+        const incident = selectedIncident;
+
+        const pagesHtml = Array.from({ length: 10 }, (_, i) => {
+            const el = renderOfficialPage(i + 1, incident);
+            return el ? ReactDOMServer.renderToStaticMarkup(el) : '';
+        }).join('\n');
+
+        const dateStr = new Date(incident.date).toLocaleDateString('th-TH').replace(/\//g, '-');
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert('ไม่สามารถเปิดหน้าต่างได้ กรุณาอนุญาต popup');
+            return;
+        }
+
+        printWindow.document.write(`<!DOCTYPE html>
+<html lang="th"><head>
+<meta charset="UTF-8"/>
+<title>Incident_Report_${dateStr}</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0; padding: 0;
+        font-family: 'Sarabun', sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        background: #f1f5f9;
+    }
+    @page { size: A4; margin: 0; }
+    @media print {
+        html, body { background: white; }
+        .official-report-page { box-shadow: none !important; margin: 0 !important; }
+        .official-report-page:last-child { page-break-after: auto; }
+        .no-print { display: none !important; }
+    }
+    .official-report-page {
+        width: 210mm;
+        min-height: 297mm;
+        padding: 20mm 15mm;
+        margin: 10px auto;
+        position: relative;
+        font-size: 10pt;
+        line-height: 1.6;
+        background: white;
+        color: #000;
+        box-shadow: 0 4px 24px rgba(0,0,0,.12);
+        page-break-after: always;
+    }
+    .report-header-grid {
+        border: 2px solid #000;
+        display: grid;
+        grid-template-columns: 2.5fr 1fr;
+        margin-bottom: 1rem;
+    }
+    .header-box {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    .header-box-l { border-right: 2px solid #000; }
+    .checkbox-box {
+        width: 14px; height: 14px;
+        border: 1.5px solid #000;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+        vertical-align: middle;
+        background: #fff;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    .signature-line {
+        border-bottom: 1.5px solid #000;
+        flex: 1;
+        margin: 0 8px;
+        min-width: 80px;
+        display: inline-block;
+    }
+    .footer-maroon {
+        border-top: 3.5px solid #800000;
+        padding-top: 8px;
+        font-weight: 900;
+        color: #000;
+        display: flex;
+        justify-content: space-between;
+        font-size: 9pt;
+        position: absolute;
+        bottom: 10mm;
+        left: 15mm;
+        right: 15mm;
+    }
+    table, th, td {
+        border: 1.5px solid #000 !important;
+        border-collapse: collapse;
+    }
+    .why-why-tree { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 20px; }
+    .why-box { border: 2px solid #3b82f6; border-radius: 8px; padding: 10px; width: 140px; text-align: center; background: #eff6ff; font-size: 8pt; }
+    .why-header { border: 2px solid #3b82f6; border-radius: 8px; padding: 10px; width: 140px; text-align: center; background: #60a5fa; color: white; font-weight: 900; font-size: 8pt; }
+    .scat-column { border: 2px solid #000; padding: 10px; width: 100px; text-align: center; background: #fff; font-size: 8pt; min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
+    .toolbar {
+        position: sticky; top: 0; z-index: 100;
+        background: #1e293b; color: white;
+        padding: 12px 24px;
+        display: flex; align-items: center; justify-content: space-between;
+        font-family: 'Sarabun', sans-serif;
+    }
+    .toolbar button {
+        padding: 10px 28px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+        font-family: 'Sarabun', sans-serif;
+    }
+    .btn-print { background: #dc2626; color: white; }
+    .btn-print:hover { background: #b91c1c; }
+    .btn-close { background: #475569; color: white; margin-left: 8px; }
+    .btn-close:hover { background: #334155; }
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+    <span style="font-size:15px;font-weight:700;">📄 Incident Report — ${incident.type} — ${dateStr} (${10} หน้า)</span>
+    <div>
+        <button class="btn-print" onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
+        <button class="btn-close" onclick="window.close()">✕ ปิด</button>
+    </div>
+</div>
+${pagesHtml}
+</body></html>`);
+        printWindow.document.close();
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingIncident) return;
+        setIncidents(prev => prev.map(inc => inc.id === editingIncident.id ? editingIncident : inc));
+        setEditingIncident(null);
+    };
+
     // Filter Logic
     const filteredIncidents = useMemo(() => {
         const safeIncidents = Array.isArray(incidents) ? incidents : [];
@@ -676,19 +831,28 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         visibility: hidden !important;
                     }
 
+                    /* Hide ALL non-report content completely */
+                    .print-list-section,
+                    .print\:hidden {
+                        display: none !important;
+                    }
+
                     /* TARGET THE REPORT CONTAINER */
                     .official-report-container {
                         visibility: visible !important;
                         display: block !important;
-                        position: absolute !important; /* Absolute allows flowing multiple pages */
+                        position: absolute !important;
                         top: 0 !important;
                         left: 0 !important;
+                        right: auto !important;  /* Override inset-0 */
+                        bottom: auto !important;  /* Override inset-0 — KEY FIX: allows content to grow beyond 1 page */
                         width: 210mm !important;
                         height: auto !important;
                         z-index: 999999 !important;
                         background: white !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        overflow: visible !important;
                     }
                     
                     .official-report-container * {
@@ -699,14 +863,20 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                         margin: 0 !important;
                         border: none !important;
                         width: 210mm !important;
-                        min-height: 297mm !important;
+                        height: 297mm !important;
                         page-break-after: always !important;
+                        page-break-inside: avoid !important;
                         background: white !important;
                         box-shadow: none !important;
                         position: relative !important;
-                        /* Ensure no offsets */
                         left: auto !important;
                         top: auto !important;
+                        overflow: hidden !important;
+                    }
+
+                    /* Prevent blank trailing page after last report page */
+                    .official-report-page:last-child {
+                        page-break-after: auto !important;
                     }
 
                     .footer-maroon {
@@ -998,10 +1168,18 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                                                     <button
                                                         onClick={() => handleSelectIncident(incident)}
                                                         className="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all shadow-sm"
-                                                        title="View Details"
-                                                        aria-label="View Details"
+                                                        title="ดูรายละเอียด"
+                                                        aria-label="ดูรายละเอียด"
                                                     >
                                                         <Eye size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingIncident({ ...incident })}
+                                                        className="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-200 rounded-xl transition-all shadow-sm"
+                                                        title="แก้ไขข้อมูล"
+                                                        aria-label="แก้ไขข้อมูล"
+                                                    >
+                                                        <Pencil size={16} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -1026,6 +1204,730 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                     </table>
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {editingIncident && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-start p-4 pt-6 overflow-y-auto" onClick={() => setEditingIncident(null)}>
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+
+                        {/* Header - เหมือน AddIncidentInvestigationModal */}
+                        <div className="p-4 sm:p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 flex-shrink-0 space-y-3">
+                            <div className="flex justify-between items-start">
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-lg sm:text-2xl font-bold text-slate-800 truncate">📝 แก้ไขข้อมูลเหตุการณ์</h3>
+                                    <p className="text-xs sm:text-sm text-slate-500 mt-1">ID: <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">{editingIncident.id}</span></p>
+                                </div>
+                                <button onClick={() => setEditingIncident(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors shrink-0 ml-2" title="ปิดหน้าต่าง" aria-label="ปิดหน้าต่าง">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Tabs - เหมือน AddIncidentInvestigationModal */}
+                            <div className="flex overflow-x-auto bg-white/50 p-1 rounded-xl backdrop-blur-sm border border-slate-200 -mx-1 sm:mx-0">
+                                {(['General', 'Details', 'Analysis', 'Outcome'] as const).map((tab) => (
+                                    <button
+                                        key={tab}
+                                        type="button"
+                                        onClick={() => setEditTab(tab)}
+                                        className={`px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${editTab === tab ? 'bg-white shadow text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        {tab === 'General' && '1. ข้อมูลทั่วไป'}
+                                        {tab === 'Details' && '2. รายละเอียด'}
+                                        {tab === 'Analysis' && '3. วิเคราะห์'}
+                                        {tab === 'Outcome' && '4. แก้ไข'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Body - Scrollable */}
+                        <div className="p-4 sm:p-8 overflow-y-auto flex-1 custom-scrollbar space-y-6 sm:space-y-8 bg-slate-50/50">
+
+                            {/* TAB 1: ข้อมูลทั่วไป */}
+                            {editTab === 'General' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">1. วันที่เกิดเหตุ & ข้อมูลเบื้องต้น</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">วันที่ (Date)</label>
+                                                <input type="date" value={editingIncident.date} onChange={e => setEditingIncident({ ...editingIncident, date: e.target.value })} className="w-full form-input" title="วันที่เกิดเหตุ" aria-label="วันที่เกิดเหตุ" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">เวลา (Time)</label>
+                                                <input type="time" value={editingIncident.time} onChange={e => setEditingIncident({ ...editingIncident, time: e.target.value })} className="w-full form-input" title="เวลา" aria-label="เวลา" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ประเภทเหตุการณ์</label>
+                                                <select value={editingIncident.type} onChange={e => setEditingIncident({ ...editingIncident, type: e.target.value as DrivingIncident['type'] })} className="w-full form-select" title="ประเภทเหตุการณ์" aria-label="ประเภทเหตุการณ์">
+                                                    <option value="อุบัติเหตุ">อุบัติเหตุ</option>
+                                                    <option value="ฝ่าฝืนกฎจราจร">ฝ่าฝืนกฎจราจร</option>
+                                                    <option value="การขับขี่เสี่ยง">การขับขี่เสี่ยง</option>
+                                                    <option value="อื่นๆ">อื่นๆ</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ระดับความรุนแรง</label>
+                                                <select value={editingIncident.severity} onChange={e => setEditingIncident({ ...editingIncident, severity: e.target.value as DrivingIncident['severity'] })} className="w-full form-select" title="ระดับความรุนแรง" aria-label="ระดับความรุนแรง">
+                                                    <option value="low">น้อย (Low)</option>
+                                                    <option value="medium">ปานกลาง (Medium)</option>
+                                                    <option value="high">สูง (High)</option>
+                                                    <option value="critical">วิกฤต (Critical)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">2. ผู้ประสบเหตุ / พนักงานขับรถ & ยานพาหนะ</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">พนักงานขับรถ (Driver)</label>
+                                                <select value={editingIncident.driverId} onChange={e => setEditingIncident({ ...editingIncident, driverId: e.target.value })} className="w-full form-select" title="พนักงานขับรถ" aria-label="พนักงานขับรถ">
+                                                    <option value="">-- เลือกพนักงาน --</option>
+                                                    {(Array.isArray(drivers) ? drivers : []).map(d => (
+                                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">รถที่เกิดเหตุ (Vehicle)</label>
+                                                <select value={editingIncident.vehicleId} onChange={e => setEditingIncident({ ...editingIncident, vehicleId: e.target.value })} className="w-full form-select" title="ยานพาหนะ" aria-label="ยานพาหนะ">
+                                                    <option value="">-- เลือกยานพาหนะ --</option>
+                                                    {(Array.isArray(vehicles) ? vehicles : []).map(v => (
+                                                        <option key={v.id} value={v.id}>{v.licensePlate} {v.make ? `(${v.make})` : ''}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">3. สถานที่เกิดเหตุ (Location)</h4>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">ระบุสถานที่</label>
+                                            <input type="text" value={editingIncident.location || ''} onChange={e => setEditingIncident({ ...editingIncident, location: e.target.value })} className="w-full form-input" placeholder="จุดที่เกิดเหตุ..." />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 2: รายละเอียด */}
+                            {editTab === 'Details' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    {/* 4. Description */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">4. รายละเอียดเหตุการณ์ (Description) *</h4>
+                                        <textarea value={editingIncident.description || ''} onChange={e => setEditingIncident({ ...editingIncident, description: e.target.value })} rows={6} className="w-full form-textarea font-mono text-sm" placeholder="อธิบายลำดับเหตุการณ์โดยละเอียด..." />
+                                    </div>
+
+                                    {/* 5. Immediate Actions */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">5. การแก้ไขเบื้องต้น (Immediate Actions)</h4>
+                                        <textarea value={editingIncident.actionsTaken || ''} onChange={e => setEditingIncident({ ...editingIncident, actionsTaken: e.target.value })} rows={4} className="w-full form-textarea" placeholder="ระบุการดำเนินการแก้ไขเบื้องต้น..." />
+                                    </div>
+
+                                    {/* 5.1 Notifications */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">5.1 การติดต่อผู้เกี่ยวข้อง (Notifications)</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            {[
+                                                { key: 'policeNotified', label: 'ตำรวจ (Police)' },
+                                                { key: 'insuranceNotified', label: 'ประกันภัย (Insurance)' },
+                                                { key: 'managerNotified', label: 'ผู้จัดการ (Manager)' },
+                                                { key: 'safetyTeamNotified', label: 'ทีมความปลอดภัย (Safety)' },
+                                            ].map(n => (
+                                                <label key={n.key} className="flex items-center gap-2 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer">
+                                                    <input type="checkbox" checked={(editingIncident.notifications as any)?.[n.key] || false} onChange={e => setEditingIncident({ ...editingIncident, notifications: { ...editingIncident.notifications, [n.key]: e.target.checked } })} className="rounded text-blue-600" />
+                                                    <span className="text-sm font-medium text-slate-700">{n.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 5.2 หลักฐาน (Evidences) */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">5.2 หลักฐาน (Evidences)</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปที่เกิดเหตุ</p>
+                                                <PhotoUpload
+                                                    photos={(editingIncident.photos || []).map(p => typeof p === 'string' ? p : (p as FileAttachment).url)}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id}
+                                                />
+                                            </div>
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปแนวเบรก</p>
+                                                <PhotoUpload
+                                                    photos={editingIncident.skidMarkPhotos || []}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, skidMarkPhotos: photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id + '-skid'}
+                                                />
+                                            </div>
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> ใบกำกับขนส่ง</p>
+                                                <PhotoUpload
+                                                    photos={editingIncident.transportDocs || []}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, transportDocs: photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id + '-docs'}
+                                                />
+                                            </div>
+                                            <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                                                <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> กราฟ GPS</p>
+                                                <PhotoUpload
+                                                    photos={editingIncident.gpsPhotos || []}
+                                                    onChange={(photos) => setEditingIncident({ ...editingIncident, gpsPhotos: photos })}
+                                                    entity="incident"
+                                                    entityId={editingIncident.id + '-gps'}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 6. Drug & Alcohol Test */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">6. ตรวจหาสารเสพติด/แอลกอฮอล์ (Drug & Alcohol Test)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="p-4 bg-slate-50 rounded-xl space-y-3">
+                                                <h5 className="font-bold text-slate-600">แอลกอฮอล์ (Alcohol)</h5>
+                                                <select value={editingIncident.drugAlcoholTest?.alcoholResult || 'Not Tested'} onChange={e => setEditingIncident({ ...editingIncident, drugAlcoholTest: { ...editingIncident.drugAlcoholTest, alcoholResult: e.target.value as any } })} className="w-full form-select" title="ผลตรวจแอลกอฮอล์" aria-label="ผลตรวจแอลกอฮอล์">
+                                                    <option value="Not Tested">ไม่ได้ตรวจ</option>
+                                                    <option value="Found">พบ</option>
+                                                    <option value="Not Found">ไม่พบ</option>
+                                                </select>
+                                                {editingIncident.drugAlcoholTest?.alcoholResult === 'Found' && (
+                                                    <input type="text" placeholder="ระบุปริมาณ mg%" value={editingIncident.drugAlcoholTest?.alcoholValueMg || ''} onChange={e => setEditingIncident({ ...editingIncident, drugAlcoholTest: { ...editingIncident.drugAlcoholTest, alcoholValueMg: e.target.value } })} className="w-full form-input" />
+                                                )}
+                                            </div>
+                                            <div className="p-4 bg-slate-50 rounded-xl space-y-3">
+                                                <h5 className="font-bold text-slate-600">สารเสพติด (Drug)</h5>
+                                                <select value={editingIncident.drugAlcoholTest?.drugResult || 'Not Tested'} onChange={e => setEditingIncident({ ...editingIncident, drugAlcoholTest: { ...editingIncident.drugAlcoholTest, drugResult: e.target.value as any } })} className="w-full form-select" title="ผลตรวจสารเสพติด" aria-label="ผลตรวจสารเสพติด">
+                                                    <option value="Not Tested">ไม่ได้ตรวจ</option>
+                                                    <option value="Found">พบ</option>
+                                                    <option value="Not Found">ไม่พบ</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 7. Injuries */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">7. การบาดเจ็บ (Injuries)</h4>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">รายละเอียดการบาดเจ็บ</label>
+                                            <textarea value={editingIncident.injuries || ''} onChange={e => setEditingIncident({ ...editingIncident, injuries: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุอาการบาดเจ็บ (ถ้ามี)..." />
+                                        </div>
+                                    </div>
+
+                                    {/* 8. Injured Persons */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">8. รายชื่อผู้บาดเจ็บ (Injured Persons)</h4>
+                                        <div className="space-y-4">
+                                            <h5 className="font-bold text-sm text-slate-600">พนักงานบริษัท (Employees)</h5>
+                                            {(editingIncident.injuredEmployees || []).map((emp, idx) => (
+                                                <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                                                    <input type="text" placeholder="ชื่อ-นามสกุล" value={emp.name} onChange={e => { const arr = [...(editingIncident.injuredEmployees || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setEditingIncident({ ...editingIncident, injuredEmployees: arr }); }} className="form-input" />
+                                                    <input type="number" placeholder="อายุ" value={emp.age || ''} onChange={e => { const arr = [...(editingIncident.injuredEmployees || [])]; arr[idx] = { ...arr[idx], age: parseInt(e.target.value) }; setEditingIncident({ ...editingIncident, injuredEmployees: arr }); }} className="form-input" title="อายุ" />
+                                                    <input type="text" placeholder="ตำแหน่ง" value={emp.jobTitle || ''} onChange={e => { const arr = [...(editingIncident.injuredEmployees || [])]; arr[idx] = { ...arr[idx], jobTitle: e.target.value }; setEditingIncident({ ...editingIncident, injuredEmployees: arr }); }} className="form-input" />
+                                                    <input type="text" placeholder="ลักษณะบาดเจ็บ" value={emp.injuryNature || ''} onChange={e => { const arr = [...(editingIncident.injuredEmployees || [])]; arr[idx] = { ...arr[idx], injuryNature: e.target.value }; setEditingIncident({ ...editingIncident, injuredEmployees: arr }); }} className="form-input" />
+                                                    <button type="button" onClick={() => { const arr = (editingIncident.injuredEmployees || []).filter((_, i) => i !== idx); setEditingIncident({ ...editingIncident, injuredEmployees: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => setEditingIncident({ ...editingIncident, injuredEmployees: [...(editingIncident.injuredEmployees || []), { name: '', age: undefined, jobTitle: '', injuryNature: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มพนักงานบาดเจ็บ</button>
+                                            <h5 className="font-bold text-sm text-slate-600 mt-4">บุคคลภายนอก (Third Parties)</h5>
+                                            {(editingIncident.injuredThirdParties || []).map((tp, idx) => (
+                                                <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                                                    <input type="text" placeholder="ชื่อ-นามสกุล" value={tp.name} onChange={e => { const arr = [...(editingIncident.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setEditingIncident({ ...editingIncident, injuredThirdParties: arr }); }} className="form-input" />
+                                                    <input type="number" placeholder="อายุ" value={tp.age || ''} onChange={e => { const arr = [...(editingIncident.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], age: parseInt(e.target.value) }; setEditingIncident({ ...editingIncident, injuredThirdParties: arr }); }} className="form-input" title="อายุ" />
+                                                    <input type="text" placeholder="ตำแหน่ง/อาชีพ" value={tp.jobTitle || ''} onChange={e => { const arr = [...(editingIncident.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], jobTitle: e.target.value }; setEditingIncident({ ...editingIncident, injuredThirdParties: arr }); }} className="form-input" />
+                                                    <input type="text" placeholder="ลักษณะบาดเจ็บ" value={tp.injuryNature || ''} onChange={e => { const arr = [...(editingIncident.injuredThirdParties || [])]; arr[idx] = { ...arr[idx], injuryNature: e.target.value }; setEditingIncident({ ...editingIncident, injuredThirdParties: arr }); }} className="form-input" />
+                                                    <button type="button" onClick={() => { const arr = (editingIncident.injuredThirdParties || []).filter((_, i) => i !== idx); setEditingIncident({ ...editingIncident, injuredThirdParties: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => setEditingIncident({ ...editingIncident, injuredThirdParties: [...(editingIncident.injuredThirdParties || []), { name: '', age: undefined, jobTitle: '', injuryNature: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มบุคคลภายนอกบาดเจ็บ</button>
+                                        </div>
+                                    </div>
+
+                                    {/* 9. Damaged Products */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">9. สินค้าเสียหาย (Damaged Products)</h4>
+                                        {(editingIncident.damagedProducts || []).map((prod, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                                <input type="text" placeholder="ชื่อสินค้า" value={prod.name} onChange={e => { const arr = [...(editingIncident.damagedProducts || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setEditingIncident({ ...editingIncident, damagedProducts: arr }); }} className="form-input" />
+                                                <input type="number" placeholder="จำนวน" value={prod.quantity || ''} onChange={e => { const arr = [...(editingIncident.damagedProducts || [])]; arr[idx] = { ...arr[idx], quantity: parseInt(e.target.value) || 0 }; setEditingIncident({ ...editingIncident, damagedProducts: arr }); }} className="form-input" title="จำนวน" />
+                                                <input type="number" placeholder="ประมาณการเสียหาย (บาท)" value={prod.estimatedLoss || ''} onChange={e => { const arr = [...(editingIncident.damagedProducts || [])]; arr[idx] = { ...arr[idx], estimatedLoss: parseFloat(e.target.value) || 0 }; setEditingIncident({ ...editingIncident, damagedProducts: arr }); }} className="form-input" title="ประมาณการเสียหาย" />
+                                                <button type="button" onClick={() => { const arr = (editingIncident.damagedProducts || []).filter((_, i) => i !== idx); setEditingIncident({ ...editingIncident, damagedProducts: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => setEditingIncident({ ...editingIncident, damagedProducts: [...(editingIncident.damagedProducts || []), { name: '', quantity: 0, estimatedLoss: 0 }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มรายการสินค้าเสียหาย</button>
+                                    </div>
+
+                                    {/* 10. Environmental Impact */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">10. ผลกระทบต่อสิ่งแวดล้อม/ชุมชน (Environmental Impact)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">รายละเอียดผลกระทบ</label>
+                                                <textarea value={editingIncident.envImpactDetails || ''} onChange={e => setEditingIncident({ ...editingIncident, envImpactDetails: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุผลกระทบต่อสิ่งแวดล้อม/ชุมชนโดยรอบ..." />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ประมาณการเสียหาย (บาท)</label>
+                                                <input type="number" value={editingIncident.envEstimatedLoss || ''} onChange={e => setEditingIncident({ ...editingIncident, envEstimatedLoss: parseFloat(e.target.value) || 0 })} className="w-full form-input" placeholder="0" title="ประมาณการเสียหายสิ่งแวดล้อม" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 11. Damaged Properties */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">11. ทรัพย์สินเสียหาย (Damaged Properties)</h4>
+                                        {(editingIncident.damagedProperties || []).map((prop, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                                <input type="text" placeholder="รายละเอียดทรัพย์สิน" value={prop.description} onChange={e => { const arr = [...(editingIncident.damagedProperties || [])]; arr[idx] = { ...arr[idx], description: e.target.value }; setEditingIncident({ ...editingIncident, damagedProperties: arr }); }} className="form-input" />
+                                                <select value={prop.owner || 'Company'} onChange={e => { const arr = [...(editingIncident.damagedProperties || [])]; arr[idx] = { ...arr[idx], owner: e.target.value as 'Company' | '3rd Party' }; setEditingIncident({ ...editingIncident, damagedProperties: arr }); }} className="form-select" title="เจ้าของทรัพย์สิน" aria-label="เจ้าของทรัพย์สิน">
+                                                    <option value="Company">บริษัท (Company)</option>
+                                                    <option value="3rd Party">บุคคลที่ 3 (3rd Party)</option>
+                                                </select>
+                                                <input type="number" placeholder="ประมาณการเสียหาย (บาท)" value={prop.estimatedLoss || ''} onChange={e => { const arr = [...(editingIncident.damagedProperties || [])]; arr[idx] = { ...arr[idx], estimatedLoss: parseFloat(e.target.value) || 0 }; setEditingIncident({ ...editingIncident, damagedProperties: arr }); }} className="form-input" title="ประมาณการเสียหาย" />
+                                                <button type="button" onClick={() => { const arr = (editingIncident.damagedProperties || []).filter((_, i) => i !== idx); setEditingIncident({ ...editingIncident, damagedProperties: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => setEditingIncident({ ...editingIncident, damagedProperties: [...(editingIncident.damagedProperties || []), { description: '', owner: 'Company', estimatedLoss: 0 }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มรายการทรัพย์สินเสียหาย</button>
+                                    </div>
+
+                                    {/* 12. Authorities & Media */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">12. หน่วยงานที่เกี่ยวข้อง & สื่อมวลชน (Authorities & Media)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">หน่วยงานภาครัฐที่เข้ามาตรวจสอบ</label>
+                                                <textarea value={editingIncident.authoritiesInvolved || ''} onChange={e => setEditingIncident({ ...editingIncident, authoritiesInvolved: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ตำรวจ, กรมโรงงาน, สวล. ฯลฯ..." />
+                                            </div>
+                                            <div className="space-y-3">
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">การรายงานข่าวของสื่อมวลชน</label>
+                                                <select value={editingIncident.mediaCoverage || ''} onChange={e => setEditingIncident({ ...editingIncident, mediaCoverage: e.target.value })} className="w-full form-select" title="สื่อมวลชน" aria-label="สื่อมวลชน">
+                                                    <option value="">ไม่มี (None)</option>
+                                                    <option value="Radio">วิทยุ</option>
+                                                    <option value="TV">โทรทัศน์</option>
+                                                    <option value="Newspaper">หนังสือพิมพ์</option>
+                                                    <option value="Other">อื่นๆ</option>
+                                                </select>
+                                                {editingIncident.mediaCoverage && editingIncident.mediaCoverage !== '' && (
+                                                    <input type="text" placeholder="ระบุรายละเอียดสื่อ..." value={editingIncident.mediaDetails || ''} onChange={e => setEditingIncident({ ...editingIncident, mediaDetails: e.target.value })} className="w-full form-input" />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 13. Effect on Equipment / Product */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">13. ผลกระทบต่ออุปกรณ์ / คุณภาพสินค้า</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ผลกระทบต่ออุปกรณ์ (Equipment)</label>
+                                                <textarea value={editingIncident.effectOnEquipment || ''} onChange={e => setEditingIncident({ ...editingIncident, effectOnEquipment: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุผลกระทบต่ออุปกรณ์/เครื่องจักร..." />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ผลกระทบต่อคุณภาพสินค้า (Product Quality)</label>
+                                                <textarea value={editingIncident.effectOnProductQuality || ''} onChange={e => setEditingIncident({ ...editingIncident, effectOnProductQuality: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุผลกระทบต่อคุณภาพสินค้า..." />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 3: วิเคราะห์ (Analysis) */}
+                            {editTab === 'Analysis' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    {/* SCAT Analysis */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">SCAT Analysis</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ประเภทสาเหตุเฉพาะหน้า (Immediate Category)</label>
+                                                <textarea value={editingIncident.scatAnalysis?.immediateCategory || ''} onChange={e => setEditingIncident({ ...editingIncident, scatAnalysis: { ...editingIncident.scatAnalysis, immediateCategory: e.target.value } })} rows={3} className="w-full form-textarea" placeholder="ระบุสาเหตุเฉพาะหน้า..." />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ประเภทสาเหตุพื้นฐาน (Basic Category)</label>
+                                                <textarea value={editingIncident.scatAnalysis?.basicCategory || ''} onChange={e => setEditingIncident({ ...editingIncident, scatAnalysis: { ...editingIncident.scatAnalysis, basicCategory: e.target.value } })} rows={3} className="w-full form-textarea" placeholder="ระบุสาเหตุพื้นฐาน..." />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Why-Why Analysis */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">Why-Why Analysis</h4>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">ปัญหาหลัก (Problem Statement)</label>
+                                            <textarea value={editingIncident.whyWhyAnalysis?.problem || ''} onChange={e => setEditingIncident({ ...editingIncident, whyWhyAnalysis: { ...editingIncident.whyWhyAnalysis, problem: e.target.value } })} rows={2} className="w-full form-textarea" placeholder="ระบุปัญหาหลักที่ต้องวิเคราะห์..." />
+                                        </div>
+                                    </div>
+
+                                    {/* 14. Root Cause Checklist */}
+                                    <h3 className="text-xl font-bold text-slate-800">14. การวิเคราะห์สาเหตุ (Checklist Root Cause Analysis)</h3>
+
+                                    {/* 14.1 Personal Factors */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                        <h4 className="font-bold text-blue-900 mb-4">14.1 เกิดจากคน (Personal Factors)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {['ความรู้ไม่เพียงพอ/ ไม่ชำนาญพอ (Lack of Skill / Knowledge)', 'ฝ่าฝืนกฎหมาย/ข้อบังคับของบริษัท (Violation of rules)', 'ประมาท/ไม่ปฏิบัติตามหลักการขับขี่อย่างปลอดภัย (Negligence / Unsafe Act)', 'เมื่อยล้า (Fatigue)', 'อื่นๆ (Other)'].map(item => (
+                                                <label key={item} className="flex items-center gap-2">
+                                                    <input type="checkbox" checked={editingIncident.rootCauseAnalysis?.personalFactors?.includes(item) || false} onChange={() => { const cur = editingIncident.rootCauseAnalysis?.personalFactors || []; const next = cur.includes(item) ? cur.filter(i => i !== item) : [...cur, item]; setEditingIncident({ ...editingIncident, rootCauseAnalysis: { ...editingIncident.rootCauseAnalysis, personalFactors: next, routeHazardous: editingIncident.rootCauseAnalysis?.routeHazardous || [], truckCondition: editingIncident.rootCauseAnalysis?.truckCondition || [], environment: editingIncident.rootCauseAnalysis?.environment || [], companyPolicy: editingIncident.rootCauseAnalysis?.companyPolicy || [] } }); }} className="rounded text-blue-600" />
+                                                    <span className="text-slate-700 text-sm">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 14.2 Route Hazardous */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                        <h4 className="font-bold text-blue-900 mb-4">14.2 เกิดจากเส้นทางการขนส่ง (Route Hazardous)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {['ขาดการประเมินความเสี่ยงเส้นทางการขนส่ง (Lack of Risk Assessment)', 'จุดจอดที่มีอยู่ไม่เหมาะสม (Inadequate Parking Point)', 'ขาดการสื่อความในเรื่องของจุดเสี่ยง/จุดจอด (Lack of Communication)', 'อื่นๆ (Other)'].map(item => (
+                                                <label key={item} className="flex items-center gap-2">
+                                                    <input type="checkbox" checked={editingIncident.rootCauseAnalysis?.routeHazardous?.includes(item) || false} onChange={() => { const cur = editingIncident.rootCauseAnalysis?.routeHazardous || []; const next = cur.includes(item) ? cur.filter(i => i !== item) : [...cur, item]; setEditingIncident({ ...editingIncident, rootCauseAnalysis: { ...editingIncident.rootCauseAnalysis, personalFactors: editingIncident.rootCauseAnalysis?.personalFactors || [], routeHazardous: next, truckCondition: editingIncident.rootCauseAnalysis?.truckCondition || [], environment: editingIncident.rootCauseAnalysis?.environment || [], companyPolicy: editingIncident.rootCauseAnalysis?.companyPolicy || [] } }); }} className="rounded text-blue-600" />
+                                                    <span className="text-slate-700 text-sm">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 14.3 Truck Condition */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                        <h4 className="font-bold text-blue-900 mb-4">14.3 เกิดจากสภาพรถขนส่ง (Truck Condition)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {['รถขนส่งไม่ได้ตามมาตรฐาน (Not Standard)', 'ขาดการตรวจความพร้อมของรถขนส่งก่อนรับผลิตภัณฑ์ (Lack of Daily Inspection)', 'ขาดการบำรุงรักษา (Lack of Preventive Maintenance)', 'อื่นๆ (Other)'].map(item => (
+                                                <label key={item} className="flex items-center gap-2">
+                                                    <input type="checkbox" checked={editingIncident.rootCauseAnalysis?.truckCondition?.includes(item) || false} onChange={() => { const cur = editingIncident.rootCauseAnalysis?.truckCondition || []; const next = cur.includes(item) ? cur.filter(i => i !== item) : [...cur, item]; setEditingIncident({ ...editingIncident, rootCauseAnalysis: { ...editingIncident.rootCauseAnalysis, personalFactors: editingIncident.rootCauseAnalysis?.personalFactors || [], routeHazardous: editingIncident.rootCauseAnalysis?.routeHazardous || [], truckCondition: next, environment: editingIncident.rootCauseAnalysis?.environment || [], companyPolicy: editingIncident.rootCauseAnalysis?.companyPolicy || [] } }); }} className="rounded text-blue-600" />
+                                                    <span className="text-slate-700 text-sm">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 14.4 Environment */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                        <h4 className="font-bold text-blue-900 mb-4">14.4 เกิดจากสภาพแวดล้อม (Environment)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {['ฝนตก / หมอกลง (Rain / Fog)', 'ความมืด / ไม่มีแสงไฟส่องสว่าง (Darkness)', 'บุคคลที่ 3 วิ่งตัดหน้า (3rd Party Cut Off)', 'อื่นๆ (Other)'].map(item => (
+                                                <label key={item} className="flex items-center gap-2">
+                                                    <input type="checkbox" checked={editingIncident.rootCauseAnalysis?.environment?.includes(item) || false} onChange={() => { const cur = editingIncident.rootCauseAnalysis?.environment || []; const next = cur.includes(item) ? cur.filter(i => i !== item) : [...cur, item]; setEditingIncident({ ...editingIncident, rootCauseAnalysis: { ...editingIncident.rootCauseAnalysis, personalFactors: editingIncident.rootCauseAnalysis?.personalFactors || [], routeHazardous: editingIncident.rootCauseAnalysis?.routeHazardous || [], truckCondition: editingIncident.rootCauseAnalysis?.truckCondition || [], environment: next, companyPolicy: editingIncident.rootCauseAnalysis?.companyPolicy || [] } }); }} className="rounded text-blue-600" />
+                                                    <span className="text-slate-700 text-sm">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 14.5 Company Policy */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                        <h4 className="font-bold text-blue-900 mb-4">14.5 เกิดจากนโยบายบริษัท (Company Policy)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {['ชั่วโมงการทำงาน/การพักผ่อนไม่เหมาะสม (Inappropriate Working Hour)', 'ขาดการตรวจสอบการปฏิบัติงาน (Lack of Transportation control)', 'อื่นๆ (Other)'].map(item => (
+                                                <label key={item} className="flex items-center gap-2">
+                                                    <input type="checkbox" checked={editingIncident.rootCauseAnalysis?.companyPolicy?.includes(item) || false} onChange={() => { const cur = editingIncident.rootCauseAnalysis?.companyPolicy || []; const next = cur.includes(item) ? cur.filter(i => i !== item) : [...cur, item]; setEditingIncident({ ...editingIncident, rootCauseAnalysis: { ...editingIncident.rootCauseAnalysis, personalFactors: editingIncident.rootCauseAnalysis?.personalFactors || [], routeHazardous: editingIncident.rootCauseAnalysis?.routeHazardous || [], truckCondition: editingIncident.rootCauseAnalysis?.truckCondition || [], environment: editingIncident.rootCauseAnalysis?.environment || [], companyPolicy: next } }); }} className="rounded text-blue-600" />
+                                                    <span className="text-slate-700 text-sm">{item}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Root Cause Remarks */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">คำอธิบายเพิ่มเติมสาเหตุ (Explanation for Others)</label>
+                                        <textarea value={editingIncident.rootCauseAnalysis?.remarks || ''} onChange={e => setEditingIncident({ ...editingIncident, rootCauseAnalysis: { ...editingIncident.rootCauseAnalysis!, remarks: e.target.value } })} className="w-full form-textarea" rows={3} placeholder="ระบุคำอธิบายเพิ่มเติม..." />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 4: แก้ไข (Outcome) */}
+                            {editTab === 'Outcome' && (
+                                <div className="space-y-8 animate-fade-in">
+                                    {/* Damages Summary */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">ยอดประเมินความเสียหาย (Damages Summary)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ความเสียหายยานพาหนะบริษัท (บาท)</label>
+                                                <input type="number" min={0} value={editingIncident.damageToVehicle || 0} onChange={e => setEditingIncident({ ...editingIncident, damageToVehicle: Number(e.target.value) })} className="w-full form-input" title="ความเสียหายยานพาหนะ" aria-label="ความเสียหายยานพาหนะ" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ความเสียหายทรัพย์สินบุคคลที่ 3 (บาท)</label>
+                                                <input type="number" min={0} value={editingIncident.damageToProperty || 0} onChange={e => setEditingIncident({ ...editingIncident, damageToProperty: Number(e.target.value) })} className="w-full form-input" title="ความเสียหายทรัพย์สินอื่น" aria-label="ความเสียหายทรัพย์สินอื่น" />
+                                            </div>
+                                        </div>
+                                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                            <p className="text-sm font-bold text-slate-700">ยอดประเมินความเสียหายรวม: <span className="text-red-600 text-lg ml-2">฿{((editingIncident.damageToVehicle || 0) + (editingIncident.damageToProperty || 0)).toLocaleString()}</span></p>
+                                        </div>
+                                    </div>
+
+                                    {/* Disciplinary */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">บทลงโทษ (Disciplinary Action Outcome)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ค่าปรับ (บาท)</label>
+                                                <input type="number" min={0} value={editingIncident.fineAmount || 0} onChange={e => setEditingIncident({ ...editingIncident, fineAmount: Number(e.target.value) })} className="w-full form-input" title="ค่าปรับ" aria-label="ค่าปรับ" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">หักคะแนนพฤติกรรม (แต้ม)</label>
+                                                <input type="number" min={0} value={editingIncident.pointsDeducted || 0} onChange={e => setEditingIncident({ ...editingIncident, pointsDeducted: Number(e.target.value) })} className="w-full form-input" title="หักคะแนน" aria-label="หักคะแนน" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">วันลาหยุดงาน (วัน)</label>
+                                                <input type="number" min={0} value={editingIncident.lostWorkDays || 0} onChange={e => setEditingIncident({ ...editingIncident, lostWorkDays: Number(e.target.value) })} className="w-full form-input" title="วันลาหยุดงาน" aria-label="วันลาหยุดงาน" />
+                                            </div>
+                                        </div>
+                                        <textarea value={editingIncident.disciplinaryAction || ''} onChange={e => setEditingIncident({ ...editingIncident, disciplinaryAction: e.target.value })} rows={3} className="w-full form-textarea" placeholder="ระบุมาตรการทางวินัย (ถ้ามี)..." />
+                                    </div>
+
+                                    {/* Insurance */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">ข้อมูลประกันภัย (Insurance)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">เคลมประกัน</label>
+                                                <select value={editingIncident.insuranceClaim ? 'yes' : 'no'} onChange={e => setEditingIncident({ ...editingIncident, insuranceClaim: e.target.value === 'yes' })} className="w-full form-select" title="เคลมประกัน" aria-label="เคลมประกัน">
+                                                    <option value="no">ไม่เคลม</option>
+                                                    <option value="yes">เคลมประกัน</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">บริษัทประกัน</label>
+                                                <input type="text" value={editingIncident.insuranceProvider || ''} onChange={e => setEditingIncident({ ...editingIncident, insuranceProvider: e.target.value })} className="w-full form-input" placeholder="ชื่อบริษัทประกัน" />
+                                            </div>
+                                            {editingIncident.insuranceClaim && (
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-2">จำนวนเงินเคลม (บาท)</label>
+                                                    <input type="number" min={0} value={editingIncident.claimAmount || 0} onChange={e => setEditingIncident({ ...editingIncident, claimAmount: Number(e.target.value) })} className="w-full form-input" title="จำนวนเงินเคลม" aria-label="จำนวนเงินเคลม" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 15. Preventive Actions */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">15. มาตรการแก้ไข (Preventive Actions)</h4>
+                                        {(editingIncident.preventiveActions || []).map((pa, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end p-3 bg-slate-50 rounded-xl">
+                                                <div className="md:col-span-2">
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">มาตรการ</label>
+                                                    <textarea value={pa.action} onChange={e => { const arr = [...(editingIncident.preventiveActions || [])]; arr[idx] = { ...arr[idx], action: e.target.value }; setEditingIncident({ ...editingIncident, preventiveActions: arr }); }} rows={2} className="w-full form-textarea text-sm" placeholder="ระบุมาตรการ..." />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">ผู้รับผิดชอบ</label>
+                                                    <input type="text" value={pa.responsiblePerson || ''} onChange={e => { const arr = [...(editingIncident.preventiveActions || [])]; arr[idx] = { ...arr[idx], responsiblePerson: e.target.value }; setEditingIncident({ ...editingIncident, preventiveActions: arr }); }} className="form-input" placeholder="ชื่อ" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">กำหนดเสร็จ</label>
+                                                    <input type="date" value={pa.dueDate || ''} onChange={e => { const arr = [...(editingIncident.preventiveActions || [])]; arr[idx] = { ...arr[idx], dueDate: e.target.value }; setEditingIncident({ ...editingIncident, preventiveActions: arr }); }} className="form-input" title="กำหนดเสร็จ" aria-label="กำหนดเสร็จ" />
+                                                </div>
+                                                <div className="flex gap-2 items-end">
+                                                    <div className="flex-1">
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">เสร็จจริง</label>
+                                                        <input type="date" value={pa.completedDate || ''} onChange={e => { const arr = [...(editingIncident.preventiveActions || [])]; arr[idx] = { ...arr[idx], completedDate: e.target.value }; setEditingIncident({ ...editingIncident, preventiveActions: arr }); }} className="form-input" title="เสร็จจริง" aria-label="เสร็จจริง" />
+                                                    </div>
+                                                    <button type="button" onClick={() => { const arr = (editingIncident.preventiveActions || []).filter((_, i) => i !== idx); setEditingIncident({ ...editingIncident, preventiveActions: arr }); }} className="px-2 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => setEditingIncident({ ...editingIncident, preventiveActions: [...(editingIncident.preventiveActions || []), { action: '', responsiblePerson: '', dueDate: '', completedDate: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มมาตรการแก้ไข</button>
+                                    </div>
+
+                                    {/* 16. Recommendations */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">16. ข้อเสนอแนะ (Recommendations)</h4>
+                                        {(editingIncident.recommendations || []).map((rec, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                                <div className="md:col-span-2">
+                                                    <input type="text" placeholder="ข้อเสนอแนะ" value={rec.recommendation} onChange={e => { const arr = [...(editingIncident.recommendations || [])]; arr[idx] = { ...arr[idx], recommendation: e.target.value }; setEditingIncident({ ...editingIncident, recommendations: arr }); }} className="form-input" />
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <input type="text" placeholder="ผู้รับผิดชอบ" value={rec.responsiblePerson || ''} onChange={e => { const arr = [...(editingIncident.recommendations || [])]; arr[idx] = { ...arr[idx], responsiblePerson: e.target.value }; setEditingIncident({ ...editingIncident, recommendations: arr }); }} className="form-input flex-1" />
+                                                    <button type="button" onClick={() => { const arr = (editingIncident.recommendations || []).filter((_, i) => i !== idx); setEditingIncident({ ...editingIncident, recommendations: arr }); }} className="px-2 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => setEditingIncident({ ...editingIncident, recommendations: [...(editingIncident.recommendations || []), { recommendation: '', responsiblePerson: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มข้อเสนอแนะ</button>
+                                    </div>
+
+                                    {/* 17. Investigation Team */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">17. ทีมสอบสวน (Investigation Team)</h4>
+                                        <div className="hidden sm:grid grid-cols-4 gap-4 text-sm font-bold text-slate-500 mb-1">
+                                            <div>ชื่อ-นามสกุล</div><div>ตำแหน่ง</div><div>บริษัท</div><div></div>
+                                        </div>
+                                        {(editingIncident.investigationTeam || []).map((member, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                                                <input type="text" placeholder="ชื่อ-นามสกุล" value={member.name} onChange={e => { const arr = [...(editingIncident.investigationTeam || [])]; arr[idx] = { ...arr[idx], name: e.target.value }; setEditingIncident({ ...editingIncident, investigationTeam: arr }); }} className="form-input" />
+                                                <input type="text" placeholder="ตำแหน่ง" value={member.position} onChange={e => { const arr = [...(editingIncident.investigationTeam || [])]; arr[idx] = { ...arr[idx], position: e.target.value }; setEditingIncident({ ...editingIncident, investigationTeam: arr }); }} className="form-input" />
+                                                <input type="text" placeholder="บริษัท" value={member.company} onChange={e => { const arr = [...(editingIncident.investigationTeam || [])]; arr[idx] = { ...arr[idx], company: e.target.value }; setEditingIncident({ ...editingIncident, investigationTeam: arr }); }} className="form-input" />
+                                                <button type="button" onClick={() => { const arr = (editingIncident.investigationTeam || []).filter((_, i) => i !== idx); setEditingIncident({ ...editingIncident, investigationTeam: arr }); }} className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm font-bold border border-red-200">ลบ</button>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => setEditingIncident({ ...editingIncident, investigationTeam: [...(editingIncident.investigationTeam || []), { name: '', position: '', company: '' }] })} className="px-4 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50">+ เพิ่มสมาชิกทีม</button>
+                                    </div>
+
+                                    {/* Status & Investigator */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">สถานะ & ผู้สอบสวน (Status & Investigator)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">สถานะ (Status)</label>
+                                                <select value={editingIncident.status || 'Open'} onChange={e => setEditingIncident({ ...editingIncident, status: e.target.value as any })} className="w-full form-select" title="สถานะ" aria-label="สถานะ">
+                                                    <option value="Open">เปิด (Open)</option>
+                                                    <option value="Investigating">กำลังสอบสวน (Investigating)</option>
+                                                    <option value="Closed">ปิด (Closed)</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ผู้จัดทำ (Investigator)</label>
+                                                <input type="text" value={editingIncident.investigatorName || ''} onChange={e => setEditingIncident({ ...editingIncident, investigatorName: e.target.value })} className="w-full form-input" placeholder="ชื่อผู้สอบสวน" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">วันที่สอบสวน</label>
+                                                <input type="date" value={editingIncident.investigationDate || ''} onChange={e => setEditingIncident({ ...editingIncident, investigationDate: e.target.value })} className="w-full form-input" title="วันที่สอบสวน" aria-label="วันที่สอบสวน" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 18. Management Review */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2 mb-4">18. ความคิดเห็นของผู้บังคับบัญชา (Responsible Manager's Review / Comment)</h4>
+                                        <div className="space-y-4">
+                                            <p className="font-bold text-sm text-slate-700">ต้องการค้นหาสาเหตุเพิ่มเติมไปกว่านี้หรือไม่ (More detailed investigation required?)</p>
+                                            <div className="flex items-center gap-6">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" checked={editingIncident.managementReview?.requireMoreInvestigation === false} onChange={() => setEditingIncident({ ...editingIncident, managementReview: { ...editingIncident.managementReview, requireMoreInvestigation: false } })} className="text-green-600 focus:ring-green-500" />
+                                                    <span className="font-medium text-slate-700">ไม่ต้องการ (No)</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" checked={editingIncident.managementReview?.requireMoreInvestigation === true} onChange={() => setEditingIncident({ ...editingIncident, managementReview: { ...editingIncident.managementReview, requireMoreInvestigation: true } })} className="text-red-600 focus:ring-red-500" />
+                                                    <span className="font-medium text-slate-700">ต้องการ (Yes)</span>
+                                                </label>
+                                            </div>
+                                            <div className="p-4 bg-slate-50 rounded-xl space-y-3 border border-slate-100">
+                                                <h5 className="font-bold text-slate-600 text-sm">อนุมัติรายงานโดย (Reviewed / Approved by)</h5>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                    <input type="text" placeholder="ชื่อ-นามสกุล (Name)" value={editingIncident.managementReview?.reviewerName || ''} onChange={e => setEditingIncident({ ...editingIncident, managementReview: { ...editingIncident.managementReview, reviewerName: e.target.value } })} className="form-input" />
+                                                    <input type="text" placeholder="ตำแหน่ง (Position)" value={editingIncident.managementReview?.reviewerPosition || ''} onChange={e => setEditingIncident({ ...editingIncident, managementReview: { ...editingIncident.managementReview, reviewerPosition: e.target.value } })} className="form-input" />
+                                                    <input type="text" placeholder="บริษัท (Company)" value={editingIncident.managementReview?.reviewerCompany || ''} onChange={e => setEditingIncident({ ...editingIncident, managementReview: { ...editingIncident.managementReview, reviewerCompany: e.target.value } })} className="form-input" />
+                                                    <input type="date" value={editingIncident.managementReview?.reviewedDate || ''} onChange={e => setEditingIncident({ ...editingIncident, managementReview: { ...editingIncident.managementReview, reviewedDate: e.target.value } })} className="form-input" title="วันที่อนุมัติ" aria-label="วันที่อนุมัติ" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 19. Top Management Acknowledge */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2 mb-4">19. ผู้บริหารระดับสูงรับทราบ (Responsible Top Management Acknowledge)</h4>
+                                        <div className="p-4 bg-slate-50 rounded-xl space-y-3 border border-slate-100">
+                                            <h5 className="font-bold text-slate-600 text-sm">เพื่อโปรดรับทราบผลการสอบสวนอุบัติเหตุ</h5>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                <input type="text" placeholder="ชื่อ-นามสกุล (Name)" value={editingIncident.topManagementAcknowledge?.name || ''} onChange={e => setEditingIncident({ ...editingIncident, topManagementAcknowledge: { ...editingIncident.topManagementAcknowledge, name: e.target.value } })} className="form-input" />
+                                                <input type="text" placeholder="ตำแหน่ง (Position)" value={editingIncident.topManagementAcknowledge?.position || ''} onChange={e => setEditingIncident({ ...editingIncident, topManagementAcknowledge: { ...editingIncident.topManagementAcknowledge, position: e.target.value } })} className="form-input" />
+                                                <input type="text" placeholder="บริษัท (Company)" value={editingIncident.topManagementAcknowledge?.company || ''} onChange={e => setEditingIncident({ ...editingIncident, topManagementAcknowledge: { ...editingIncident.topManagementAcknowledge, company: e.target.value } })} className="form-input" />
+                                                <input type="date" value={editingIncident.topManagementAcknowledge?.date || ''} onChange={e => setEditingIncident({ ...editingIncident, topManagementAcknowledge: { ...editingIncident.topManagementAcknowledge, date: e.target.value } })} className="form-input" title="วันที่รับทราบ" aria-label="วันที่รับทราบ" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Site Conditions */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                                        <h4 className="font-bold text-slate-800 border-b pb-2">สภาพแวดล้อมที่เกิดเหตุ (Site Conditions)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">สภาพผิวถนน</label>
+                                                <select value={editingIncident.siteConditions?.roadSurface || ''} onChange={e => setEditingIncident({ ...editingIncident, siteConditions: { ...editingIncident.siteConditions, roadSurface: e.target.value } })} className="w-full form-select" title="สภาพผิวถนน" aria-label="สภาพผิวถนน">
+                                                    <option value="">-- ระบุ --</option>
+                                                    <option value="Smooth">เรียบ</option>
+                                                    <option value="Rough">ขรุขระ</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">แสงสว่าง</label>
+                                                <select value={editingIncident.siteConditions?.lighting || ''} onChange={e => setEditingIncident({ ...editingIncident, siteConditions: { ...editingIncident.siteConditions, lighting: e.target.value } })} className="w-full form-select" title="แสงสว่าง" aria-label="แสงสว่าง">
+                                                    <option value="">-- ระบุ --</option>
+                                                    <option value="Night (Street Lights)">กลางคืนมีไฟถนน</option>
+                                                    <option value="Night (No Lights)">กลางคืนไม่มีไฟถนน</option>
+                                                    <option value="Day">กลางวัน</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ทัศนวิสัย</label>
+                                                <select value={editingIncident.siteConditions?.visibility || ''} onChange={e => setEditingIncident({ ...editingIncident, siteConditions: { ...editingIncident.siteConditions, visibility: e.target.value } })} className="w-full form-select" title="ทัศนวิสัย" aria-label="ทัศนวิสัย">
+                                                    <option value="">-- ระบุ --</option>
+                                                    <option value="Clear">มองชัดเจน</option>
+                                                    <option value="Fog/Dust">มีหมอก/ฝุ่น</option>
+                                                    <option value="Glare">ลายตา</option>
+                                                    <option value="Rain">ฝนตกหนัก</option>
+                                                    <option value="Obstacle">มีวัตถุข้างหน้า</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">สถานที่เกิดเหตุ (Accident Location 1-16)</label>
+                                            <select value={editingIncident.siteConditions?.locationType || ''} onChange={e => setEditingIncident({ ...editingIncident, siteConditions: { ...editingIncident.siteConditions, locationType: e.target.value } })} className="w-full form-select" title="สถานที่เกิดเหตุ" aria-label="สถานที่เกิดเหตุ">
+                                                <option value="">-- เลือกสถานที่ (1-16) --</option>
+                                                <option value="1">1. ลานจอด</option>
+                                                <option value="2">2. ถนนตัดกัน</option>
+                                                <option value="3">3. สามแยกลักษณะ T</option>
+                                                <option value="4">4. สามแยก</option>
+                                                <option value="5">5. ทางคู่ขนาน</option>
+                                                <option value="6">6. วงเวียน</option>
+                                                <option value="7">7. เนินเขา, ขึ้นเนิน</option>
+                                                <option value="8">8. สะพาน/ทางข้าม</option>
+                                                <option value="9">9. ทางตรง</option>
+                                                <option value="10">10. ทางตรงลาดชัน</option>
+                                                <option value="11">11. ทางโค้ง หรือเลี้ยว (ทัศนวิสัยเปิด)</option>
+                                                <option value="12">12. ทางโค้ง หรือเลี้ยว (ทัศนวิสัยปิด)</option>
+                                                <option value="13">13. ทางโค้ง หรือเลี้ยว ลาดชัน (เปิด)</option>
+                                                <option value="14">14. ทางโค้ง หรือเลี้ยว ลาดชัน (ปิด)</option>
+                                                <option value="15">15. ทางเดินข้าม</option>
+                                                <option value="16">16. อื่นๆ</option>
+                                            </select>
+                                            {editingIncident.siteConditions?.locationType === '16' && (
+                                                <input type="text" placeholder="ระบุสถานที่อื่นๆ..." className="mt-2 form-input" value={editingIncident.siteConditions?.locationTypeOther || ''} onChange={e => setEditingIncident({ ...editingIncident, siteConditions: { ...editingIncident.siteConditions, locationTypeOther: e.target.value } })} />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Linked Claims */}
+                                    <div className="space-y-4 bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                                        <h4 className="text-lg font-bold text-blue-900 flex items-center gap-2 mb-4">ความเชื่อมโยงกับการเคลมประกัน (Linked Claims)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ใบเคลมประกันรถยนต์ (Vehicle Claim)</label>
+                                                <input type="text" value={editingIncident.relatedVehicleClaimId || ''} onChange={e => setEditingIncident({ ...editingIncident, relatedVehicleClaimId: e.target.value })} className="w-full form-input bg-white" placeholder="ระบุ Claim ID (ถ้ามี)" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">ใบเคลมประกันสินค้า (Cargo Claim)</label>
+                                                <input type="text" value={editingIncident.relatedCargoClaimId || ''} onChange={e => setEditingIncident({ ...editingIncident, relatedCargoClaimId: e.target.value })} className="w-full form-input bg-white" placeholder="ระบุ Claim ID (ถ้ามี)" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 sm:p-6 border-t border-gray-100 bg-white flex-shrink-0 flex justify-between items-center">
+                            <p className="text-xs text-slate-400 hidden sm:block">แก้ไขล่าสุด: {new Date().toLocaleDateString('th-TH')}</p>
+                            <div className="flex gap-3 ml-auto">
+                                <button type="button" onClick={() => setEditingIncident(null)} className="px-6 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-all text-sm">
+                                    ยกเลิก
+                                </button>
+                                <button type="button" onClick={handleSaveEdit} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-xl hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl active:scale-95 text-sm">
+                                    <Save size={16} />
+                                    <span>บันทึกการแก้ไข</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Detail Modal */}
             {selectedIncident && (
@@ -1064,11 +1966,11 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
 
                         <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 print:hidden">
                             <button
-                                onClick={() => window.print()}
-                                className="flex items-center gap-2 px-6 py-3 bg-white text-slate-700 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all active:scale-95"
+                                onClick={handleDownloadPDF}
+                                className="flex items-center gap-2 px-6 py-3 font-bold rounded-xl transition-all active:scale-95 bg-red-600 text-white hover:bg-red-700 shadow-lg hover:shadow-xl"
                             >
                                 <Printer size={18} />
-                                <span>พิมพ์ใบสรุปเหตุการณ์ (A4)</span>
+                                <span>พิมพ์ / บันทึก PDF (10 หน้า)</span>
                             </button>
                             <button onClick={() => setSelectedIncident(null)} className="px-10 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all">
                                 ปิดหน้าต่าง
@@ -1166,7 +2068,7 @@ const IncidentLogPage: React.FC<IncidentLogPageProps> = ({ incidents, drivers, v
                                 <p className="font-bold italic">รูปภาพที่เกิดเหตุ (Site Photos)</p>
                                 <div className="border-2 border-slate-400 aspect-video rounded-3xl overflow-hidden bg-slate-50 flex items-center justify-center">
                                     {selectedIncident.photos && selectedIncident.photos[0] ? (
-                                        <img src={selectedIncident.photos[0].url} className="w-full h-full object-contain" alt="Site" />
+                                        <img src={typeof selectedIncident.photos[0] === 'string' ? selectedIncident.photos[0] : (selectedIncident.photos[0] as FileAttachment).url} className="w-full h-full object-contain" alt="Site" />
                                     ) : (
                                         <div className="text-slate-300 font-bold italic">Photo Area</div>
                                     )}

@@ -47,19 +47,19 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
     };
 
     const tabs: { id: AnalyticsTab, label: string, short: string, sub: string, icon: React.ReactNode }[] = [
-        { id: 'fleet',          label: 'Fleet Performance', short: 'Fleet',    sub: 'ประสิทธิภาพกลุ่มรถ',     icon: <Truck size={16} /> },
-        { id: 'reports',        label: 'Analysis Hub',      short: 'Analysis', sub: 'รายงานและสถิติ',          icon: <BarChart2 size={16} /> },
-        { id: 'vehicle-expense',label: 'Vehicle Expense',   short: 'Expense',  sub: 'ค่าใช้จ่ายเกี่ยวกับรถ', icon: <TrendingUp size={16} /> },
-        { id: 'kpi',            label: 'Repair KPI',        short: 'KPI',      sub: 'ภาพรวมดัชนีการซ่อม',    icon: <Target size={16} /> },
-        { id: 'technician-kpi', label: 'Technician Hub',    short: 'Tech',     sub: 'ประสิทธิภาพงานช่าง',    icon: <Wrench size={16} /> },
-        { id: 'stock-history',  label: 'Inventory Log',     short: 'Stock',    sub: 'ประวัติเบิกจ่าย',        icon: <Package size={16} /> },
-        { id: 'used-parts',     label: 'Parts Lifecycle',   short: 'Parts',    sub: 'รายงานอะไหล่เก่า',      icon: <RotateCcw size={16} /> },
-        { id: 'driver-leave',   label: 'HR Analytics',      short: 'HR',       sub: 'ประวัติการลา',           icon: <Users size={16} /> },
+        { id: 'fleet', label: 'Fleet Performance', short: 'Fleet', sub: 'ประสิทธิภาพกลุ่มรถ', icon: <Truck size={16} /> },
+        { id: 'reports', label: 'Analysis Hub', short: 'Analysis', sub: 'รายงานและสถิติ', icon: <BarChart2 size={16} /> },
+        { id: 'vehicle-expense', label: 'Vehicle Expense', short: 'Expense', sub: 'ค่าใช้จ่ายเกี่ยวกับรถ', icon: <TrendingUp size={16} /> },
+        { id: 'kpi', label: 'Repair KPI', short: 'KPI', sub: 'ภาพรวมดัชนีการซ่อม', icon: <Target size={16} /> },
+        { id: 'technician-kpi', label: 'Technician Hub', short: 'Tech', sub: 'ประสิทธิภาพงานช่าง', icon: <Wrench size={16} /> },
+        { id: 'stock-history', label: 'Inventory Log', short: 'Stock', sub: 'ประวัติเบิกจ่าย', icon: <Package size={16} /> },
+        { id: 'used-parts', label: 'Parts Lifecycle', short: 'Parts', sub: 'รายงานอะไหล่เก่า', icon: <RotateCcw size={16} /> },
+        { id: 'driver-leave', label: 'HR Analytics', short: 'HR', sub: 'ประวัติการลา', icon: <Users size={16} /> },
     ];
 
     return (
         <div className="space-y-6 sm:space-y-10">
-            {/* Mobile: 4×2 Flex-wrap Tab Nav — w-1/4 ใช้ % ล้วน ไม่พึ่ง grid track sizing */}
+            {/* Mobile: 4×2 Flex-wrap Tab Nav */}
             <div className="sm:hidden w-full glass p-1.5 rounded-2xl border border-white/50 shadow-xl backdrop-blur-3xl">
                 <div className="flex flex-wrap">
                     {tabs.map((tab) => (
@@ -67,11 +67,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`w-full flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl transition-all duration-300 active:scale-95 relative overflow-hidden ${
-                                    activeTab === tab.id
+                                className={`w-full flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl transition-all duration-300 active:scale-95 relative overflow-hidden ${activeTab === tab.id
                                         ? 'bg-slate-950 text-white shadow-md'
                                         : 'text-slate-400 bg-white/30 hover:bg-white/60 hover:text-slate-600'
-                                }`}
+                                    }`}
                             >
                                 <span className={`flex-shrink-0 leading-none ${activeTab === tab.id ? 'text-white' : 'text-slate-400'}`}>
                                     {tab.icon}
@@ -96,11 +95,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
                             key={tab.id}
                             type="button"
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex flex-col items-center justify-center px-5 py-3.5 lg:px-8 lg:py-4 rounded-2xl lg:rounded-[2rem] transition-all duration-500 relative flex-none ${
-                                activeTab === tab.id
+                            className={`flex flex-col items-center justify-center px-5 py-3.5 lg:px-8 lg:py-4 rounded-2xl lg:rounded-[2rem] transition-all duration-500 relative flex-none ${activeTab === tab.id
                                     ? 'bg-slate-950 text-white shadow-2xl'
                                     : 'text-slate-500 hover:bg-white hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             <span className="text-[10px] font-black uppercase tracking-wide whitespace-nowrap">
                                 {tab.label}
