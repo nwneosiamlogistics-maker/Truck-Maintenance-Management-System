@@ -21,6 +21,8 @@ interface MonthlyTotal {
     repairCount: number;
     laborCost: number;
     partsCost: number;
+    partsCostStock: number;
+    partsCostStore: number;
     vatCost: number;
     totalCost: number;
 }
@@ -31,6 +33,8 @@ interface VehicleMonthlyDetail {
     repairCount: number;
     laborCost: number;
     partsCost: number;
+    partsCostStock: number;
+    partsCostStore: number;
     vatCost: number;
     totalCost: number;
     repairs: Repair[];
@@ -39,10 +43,17 @@ interface VehicleMonthlyDetail {
 // --- Helper ---
 const calculateRepairCosts = (repair: Repair) => {
     const laborCost = Number(repair.repairCost) || 0;
-    const partsCost = (repair.parts || []).reduce((sum, p) =>
+    const parts = repair.parts || [];
+    const partsCost = parts.reduce((sum, p) =>
         sum + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
+    // แยกตามแหล่งที่มาของอะไหล่: สต๊อกอู่ vs ร้านค้า
+    const partsCostStock = parts
+        .filter(p => p.source === 'สต็อกอู่')
+        .reduce((sum, p) => sum + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
+    // ส่วนที่เหลือถือเป็นร้านค้า (ครอบคลุม data เก่าที่ source ไม่ระบุ) เพื่อให้ยอดรวมตรงเสมอ
+    const partsCostStore = partsCost - partsCostStock;
     const vatCost = (Number(repair.partsVat) || 0) + (Number(repair.laborVat) || 0);
-    return { laborCost, partsCost, vatCost, totalCost: laborCost + partsCost + vatCost };
+    return { laborCost, partsCost, partsCostStock, partsCostStore, vatCost, totalCost: laborCost + partsCost + vatCost };
 };
 
 const THAI_MONTHS = [
@@ -116,11 +127,11 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
 
         const totals: MonthlyTotal[] = [];
         const vehicleDetails: Record<number, VehicleMonthlyDetail[]> = {};
-        let yearLaborCost = 0, yearPartsCost = 0, yearVatCost = 0, yearTotalCost = 0, yearRepairCount = 0;
+        let yearLaborCost = 0, yearPartsCost = 0, yearPartsStockCost = 0, yearPartsStoreCost = 0, yearVatCost = 0, yearTotalCost = 0, yearRepairCount = 0;
 
         for (let m = 0; m < 12; m++) {
             const monthRepairs = monthMap[m];
-            let mLabor = 0, mParts = 0, mVat = 0, mTotal = 0;
+            let mLabor = 0, mParts = 0, mPartsStock = 0, mPartsStore = 0, mVat = 0, mTotal = 0;
 
             // Group by vehicle
             const vehicleMap: Record<string, VehicleMonthlyDetail> = {};
@@ -129,6 +140,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                 const costs = calculateRepairCosts(r);
                 mLabor += costs.laborCost;
                 mParts += costs.partsCost;
+                mPartsStock += costs.partsCostStock;
+                mPartsStore += costs.partsCostStore;
                 mVat += costs.vatCost;
                 mTotal += costs.totalCost;
 
@@ -140,6 +153,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                         repairCount: 0,
                         laborCost: 0,
                         partsCost: 0,
+                        partsCostStock: 0,
+                        partsCostStore: 0,
                         vatCost: 0,
                         totalCost: 0,
                         repairs: []
@@ -148,6 +163,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                 vehicleMap[plate].repairCount += 1;
                 vehicleMap[plate].laborCost += costs.laborCost;
                 vehicleMap[plate].partsCost += costs.partsCost;
+                vehicleMap[plate].partsCostStock += costs.partsCostStock;
+                vehicleMap[plate].partsCostStore += costs.partsCostStore;
                 vehicleMap[plate].vatCost += costs.vatCost;
                 vehicleMap[plate].totalCost += costs.totalCost;
                 vehicleMap[plate].repairs.push(r);
@@ -159,6 +176,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                 repairCount: monthRepairs.length,
                 laborCost: mLabor,
                 partsCost: mParts,
+                partsCostStock: mPartsStock,
+                partsCostStore: mPartsStore,
                 vatCost: mVat,
                 totalCost: mTotal
             });
@@ -167,6 +186,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
 
             yearLaborCost += mLabor;
             yearPartsCost += mParts;
+            yearPartsStockCost += mPartsStock;
+            yearPartsStoreCost += mPartsStore;
             yearVatCost += mVat;
             yearTotalCost += mTotal;
             yearRepairCount += monthRepairs.length;
@@ -178,6 +199,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                 repairCount: yearRepairCount,
                 laborCost: yearLaborCost,
                 partsCost: yearPartsCost,
+                partsCostStock: yearPartsStockCost,
+                partsCostStore: yearPartsStoreCost,
                 vatCost: yearVatCost,
                 totalCost: yearTotalCost
             },
@@ -238,6 +261,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                 'จำนวนครั้งที่ซ่อม': v.repairCount,
                 'ค่าแรง (บาท)': Number(v.laborCost.toFixed(2)),
                 'ค่าอะไหล่ (บาท)': Number(v.partsCost.toFixed(2)),
+                'ค่าอะไหล่-สต๊อก (บาท)': Number(v.partsCostStock.toFixed(2)),
+                'ค่าอะไหล่-ร้านค้า (บาท)': Number(v.partsCostStore.toFixed(2)),
                 'VAT (บาท)': Number(v.vatCost.toFixed(2)),
                 'รวมทั้งสิ้น (บาท)': Number(v.totalCost.toFixed(2))
             }));
@@ -245,7 +270,7 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
         exportToXLSX(`ค่าใช้จ่ายรถ_${THAI_MONTHS[month]}_${selectedYear + 543}`, [{
             sheetName: monthName,
             data: rows,
-            columnWidths: [6, 16, 18, 14, 16, 16, 14, 18]
+            columnWidths: [6, 16, 18, 14, 16, 16, 18, 18, 14, 18]
         }]);
     };
 
@@ -260,6 +285,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
             'จำนวนงานซ่อม': m.repairCount,
             'ค่าแรง (บาท)': Number(m.laborCost.toFixed(2)),
             'ค่าอะไหล่ (บาท)': Number(m.partsCost.toFixed(2)),
+            'ค่าอะไหล่-สต๊อก (บาท)': Number(m.partsCostStock.toFixed(2)),
+            'ค่าอะไหล่-ร้านค้า (บาท)': Number(m.partsCostStore.toFixed(2)),
             'VAT (บาท)': Number(m.vatCost.toFixed(2)),
             'รวมทั้งสิ้น (บาท)': Number(m.totalCost.toFixed(2))
         }));
@@ -271,6 +298,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
             'จำนวนงานซ่อม': yearTotal.repairCount,
             'ค่าแรง (บาท)': Number(yearTotal.laborCost.toFixed(2)),
             'ค่าอะไหล่ (บาท)': Number(yearTotal.partsCost.toFixed(2)),
+            'ค่าอะไหล่-สต๊อก (บาท)': Number(yearTotal.partsCostStock.toFixed(2)),
+            'ค่าอะไหล่-ร้านค้า (บาท)': Number(yearTotal.partsCostStore.toFixed(2)),
             'VAT (บาท)': Number(yearTotal.vatCost.toFixed(2)),
             'รวมทั้งสิ้น (บาท)': Number(yearTotal.totalCost.toFixed(2))
         });
@@ -278,7 +307,7 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
         sheets.push({
             sheetName: `สรุปรายเดือน ${selectedYear + 543}`,
             data: summaryRows,
-            columnWidths: [6, 22, 14, 16, 16, 14, 18]
+            columnWidths: [6, 22, 14, 16, 16, 18, 18, 14, 18]
         });
 
         // Per-month sheets
@@ -295,6 +324,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                     'จำนวนครั้งที่ซ่อม': v.repairCount,
                     'ค่าแรง (บาท)': Number(v.laborCost.toFixed(2)),
                     'ค่าอะไหล่ (บาท)': Number(v.partsCost.toFixed(2)),
+                    'ค่าอะไหล่-สต๊อก (บาท)': Number(v.partsCostStock.toFixed(2)),
+                    'ค่าอะไหล่-ร้านค้า (บาท)': Number(v.partsCostStore.toFixed(2)),
                     'VAT (บาท)': Number(v.vatCost.toFixed(2)),
                     'รวมทั้งสิ้น (บาท)': Number(v.totalCost.toFixed(2))
                 }));
@@ -302,7 +333,7 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
             sheets.push({
                 sheetName: THAI_MONTHS_SHORT[m],
                 data: rows,
-                columnWidths: [6, 16, 18, 14, 16, 16, 14, 18]
+                columnWidths: [6, 16, 18, 14, 16, 16, 18, 18, 14, 18]
             });
         }
 
@@ -472,6 +503,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                 <th className="px-6 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">จำนวนงาน</th>
                                 <th className="px-6 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">ค่าแรง (บาท)</th>
                                 <th className="px-6 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">ค่าอะไหล่ (บาท)</th>
+                                <th className="px-6 py-5 text-right text-[10px] font-black text-cyan-500 uppercase tracking-widest">อะไหล่-สต๊อก</th>
+                                <th className="px-6 py-5 text-right text-[10px] font-black text-amber-500 uppercase tracking-widest">อะไหล่-ร้านค้า</th>
                                 <th className="px-6 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">VAT (บาท)</th>
                                 <th className="px-6 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">รวมทั้งสิ้น (บาท)</th>
                                 <th className="px-6 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Export</th>
@@ -502,6 +535,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                         </td>
                                         <td className="px-6 py-5 text-right text-sm font-bold text-orange-600 tabular-nums">{m.laborCost > 0 ? formatCurrency(m.laborCost) : '-'}</td>
                                         <td className="px-6 py-5 text-right text-sm font-bold text-blue-600 tabular-nums">{m.partsCost > 0 ? formatCurrency(m.partsCost) : '-'}</td>
+                                        <td className="px-6 py-5 text-right text-sm font-bold text-cyan-600 tabular-nums">{m.partsCostStock > 0 ? formatCurrency(m.partsCostStock) : '-'}</td>
+                                        <td className="px-6 py-5 text-right text-sm font-bold text-amber-600 tabular-nums">{m.partsCostStore > 0 ? formatCurrency(m.partsCostStore) : '-'}</td>
                                         <td className="px-6 py-5 text-right text-sm font-bold text-purple-600 tabular-nums">{m.vatCost > 0 ? formatCurrency(m.vatCost) : '-'}</td>
                                         <td className="px-6 py-5 text-right text-lg font-black text-slate-800 tabular-nums">{m.totalCost > 0 ? `฿${formatCurrency(m.totalCost)}` : '-'}</td>
                                         <td className="px-6 py-5 text-center">
@@ -520,7 +555,7 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                     {/* Expanded Detail */}
                                     {expandedMonth === m.month && m.repairCount > 0 && (
                                         <tr>
-                                            <td colSpan={7} className="px-0 py-0">
+                                            <td colSpan={9} className="px-0 py-0">
                                                 <div className="bg-gradient-to-b from-emerald-50/50 to-white border-t-2 border-emerald-200/50 animate-fade-in-up">
                                                     <div className="px-10 py-6 flex items-center justify-between">
                                                         <h4 className="text-sm font-black text-emerald-800 flex items-center gap-2">
@@ -551,6 +586,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                                                     </th>
                                                                     <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest">ค่าแรง</th>
                                                                     <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest">ค่าอะไหล่</th>
+                                                                    <th className="px-6 py-4 text-right text-[10px] font-black text-cyan-300 uppercase tracking-widest">สต๊อก</th>
+                                                                    <th className="px-6 py-4 text-right text-[10px] font-black text-amber-300 uppercase tracking-widest">ร้านค้า</th>
                                                                     <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest">VAT</th>
                                                                     <th
                                                                         onClick={() => handleSort('totalCost')}
@@ -573,6 +610,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                                                         </td>
                                                                         <td className="px-6 py-3.5 text-right text-sm font-bold text-orange-600 tabular-nums">{formatCurrency(v.laborCost)}</td>
                                                                         <td className="px-6 py-3.5 text-right text-sm font-bold text-blue-600 tabular-nums">{formatCurrency(v.partsCost)}</td>
+                                                                        <td className="px-6 py-3.5 text-right text-sm font-bold text-cyan-600 tabular-nums">{v.partsCostStock > 0 ? formatCurrency(v.partsCostStock) : '-'}</td>
+                                                                        <td className="px-6 py-3.5 text-right text-sm font-bold text-amber-600 tabular-nums">{v.partsCostStore > 0 ? formatCurrency(v.partsCostStore) : '-'}</td>
                                                                         <td className="px-6 py-3.5 text-right text-sm font-bold text-purple-600 tabular-nums">{formatCurrency(v.vatCost)}</td>
                                                                         <td className="px-6 py-3.5 text-right text-sm font-black text-slate-900 tabular-nums">฿{formatCurrency(v.totalCost)}</td>
                                                                     </tr>
@@ -584,6 +623,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                                                     <td className="px-6 py-4 text-center text-sm font-black text-slate-800">{m.repairCount}</td>
                                                                     <td className="px-6 py-4 text-right text-sm font-black text-orange-700 tabular-nums">{formatCurrency(m.laborCost)}</td>
                                                                     <td className="px-6 py-4 text-right text-sm font-black text-blue-700 tabular-nums">{formatCurrency(m.partsCost)}</td>
+                                                                    <td className="px-6 py-4 text-right text-sm font-black text-cyan-700 tabular-nums">{formatCurrency(m.partsCostStock)}</td>
+                                                                    <td className="px-6 py-4 text-right text-sm font-black text-amber-700 tabular-nums">{formatCurrency(m.partsCostStore)}</td>
                                                                     <td className="px-6 py-4 text-right text-sm font-black text-purple-700 tabular-nums">{formatCurrency(m.vatCost)}</td>
                                                                     <td className="px-6 py-4 text-right text-lg font-black text-slate-900 tabular-nums">฿{formatCurrency(m.totalCost)}</td>
                                                                 </tr>
@@ -609,6 +650,8 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                 </td>
                                 <td className="px-6 py-6 text-right text-sm font-black text-orange-300 tabular-nums">{formatCurrency(yearTotal.laborCost)}</td>
                                 <td className="px-6 py-6 text-right text-sm font-black text-blue-300 tabular-nums">{formatCurrency(yearTotal.partsCost)}</td>
+                                <td className="px-6 py-6 text-right text-sm font-black text-cyan-300 tabular-nums">{formatCurrency(yearTotal.partsCostStock)}</td>
+                                <td className="px-6 py-6 text-right text-sm font-black text-amber-300 tabular-nums">{formatCurrency(yearTotal.partsCostStore)}</td>
                                 <td className="px-6 py-6 text-right text-sm font-black text-purple-300 tabular-nums">{formatCurrency(yearTotal.vatCost)}</td>
                                 <td className="px-6 py-6 text-right text-xl font-black tabular-nums">฿{formatCurrency(yearTotal.totalCost)}</td>
                                 <td className="px-6 py-6"></td>
@@ -643,18 +686,30 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
 
                             {/* Cost Breakdown grid */}
                             {m.totalCost > 0 && (
-                                <div className="grid grid-cols-3 gap-2 px-4 pb-4">
-                                    <div className="bg-orange-50 rounded-xl p-2 text-center">
-                                        <div className="text-[8px] font-black text-orange-400 uppercase tracking-wider mb-0.5">ค่าแรง</div>
-                                        <div className="text-[11px] font-black text-orange-600 tabular-nums">{formatCurrency(m.laborCost)}</div>
+                                <div className="px-4 pb-4 space-y-2">
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="bg-orange-50 rounded-xl p-2 text-center">
+                                            <div className="text-[8px] font-black text-orange-400 uppercase tracking-wider mb-0.5">ค่าแรง</div>
+                                            <div className="text-[11px] font-black text-orange-600 tabular-nums">{formatCurrency(m.laborCost)}</div>
+                                        </div>
+                                        <div className="bg-blue-50 rounded-xl p-2 text-center">
+                                            <div className="text-[8px] font-black text-blue-400 uppercase tracking-wider mb-0.5">ค่าอะไหล่</div>
+                                            <div className="text-[11px] font-black text-blue-600 tabular-nums">{formatCurrency(m.partsCost)}</div>
+                                        </div>
+                                        <div className="bg-purple-50 rounded-xl p-2 text-center">
+                                            <div className="text-[8px] font-black text-purple-400 uppercase tracking-wider mb-0.5">VAT</div>
+                                            <div className="text-[11px] font-black text-purple-600 tabular-nums">{formatCurrency(m.vatCost)}</div>
+                                        </div>
                                     </div>
-                                    <div className="bg-blue-50 rounded-xl p-2 text-center">
-                                        <div className="text-[8px] font-black text-blue-400 uppercase tracking-wider mb-0.5">ค่าอะไหล่</div>
-                                        <div className="text-[11px] font-black text-blue-600 tabular-nums">{formatCurrency(m.partsCost)}</div>
-                                    </div>
-                                    <div className="bg-purple-50 rounded-xl p-2 text-center">
-                                        <div className="text-[8px] font-black text-purple-400 uppercase tracking-wider mb-0.5">VAT</div>
-                                        <div className="text-[11px] font-black text-purple-600 tabular-nums">{formatCurrency(m.vatCost)}</div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-cyan-50 rounded-xl p-2 text-center border border-cyan-100">
+                                            <div className="text-[8px] font-black text-cyan-500 uppercase tracking-wider mb-0.5">อะไหล่ · สต๊อกอู่</div>
+                                            <div className="text-[11px] font-black text-cyan-700 tabular-nums">{m.partsCostStock > 0 ? formatCurrency(m.partsCostStock) : '-'}</div>
+                                        </div>
+                                        <div className="bg-amber-50 rounded-xl p-2 text-center border border-amber-100">
+                                            <div className="text-[8px] font-black text-amber-500 uppercase tracking-wider mb-0.5">อะไหล่ · ร้านค้า</div>
+                                            <div className="text-[11px] font-black text-amber-700 tabular-nums">{m.partsCostStore > 0 ? formatCurrency(m.partsCostStore) : '-'}</div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -684,6 +739,30 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                                     <div className="text-right">
                                                         <div className="text-sm font-black text-slate-800">฿{formatCurrency(v.totalCost)}</div>
                                                         <div className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md inline-block">ซ่อม {v.repairCount} ครั้ง</div>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-50">
+                                                    <div className="text-center">
+                                                        <div className="text-[8px] font-black text-orange-400 uppercase">ค่าแรง</div>
+                                                        <div className="text-[10px] font-black text-orange-600 tabular-nums">{formatCurrency(v.laborCost)}</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-[8px] font-black text-blue-400 uppercase">อะไหล่</div>
+                                                        <div className="text-[10px] font-black text-blue-600 tabular-nums">{formatCurrency(v.partsCost)}</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-[8px] font-black text-purple-400 uppercase">VAT</div>
+                                                        <div className="text-[10px] font-black text-purple-600 tabular-nums">{formatCurrency(v.vatCost)}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                                                    <div className="text-center bg-cyan-50/60 rounded-lg py-1">
+                                                        <div className="text-[8px] font-black text-cyan-500 uppercase">อะไหล่ · สต๊อกอู่</div>
+                                                        <div className="text-[10px] font-black text-cyan-700 tabular-nums">{v.partsCostStock > 0 ? formatCurrency(v.partsCostStock) : '-'}</div>
+                                                    </div>
+                                                    <div className="text-center bg-amber-50/60 rounded-lg py-1">
+                                                        <div className="text-[8px] font-black text-amber-500 uppercase">อะไหล่ · ร้านค้า</div>
+                                                        <div className="text-[10px] font-black text-amber-700 tabular-nums">{v.partsCostStore > 0 ? formatCurrency(v.partsCostStore) : '-'}</div>
                                                     </div>
                                                 </div>
                                             </div>
