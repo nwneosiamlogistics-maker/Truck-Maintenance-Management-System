@@ -62,8 +62,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             <div className="glass p-5 border border-white shadow-2xl rounded-3xl z-50 backdrop-blur-xl">
                 <p className="font-black text-slate-800 mb-3 text-xs border-b border-slate-100/50 pb-2 uppercase tracking-widest">{label}</p>
                 {payload.map((entry: any, index: number) => (
-                    <p key={index} className="text-[11px] font-black mt-1.5 flex items-center gap-2" style={{ color: entry.color }}>
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                    <p key={index} className="text-[11px] font-black mt-1.5 flex items-center gap-2 tooltip-entry-color" style={{ '--entry-color': entry.color } as React.CSSProperties}>
+                        <span className="w-1.5 h-1.5 rounded-full tooltip-entry-bg" style={{ '--entry-color': entry.color } as React.CSSProperties}></span>
                         {entry.name}: ฿{Number(entry.value).toLocaleString()}
                     </p>
                 ))}
