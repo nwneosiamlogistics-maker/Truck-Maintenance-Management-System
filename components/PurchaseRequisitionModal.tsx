@@ -441,6 +441,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             return;
         }
 
+<<<<<<< HEAD
         // � บังคับทุกรายการประเภท "สินค้า" ต้องผูกกับคลัง เพื่อให้ "รับของ" อัพเดทสต๊อกได้
         if (prData.requestType === 'Product') {
             const unlinked = safeItems.filter(item => !item.stockId);
@@ -454,6 +455,9 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
         }
 
         // �📎 Mandatory file attachment validation
+=======
+        // 📎 Mandatory file attachment validation
+>>>>>>> eb14d11 (update)
         if (isEditable && (!quotationFiles || quotationFiles.length === 0)) {
             addToast('📎 กรุณาแนบรูปภาพหรือไฟล์ใบเสนอราคา/หลักฐานอย่างน้อย 1 ไฟล์', 'warning');
             return;

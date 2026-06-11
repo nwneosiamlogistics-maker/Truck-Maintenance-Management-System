@@ -50,6 +50,7 @@ function thaiDate(): string {
     return new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
 }
 
+<<<<<<< HEAD
 // ==================== Status-Based Deduplication ====================
 // แก้ปัญหาแจ้งเตือนซ้ำจาก:
 // 1. useFirebase เขียนทั้ง array → deepNormalizeFirebase ทำให้ข้อมูลดู "เปลี่ยน" → trigger ซ้ำ
@@ -104,6 +105,8 @@ async function checkAndSetDedup(dedupKey: string, currentStatus: string): Promis
 }
 
 
+=======
+>>>>>>> eb14d11 (update)
 // Helper: look up technician name from RTDB by ID
 // Returns name if found, falls back to the raw ID so the message still makes sense
 async function getTechnicianName(id: string | null | undefined): Promise<string | null> {

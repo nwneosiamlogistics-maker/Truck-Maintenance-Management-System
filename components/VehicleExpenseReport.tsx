@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { Repair, Vehicle } from '../types';
 import { formatCurrency } from '../utils';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     Line, ComposedChart
 } from 'recharts';
 import { Download, ChevronDown, ChevronUp, Truck, Calendar, DollarSign, TrendingUp, FileSpreadsheet } from 'lucide-react';
@@ -318,18 +318,18 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
     return (
         <div className="space-y-10 animate-fade-in-up pb-12">
             {/* Header Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-5 lg:p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 via-transparent to-teal-600/5 pointer-events-none"></div>
                 <div className="relative z-10 text-center lg:text-left">
-                    <h2 className="text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-emerald-900 to-teal-900 leading-none">
+                    <h2 className="text-2xl lg:text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-emerald-900 to-teal-900 leading-none">
                         ค่าใช้จ่ายเกี่ยวกับรถ
                     </h2>
-                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
+                    <p className="text-slate-400 font-black mt-2 lg:mt-4 uppercase tracking-[0.3em] lg:tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
                         <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-glow"></span>
                         สรุปค่าใช้จ่ายซ่อมบำรุงรายเดือน (Monthly Vehicle Expense Report)
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-4 mt-8 lg:mt-0 relative z-10">
+                <div className="flex flex-wrap items-center justify-center gap-4 mt-6 lg:mt-0 relative z-10 w-full lg:w-auto">
                     {/* Year Selector */}
                     <div className="flex items-center gap-3 bg-white/60 backdrop-blur-xl px-6 py-3 rounded-[2rem] border border-white shadow-xl">
                         <Calendar size={16} className="text-slate-400" />
@@ -359,51 +359,51 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
 
             {/* Summary Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-7 rounded-[2.5rem] text-white shadow-2xl shadow-blue-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-4 lg:p-7 rounded-[2.5rem] text-white shadow-2xl shadow-blue-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 opacity-20 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-700">
                         <Truck size={120} strokeWidth={1} />
                     </div>
                     <div className="relative z-10">
                         <h3 className="text-white/60 font-black text-[9px] uppercase tracking-[0.3em] mb-2">งานซ่อมรวมทั้งปี</h3>
-                        <div className="text-3xl font-black tabular-nums">{yearTotal.repairCount.toLocaleString()}</div>
+                        <div className="text-2xl lg:text-3xl font-black tabular-nums">{yearTotal.repairCount.toLocaleString()}</div>
                         <div className="mt-3 text-[9px] font-black text-white/40 uppercase tracking-widest">Total Repairs</div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-7 rounded-[2.5rem] text-white shadow-2xl shadow-emerald-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-4 lg:p-7 rounded-[2.5rem] text-white shadow-2xl shadow-emerald-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 opacity-20 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-700">
                         <DollarSign size={120} strokeWidth={1} />
                     </div>
                     <div className="relative z-10">
                         <h3 className="text-white/60 font-black text-[9px] uppercase tracking-[0.3em] mb-2">ค่าใช้จ่ายรวมทั้งปี</h3>
-                        <div className="text-2xl font-black tabular-nums">฿{formatCurrency(yearTotal.totalCost)}</div>
+                        <div className="text-lg lg:text-2xl font-black tabular-nums">฿{formatCurrency(yearTotal.totalCost)}</div>
                         <div className="mt-3 text-[9px] font-black text-white/40 uppercase tracking-widest">Total Expense</div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-500 to-rose-600 p-7 rounded-[2.5rem] text-white shadow-2xl shadow-orange-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
+                <div className="bg-gradient-to-br from-orange-500 to-rose-600 p-4 lg:p-7 rounded-[2.5rem] text-white shadow-2xl shadow-orange-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
                     <div className="relative z-10">
                         <h3 className="text-white/60 font-black text-[9px] uppercase tracking-[0.3em] mb-2">ค่าแรงรวม</h3>
-                        <div className="text-2xl font-black tabular-nums">฿{formatCurrency(yearTotal.laborCost)}</div>
+                        <div className="text-lg lg:text-2xl font-black tabular-nums">฿{formatCurrency(yearTotal.laborCost)}</div>
                         <div className="mt-3 text-[9px] font-black text-white/40 uppercase tracking-widest">Labor Cost</div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-violet-500 to-purple-700 p-7 rounded-[2.5rem] text-white shadow-2xl shadow-violet-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
+                <div className="bg-gradient-to-br from-violet-500 to-purple-700 p-4 lg:p-7 rounded-[2.5rem] text-white shadow-2xl shadow-violet-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
                     <div className="relative z-10">
                         <h3 className="text-white/60 font-black text-[9px] uppercase tracking-[0.3em] mb-2">ค่าอะไหล่รวม</h3>
-                        <div className="text-2xl font-black tabular-nums">฿{formatCurrency(yearTotal.partsCost)}</div>
+                        <div className="text-lg lg:text-2xl font-black tabular-nums">฿{formatCurrency(yearTotal.partsCost)}</div>
                         <div className="mt-3 text-[9px] font-black text-white/40 uppercase tracking-widest">Parts Cost</div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-700 to-slate-900 p-7 rounded-[2.5rem] text-white shadow-2xl shadow-slate-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
+                <div className="bg-gradient-to-br from-slate-700 to-slate-900 p-4 lg:p-7 rounded-[2.5rem] text-white shadow-2xl shadow-slate-500/20 hover:scale-[1.02] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 opacity-20 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-700">
                         <TrendingUp size={120} strokeWidth={1} />
                     </div>
                     <div className="relative z-10">
                         <h3 className="text-white/60 font-black text-[9px] uppercase tracking-[0.3em] mb-2">เดือนที่แพงที่สุด</h3>
-                        <div className="text-xl font-black">{THAI_MONTHS_SHORT[maxCostMonth?.month ?? 0]}</div>
+                        <div className="text-base lg:text-xl font-black">{THAI_MONTHS_SHORT[maxCostMonth?.month ?? 0]}</div>
                         <div className="mt-3 text-[9px] font-black text-emerald-400 uppercase tracking-widest">
                             ฿{formatCurrency(maxCostMonth?.totalCost ?? 0)}
                         </div>
@@ -412,14 +412,14 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
             </div>
 
             {/* Monthly Trend Chart */}
-            <div className="glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl">
-                <div className="flex items-center justify-between mb-10">
-                    <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
-                        <div className="w-2.5 h-10 bg-gradient-to-b from-emerald-600 to-teal-600 rounded-full shadow-lg shadow-emerald-500/30"></div>
+            <div className="glass p-4 lg:p-10 rounded-[3.5rem] border border-white/50 shadow-2xl">
+                <div className="flex items-center justify-between mb-4 lg:mb-10">
+                    <h3 className="text-base lg:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2 lg:gap-4">
+                        <div className="w-2 h-6 lg:w-2.5 lg:h-10 bg-gradient-to-b from-emerald-600 to-teal-600 rounded-full shadow-lg shadow-emerald-500/30"></div>
                         แนวโน้มค่าใช้จ่ายรายเดือน ปี {selectedYear + 543}
                     </h3>
                 </div>
-                <div className="h-[400px]">
+                <div className="h-[280px] lg:h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -434,17 +434,17 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="flex items-center justify-center gap-8 mt-6">
-                    <div className="flex items-center gap-2 text-[11px] font-black text-slate-500">
+                <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-8 mt-6">
+                    <div className="flex items-center gap-2 text-[10px] lg:text-[11px] font-black text-slate-500">
                         <div className="w-3 h-3 rounded bg-orange-500"></div> ค่าแรง
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] font-black text-slate-500">
+                    <div className="flex items-center gap-2 text-[10px] lg:text-[11px] font-black text-slate-500">
                         <div className="w-3 h-3 rounded bg-blue-500"></div> ค่าอะไหล่
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] font-black text-slate-500">
+                    <div className="flex items-center gap-2 text-[10px] lg:text-[11px] font-black text-slate-500">
                         <div className="w-3 h-3 rounded bg-purple-500"></div> VAT
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] font-black text-slate-500">
+                    <div className="flex items-center gap-2 text-[10px] lg:text-[11px] font-black text-slate-500">
                         <div className="w-3 h-3 rounded-full bg-emerald-500"></div> รวมทั้งหมด
                     </div>
                 </div>
@@ -452,14 +452,15 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
 
             {/* Monthly Table with Drill-down */}
             <div className="glass rounded-[3.5rem] border border-white/50 shadow-2xl overflow-hidden">
-                <div className="p-10 border-b border-slate-100/50">
-                    <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
-                        <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
-                        สรุปค่าใช้จ่ายรายเดือน — คลิกเพื่อดูรายละเอียดแยกรายคัน
+                <div className="p-5 lg:p-10 border-b border-slate-100/50">
+                    <h3 className="text-base lg:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2 lg:gap-4">
+                        <div className="w-2 h-6 lg:w-2.5 lg:h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+                        <span>สรุปค่าใช้จ่ายรายเดือน <span className="hidden lg:inline">— คลิกเพื่อดูรายละเอียดแยกรายคัน</span></span>
                     </h3>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop Table (>= lg) */}
+                <div className="hidden lg:block overflow-x-auto">
                     <table className="min-w-full">
                         <thead className="bg-slate-50/80">
                             <tr>
@@ -610,6 +611,127 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                             </tr>
                         </tfoot>
                     </table>
+                </div>
+
+                {/* Mobile Card View (< lg) */}
+                <div className="lg:hidden p-4 space-y-3">
+                    {monthlyTotals.map((m) => (
+                        <div key={m.month} className={`rounded-3xl border transition-all ${expandedMonth === m.month ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-100 bg-white'} ${m.totalCost === 0 ? 'opacity-50' : ''}`}>
+                            {/* Card Header (clickable) */}
+                            <button
+                                onClick={() => setExpandedMonth(expandedMonth === m.month ? null : m.month)}
+                                className="w-full flex items-center justify-between p-4 text-left"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${expandedMonth === m.month ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' : 'bg-slate-100 text-slate-400'}`}>
+                                        {expandedMonth === m.month ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-black text-slate-700">{THAI_MONTHS[m.month]} <span className="text-[10px] text-slate-400 font-bold">{selectedYear + 543}</span></div>
+                                        <div className="text-[10px] font-bold text-slate-400">{m.repairCount} งานซ่อม</div>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-base font-black text-slate-800 tabular-nums">{m.totalCost > 0 ? `฿${formatCurrency(m.totalCost)}` : '-'}</div>
+                                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">รวมทั้งสิ้น</div>
+                                </div>
+                            </button>
+
+                            {/* Cost Breakdown grid */}
+                            {m.totalCost > 0 && (
+                                <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+                                    <div className="bg-orange-50 rounded-xl p-2 text-center">
+                                        <div className="text-[8px] font-black text-orange-400 uppercase tracking-wider mb-0.5">ค่าแรง</div>
+                                        <div className="text-[11px] font-black text-orange-600 tabular-nums">{formatCurrency(m.laborCost)}</div>
+                                    </div>
+                                    <div className="bg-blue-50 rounded-xl p-2 text-center">
+                                        <div className="text-[8px] font-black text-blue-400 uppercase tracking-wider mb-0.5">ค่าอะไหล่</div>
+                                        <div className="text-[11px] font-black text-blue-600 tabular-nums">{formatCurrency(m.partsCost)}</div>
+                                    </div>
+                                    <div className="bg-purple-50 rounded-xl p-2 text-center">
+                                        <div className="text-[8px] font-black text-purple-400 uppercase tracking-wider mb-0.5">VAT</div>
+                                        <div className="text-[11px] font-black text-purple-600 tabular-nums">{formatCurrency(m.vatCost)}</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Expanded: per-vehicle detail */}
+                            {expandedMonth === m.month && m.repairCount > 0 && (
+                                <div className="px-3 pb-3 animate-fade-in-up">
+                                    <div className="flex items-center justify-between mb-3 px-1">
+                                        <span className="text-[11px] font-black text-emerald-800 flex items-center gap-1.5">
+                                            <Truck size={13} /> แยกรายคัน ({sortedVehicleDetails.length})
+                                        </span>
+                                        <button
+                                            onClick={() => handleExportMonth(m.month)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95"
+                                        >
+                                            <Download size={12} /> Export
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {sortedVehicleDetails.map((v, idx) => (
+                                            <div key={v.licensePlate} className="bg-white rounded-2xl border border-slate-100 p-3 shadow-sm">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-slate-400 font-bold">#{idx + 1}</span>
+                                                        <div>
+                                                            <div className="text-sm font-black text-slate-800">{v.licensePlate}</div>
+                                                            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{v.vehicleType}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-black text-slate-900 tabular-nums">฿{formatCurrency(v.totalCost)}</div>
+                                                        <div className="text-[9px] font-bold text-slate-400">{v.repairCount} ครั้ง</div>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-50">
+                                                    <div className="text-center">
+                                                        <div className="text-[8px] font-black text-orange-400 uppercase">ค่าแรง</div>
+                                                        <div className="text-[10px] font-black text-orange-600 tabular-nums">{formatCurrency(v.laborCost)}</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-[8px] font-black text-blue-400 uppercase">อะไหล่</div>
+                                                        <div className="text-[10px] font-black text-blue-600 tabular-nums">{formatCurrency(v.partsCost)}</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-[8px] font-black text-purple-400 uppercase">VAT</div>
+                                                        <div className="text-[10px] font-black text-purple-600 tabular-nums">{formatCurrency(v.vatCost)}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    {/* Year Total Card */}
+                    <div className="rounded-3xl bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 mt-2">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-xs font-black uppercase tracking-widest">รวมทั้งปี {selectedYear + 543}</span>
+                            <span className="text-lg font-black tabular-nums">฿{formatCurrency(yearTotal.totalCost)}</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                            <div className="text-center">
+                                <div className="text-[8px] font-black text-white/40 uppercase">งาน</div>
+                                <div className="text-sm font-black">{yearTotal.repairCount}</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[8px] font-black text-orange-300/60 uppercase">ค่าแรง</div>
+                                <div className="text-[11px] font-black text-orange-300 tabular-nums">{formatCurrency(yearTotal.laborCost)}</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[8px] font-black text-blue-300/60 uppercase">อะไหล่</div>
+                                <div className="text-[11px] font-black text-blue-300 tabular-nums">{formatCurrency(yearTotal.partsCost)}</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[8px] font-black text-purple-300/60 uppercase">VAT</div>
+                                <div className="text-[11px] font-black text-purple-300 tabular-nums">{formatCurrency(yearTotal.vatCost)}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -45,21 +45,46 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
         }
     };
 
-    const tabs: { id: AnalyticsTab, label: string, sub: string }[] = [
-        { id: 'fleet', label: 'Fleet Performance', sub: 'ประสิทธิภาพกลุ่มรถ' },
-        { id: 'reports', label: 'Analysis Hub', sub: 'รายงานและสถิติ' },
-        { id: 'vehicle-expense', label: 'Vehicle Expense', sub: 'ค่าใช้จ่ายเกี่ยวกับรถ' },
-        { id: 'kpi', label: 'Repair KPI', sub: 'ภาพรวมดัชนีการซ่อม' },
-        { id: 'technician-kpi', label: 'Technician Hub', sub: 'ประสิทธิภาพงานช่าง' },
-        { id: 'stock-history', label: 'Inventory Log', sub: 'ประวัติเบิกจ่าย' },
-        { id: 'used-parts', label: 'Parts Lifecycle', sub: 'รายงานอะไหล่เก่า' },
-        { id: 'driver-leave', label: 'HR Analytics', sub: 'ประวัติการลา' },
+    const tabs: { id: AnalyticsTab, label: string, sub: string, short: string }[] = [
+        { id: 'fleet', label: 'Fleet Performance', sub: 'ประสิทธิภาพกลุ่มรถ', short: 'Fleet' },
+        { id: 'reports', label: 'Analysis Hub', sub: 'รายงานและสถิติ', short: 'Analytics' },
+        { id: 'vehicle-expense', label: 'Vehicle Expense', sub: 'ค่าใช้จ่ายรถ', short: 'Expense' },
+        { id: 'kpi', label: 'Repair KPI', sub: 'ดัชนีการซ่อม', short: 'KPI' },
+        { id: 'technician-kpi', label: 'Technician Hub', sub: 'ประสิทธิภาพช่าง', short: 'Technician' },
+        { id: 'stock-history', label: 'Inventory Log', sub: 'ประวัติเบิกจ่าย', short: 'Inventory' },
+        { id: 'used-parts', label: 'Parts Lifecycle', sub: 'รายงานอะไหล่เก่า', short: 'Parts' },
+        { id: 'driver-leave', label: 'HR Analytics', sub: 'ประวัติการลา', short: 'HR' },
     ];
 
     return (
         <div className="space-y-10">
-            {/* Premium Tab Navigation */}
-            <div className="glass p-2 rounded-[2.5rem] border border-white/50 shadow-2xl overflow-x-auto no-scrollbar backdrop-blur-3xl">
+            {/* Mobile Tab Navigation (< lg): 4×2 flex-wrap grid */}
+            <div className="lg:hidden glass p-2 rounded-[2rem] border border-white/50 shadow-2xl backdrop-blur-3xl">
+                <div className="flex flex-wrap p-1">
+                    {tabs.map((tab) => (
+                        <div key={tab.id} className="w-1/4 p-0.5">
+                            <button
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`w-full flex flex-col items-center justify-center py-3 px-1 rounded-[1.25rem] transition-all duration-300 relative ${activeTab === tab.id
+                                    ? 'bg-slate-950 text-white shadow-xl'
+                                    : 'text-slate-500 hover:bg-white/50'
+                                    }`}
+                            >
+                                <span className="text-[8px] font-black uppercase tracking-wide text-center leading-tight">{tab.short}</span>
+                                <span className={`text-[7px] font-bold mt-0.5 text-center leading-tight ${activeTab === tab.id ? 'text-slate-400' : 'text-slate-400 opacity-60'}`}>
+                                    {tab.sub.length > 8 ? tab.sub.substring(0, 7) + '…' : tab.sub}
+                                </span>
+                                {activeTab === tab.id && (
+                                    <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full"></div>
+                                )}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Desktop Tab Navigation (>= lg): horizontal scroll */}
+            <div className="hidden lg:block glass p-2 rounded-[2.5rem] border border-white/50 shadow-2xl overflow-x-auto no-scrollbar backdrop-blur-3xl">
                 <div className="flex items-center gap-2 min-w-max p-2">
                     {tabs.map((tab) => (
                         <button

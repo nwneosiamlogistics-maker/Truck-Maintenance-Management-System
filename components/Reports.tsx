@@ -36,7 +36,7 @@ const ModernStatCard = ({ title, value, subtext, theme, icon, delay }: any) => {
     }
 
     return (
-        <div className={`bg-gradient-to-br ${gradient} p-8 rounded-[3rem] text-white shadow-2xl hover:scale-[1.02] hover:-translate-y-1 transition-all duration-500 relative overflow-hidden group animate-scale-in ${delay}`}>
+        <div className={`bg-gradient-to-br ${gradient} p-4 lg:p-8 rounded-[3rem] text-white shadow-2xl hover:scale-[1.02] hover:-translate-y-1 transition-all duration-500 relative overflow-hidden group animate-scale-in ${delay}`}>
             <div className={`absolute right-0 top-0 opacity-20 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ${iconColor}`}>
                 {icon || (
                     <Activity size={180} strokeWidth={1} />
@@ -45,19 +45,19 @@ const ModernStatCard = ({ title, value, subtext, theme, icon, delay }: any) => {
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div>
                     <h3 className="text-white/60 font-black text-[10px] uppercase tracking-[0.3em] mb-2">{title}</h3>
-                    <div className="text-4xl font-black tabular-nums">{value}</div>
+                    <div className="text-2xl lg:text-4xl font-black tabular-nums">{value}</div>
                 </div>
-                {subtext && <div className="mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+                {subtext && <div className="mt-3 lg:mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
             </div>
         </div>
     );
 };
 
 const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode; delay?: string }> = ({ title, children, className = '', icon, delay = '' }) => (
-    <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
-        <div className="flex items-center justify-between mb-10">
-            <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
-                <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+    <div className={`glass p-4 lg:p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+        <div className="flex items-center justify-between mb-4 lg:mb-10">
+            <h3 className="text-base lg:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2 lg:gap-4">
+                <div className="w-2 h-6 lg:w-2.5 lg:h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
                 {title}
             </h3>
             {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
@@ -327,18 +327,18 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
     return (
         <div className="space-y-12 animate-fade-in-up pb-12">
             {/* Intelligent Header Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-5 lg:p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-indigo-600/5 pointer-events-none"></div>
                 <div className="relative z-10 text-center lg:text-left">
-                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 leading-none">
+                    <h2 className="text-2xl lg:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 leading-none">
                         Analytics Hub
                     </h2>
-                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
+                    <p className="text-slate-400 font-black mt-2 lg:mt-4 uppercase tracking-[0.3em] lg:tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
                         <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-glow"></span>
                         ระบบวิเคราะห์ข้อมูลกองรถเชิงกลยุทธ์ (Strategic Fleet Intelligence)
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-6 mt-12 lg:mt-0 relative z-10 w-full lg:w-auto">
+                <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6 mt-6 lg:mt-0 relative z-10 w-full lg:w-auto">
                     <div className="flex items-center gap-5 bg-white/60 backdrop-blur-xl px-8 py-4 rounded-[2.5rem] border border-white shadow-2xl">
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">ช่วงเวลาที่ตรวจสอบ (Observation Window)</span>

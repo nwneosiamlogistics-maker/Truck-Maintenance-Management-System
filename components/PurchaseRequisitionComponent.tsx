@@ -6,7 +6,10 @@ import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency } from '../utils';
 import { uploadToNAS } from '../utils/nasUpload';
 import { uploadFileToStorage } from '../utils/fileUpload';
+<<<<<<< HEAD
 import { useReceiveStock } from '../hooks/useReceiveStock';
+=======
+>>>>>>> eb14d11 (update)
 // Telegram notifications are handled by Cloud Functions (onPurchaseRequisitionWrite)
 // to avoid duplicate messages — do NOT add frontend Telegram calls here
 
