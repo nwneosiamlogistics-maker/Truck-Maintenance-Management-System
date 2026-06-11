@@ -5,7 +5,7 @@ import {
     Home, BarChart2, FileText, ClipboardList, Smartphone, History, Truck,
     Shield, Calendar, Clock, ClipboardCheck, Disc, Box, ShoppingCart,
     File, Store, Users, PenTool, UserCog, BookOpen, Wallet, Fuel,
-    Settings, ChevronLeft, ChevronRight, AlertTriangle, User, Target, Layers, ShieldCheck, FlaskConical, Table2
+    Settings, ChevronLeft, AlertTriangle, User, Target, Layers
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -128,7 +128,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 { id: 'technicians', icon: <UserCog size={20} />, label: 'จัดการช่าง' },
                 { id: 'technicianWorkLog', icon: <BookOpen size={20} />, label: 'ประวัติงานซ่อมช่าง' },
                 { id: 'driver-management', icon: <User size={20} />, label: 'จัดการพนักงานขับรถ' },
-                { id: 'driver-matrix', icon: <Table2 size={20} />, label: 'Driver Matrix' },
             ]
         },
         {
@@ -141,9 +140,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
             section: 'การจัดการความเสี่ยง', items: [
                 { id: 'warranty-insurance', icon: <Shield size={20} />, label: 'การรับประกันและประกันภัย' },
                 { id: 'incident-log', icon: <AlertTriangle size={20} />, label: 'ประวัติอุบัติเหตุ' },
-                { id: 'safety-plan', icon: <ShieldCheck size={20} />, label: 'แผนความปลอดภัย' },
-                { id: 'safety-check', icon: <FlaskConical size={20} />, label: 'ตรวจสาร/แอลกอฮอล์' },
-                { id: 'incab-assessment', icon: <ClipboardList size={20} />, label: 'แบบฟอร์มทดสอบพนักงานขับรถ' },
             ]
         },
         {
@@ -174,6 +170,32 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed,
                 className={`fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden transition-opacity ${isMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setMobileOpen(false)}
             ></div>
+            <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-white/10 flex lg:hidden print:hidden">
+                {[
+                    { id: 'dashboard', icon: <Home size={20} />, label: 'หน้าหลัก' },
+                    { id: 'form', icon: <FileText size={20} />, label: 'แจ้งซ่อม' },
+                    { id: 'stock', icon: <Box size={20} />, label: 'สต็อก' },
+                    { id: 'analytics', icon: <BarChart2 size={20} />, label: 'รายงาน' },
+                ].map(item => (
+                    <button
+                        key={item.id}
+                        onClick={() => handleTabClick(item.id as Tab)}
+                        className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-colors ${activeTab === item.id ? 'text-blue-400' : 'text-slate-400'}`}
+                    >
+                        {item.icon}
+                        <span className="text-[10px] font-bold">{item.label}</span>
+                    </button>
+                ))}
+                <button
+                    onClick={() => setMobileOpen(true)}
+                    className="flex-1 flex flex-col items-center justify-center py-2 gap-1 text-slate-400"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    <span className="text-[10px] font-bold">เมนู</span>
+                </button>
+            </nav>
             <aside className={`fixed top-0 left-0 h-full glass-dark text-slate-100 flex flex-col z-40 transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${isCollapsed ? 'w-[76px]' : 'w-72'} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 shadow-2xl print:hidden`}>
                 <div className={`flex items-center p-6 border-b border-white/5 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
                     <div className="flex items-center space-x-3 overflow-hidden">

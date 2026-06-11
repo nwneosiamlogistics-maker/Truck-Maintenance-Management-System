@@ -37,34 +37,34 @@ const ModernStatCard = ({ title, value, subtext, theme, icon, delay = '' }: any)
     }
 
     return (
-        <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-10 rounded-[3.5rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
-            <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700">
+        <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-5 sm:p-7 lg:p-10 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
+            <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700 hidden sm:block">
                 {icon}
             </div>
             <div className="relative z-10">
-                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/70 mb-4">{title}</p>
+                <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-white/70 mb-2 sm:mb-4">{title}</p>
                 <div className="flex items-baseline gap-2">
-                    <h3 className="text-5xl font-black tracking-tighter">{value}</h3>
+                    <h3 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tighter">{value}</h3>
                 </div>
-                {subtext && <div className="mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+                {subtext && <div className="mt-3 sm:mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
             </div>
         </div>
     );
 };
 
 const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode; delay?: string; headerAction?: React.ReactNode }> = ({ title, children, className = '', icon, delay = '', headerAction }) => (
-    <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
-        <div className="flex items-center justify-between mb-10">
-            <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
-                <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+    <div className={`glass p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+        <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-10">
+            <h3 className="text-base sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2 sm:gap-4">
+                <div className="w-1.5 sm:w-2.5 h-6 sm:h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
                 {title}
             </h3>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
                 {headerAction}
-                {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+                {icon && <div className="p-2 sm:p-3 bg-slate-50 rounded-xl sm:rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
             </div>
         </div>
-        <div className="h-[calc(100%-100px)]">
+        <div className="h-[calc(100%-60px)] sm:h-[calc(100%-80px)] lg:h-[calc(100%-100px)]">
             {children}
         </div>
     </div>
@@ -264,46 +264,47 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
     };
 
     return (
-        <div className="space-y-12 animate-fade-in-up pb-12">
+        <div className="space-y-6 sm:space-y-8 lg:space-y-12 animate-fade-in-up pb-8 sm:pb-12">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+            <div className="glass p-4 sm:p-7 lg:p-10 rounded-2xl sm:rounded-[3rem] lg:rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-purple-600/5 pointer-events-none"></div>
-                <div className="relative z-10 text-center lg:text-left">
-                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-900 via-purple-900 to-indigo-900 leading-none">
-                        Fleet Intel Hub
-                    </h2>
-                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
-                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-glow"></span>
-                        วิเคราะห์ประสิทธิภาพกลุ่มรถ (Fleet Performance Intelligence)
-                    </p>
-                </div>
-                <div className="flex items-center gap-6 mt-12 lg:mt-0 relative z-10">
-                    <div className="bg-white/60 backdrop-blur-xl px-8 py-4 rounded-[2.5rem] border border-white shadow-2xl flex flex-col">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 text-center">ตัวเลือกช่วงเวลา (Period)</span>
+                <div className="flex items-start justify-between gap-4 relative z-10">
+                    <div>
+                        <h2 className="text-xl sm:text-4xl lg:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-900 via-purple-900 to-indigo-900 leading-none">
+                            Fleet Intel Hub
+                        </h2>
+                        <p className="text-slate-400 font-black mt-1.5 sm:mt-4 uppercase tracking-[0.2em] sm:tracking-[0.4em] text-[9px] sm:text-[10px] flex items-center gap-2 sm:gap-3">
+                            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-blue-500 rounded-full animate-pulse shrink-0"></span>
+                            <span className="hidden sm:inline">วิเคราะห์ประสิทธิภาพกลุ่มรถ (Fleet Performance Intelligence)</span>
+                            <span className="sm:hidden">Fleet Performance</span>
+                        </p>
+                    </div>
+                    <div className="bg-white/60 backdrop-blur-xl px-3 sm:px-8 py-2 sm:py-4 rounded-xl sm:rounded-[2.5rem] border border-white shadow-xl flex flex-col shrink-0">
+                        <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">ช่วงเวลา</span>
                         <select
                             value={dateRange}
                             onChange={e => setDateRange(e.target.value as any)}
                             title="เลือกช่วงเวลา"
-                            className="bg-transparent text-xs font-black text-slate-700 outline-none hover:text-blue-600 transition-colors"
+                            className="bg-transparent text-[10px] sm:text-xs font-black text-slate-700 outline-none hover:text-blue-600 transition-colors"
                         >
-                            <option value="7d">Last 7 Days</option>
-                            <option value="30d">Last 30 Days</option>
-                            <option value="this_month">This Month</option>
-                            <option value="last_month">Last Month</option>
+                            <option value="7d">7 วัน</option>
+                            <option value="30d">30 วัน</option>
+                            <option value="this_month">เดือนนี้</option>
+                            <option value="last_month">เดือนก่อน</option>
                         </select>
                     </div>
                 </div>
             </div>
 
             {/* Top KPIs */}
-            <div className="bento-grid h-auto lg:h-auto gap-10">
+            <div className="bento-grid h-auto lg:h-auto gap-4 sm:gap-6 lg:gap-10">
                 <ModernStatCard delay="delay-100" theme="blue" title="ความพร้อมใช้งาน" value={`${memoizedData.kpis.fleetAvailability.toFixed(1)}%`} subtext="Fleet Availability" icon={<Truck size={150} />} />
                 <ModernStatCard delay="delay-200" theme="green" title="PM Compliance" value={`${memoizedData.kpis.pmCompletionRate.toFixed(1)}%`} subtext="Preventive Success" icon={<ShieldCheck size={150} />} />
                 <ModernStatCard delay="delay-300" theme="orange" title="อัตราซ่อมซ้ำ" value={`${memoizedData.kpis.reworkRate.toFixed(1)}%`} subtext="Rework Rate" icon={<AlertTriangle size={150} />} />
                 <ModernStatCard delay="delay-400" theme="purple" title="ค่าซ่อมรวม" value={`${formatCurrency(memoizedData.kpis.totalCost)}`} subtext="Total Spend (฿)" icon={<DollarSign size={150} />} />
 
                 {/* Main Trend Chart */}
-                <Card title="แนวโน้ม Downtime และค่าใช้จ่าย (Operational Trend)" className="col-span-1 lg:col-span-3 min-h-[500px]" delay="delay-500">
+                <Card title="แนวโน้ม Downtime และค่าใช้จ่าย" className="col-span-1 lg:col-span-3 min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-500">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={memoizedData.charts.trendData}>
                             <defs>
@@ -325,7 +326,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                 </Card>
 
                 {/* Secondary Charts */}
-                <Card title="5 อันดับรถจอดซ่อมนานที่สุด (Top Critical)" className="col-span-1 min-h-[450px]" delay="delay-600">
+                <Card title="5 อันดับรถจอดซ่อมนาน" className="col-span-1 min-h-[280px] sm:min-h-[350px] lg:min-h-[450px]" delay="delay-600">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={memoizedData.charts.topDowntime} margin={{ left: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
@@ -337,7 +338,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="สัดส่วนความสำเร็จ PM (PM Index)" className="col-span-1 min-h-[450px]" delay="delay-700">
+                <Card title="สัดส่วน PM" className="col-span-1 min-h-[280px] sm:min-h-[350px] lg:min-h-[450px]" delay="delay-700">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie data={memoizedData.charts.pmChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={10} dataKey="value">
@@ -352,8 +353,8 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
 
                 {/* Alerts Section */}
                 <Card
-                    title="ศูนย์กลางแจ้งเตือนและวิเคราะห์ (Alert Intelligence)"
-                    className="col-span-1 min-h-[450px]"
+                    title="แจ้งเตือนวิเคราะห์"
+                    className="col-span-1 min-h-[280px] sm:min-h-[350px] lg:min-h-[450px]"
                     delay="delay-800"
                     headerAction={
                         <button onClick={handleExport} title="ส่งออกข้อมูล" className="p-3 bg-slate-950 text-white rounded-2xl hover:bg-slate-800 transition-all active:scale-95 group">

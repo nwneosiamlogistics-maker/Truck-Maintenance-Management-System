@@ -10,7 +10,7 @@ import Header from './components/Header';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import Login from './components/Login';
-import { checkAndSendWarrantyInsuranceAlerts } from './utils/telegramService';
+import { sendRepairStatusTelegramNotification, checkAndSendDailyMaintenanceSummary, checkAndSendDailyRepairStatus, checkAndSendWarrantyInsuranceAlerts, checkAndSendLowStockAlert, sendBudgetAlertTelegramNotification } from './utils/telegramService';
 import { checkAndGenerateSystemNotifications } from './utils/notificationEngine';
 
 // Lazy Load Pages
@@ -47,14 +47,10 @@ const PurchaseOrderManagement = lazy(() => import('./components/PurchaseOrderMan
 const BudgetManagement = lazy(() => import('./components/BudgetManagement'));
 const FuelManagement = lazy(() => import('./components/FuelManagement'));
 const DriverManagement = lazy(() => import('./components/DriverManagement'));
-const DriverMatrixPage = lazy(() => import('./components/DriverMatrixPage'));
 const WarrantyInsuranceManagement = lazy(() => import('./components/WarrantyInsuranceManagement'));
 const IncidentLogPage = lazy(() => import('./components/IncidentLogPage'));
 const OKRManagement = lazy(() => import('./components/OKRManagement'));
 const RepairCategoryManagement = lazy(() => import('./components/RepairCategoryManagement'));
-const SafetyPlanTable = lazy(() => import('./components/SafetyPlanTable'));
-const SafetyCheckPage = lazy(() => import('./components/SafetyCheckPage'));
-const IncabAssessmentPage = lazy(() => import('./components/IncabAssessmentPage'));
 
 
 
@@ -105,25 +101,24 @@ const AppContent: React.FC<AppContentProps> = ({
     } = useAdmin();
 
     // Daily Maintenance, Repair Status & Warranty/Insurance Check
-    // ปิดการส่ง Maintenance Summary จากฝั่ง Frontend เพื่อหลีกเลี่ยงการแจ้งเตือนซ้ำกับ Cloud Function
-    // Daily Telegram alerts — ย้ายไป Cloud Functions ทั้งหมดแล้ว เพื่อป้องกันการแจ้งเตือนซ้ำซ้อน
-    // - dailyMaintenanceSummary (08:30)
-    // - dailyWarrantyInsuranceAlert (09:00)
-    // - dailyLowStockAlert (10:00)
-    // - dailyRepairStatusSummary (18:30)
-    // React.useEffect(() => {
-    //     const timer = setTimeout(() => {
-    //         checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
-    //     }, 5000);
-    //     return () => clearTimeout(timer);
-    // }, [partWarranties, vehicles, cargoPolicies]);
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            checkAndSendDailyMaintenanceSummary(maintenancePlans, repairs, vehicles);
+            checkAndSendDailyRepairStatus(repairs, technicians);
+            checkAndSendWarrantyInsuranceAlerts(partWarranties, vehicles, cargoPolicies);
+            checkAndSendLowStockAlert(stock);
+            sendBudgetAlertTelegramNotification(budgets, repairs, fuelRecords);
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [maintenancePlans, repairs, vehicles, technicians, partWarranties, cargoPolicies, stock, budgets, fuelRecords]);
 
     // System Auto-Notifications Engine - use refs to avoid stale closures
     const stockRef = useRef(stock);
     const plansRef = useRef(maintenancePlans);
     const repairsRef = useRef(repairs);
     const notificationsRef = useRef(notifications);
-
+    
     // Keep refs updated
     React.useEffect(() => {
         stockRef.current = stock;
@@ -135,9 +130,9 @@ const AppContent: React.FC<AppContentProps> = ({
     React.useEffect(() => {
         const checkNotifications = () => {
             const updated = checkAndGenerateSystemNotifications(
-                notificationsRef.current,
-                stockRef.current,
-                plansRef.current,
+                notificationsRef.current, 
+                stockRef.current, 
+                plansRef.current, 
                 repairsRef.current
             );
             if (updated !== notificationsRef.current) {
@@ -176,9 +171,10 @@ const AppContent: React.FC<AppContentProps> = ({
     };
 
     const addRepair = (newRepairData: Parameters<typeof addRepairLogic>[0]) => {
-        addRepairLogic(newRepairData);
-        // ℹ️ Telegram notification for new repair is handled by Firebase Cloud Function (onRepairWrite, isNew=true)
-        // ไม่ต้องส่ง Telegram ที่นี่ เพราะ Cloud Function จะส่งให้อัตโนมัติทุกครั้งที่มีการเขียนเข้า Firebase
+        const newRepair = addRepairLogic(newRepairData);
+        if (newRepair) {
+            sendRepairStatusTelegramNotification(newRepair, 'สร้างใบแจ้งซ่อม', newRepair.status);
+        }
         setActiveTab('list');
     };
 
@@ -396,8 +392,6 @@ const AppContent: React.FC<AppContentProps> = ({
                 return <FuelManagement fuelRecords={fuelRecords} setFuelRecords={setFuelRecords} vehicles={vehicles} drivers={drivers} />;
             case 'driver-management':
                 return <DriverManagement drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} fuelRecords={fuelRecords} incidents={drivingIncidents} repairs={repairs} setIncidents={setDrivingIncidents} />;
-            case 'driver-matrix':
-                return <DriverMatrixPage drivers={drivers} setDrivers={setDrivers} vehicles={vehicles} incidents={drivingIncidents} />;
             case 'warranty-insurance':
                 return <WarrantyInsuranceManagement
                     partWarranties={partWarranties}
@@ -416,15 +410,9 @@ const AppContent: React.FC<AppContentProps> = ({
                     repairs={repairs}
                 />;
             case 'incident-log':
-                return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} setIncidents={setDrivingIncidents} />;
+                return <IncidentLogPage incidents={drivingIncidents} drivers={drivers} vehicles={vehicles} />;
             case 'repair-categories':
                 return <RepairCategoryManagement repairCategories={repairCategories} setRepairCategories={setRepairCategories} />;
-            case 'safety-plan':
-                return <SafetyPlanTable drivers={drivers} setDrivers={setDrivers} />;
-            case 'safety-check':
-                return <SafetyCheckPage drivers={drivers} />;
-            case 'incab-assessment':
-                return <IncabAssessmentPage drivers={drivers} />;
             case 'settings':
                 return <Settings holidays={holidays} setHolidays={setHolidays} />;
             default:
@@ -464,7 +452,7 @@ const AppContent: React.FC<AppContentProps> = ({
                     onLoginClick={() => setLoginModalOpen(true)}
                     onLogout={handleLogout}
                 />
-                <main className={`flex-1 overflow-y-auto print:p-0 ${activeTab === 'home' ? 'p-0' : 'p-4 sm:p-6 lg:p-8'}`}>
+                <main className={`flex-1 overflow-y-auto overflow-x-hidden print:p-0 ${activeTab === 'home' ? 'p-0' : 'p-4 sm:p-6 lg:p-8'} pb-16 lg:pb-0`}>
                     <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
                         {renderContent()}
                     </Suspense>

@@ -469,7 +469,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     const TabButton: React.FC<{ tabId: typeof activeTab, label: string, count: number }> = ({ tabId, label, count }) => (
         <button
             onClick={() => setActiveTab(tabId)}
-            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === tabId
+            className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors whitespace-nowrap ${activeTab === tabId
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
@@ -479,7 +479,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
     );
 
     const renderStockTable = (items: StockItem[]) => (
-        <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh] relative">
+        <div className="bg-white rounded-2xl shadow-sm overflow-x-auto max-h-[65vh] relative">
             <table className="min-w-full responsive-table hidden md:table">
                 <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>
@@ -694,7 +694,7 @@ const StockManagement: React.FC<StockManagementProps> = ({
             case 'usedItemized':
                 return (
                     <>
-                        <div className="bg-white rounded-2xl shadow-sm lg:overflow-auto max-h-[65vh]">
+                        <div className="bg-white rounded-2xl shadow-sm overflow-x-auto max-h-[65vh]">
                             <table className="min-w-full responsive-table hidden md:table">
                                 <thead className="sticky top-0 z-10 bg-gray-50">
                                     <tr>
@@ -817,14 +817,14 @@ const StockManagement: React.FC<StockManagementProps> = ({
     return (
         <div className="space-y-6">
             <div className="bg-white rounded-t-2xl shadow-sm">
-                <div className="border-b">
+                <div className="border-b flex overflow-x-auto no-scrollbar">
                     <TabButton tabId="new" label="คลังอะไหล่ใหม่" count={newStockItems.length} />
                     <TabButton tabId="revolving" label="คลังอะไหล่หมุนเวียน" count={revolvingStockItems.length} />
                     <TabButton tabId="usedFungible" label="คลังของเก่าแบบรวม" count={fungibleUsedItems.length} />
                     <TabButton tabId="usedItemized" label="คลังอะไหล่เก่า (รายชิ้น)" count={filteredUsedParts.length} />
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'history'
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors whitespace-nowrap ${activeTab === 'history'
                             ? 'border-blue-500 text-blue-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}

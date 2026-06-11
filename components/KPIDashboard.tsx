@@ -27,31 +27,31 @@ const ModernStatCard = ({ title, value, subtext, theme, icon, delay = '' }: any)
     }
 
     return (
-        <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-10 rounded-[3.5rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
-            <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700">
+        <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-5 sm:p-7 lg:p-10 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
+            <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700 hidden sm:block">
                 {icon}
             </div>
             <div className="relative z-10">
-                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/70 mb-4">{title}</p>
+                <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-white/70 mb-2 sm:mb-4">{title}</p>
                 <div className="flex items-baseline gap-2">
-                    <h3 className="text-5xl font-black tracking-tighter">{value}</h3>
+                    <h3 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tighter">{value}</h3>
                 </div>
-                {subtext && <div className="mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+                {subtext && <div className="mt-3 sm:mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
             </div>
         </div>
     );
 };
 
 const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode; delay?: string }> = ({ title, children, className = '', icon, delay = '' }) => (
-    <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
-        <div className="flex items-center justify-between mb-10">
-            <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
-                <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+    <div className={`glass p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+        <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-10">
+            <h3 className="text-base sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2 sm:gap-4">
+                <div className="w-1.5 sm:w-2.5 h-6 sm:h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
                 {title}
             </h3>
-            {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+            {icon && <div className="p-2 sm:p-3 bg-slate-50 rounded-xl sm:rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
         </div>
-        <div className="h-[calc(100%-100px)]">
+        <div className="h-[calc(100%-60px)] sm:h-[calc(100%-80px)] lg:h-[calc(100%-100px)]">
             {children}
         </div>
     </div>
@@ -197,29 +197,30 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
     }, [repairs]);
 
     return (
-        <div className="space-y-12 animate-fade-in-up pb-12">
+        <div className="space-y-6 sm:space-y-8 lg:space-y-12 animate-fade-in-up pb-8 sm:pb-12">
             {/* Premium Header */}
-            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-5 sm:p-7 lg:p-10 rounded-2xl sm:rounded-[3rem] lg:rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-600/5 via-transparent to-emerald-600/5 pointer-events-none"></div>
                 <div className="relative z-10 text-center lg:text-left">
-                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-teal-900 via-emerald-900 to-green-900 leading-none">
+                    <h2 className="text-2xl sm:text-4xl lg:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-teal-900 via-emerald-900 to-green-900 leading-none">
                         KPI Strategic Hub
                     </h2>
-                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
-                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-glow"></span>
-                        ดัชนีชี้วัดประสิทธิภาพงานซ่อมบำรุง (Maintenance KPI Overview)
+                    <p className="text-slate-400 font-black mt-2 sm:mt-4 uppercase tracking-[0.2em] sm:tracking-[0.4em] text-[9px] sm:text-[10px] flex items-center justify-center lg:justify-start gap-2 sm:gap-3">
+                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-glow"></span>
+                        <span className="hidden sm:inline">ดัชนีชี้วัดประสิทธิภาพงานซ่อมบำรุง (Maintenance KPI Overview)</span>
+                        <span className="sm:hidden">Maintenance KPI Overview</span>
                     </p>
                 </div>
             </div>
 
             {/* Bento Grid */}
-            <div className="bento-grid h-auto lg:h-auto gap-10">
+            <div className="bento-grid h-auto lg:h-auto gap-4 sm:gap-6 lg:gap-10">
                 <ModernStatCard delay="delay-100" theme="blue" title="MTTR (เวลาซ่อมเฉลี่ย)" value={formatHoursToHHMM(kpiData.mttr)} subtext="Mean Time To Repair" icon={<Clock size={150} />} />
                 <ModernStatCard delay="delay-200" theme="orange" title="Downtime เฉลี่ย" value={formatHoursToHHMM(kpiData.avgDowntime)} subtext="Avg. Machine Stop" icon={<Activity size={150} />} />
                 <ModernStatCard delay="delay-300" theme="green" title="ค่าซ่อมเฉลี่ย" value={`฿${formatCurrency(kpiData.avgCost)}`} subtext="Avg. Cost Per Order" icon={<DollarSign size={150} />} />
 
                 {/* Rework AI Card */}
-                <div className="bg-slate-950 rounded-[3.5rem] p-12 text-white shadow-3xl animate-scale-in delay-400 border border-white/5 col-span-1">
+                <div className="bg-slate-950 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] p-5 sm:p-8 lg:p-12 text-white shadow-3xl animate-scale-in delay-400 border border-white/5 col-span-1">
                     <div className="relative z-10 flex flex-col h-full justify-between">
                         <div>
                             <div className="flex items-center gap-3 mb-8">
@@ -237,7 +238,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                 </div>
 
                 {/* Charts */}
-                <Card title="ความถี่การซ่อมบ่อยที่สุด (Top 5 Repairs)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-500">
+                <Card title="ความถี่การซ่อมบ่อยที่สุด" className="col-span-1 lg:col-span-2 min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-500">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={kpiData.mostRepairedVehicles} layout="vertical" margin={{ left: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
@@ -251,7 +252,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="ต้นทุนการซ่อมรุนแรง (Repair Cost Exposure)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-600">
+                <Card title="ต้นทุนการซ่อมรุนแรง" className="col-span-1 lg:col-span-2 min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-600">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={kpiData.mostExpensiveVehicles} layout="vertical" margin={{ left: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
@@ -265,7 +266,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="เวลาหยุดรถวิกฤต (Critical Downtime)" className="col-span-1 min-h-[500px]" delay="delay-700">
+                <Card title="เวลาหยุดรถวิกฤต" className="col-span-1 min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-700">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={kpiData.vehicleDowntime} layout="vertical" margin={{ left: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
@@ -280,7 +281,7 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                 </Card>
 
                 {/* Rework Detailed Report */}
-                <Card title="รายงานการซ่อมซ้ำ (Rework Logic Breakdown)" className="col-span-1 lg:col-span-3 min-h-[600px]" delay="delay-800">
+                <Card title="รายงานการซ่อมซ้ำ" className="col-span-1 lg:col-span-3 min-h-[300px] sm:min-h-[400px] lg:min-h-[600px]" delay="delay-800">
                     {kpiData.reworkList.length > 0 ? (
                         <div className="overflow-x-auto custom-scrollbar h-full">
                             <table className="w-full text-left">

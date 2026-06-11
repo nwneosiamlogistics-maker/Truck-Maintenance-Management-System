@@ -6,7 +6,7 @@ import {
     AreaChart, Area, PieChart, Pie, Cell, Line, ComposedChart
 } from 'recharts';
 import { Download, TrendingUp, DollarSign, Activity, Award } from 'lucide-react';
-import { exportToCSV } from '../utils/exportUtils';
+import { exportSimpleXLSX } from '../utils/exportUtils';
 
 // --- Premium Styled Components ---
 
@@ -36,33 +36,33 @@ const ModernStatCard = ({ title, value, subtext, theme, icon, delay }: any) => {
     }
 
     return (
-        <div className={`bg-gradient-to-br ${gradient} p-8 rounded-[3rem] text-white shadow-2xl hover:scale-[1.02] hover:-translate-y-1 transition-all duration-500 relative overflow-hidden group animate-scale-in ${delay}`}>
-            <div className={`absolute right-0 top-0 opacity-20 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ${iconColor}`}>
+        <div className={`bg-gradient-to-br ${gradient} p-5 sm:p-6 lg:p-8 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3rem] text-white shadow-2xl hover:scale-[1.02] hover:-translate-y-1 transition-all duration-500 relative overflow-hidden group animate-scale-in ${delay}`}>
+            <div className={`absolute right-0 top-0 opacity-20 transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ${iconColor} hidden sm:block`}>
                 {icon || (
                     <Activity size={180} strokeWidth={1} />
                 )}
             </div>
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div>
-                    <h3 className="text-white/60 font-black text-[10px] uppercase tracking-[0.3em] mb-2">{title}</h3>
-                    <div className="text-4xl font-black tabular-nums">{value}</div>
+                    <h3 className="text-white/60 font-black text-[9px] sm:text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-1 sm:mb-2">{title}</h3>
+                    <div className="text-2xl sm:text-3xl lg:text-4xl font-black tabular-nums">{value}</div>
                 </div>
-                {subtext && <div className="mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+                {subtext && <div className="mt-3 sm:mt-6 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
             </div>
         </div>
     );
 };
 
 const Card: React.FC<{ title: string; children: React.ReactNode; className?: string; icon?: React.ReactNode; delay?: string }> = ({ title, children, className = '', icon, delay = '' }) => (
-    <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
-        <div className="flex items-center justify-between mb-10">
-            <h3 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-4">
-                <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
+    <div className={`glass p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+        <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-10">
+            <h3 className="text-base sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2 sm:gap-4">
+                <div className="w-1.5 sm:w-2.5 h-6 sm:h-10 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full shadow-lg shadow-blue-500/30"></div>
                 {title}
             </h3>
-            {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+            {icon && <div className="p-2 sm:p-3 bg-slate-50 rounded-xl sm:rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
         </div>
-        <div className="h-[calc(100%-100px)]">
+        <div className="h-[calc(100%-60px)] sm:h-[calc(100%-80px)] lg:h-[calc(100%-100px)]">
             {children}
         </div>
     </div>
@@ -163,11 +163,14 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
         const exportData = repairs.map(r => ({
             'ใบแจ้งซ่อม': r.repairOrderNo,
             'ทะเบียนรถ': r.licensePlate,
-            'ค่าแรง': r.repairCost,
-            'ค่าอะไหล่': (r.parts || []).reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0),
-            'รวมสุทธิ': calculateTotalCost(r)
+            'วันที่เปิดใบซ่อม': r.createdAt ? new Date(r.createdAt).toLocaleDateString('th-TH') : '-',
+            'สถานะ': r.status,
+            'ค่าแรง (บาท)': Number(r.repairCost) || 0,
+            'ค่าอะไหล่ (บาท)': (r.parts || []).reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0),
+            'VAT (บาท)': (Number(r.partsVat) || 0) + (Number(r.laborVat) || 0),
+            'รวมสุทธิ (บาท)': calculateTotalCost(r)
         }));
-        exportToCSV('Maintenance_Intelligence_Export', exportData);
+        exportSimpleXLSX('Maintenance_Intelligence_Export', exportData, 'รายงานวิเคราะห์', [18, 16, 18, 12, 14, 16, 14, 16]);
     };
 
     const data = useMemo(() => {
@@ -322,55 +325,52 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
     const PM_COLORS = ['#fbbf24', '#10b981', '#3b82f6'];
 
     return (
-        <div className="space-y-12 animate-fade-in-up pb-12">
+        <div className="space-y-6 sm:space-y-8 lg:space-y-12 animate-fade-in-up pb-8 sm:pb-12">
             {/* Intelligent Header Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-center glass p-10 rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
+            <div className="flex flex-col lg:flex-row justify-between items-center glass p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-[3rem] lg:rounded-[4rem] border border-white/50 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-indigo-600/5 pointer-events-none"></div>
                 <div className="relative z-10 text-center lg:text-left">
-                    <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 leading-none">
+                    <h2 className="text-2xl sm:text-4xl lg:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 leading-none">
                         Analytics Hub
                     </h2>
-                    <p className="text-slate-400 font-black mt-4 uppercase tracking-[0.4em] text-[10px] flex items-center justify-center lg:justify-start gap-3">
-                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-glow"></span>
-                        ระบบวิเคราะห์ข้อมูลกองรถเชิงกลยุทธ์ (Strategic Fleet Intelligence)
+                    <p className="text-slate-400 font-black mt-2 sm:mt-4 uppercase tracking-[0.2em] sm:tracking-[0.4em] text-[9px] sm:text-[10px] flex items-center justify-center lg:justify-start gap-2 sm:gap-3">
+                        <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-blue-500 rounded-full animate-pulse shadow-glow"></span>
+                        <span className="hidden sm:inline">ระบบวิเคราะห์ข้อมูลกองรถเชิงกลยุทธ์ (Strategic Fleet Intelligence)</span>
+                        <span className="sm:hidden">Strategic Fleet Intelligence</span>
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-6 mt-12 lg:mt-0 relative z-10 w-full lg:w-auto">
-                    <div className="flex items-center gap-5 bg-white/60 backdrop-blur-xl px-8 py-4 rounded-[2.5rem] border border-white shadow-2xl">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">ช่วงเวลาที่ตรวจสอบ (Observation Window)</span>
-                            <div className="flex items-center gap-4">
-                                <div className="relative group/date">
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={e => setStartDate(e.target.value)}
-                                        title="Start Date"
-                                        className="bg-slate-50/80 border border-slate-200 px-4 py-2.5 rounded-2xl text-[11px] font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
-                                    />
-                                </div>
-                                <span className="text-slate-300 font-black text-lg">→</span>
-                                <div className="relative group/date">
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={e => setEndDate(e.target.value)}
-                                        title="End Date"
-                                        className="bg-slate-50/80 border border-slate-200 px-4 py-2.5 rounded-2xl text-[11px] font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
-                                    />
-                                </div>
+                <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-6 mt-4 sm:mt-6 lg:mt-0 relative z-10 w-full lg:w-auto">
+                    <div className="flex items-center gap-3 sm:gap-5 bg-white/60 backdrop-blur-xl px-4 sm:px-6 lg:px-8 py-3 sm:py-4 rounded-2xl sm:rounded-[2.5rem] border border-white shadow-2xl w-full sm:w-auto">
+                        <div className="flex flex-col w-full">
+                            <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ช่วงเวลา</span>
+                            <div className="flex items-center gap-2 sm:gap-4">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    title="Start Date"
+                                    className="bg-slate-50/80 border border-slate-200 px-2 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[11px] font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner w-full sm:w-auto"
+                                />
+                                <span className="text-slate-300 font-black text-sm sm:text-lg">→</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={e => setEndDate(e.target.value)}
+                                    title="End Date"
+                                    className="bg-slate-50/80 border border-slate-200 px-2 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[11px] font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner w-full sm:w-auto"
+                                />
                             </div>
                         </div>
                     </div>
-                    <button onClick={handleExport} className="flex items-center gap-4 px-12 py-6 bg-slate-950 text-white font-black rounded-[2.5rem] shadow-3xl hover:bg-slate-800 transition-all transform hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
-                        <Download size={24} className="group-hover:animate-bounce" />
-                        <span className="tracking-[0.2em] text-[11px]">ส่งออกข้อมูลวิเคราะห์ (EXPORT INTEL)</span>
+                    <button onClick={handleExport} className="flex items-center gap-2 sm:gap-4 px-6 sm:px-8 lg:px-12 py-3 sm:py-4 lg:py-6 bg-slate-950 text-white font-black rounded-2xl sm:rounded-[2.5rem] shadow-3xl hover:bg-slate-800 transition-all transform hover:-translate-y-1 active:scale-95 group relative overflow-hidden w-full sm:w-auto justify-center">
+                        <Download size={18} className="group-hover:animate-bounce" />
+                        <span className="tracking-[0.1em] sm:tracking-[0.2em] text-[10px] sm:text-[11px]">EXPORT DATA</span>
                     </button>
                 </div>
             </div>
 
             {/* Master Intelligence Grid */}
-            <div className="bento-grid h-auto lg:h-auto gap-10">
+            <div className="bento-grid h-auto lg:h-auto gap-4 sm:gap-6 lg:gap-10">
                 {/* Executive Indicators */}
                 <ModernStatCard delay="delay-100" theme="blue" title="จำนวนงานซ่อมรวม" value={data.stats.totalRepairs.toLocaleString()} subtext="Active Throughput" icon={<TrendingUp size={150} />} />
                 <ModernStatCard delay="delay-150" theme="green" title="ดัชนีประสิทธิภาพ" value={`${((data.stats.totalCompleted / data.stats.totalRepairs) * 100 || 0).toFixed(1)}%`} subtext="Efficiency Index" icon={<Award size={150} />} />
@@ -378,7 +378,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 <ModernStatCard delay="delay-250" theme="purple" title="ต้นทุนเฉลี่ยต่องาน" value={`฿${formatCurrency(data.stats.avgCost)}`} subtext="Cycle Efficiency" icon={<Activity size={150} />} />
 
                 {/* AI Predictive Insight */}
-                <div className="bg-slate-950 rounded-[3.5rem] p-12 text-white shadow-3xl relative overflow-hidden group animate-scale-in delay-300 border border-white/5 col-span-1">
+                <div className="bg-slate-950 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] p-5 sm:p-8 lg:p-12 text-white shadow-3xl relative overflow-hidden group animate-scale-in delay-300 border border-white/5 col-span-1">
                     <div className="absolute -right-16 -top-16 opacity-40 transform group-hover:scale-125 transition-transform duration-1000 rotate-12">
                         <div className="w-64 h-64 bg-blue-600 rounded-full blur-[110px]"></div>
                     </div>
@@ -399,7 +399,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 </div>
 
                 {/* Performance Visualizations */}
-                <Card title="แนวโน้มจำนวนงานซ่อม (Traffic Dynamics)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-400">
+                <Card title="แนวโน้มจำนวนงานซ่อม" className="col-span-1 lg:col-span-2 min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-400">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={data.charts.repairTrendData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                             <defs>
@@ -417,7 +417,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="ดัชนีค่าใช้จ่ายสะสม (Financial Indices)" className="col-span-1 lg:col-span-2 min-h-[500px]" delay="delay-500">
+                <Card title="ดัชนีค่าใช้จ่ายสะสม" className="col-span-1 lg:col-span-2 min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-500">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.charts.lastSixMonthsExpenses} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -430,7 +430,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                 </Card>
 
                 {/* Tactical Procurement & Expenditure Analysis */}
-                <Card title="วิเคราะห์การสั่งซื้อผู้จำหน่าย (Supplier Intel)" className="col-span-1 lg:col-span-2 min-h-[600px]" delay="delay-600">
+                <Card title="วิเคราะห์การสั่งซื้อผู้จำหน่าย" className="col-span-1 lg:col-span-2 min-h-[350px] sm:min-h-[450px] lg:min-h-[600px]" delay="delay-600">
                     <div className="flex justify-start mb-12 gap-3 bg-slate-50 p-2 rounded-[2rem] w-fit border border-slate-100 shadow-inner">
                         {[
                             { id: 'daily', label: 'รายวัน' },
@@ -455,7 +455,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="วิเคราะห์แนวโน้มการใช้จ่าย (Expenditure Trend)" className="col-span-1 lg:col-span-2 min-h-[600px]" delay="delay-650">
+                <Card title="แนวโน้มการใช้จ่าย" className="col-span-1 lg:col-span-2 min-h-[350px] sm:min-h-[450px] lg:min-h-[600px]" delay="delay-650">
                     <div className="h-full flex flex-col">
                         <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
                             <div className="p-4 bg-slate-50/50 rounded-3xl border border-slate-100 shadow-inner">
@@ -496,7 +496,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </div>
                 </Card>
 
-                <Card title="อันดับการใช้จ่ายรายสาขา (Branch Ranking)" className="min-h-[600px]" delay="delay-660">
+                <Card title="อันดับการใช้จ่ายรายสาขา" className="min-h-[350px] sm:min-h-[450px] lg:min-h-[600px]" delay="delay-660">
                     <div className="h-full flex flex-col">
                         <div className="mb-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
                             <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest block mb-1">สาขาที่ใช้จ่ายสูงสุด</span>
@@ -526,7 +526,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </div>
                 </Card>
 
-                <Card title="กลุ่มงานซ่อมยอดนิยม (High-Volume)" className="min-h-[500px]" delay="delay-700">
+                <Card title="กลุ่มงานซ่อมยอดนิยม" className="min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-700">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={data.charts.topRepairCategories} margin={{ left: 20 }}>
                             <XAxis type="number" hide />
@@ -537,7 +537,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </ResponsiveContainer>
                 </Card>
 
-                <Card title="ความสมบูรณ์แผน PM (Compliance)" className="min-h-[500px]" delay="delay-800">
+                <Card title="ความสมบูรณ์แผน PM" className="min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-800">
                     <div className="h-full relative flex items-center justify-center">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart margin={{ top: 0, left: 0, right: 0, bottom: 10 }}>
@@ -576,7 +576,7 @@ const Reports: React.FC<{ repairs: Repair[], stock: StockItem[], technicians: Te
                     </div>
                 </Card>
 
-                <Card title="วิเคราะห์ประสิทธิภาพรายกลุ่ม (Segment Grid)" className="col-span-1 lg:col-span-3 min-h-[500px]" delay="delay-900">
+                <Card title="ประสิทธิภาพรายกลุ่ม" className="col-span-1 lg:col-span-3 min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]" delay="delay-900">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={data.charts.vehicleTypeAnalysisData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

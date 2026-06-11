@@ -6,11 +6,7 @@ import CreatePOModal from './CreatePOModal';
 import PurchaseOrderPrint from './PurchaseOrderPrint';
 import { useToast } from '../context/ToastContext';
 import { promptForPasswordAsync, confirmAction, calculateStockStatus, formatCurrency, formatTotalCurrency } from '../utils';
-// Telegram notifications are handled by Cloud Functions (onPurchaseOrderWrite)
-// to avoid duplicate messages — do NOT add frontend Telegram calls here
-import PhotoUpload from './PhotoUpload';
-import { uploadToNAS } from '../utils/nasUpload';
-import { uploadFileToStorage } from '../utils/fileUpload';
+import { sendNewPOTelegramNotification } from '../utils/telegramService';
 
 interface PurchaseOrderManagementProps {
     purchaseOrders: PurchaseOrder[];
@@ -189,7 +185,7 @@ const TrackingView: React.FC<{
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-auto max-h-[65vh] border relative">
+            <div className="bg-white rounded-lg shadow overflow-x-auto max-h-[65vh] border relative">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                         <tr>
@@ -215,56 +211,6 @@ const TrackingView: React.FC<{
                                             {item.pr.items.length > 2 && <li>...และอีก {item.pr.items.length - 2} รายการ</li>}
                                         </ul>
                                     </div>
-
-                                    {/* Attached Files: quotation, PO docs, receive evidence */}
-                                    {(() => {
-                                        const quotFiles = item.pr.quotationFiles || [];
-                                        const prPhotos = item.pr.photos || [];
-                                        const poPhotos = (item.po?.photos as string[] | undefined) || [];
-                                        if (quotFiles.length === 0 && prPhotos.length === 0 && poPhotos.length === 0) return null;
-
-                                        const renderFile = (url: string, idx: number) => {
-                                            const isPdf = url.toLowerCase().includes('.pdf');
-                                            const fileName = decodeURIComponent(url.split('/').pop()?.split('?').shift() || `ไฟล์ ${idx + 1}`);
-                                            return isPdf ? (
-                                                <a key={`${url}-${idx}`} href={url} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center gap-1 px-1.5 py-1 bg-white border border-gray-200 rounded hover:bg-gray-50 shadow-sm flex-shrink-0"
-                                                    title={fileName}>
-                                                    <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
-                                                    <span className="text-[10px] text-gray-600 max-w-[60px] truncate">{fileName}</span>
-                                                </a>
-                                            ) : (
-                                                <a key={`${url}-${idx}`} href={url} target="_blank" rel="noopener noreferrer"
-                                                    className="block w-10 h-10 rounded overflow-hidden border border-gray-200 shadow-sm flex-shrink-0 hover:opacity-80 transition-opacity"
-                                                    title={`ดูรูป ${idx + 1}`}>
-                                                    <img src={url} alt={`ไฟล์ ${idx + 1}`} className="w-full h-full object-cover" />
-                                                </a>
-                                            );
-                                        };
-
-                                        return (
-                                            <div className="mt-2 border-t pt-2 space-y-1.5">
-                                                {quotFiles.length > 0 && (
-                                                    <div>
-                                                        <p className="text-[10px] font-semibold text-amber-700 mb-1">📎 ใบเสนอราคา ({quotFiles.length})</p>
-                                                        <div className="flex flex-wrap gap-1">{quotFiles.map(renderFile)}</div>
-                                                    </div>
-                                                )}
-                                                {poPhotos.length > 0 && (
-                                                    <div>
-                                                        <p className="text-[10px] font-semibold text-blue-700 mb-1">🛒 เอกสาร PO ({poPhotos.length})</p>
-                                                        <div className="flex flex-wrap gap-1">{poPhotos.map(renderFile)}</div>
-                                                    </div>
-                                                )}
-                                                {prPhotos.length > 0 && (
-                                                    <div>
-                                                        <p className="text-[10px] font-semibold text-green-700 mb-1">📦 หลักฐานรับของ ({prPhotos.length})</p>
-                                                        <div className="flex flex-wrap gap-1">{prPhotos.map(renderFile)}</div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
                                 </td>
                                 <td className="px-4 py-4 align-middle">
                                     <div className="flex items-center justify-center px-4">
@@ -364,157 +310,6 @@ const TrackingView: React.FC<{
 };
 
 
-const ReceivePOModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    po: PurchaseOrder;
-    photos: string[];
-    onChangePhotos: (photos: string[]) => void;
-    onConfirm: () => void;
-}> = ({ isOpen, onClose, po, photos, onChangePhotos, onConfirm }) => {
-    const [isUploading, setIsUploading] = useState(false);
-    const { addToast } = useToast();
-    if (!isOpen) return null;
-
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-        setIsUploading(true);
-        const uploaded: string[] = [];
-        let failCount = 0;
-        for (const file of Array.from(files)) {
-            try {
-                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-                const ext = file.name.split('.').pop()?.toLowerCase() || '';
-                const path = `truck-maintenance/receive/${po.poNumber}/${Date.now()}_${safeName}`;
-                const url = ext === 'pdf'
-                    ? await uploadToNAS(file, path)
-                    : await uploadFileToStorage(file, path);
-                uploaded.push(url);
-            } catch (err) {
-                console.error('Upload error:', err);
-                failCount++;
-            }
-        }
-        setIsUploading(false);
-        e.target.value = '';
-        if (uploaded.length > 0) {
-            onChangePhotos([...photos, ...uploaded]);
-            addToast(`อัปโหลดสำเร็จ ${uploaded.length} ไฟล์${failCount > 0 ? ` (ล้มเหลว ${failCount})` : ''}`, 'success');
-        } else {
-            addToast('อัปโหลดไม่สำเร็จ กรุณาลองใหม่', 'error');
-        }
-    };
-
-    const handleRemoveFile = (url: string) => {
-        onChangePhotos(photos.filter(f => f !== url));
-    };
-
-    const canConfirm = photos.length > 0 && !isUploading;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[102] flex justify-center items-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b flex justify-between items-center">
-                    <h3 className="text-2xl font-bold text-gray-800">รับของเข้าสต็อก</h3>
-                    <button onClick={onClose} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-                <div className="p-6 space-y-4 overflow-y-auto flex-1">
-                    {/* PO Info */}
-                    <div className="border rounded-lg p-4 bg-gray-50">
-                        <h4 className="font-semibold mb-2">รายการที่จะรับเข้า:</h4>
-                        <p><strong>PO:</strong> {po.poNumber} - {po.supplierName}</p>
-                        <ul className="list-disc list-inside space-y-1 mt-2 text-sm">
-                            {(po.items || []).map((item, index) => (
-                                <li key={`${item.stockId}-${index}`}>
-                                    {item.name} — จำนวน: {item.quantity} {item.unit}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* File Upload Section — required */}
-                    <div className="border-2 border-dashed border-red-300 rounded-xl p-4 bg-red-50">
-                        <div className="flex items-center justify-between mb-2">
-                            <div>
-                                <h4 className="font-semibold text-red-700 flex items-center gap-1">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                    หลักฐานการรับของ <span className="text-red-500">*</span>
-                                </h4>
-                                <p className="text-xs text-red-500 mt-0.5">บังคับแนบอย่างน้อย 1 ไฟล์ (รูปภาพหรือ PDF) ก่อนยืนยัน</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}>
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                    ถ่ายรูป
-                                    <input type="file" accept="image/*" capture="environment" disabled={isUploading} onChange={handleFileUpload} className="hidden" aria-label="ถ่ายรูปด้วยกล้อง" />
-                                </label>
-                                <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
-                                    {isUploading ? (
-                                        <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>อัปโหลด...</>
-                                    ) : (
-                                        <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>แนบไฟล์</>
-                                    )}
-                                    <input type="file" accept="image/*,.pdf,image/heic,image/heif" multiple disabled={isUploading} onChange={handleFileUpload} className="hidden" aria-label="แนบหลักฐานการรับของ" />
-                                </label>
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-3">รองรับ: รูปภาพ (JPG, PNG, HEIC) และ PDF — อัปโหลดไปยัง NAS</p>
-
-                        {photos.length === 0 ? (
-                            <div className="text-center py-6 text-red-400">
-                                <svg className="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                <p className="text-sm font-medium">ยังไม่มีไฟล์ — กรุณาแนบหลักฐานการรับของ</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {photos.map((url, idx) => {
-                                    const isPdf = url.toLowerCase().includes('.pdf');
-                                    const fileName = decodeURIComponent(url.split('/').pop()?.split('?').shift() || `ไฟล์ ${idx + 1}`);
-                                    return (
-                                        <div key={url} className="relative group">
-                                            {isPdf ? (
-                                                <a href={url} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm">
-                                                    <svg className="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5z" /></svg>
-                                                    <span className="text-xs text-gray-600 max-w-[100px] truncate">{fileName}</span>
-                                                </a>
-                                            ) : (
-                                                <a href={url} target="_blank" rel="noopener noreferrer"
-                                                    className="block w-20 h-20 rounded-lg overflow-hidden border border-gray-200 shadow-sm flex-shrink-0">
-                                                    <img src={url} alt={`หลักฐาน ${idx + 1}`} className="w-full h-full object-cover" />
-                                                </a>
-                                            )}
-                                            <button type="button" onClick={() => handleRemoveFile(url)}
-                                                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                title="ลบไฟล์นี้" aria-label="ลบไฟล์">×</button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <div className="p-6 border-t flex justify-end space-x-4 bg-gray-50">
-                    <button type="button" onClick={onClose} className="px-6 py-2 text-base font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">ยกเลิก</button>
-                    <button
-                        type="button"
-                        onClick={onConfirm}
-                        disabled={!canConfirm}
-                        title={!canConfirm ? 'กรุณาแนบหลักฐานการรับของก่อน' : ''}
-                        className={`px-8 py-2 text-base font-medium text-white rounded-lg transition-colors ${canConfirm ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'}`}
-                    >
-                        {isUploading ? 'กำลังอัปโหลด...' : 'ยืนยันการรับของ'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
 const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
     purchaseOrders, setPurchaseOrders, purchaseRequisitions, setPurchaseRequisitions, setStock, setTransactions, suppliers, setActiveTab
 }) => {
@@ -530,10 +325,6 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
     const [pendingItemsPerPage, setPendingItemsPerPage] = useState(20);
     const [poPage, setPoPage] = useState(1);
     const [poItemsPerPage, setPoItemsPerPage] = useState(20);
-
-    // Receive PO modal states
-    const [receivingPO, setReceivingPO] = useState<PurchaseOrder | null>(null);
-    const [poPhotos, setPoPhotos] = useState<string[]>([]);
 
     // --- Data Filtering ---
     const pendingPRs = useMemo(() => {
@@ -665,21 +456,13 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         }));
 
         addToast(`สร้างใบสั่งซื้อ ${newPoNumber} สำเร็จ`, 'success');
-        // Telegram notification handled by Cloud Function onPurchaseOrderWrite
+        sendNewPOTelegramNotification(newPO);
         setIsCreateModalOpen(false);
         setSelectedPRIds(new Set());
         setActiveLocalTab('po-list');
     };
 
-    const handleReceivePO = (po: PurchaseOrder) => {
-        setReceivingPO(po);
-        setPoPhotos([]);
-    };
-
-    const handleConfirmReceivePO = async () => {
-        if (!receivingPO) return;
-
-        const po = receivingPO;
+    const handleReceivePO = async (po: PurchaseOrder) => {
         const confirmed = await confirmAction(
             'ยืนยันการรับของ',
             `ยืนยันการรับของสำหรับ PO: ${po.poNumber}? การกระทำนี้จะเพิ่มสต็อกสินค้าและปิด PR ที่เกี่ยวข้อง`
@@ -687,45 +470,34 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         if (!confirmed) return;
 
         const now = new Date().toISOString();
-        const safeItems = Array.isArray(po.items) ? po.items : [];
-        const linkedItems = safeItems.filter(item => item.stockId);
-        const unlinkedItems = safeItems.filter(item => !item.stockId);
 
-        // แจ้งเตือนถ้ามีรายการที่ไม่ผูกกับสต็อก
-        if (unlinkedItems.length > 0) {
-            addToast(`⚠️ ${unlinkedItems.length} รายการไม่ผูกกับสต็อก จะไม่อัพเดทยอดสต็อก: ${unlinkedItems.map(i => i.name).join(', ')}`, 'warning');
-        }
-
-        if (linkedItems.length === 0) {
-            addToast('❌ ไม่มีรายการใดผูกกับสต็อก — ยอดสต็อกจะไม่เปลี่ยนแปลง กรุณาตรวจสอบ PO', 'error');
-        }
-
-        // 1. Update Stock & Transactions — ใช้ Number() ป้องกัน string concatenation
+        // 1. Update Stock & Transactions
         const newTransactions: StockTransaction[] = [];
         const stockUpdates = new Map<string, number>(); // stockId -> quantity to add
 
-        linkedItems.forEach(item => {
-            const qty = Number(item.quantity) || 0;
-            stockUpdates.set(item.stockId!, (stockUpdates.get(item.stockId!) || 0) + qty);
+        po.items.forEach(item => {
+            if (item.stockId) {
+                stockUpdates.set(item.stockId, (stockUpdates.get(item.stockId) || 0) + item.quantity);
 
-            newTransactions.push({
-                id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
-                stockItemId: item.stockId!,
-                stockItemName: item.name,
-                type: 'รับเข้า',
-                quantity: qty,
-                transactionDate: now,
-                actor: 'ระบบ (รับจาก PO)',
-                notes: `รับของจากใบสั่งซื้อ ${po.poNumber}`,
-                documentNumber: po.poNumber,
-                pricePerUnit: Number(item.unitPrice) || 0,
-            });
+                newTransactions.push({
+                    id: `TXN-IN-${Date.now()}-${item.stockId}-${Math.random()}`,
+                    stockItemId: item.stockId,
+                    stockItemName: item.name,
+                    type: 'รับเข้า',
+                    quantity: item.quantity,
+                    transactionDate: now,
+                    actor: 'ระบบ (รับจาก PO)',
+                    notes: `รับของจากใบสั่งซื้อ ${po.poNumber}`,
+                    documentNumber: po.poNumber,
+                    pricePerUnit: item.unitPrice,
+                });
+            }
         });
 
         setStock(prevStock => prevStock.map(s => {
             if (stockUpdates.has(s.id)) {
                 const addedQty = stockUpdates.get(s.id)!;
-                const newQty = Number(s.quantity) + addedQty;
+                const newQty = s.quantity + addedQty;
                 const newStatus = calculateStockStatus(newQty, s.minStock, s.maxStock);
                 return { ...s, quantity: newQty, status: newStatus };
             }
@@ -736,9 +508,8 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             setTransactions(prev => [...newTransactions, ...prev]);
         }
 
-        // 2. Update PO Status with photos
-        const safePhotos = Array.isArray(poPhotos) ? poPhotos : [];
-        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', photos: safePhotos } : p));
+        // 2. Update PO Status
+        setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received' } : p));
 
         // 3. Update Linked PRs to 'รับของแล้ว'
         setPurchaseRequisitions(prev => prev.map(pr => {
@@ -748,12 +519,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             return pr;
         }));
 
-        addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย${linkedItems.length > 0 ? ` (อัพเดทสต็อก ${linkedItems.length} รายการ)` : ''}`, 'success');
-
-        // Telegram notification handled by Cloud Function onPurchaseOrderWrite (status → Received)
-
-        setReceivingPO(null);
-        setPoPhotos([]);
+        addToast(`บันทึกการรับของจาก ${po.poNumber} เรียบร้อย`, 'success');
     };
 
     const handleCancelPO = async (poId: string) => {
@@ -775,7 +541,6 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
             }
 
             addToast('ยกเลิกใบสั่งซื้อสำเร็จ สถานะ PR ที่เกี่ยวข้องถูกคืนค่าเป็น "อนุมัติแล้ว"', 'info');
-            // Telegram notification handled by Cloud Function onPurchaseOrderWrite (status → Cancelled)
         }
     };
 
@@ -836,24 +601,24 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
         <div className="space-y-6">
             {/* Tabs */}
             <div className="bg-white rounded-t-2xl shadow-sm border-b">
-                <div className="flex">
+                <div className="flex overflow-x-auto no-scrollbar">
                     <button
                         onClick={() => setActiveLocalTab('pending-pr')}
-                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'pending-pr' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors whitespace-nowrap ${activeTab === 'pending-pr' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         PR ที่รอสั่งซื้อ ({pendingPRs.length})
                     </button>
                     <button
                         onClick={() => setActiveLocalTab('po-list')}
-                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'po-list' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors whitespace-nowrap ${activeTab === 'po-list' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         รายการใบสั่งซื้อ (PO)
                     </button>
                     <button
                         onClick={() => setActiveLocalTab('tracking')}
-                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors ${activeTab === 'tracking' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                        className={`px-6 py-3 text-base font-semibold border-b-4 transition-colors whitespace-nowrap ${activeTab === 'tracking' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         📍 ติดตามสถานะ (Tracking)
@@ -874,7 +639,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                             สร้างใบสั่งซื้อ (PO)
                         </button>
                     </div>
-                    <div className="overflow-auto max-h-[65vh] border rounded-lg mb-4">
+                    <div className="overflow-x-auto max-h-[65vh] border rounded-lg mb-4">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                                 <tr>
@@ -950,7 +715,7 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                         onChange={e => setSearchTerm(e.target.value)}
                         className="p-2 border rounded-lg w-full md:w-80"
                     />
-                    <div className="overflow-auto max-h-[65vh] border rounded-lg">
+                    <div className="overflow-x-auto max-h-[65vh] border rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200 hidden md:table">
                             <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                                 <tr>
@@ -1171,18 +936,6 @@ const PurchaseOrderManagement: React.FC<PurchaseOrderManagementProps> = ({
                     onClose={() => setIsCreateModalOpen(false)}
                     onSave={handleSavePO}
                     suppliers={suppliers}
-                />
-            )}
-
-            {/* Receive PO Modal */}
-            {receivingPO && (
-                <ReceivePOModal
-                    isOpen={!!receivingPO}
-                    onClose={() => { setReceivingPO(null); setPoPhotos([]); }}
-                    po={receivingPO}
-                    photos={poPhotos}
-                    onChangePhotos={setPoPhotos}
-                    onConfirm={handleConfirmReceivePO}
                 />
             )}
         </div>

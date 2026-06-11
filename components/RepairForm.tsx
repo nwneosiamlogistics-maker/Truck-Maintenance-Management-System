@@ -8,7 +8,7 @@ import TechnicianMultiSelect from './TechnicianMultiSelect';
 import { formatDateTime24h, formatHoursDescriptive, calculateFinishTime, formatCurrency, confirmAction, calculateThaiTax, calculateVat } from '../utils';
 import KPIPickerModal from './KPIPickerModal';
 import DailyChecklistForm from './DailyChecklistForm';
-import PhotoUpload from './PhotoUpload';
+
 
 interface StepperProps {
     steps: string[];
@@ -18,7 +18,7 @@ interface StepperProps {
 
 const Stepper: React.FC<StepperProps> = ({ steps, currentStep, onStepClick }) => {
     return (
-        <div className="flex items-center justify-between w-full mb-16 px-2">
+        <div className="flex items-center justify-between w-full mb-16 px-1 sm:px-2 overflow-x-auto no-scrollbar">
             {steps.map((step, index) => {
                 const isCompleted = currentStep > index;
                 const isCurrent = currentStep === index;
@@ -148,7 +148,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             },
             kpiTaskIds: [],
             driverId: '',
-            photos: [],
         };
     };
 
@@ -571,16 +570,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
         const { repairOrderNo, ...repairData } = formData;
 
-        // Ensure photos is an array before saving
-        repairData.photos = Array.isArray(formData.photos) ? formData.photos : [];
-
-        // 📸 Mandatory photo validation
-        if (repairData.photos.length === 0) {
-            addToast('📸 กรุณาแนบรูปภาพหลักฐานอย่างน้อย 1 รูปก่อนบันทึก', 'warning');
-            setIsSubmitting(false);
-            return;
-        }
-
         if (repairData.vehicleType === 'อื่นๆ') {
             if (!otherVehicleType.trim()) {
                 addToast('กรุณาระบุประเภทรถ', 'warning');
@@ -616,10 +605,6 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                 if (!hasChecklistForToday) {
                     setIsMandatoryChecklistOpen(true);
                     addToast('กรุณาทำรายการตรวจเช็ค (Checklist) ก่อนดำเนินการต่อ', 'info');
-                    return false;
-                }
-                if (!formData.photos || formData.photos.length === 0) {
-                    addToast('📸 กรุณาแนบรูปภาพหลักฐานอย่างน้อย 1 รูปก่อนดำเนินการต่อ', 'warning');
                     return false;
                 }
                 break;
@@ -700,8 +685,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
             case 0: // ข้อมูลรถและปัญหา
                 return (
                     <div className="space-y-10 animate-fade-in-up">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
-                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100 z-[60]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 overflow-visible">
+                            <div ref={suggestionsRef} className="relative group animate-fade-in-up delay-100" style={{ zIndex: 60 }}>
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ทะเบียนรถ (License Plate) *</label>
                                 <div className="relative">
                                     <input
@@ -735,8 +720,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 overflow-visible">
-                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300 z-[50]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 overflow-visible">
+                            <div ref={driverSuggestionsRef} className="relative animate-fade-in-up delay-300" style={{ zIndex: 50 }}>
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">พนักงานขับรถ (Driver)</label>
                                 <div className="relative">
                                     <input
@@ -790,7 +775,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-10">
                             <div className="animate-fade-in-up delay-500">
                                 <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ประเภทรถ (Vehicle Type)</label>
                                 <select
@@ -872,31 +857,11 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 required
                                 placeholder="ระบุอาการเสียโดยละเอียด หรือเลือกจากรูปด้านบน..."
                             ></textarea>
-                            <div className={`rounded-2xl border-2 transition-all ${(!formData.photos || formData.photos.length === 0) ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}>
-                                <div className="px-4 pt-3 flex items-center gap-2">
-                                    <span className={`text-xs font-black uppercase tracking-widest ${(!formData.photos || formData.photos.length === 0) ? 'text-red-600' : 'text-green-600'}`}>
-                                        📸 รูปภาพหลักฐาน <span className="text-red-500">*</span>
-                                    </span>
-                                    {(!formData.photos || formData.photos.length === 0) && (
-                                        <span className="text-xs text-red-500 font-bold">(บังคับต้องแนบอย่างน้อย 1 รูป)</span>
-                                    )}
-                                    {formData.photos && formData.photos.length > 0 && (
-                                        <span className="text-xs text-green-600 font-bold">✓ แนบแล้ว {formData.photos.length} รูป</span>
-                                    )}
-                                </div>
-                                <PhotoUpload
-                                    photos={formData.photos || []}
-                                    onChange={(photos) => setFormData({ ...formData, photos })}
-                                    entity="repair"
-                                    entityId="new"
-                                />
-                            </div>
                             {(() => {
                                 const mainName = formData.repairCategory.split(' > ')[0];
                                 const cat = (Array.isArray(repairCategories) ? repairCategories : []).find(c => c.nameTh === mainName);
                                 if (!cat) return null;
                                 const subName = formData.repairCategory.includes(' > ') ? formData.repairCategory.split(' > ')[1] : null;
-                                const subSymptoms = subName ? (cat.subCategories || []).find(s => s.nameTh === subName)?.suggestedSymptoms || [] : (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const sub = subName ? (cat.subCategories || []).find(s => s.nameTh === subName) : null;
                                 const symptoms = sub?.suggestedSymptoms || (cat.subCategories || []).flatMap(s => s.suggestedSymptoms || []);
                                 const unique = Array.from(new Set(symptoms));
@@ -1011,7 +976,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                                     <div className="group">
                                         <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2 ml-1">เวลาที่คาดว่าจะเริ่มซ่อม</label>
                                         <div className="relative">
@@ -1038,7 +1003,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
 
                         <div className="animate-fade-in-up delay-400">
                             <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-6 ml-1">ประเภทการมอบหมาย (Assignment Type) *</label>
-                            <div className="grid grid-cols-2 gap-10">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10">
                                 <label className={`relative p-8 rounded-[2.5rem] border-2 transition-all duration-500 cursor-pointer group flex items-center gap-6 overflow-hidden ${assignmentType === 'internal' ? 'bg-blue-600 border-blue-600 shadow-2xl shadow-blue-500/30' : 'bg-slate-50 border-slate-100'}`}>
                                     <input type="radio" name="assignmentType" value="internal" checked={assignmentType === 'internal'} onChange={() => handleAssignmentTypeChange('internal')} className="sr-only" />
                                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-500 ${assignmentType === 'internal' ? 'bg-white/20 text-white' : 'bg-white text-blue-600 shadow-sm'}`}><User size={24} /></div>
@@ -1060,7 +1025,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                             <div className="mt-8 animate-fade-in-up">
                                 {assignmentType === 'internal' ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10 bg-blue-50/30 border-2 border-blue-100/50 rounded-[2.5rem]">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 p-6 sm:p-10 bg-blue-50/30 border-2 border-blue-100/50 rounded-[2.5rem]">
                                         <div className="animate-fade-in-up delay-100">
                                             <label className="block text-[9px] font-black uppercase tracking-[0.3em] text-blue-600 mb-3 ml-1">ช่างหลัก (Main Technician) *</label>
                                             <select name="assignedTechnicianId" value={formData.assignedTechnicianId || ''} onChange={handleInputChange} className="w-full p-5 bg-white border-2 border-blue-100 rounded-[1.5rem] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 text-slate-800 font-bold shadow-md cursor-pointer appearance-none" required aria-label="Select Technician">
@@ -1095,7 +1060,8 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <div className="bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] overflow-hidden">
                                 {formData.parts.length > 0 ? (
                                     <>
-                                        <div className="grid grid-cols-12 gap-5 p-8 border-b-2 border-slate-100 font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 bg-white/50">
+                                        <div className="overflow-x-auto -mx-0">
+                                        <div className="grid grid-cols-12 gap-5 p-8 border-b-2 border-slate-100 font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 bg-white/50 min-w-[500px]">
                                             <div className="col-span-1 text-center">คลัง</div>
                                             <div className="col-span-4">ชื่ออะไหล่ (Part Name)</div>
                                             <div className="col-span-2 text-right">จำนวน</div>
@@ -1104,7 +1070,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                         </div>
                                         <div className="max-h-[350px] overflow-y-auto">
                                             {formData.parts.map((part) => (
-                                                <div key={part.partId} className="grid grid-cols-12 gap-5 items-center p-8 hover:bg-white transition-colors border-b border-slate-100 last:border-0 group animate-fade-in-up">
+                                                <div key={part.partId} className="grid grid-cols-12 gap-5 items-center p-8 hover:bg-white transition-colors border-b border-slate-100 last:border-0 group animate-fade-in-up min-w-[500px]">
                                                     <div className="col-span-1 flex justify-center">
                                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm ${part.source === 'สต็อกอู่' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                                             {part.source === 'สต็อกอู่' ? <Package size={18} /> : <CreditCard size={18} />}
@@ -1127,6 +1093,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                                 </div>
                                             ))}
                                         </div>
+                                        </div>
                                     </>
                                 ) : (
                                     <div className="py-20 text-center">
@@ -1137,7 +1104,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
                             <button type="button" onClick={() => setStockModalOpen(true)} className="group relative p-6 bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-3xl hover:bg-blue-600 hover:border-blue-600 transition-all duration-500 overflow-hidden transform hover:-translate-y-1">
                                 <span className="relative z-10 flex flex-col items-center gap-3">
                                     <Package size={24} className="text-blue-500 group-hover:text-white transition-colors" />
@@ -1158,7 +1125,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-10 border-t-2 border-slate-100">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-12 pt-10 border-t-2 border-slate-100">
                             <div className="space-y-8">
                                 <div className="animate-fade-in-up">
                                     <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-700 mb-3 ml-1">ค่าใช้จ่ายในการซ่อม / ค่าแรง (Service Fee) *</label>
@@ -1243,7 +1210,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                             <p className="text-slate-400 text-sm font-bold mt-2 uppercase tracking-widest">Final Review & Confirmation</p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                             <div className="glass-light p-10 rounded-[3rem] border border-white/60 shadow-xl group hover:shadow-2xl transition-all duration-500 animate-fade-in-up delay-100">
                                 <div className="flex justify-between items-center mb-8">
                                     <div className="flex items-center gap-4">
@@ -1323,7 +1290,7 @@ const RepairForm: React.FC<RepairFormProps> = ({ technicians, stock, addRepair, 
                                 <button onClick={() => handleEditClick(2)} type="button" className="w-12 h-12 rounded-full flex items-center justify-center text-emerald-500 hover:bg-emerald-50 transition-all border border-emerald-100 shadow-sm" title="แก้ไขอะไหล่และค่าใช้จ่าย"><Edit3 size={20} /></button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 bg-white/50 backdrop-blur-md border border-white/40 rounded-[2.5rem] p-10 shadow-inner">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-12 bg-white/50 backdrop-blur-md border border-white/40 rounded-[2.5rem] p-6 sm:p-10 shadow-inner">
                                 <div className="space-y-2">
                                     <p className="text-xs font-black uppercase tracking-widest text-slate-700">Total Parts</p>
                                     <p className="text-2xl font-black text-slate-800">{formatCurrency(totalPartsCost + (formData.partsVat || 0)).replace(/[^0-9.,]/g, '')} <span className="text-[10px]">บาท</span></p>

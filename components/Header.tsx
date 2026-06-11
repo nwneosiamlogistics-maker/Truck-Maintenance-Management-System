@@ -82,7 +82,7 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           {isLoggedIn && (
-            <div className="flex-1 max-w-xl mx-4">
+            <div className="hidden sm:flex flex-1 max-w-xl mx-4">
               <GlobalSearch
                 repairs={repairs}
                 stock={stock}
@@ -93,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          <div className="flex items-center space-x-6 shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-6 shrink-0">
             {isLoggedIn ? (
               <>
                 <div className="relative">

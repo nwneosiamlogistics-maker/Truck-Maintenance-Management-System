@@ -1,6 +1,24 @@
 
 
-export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'driver-matrix' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories' | 'safety-plan' | 'safety-check' | 'incab-assessment';
+export type Tab = 'home' | 'dashboard' | 'analytics' | 'kpi-management' | 'okr-management' | 'form' | 'list' | 'technician-view' | 'history' | 'vehicle-repair-history' | 'stock' | 'stock-history' | 'requisitions' | 'purchase-orders' | 'suppliers' | 'used-part-buyers' | 'used-part-report' | 'technicians' | 'technicianPerformance' | 'technicianWorkLog' | 'estimation' | 'maintenance' | 'preventive-maintenance' | 'pm-history' | 'daily-checklist' | 'trailer-checklist' | 'tire-check' | 'tool-management' | 'settings' | 'budget-management' | 'fuel-management' | 'driver-management' | 'driver-matrix' | 'warranty-insurance' | 'vehicles' | 'incident-log' | 'repair-categories' | 'safety-plan' | 'safety-check' | 'incab-assessment' | 'legal-register';
+
+export type LegalStatus = 'compliant' | 'in-progress' | 'non-compliant' | 'n-a';
+
+export interface LegalItem {
+    id: string;
+    section: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+    order: string;
+    name: string;
+    description: string;
+    guidelines: string;
+    evidence: string;
+    status: LegalStatus;
+    responsible?: string;
+    reviewDate?: string;
+    notes?: string;
+    createdAt: string;
+    updatedAt: string;
+}
 
 export type RepairCategoryCode = 'ENG' | 'TRA' | 'SUS' | 'BRK' | 'ELE' | 'AC' | 'TIR' | 'BOD' | 'HYD' | 'COO' | 'FUE' | 'PM' | 'OTH';
 
@@ -138,7 +156,12 @@ export interface StockItem {
     sellingPrice?: number | null;
     storageLocation?: string;
     supplier?: string;
-    status: StockStatus;
+    /**
+     * @deprecated G: ฟิลด์นี้คำนวณจาก `calculateStockStatus(quantity, minStock, maxStock)` ทุกครั้งที่ใช้ใน UI
+     * ค่าใน DB อาจ stale — อย่าใช้เป็น source of truth ให้คำนวณใหม่เสมอ
+     * เก็บไว้เพื่อ backward compat กับ data เก่า
+     */
+    status?: StockStatus;
     isRevolvingPart?: boolean;
     isFungibleUsedItem?: boolean;
     quantityReserved?: number;
@@ -221,6 +244,7 @@ export interface PurchaseOrderItem {
     totalPrice: number;
     prId?: string;
     discount?: number;
+    receivedQty?: number; // F: จำนวนที่รับจริง (อาจ < quantity ถ้าของขาดส่ง)
 }
 
 export interface PurchaseOrder {
@@ -897,8 +921,112 @@ export interface DrivingIncident {
     gpsPhotos?: string[];
     policeReport?: FileAttachment;
 
-
     pointsDeducted?: number;
+
+    // Notifications (5.1)
+    notifications?: {
+        policeNotified?: boolean;
+        insuranceNotified?: boolean;
+        managerNotified?: boolean;
+        safetyTeamNotified?: boolean;
+    };
+
+    // Drug & Alcohol Test (6)
+    drugAlcoholTest?: {
+        alcoholResult?: 'Not Tested' | 'Found' | 'Not Found';
+        alcoholValueMg?: string;
+        drugResult?: 'Not Tested' | 'Found' | 'Not Found';
+    };
+
+    // Injured Persons (8)
+    injuredEmployees?: Array<{ name: string; age?: number; jobTitle?: string; injuryNature?: string }>;
+    injuredThirdParties?: Array<{ name: string; age?: number; jobTitle?: string; injuryNature?: string }>;
+
+    // Damaged Products (9)
+    damagedProducts?: Array<{ name: string; quantity?: number; estimatedLoss?: number }>;
+
+    // Environmental Impact (10)
+    envImpactDetails?: string;
+    envEstimatedLoss?: number;
+
+    // Damaged Properties (11)
+    damagedProperties?: Array<{ description: string; owner?: 'Company' | '3rd Party'; estimatedLoss?: number }>;
+
+    // Authorities & Media (12-13)
+    authoritiesInvolved?: string;
+    mediaCoverage?: string;
+    mediaDetails?: string;
+
+    // Effect on Equipment / Product (14)
+    effectOnEquipment?: string;
+    effectOnProductQuality?: string;
+
+    // Preventive Actions (15)
+    preventiveActions?: Array<{ action: string; responsiblePerson?: string; dueDate?: string; completedDate?: string }>;
+
+    // Recommendations (16)
+    recommendations?: Array<{ recommendation: string; responsiblePerson?: string }>;
+
+    // Investigation Team (17)
+    investigationTeam?: Array<{ name: string; position: string; company: string }>;
+
+    // Management Review (18)
+    managementReview?: {
+        requireMoreInvestigation?: boolean;
+        reviewerName?: string;
+        reviewerPosition?: string;
+        reviewerCompany?: string;
+        reviewedDate?: string;
+    };
+
+    // Top Management Acknowledge (19)
+    topManagementAcknowledge?: {
+        name?: string;
+        position?: string;
+        company?: string;
+        date?: string;
+    };
+
+    // SCAT Analysis
+    scatAnalysis?: {
+        immediateCategory?: string;
+        basicCategory?: string;
+    };
+
+    // Why-Why Analysis
+    whyWhyAnalysis?: {
+        problem?: string;
+        roots?: any[];
+    };
+
+    // Root Cause Checklist (14)
+    rootCauseAnalysis?: {
+        personalFactors: string[];
+        routeHazardous: string[];
+        truckCondition: string[];
+        environment: string[];
+        companyPolicy: string[];
+        remarks?: string;
+    };
+
+    // Site Conditions
+    siteConditions?: {
+        roadSurface?: string;
+        lighting?: string;
+        visibility?: string;
+        locationType?: string;
+        locationTypeOther?: string;
+    };
+
+    // Linked Claims
+    relatedVehicleClaimId?: string;
+    relatedCargoClaimId?: string;
+
+    // Investigator
+    investigatorName?: string;
+    investigationDate?: string;
+
+    status?: 'Open' | 'Investigating' | 'Closed';
 
     createdAt: string;
     createdBy: string;

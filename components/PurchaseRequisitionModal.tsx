@@ -5,8 +5,6 @@ import PurchaseRequisitionPrint from './PurchaseRequisitionPrint';
 import { useToast } from '../context/ToastContext';
 import ReactDOMServer from 'react-dom/server';
 import { promptForPassword, formatCurrency, calculateThaiTax, calculateVat } from '../utils';
-import { uploadToNAS } from '../utils/nasUpload';
-import { uploadFileToStorage } from '../utils/fileUpload';
 
 
 // Define temporary item type with a unique rowId for UI management
@@ -183,49 +181,10 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
     const [prData, setPrData] = useState(getInitialState());
     const [selectedStockId, setSelectedStockId] = useState('');
-    const [isVatEnabled, setIsVatEnabled] = useState(true);
+    const [isVatEnabled, setIsVatEnabled] = useState(false);
     const [vatRate, setVatRate] = useState(7);
-    const [vatMode, setVatMode] = useState<'exclusive' | 'inclusive'>('exclusive');
     const [departmentSelection, setDepartmentSelection] = useState('แผนกซ่อมบำรุง');
-    const [quotationFiles, setQuotationFiles] = useState<string[]>([]);
-    const [isUploadingQuotation, setIsUploadingQuotation] = useState(false);
     const { addToast } = useToast();
-
-    const handleQuotationUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-        setIsUploadingQuotation(true);
-        const prId = prData.prNumber || `pr-temp-${Date.now()}`;
-        const uploaded: string[] = [];
-        let failCount = 0;
-        for (const file of Array.from(files)) {
-            try {
-                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-                const ext = file.name.split('.').pop()?.toLowerCase() || '';
-                const path = `truck-maintenance/quotation/${prId}/${Date.now()}_${safeName}`;
-                // PDF: upload โดยตรง ไม่ compress | รูปภาพ: ผ่าน uploadFileToStorage (compress)
-                const url = ext === 'pdf'
-                    ? await uploadToNAS(file, path)
-                    : await uploadFileToStorage(file, path);
-                uploaded.push(url);
-            } catch (err) {
-                console.error('Quotation upload error:', err);
-                failCount++;
-            }
-        }
-        setIsUploadingQuotation(false);
-        e.target.value = '';
-        if (uploaded.length > 0) {
-            setQuotationFiles(prev => [...prev, ...uploaded]);
-            addToast(`อัปโหลดใบเสนอราคาสำเร็จ ${uploaded.length} ไฟล์${failCount > 0 ? ` (ล้มเหลว ${failCount})` : ''}`, 'success');
-        } else {
-            addToast('อัปโหลดไม่สำเร็จ กรุณาลองใหม่', 'error');
-        }
-    };
-
-    const handleRemoveQuotationFile = (url: string) => {
-        setQuotationFiles(prev => prev.filter(f => f !== url));
-    };
 
 
     useEffect(() => {
@@ -241,20 +200,18 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             }
 
             if (initialRequisition) {
-                if (initialRequisition.vatAmount && initialRequisition.vatAmount > 0) {
+                const sub = (initialRequisition.items || []).reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
+                if (initialRequisition.vatAmount && initialRequisition.vatAmount > 0 && sub > 0) {
                     setIsVatEnabled(true);
-                    const storedRate = (initialRequisition as any).vatRate;
-                    setVatRate(storedRate != null ? storedRate : 7);
+                    const rate = (initialRequisition.vatAmount / sub) * 100;
+                    setVatRate(Math.round(rate * 100) / 100);
                 } else {
                     setIsVatEnabled(false);
                     setVatRate(7);
                 }
-                setQuotationFiles(initialRequisition.quotationFiles || []);
             } else {
-                setIsVatEnabled(true);
+                setIsVatEnabled(false);
                 setVatRate(7);
-                setVatMode('exclusive');
-                setQuotationFiles([]);
             }
         }
     }, [isOpen, getInitialState, initialRequisition]);
@@ -265,29 +222,28 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
     const { subtotal, vatAmount, grandTotal } = useMemo(() => {
         const items = Array.isArray(prData.items) ? prData.items : [];
 
-        // 1. ยอดรวมตามที่กรอก (sum of line totals)
-        const rawSum = items.reduce((total: number, item) => {
-            return total + calculateThaiTax(item.quantity * item.unitPrice);
+        // 1. คำนวณยอดรวมของแต่ละรายการ (Line Item Total) และปัดเศษทันที
+        // เพื่อให้ผลรวมท้ายบิลตรงกับผลรวมในตาราง (Sum of rounded lines)
+        const sub = items.reduce((total: number, item) => {
+            const rawLineTotal = item.quantity * item.unitPrice;
+            const roundedLineTotal = calculateThaiTax(rawLineTotal);
+            return total + roundedLineTotal;
         }, 0);
-        const roundedRawSum = calculateThaiTax(rawSum);
 
-        if (!isVatEnabled) {
-            return { subtotal: roundedRawSum, vatAmount: 0, grandTotal: roundedRawSum };
-        }
+        // 2. ยอดรวมก่อนภาษี (Subtotal)
+        // ปัดเศษอีกครั้งเพื่อความมั่นใจ (ป้องกัน Floating Point Drift)
+        const roundedSub = calculateThaiTax(sub);
 
-        if (vatMode === 'inclusive') {
-            // ราคาที่กรอกรวม VAT แล้ว → ถอด VAT ออก
-            // ราคาก่อน VAT = ยอดรวม ÷ (1 + vatRate/100)
-            const netBeforeVat = calculateThaiTax(roundedRawSum / (1 + vatRate / 100));
-            const vat = calculateThaiTax(roundedRawSum - netBeforeVat);
-            return { subtotal: netBeforeVat, vatAmount: vat, grandTotal: roundedRawSum };
-        } else {
-            // ราคาที่กรอกยังไม่รวม VAT → บวก VAT เพิ่ม
-            const vat = calculateVat(roundedRawSum, vatRate);
-            const grand = calculateThaiTax(roundedRawSum + vat);
-            return { subtotal: roundedRawSum, vatAmount: vat, grandTotal: grand };
-        }
-    }, [prData.items, isVatEnabled, vatRate, vatMode]);
+        // 3. คำนวณ VAT (VAT Calculation)
+        // เรียกใช้ฟังก์ชัน calculateVat จาก utils โดยตรง (สะอาดและลดความผิดพลาด)
+        const vat = isVatEnabled ? calculateVat(roundedSub, vatRate) : 0;
+
+        // 4. ยอดรวมสุทธิ (Grand Total)
+        // นำ Subtotal ที่ปัดแล้ว + VAT ที่ปัดแล้ว มารวมกัน
+        const grand = calculateThaiTax(roundedSub + vat);
+
+        return { subtotal: roundedSub, vatAmount: vat, grandTotal: grand };
+    }, [prData.items, isVatEnabled, vatRate]);
 
     const handlePrint = () => {
         if (!initialRequisition) return;
@@ -441,14 +397,8 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
             return;
         }
 
-        // 📎 Mandatory file attachment validation
-        if (isEditable && (!quotationFiles || quotationFiles.length === 0)) {
-            addToast('📎 กรุณาแนบรูปภาพหรือไฟล์ใบเสนอราคา/หลักฐานอย่างน้อย 1 ไฟล์', 'warning');
-            return;
-        }
-
         const itemsToSave = safeItems.map(({ rowId, ...rest }) => rest);
-        const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount, vatRate: isVatEnabled ? vatRate : 0, quotationFiles } as any;
+        const finalData = { ...prData, items: itemsToSave, totalAmount: grandTotal, vatAmount: vatAmount };
 
         // Ensure status is 'Pending Approval' if current status is 'Draft' or undefined
         // This auto-updates existing 'Draft' items to 'Pending Approval' upon save
@@ -521,7 +471,7 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {/* Main Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-medium">ผู้ขอซื้อ *</label>
                             <input type="text" name="requesterName" value={prData.requesterName} onChange={handleInputChange} disabled={!isEditable} className="mt-1 w-full p-2 border rounded-lg disabled:bg-gray-100" aria-label="ชื่อผู้ขอซื้อ" />
@@ -608,79 +558,6 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
                         </div>
                     </div>
 
-                    {/* Quotation Files Section */}
-                    <div className={`p-4 rounded-xl border-2 transition-all ${isEditable && quotationFiles.length === 0 ? 'bg-red-50 border-red-300' : quotationFiles.length > 0 ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-200'}`}>
-                        <div className="flex items-center justify-between mb-3">
-                            <h4 className={`font-semibold text-base flex items-center gap-2 ${isEditable && quotationFiles.length === 0 ? 'text-red-700' : quotationFiles.length > 0 ? 'text-green-700' : 'text-amber-800'}`}>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                📎 ใบเสนอราคา / หลักฐาน
-                                {isEditable && <span className="text-red-500 font-bold">*</span>}
-                                {quotationFiles.length > 0 && <span className="text-xs text-green-600 font-bold ml-1">✓ แนบแล้ว {quotationFiles.length} ไฟล์</span>}
-                            </h4>
-                            {isEditable && (
-                                <label className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isUploadingQuotation ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}>
-                                    {isUploadingQuotation ? (
-                                        <>
-                                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-                                            กำลังอัปโหลด...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                            แนบไฟล์
-                                        </>
-                                    )}
-                                    <input
-                                        type="file"
-                                        accept="image/*,.pdf,image/heic,image/heif"
-                                        multiple
-                                        disabled={isUploadingQuotation}
-                                        onChange={handleQuotationUpload}
-                                        className="hidden"
-                                        aria-label="แนบใบเสนอราคา"
-                                    />
-                                </label>
-                            )}
-                        </div>
-                        <p className={`text-xs mb-3 ${isEditable && quotationFiles.length === 0 ? 'text-red-600 font-semibold' : 'text-amber-600'}`}>
-                            {isEditable && quotationFiles.length === 0 ? '⚠️ บังคับต้องแนบอย่างน้อย 1 ไฟล์ (รูปภาพหรือ PDF) ก่อนบันทึก' : 'รองรับ: รูปภาพ (JPG, PNG, HEIC) และ PDF'}
-                        </p>
-
-                        {quotationFiles.length === 0 ? (
-                            <p className="text-sm text-center py-4 text-red-400 font-medium">📎 ยังไม่มีไฟล์แนบ — กรุณาแนบไฟล์ก่อนบันทึก</p>
-                        ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                {quotationFiles.map((url, idx) => {
-                                    const isPdf = url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('pdf');
-                                    const fileName = decodeURIComponent(url.split('/').pop()?.split('?').shift() || `ไฟล์ ${idx + 1}`);
-                                    return (
-                                        <div key={url} className="relative group border border-amber-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                                            {isPdf ? (
-                                                <a href={url} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-3 h-24 hover:bg-amber-50 transition-colors">
-                                                    <svg className="w-10 h-10 text-red-500 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8.5 17.5h-1v-5h1.8c.9 0 1.5.6 1.5 1.5s-.6 1.5-1.5 1.5H8.5v2zm3.5 0h-1v-5h1.5c1.1 0 2 .9 2 2.5s-.9 2.5-2 2.5zm4.5-4h-1.5v1h1.3v.8h-1.3v2.2H14v-5h2.5v1z" /></svg>
-                                                    <span className="text-[10px] text-gray-500 text-center truncate w-full px-1">{fileName}</span>
-                                                </a>
-                                            ) : (
-                                                <a href={url} target="_blank" rel="noopener noreferrer">
-                                                    <img src={url} alt={`ใบเสนอราคา ${idx + 1}`} className="w-full h-24 object-cover hover:opacity-90 transition-opacity" />
-                                                </a>
-                                            )}
-                                            {isEditable && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRemoveQuotationFile(url)}
-                                                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                    title="ลบไฟล์นี้"
-                                                    aria-label="ลบไฟล์ใบเสนอราคา"
-                                                >×</button>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
                     {/* Items Section */}
                     <div>
                         <h4 className="font-semibold text-lg border-b pb-2 mb-3">รายการ</h4>
@@ -730,49 +607,17 @@ const PurchaseRequisitionModal: React.FC<PurchaseRequisitionModalProps> = ({ isO
 
                     {/* Totals Section */}
                     <div className="flex justify-end pt-4">
-                        <div className="w-full md:w-80 space-y-1 bg-gray-50 rounded-xl p-4 border border-gray-200">
-                            {/* รวมเป็นเงิน */}
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">รวมเป็นเงิน</span>
-                                <span className="font-medium">{formatCurrency(grandTotal)} บาท</span>
-                            </div>
-
-                            {/* VAT row with controls */}
-                            <div className="flex justify-between items-start gap-2 text-sm">
-                                <span className="flex flex-wrap items-center gap-1">
-                                    <input type="checkbox" checked={isVatEnabled} onChange={e => setIsVatEnabled(e.target.checked)} className="mr-1" disabled={!areFinancialsEditable} aria-label="เปิดใช้งาน VAT" />
-                                    <span className="text-gray-600">ภาษีมูลค่าเพิ่ม</span>
-                                    <input type="number" value={vatRate} onChange={e => setVatRate(Number(e.target.value))} className="w-12 p-0.5 border rounded text-right text-xs" disabled={!isVatEnabled || !areFinancialsEditable} aria-label="อัตราภาษีมูลค่าเพิ่ม (%)" />
-                                    <span className="text-gray-500 text-xs">%</span>
-                                    {isVatEnabled && areFinancialsEditable && (
-                                        <span className="flex items-center gap-1">
-                                            <button type="button" onClick={() => setVatMode('exclusive')} title="ราคาที่กรอกยังไม่รวม VAT (บวก VAT เพิ่ม)"
-                                                className={`px-1.5 py-0.5 rounded border text-[10px] font-medium transition-colors ${vatMode === 'exclusive' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
-                                                +VAT
-                                            </button>
-                                            <button type="button" onClick={() => setVatMode('inclusive')} title="ราคาที่กรอกรวม VAT แล้ว (ถอด VAT ออก)"
-                                                className={`px-1.5 py-0.5 rounded border text-[10px] font-medium transition-colors ${vatMode === 'inclusive' ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
-                                                ถอด VAT
-                                            </button>
-                                        </span>
-                                    )}
+                        <div className="w-full md:w-1/3 space-y-2">
+                            <div className="flex justify-between"><span>ราคารวม</span><span>{formatCurrency(subtotal)}</span></div>
+                            <div className="flex justify-between items-center">
+                                <span>
+                                    <input type="checkbox" checked={isVatEnabled} onChange={e => setIsVatEnabled(e.target.checked)} className="mr-2" disabled={!areFinancialsEditable} aria-label="เปิดใช้งาน VAT" />
+                                    VAT
+                                    <input type="number" value={vatRate} onChange={e => setVatRate(Number(e.target.value))} className="w-16 ml-2 p-1 border rounded text-right" disabled={!isVatEnabled || !areFinancialsEditable} aria-label="อัตราภาษีมูลค่าเพิ่ม (%)" /> %
                                 </span>
-                                <span className="font-medium">{isVatEnabled ? formatCurrency(vatAmount) : '0.00'} บาท</span>
+                                <span>{formatCurrency(vatAmount)}</span>
                             </div>
-
-                            {/* ราคาไม่รวมภาษีมูลค่าเพิ่ม */}
-                            {isVatEnabled && vatAmount > 0 && (
-                                <div className="flex justify-between text-sm text-gray-500">
-                                    <span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span>
-                                    <span>{formatCurrency(subtotal)} บาท</span>
-                                </div>
-                            )}
-
-                            {/* จำนวนเงินรวมทั้งสิ้น */}
-                            <div className="flex justify-between font-bold text-base border-t border-gray-300 pt-2 mt-1">
-                                <span>จำนวนเงินรวมทั้งสิ้น</span>
-                                <span className="text-blue-600">{formatCurrency(grandTotal)} บาท</span>
-                            </div>
+                            <div className="flex justify-between font-bold text-lg border-t pt-2"><span>ยอดรวมสุทธิ</span><span>{formatCurrency(grandTotal)}</span></div>
                         </div>
                     </div>
 

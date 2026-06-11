@@ -41,34 +41,34 @@ const ModernStatCard = ({ title, value, subtext, theme, icon, delay = '' }: any)
   }
 
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-8 rounded-[3rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
-      <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700">
+    <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-5 sm:p-6 lg:p-8 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3rem] text-white shadow-2xl animate-scale-in ${delay} group hover:scale-[1.02] transition-all duration-700`}>
+      <div className="absolute -right-10 -bottom-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700 hidden sm:block">
         {icon}
       </div>
       <div className="relative z-10">
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-white/70 mb-3">{title}</p>
+        <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-white/70 mb-2 sm:mb-3">{title}</p>
         <div className="flex items-baseline gap-2">
-          <h3 className="text-4xl font-black tracking-tighter">{value}</h3>
+          <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tighter">{value}</h3>
         </div>
-        {subtext && <div className="mt-4 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 py-1.5 rounded-full text-xs font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
+        {subtext && <div className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 bg-white/10 w-fit px-3 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black border border-white/10 backdrop-blur-md uppercase tracking-widest">{subtext}</div>}
       </div>
     </div>
   );
 };
 
 const PremiumCard = ({ title, children, className = '', icon, delay = '', subTitle = '' }: any) => (
-  <div className={`glass p-10 rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
-    <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-4">
-        <div className="w-2.5 h-10 bg-gradient-to-b from-blue-600/50 to-indigo-600/50 rounded-full shadow-lg shadow-blue-500/10"></div>
+  <div className={`glass p-4 sm:p-6 lg:p-10 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3.5rem] border border-white/50 shadow-2xl shadow-slate-200/40 hover:shadow-3xl transition-all duration-700 animate-scale-in ${delay} ${className}`}>
+    <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-8">
+      <div className="flex items-center gap-2 sm:gap-4">
+        <div className="w-1.5 sm:w-2.5 h-6 sm:h-10 bg-gradient-to-b from-blue-600/50 to-indigo-600/50 rounded-full shadow-lg shadow-blue-500/10"></div>
         <div>
-          <h3 className="text-2xl font-black text-slate-800 tracking-tighter">{title}</h3>
-          {subTitle && <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{subTitle}</p>}
+          <h3 className="text-base sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tighter">{title}</h3>
+          {subTitle && <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{subTitle}</p>}
         </div>
       </div>
-      {icon && <div className="p-3 bg-slate-50 rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
+      {icon && <div className="p-2 sm:p-3 bg-slate-50 rounded-xl sm:rounded-[1.5rem] text-slate-400 border border-slate-100 shadow-sm">{icon}</div>}
     </div>
-    <div className="h-[calc(100%-80px)]">
+    <div className="h-[calc(100%-60px)] sm:h-[calc(100%-70px)] lg:h-[calc(100%-80px)]">
       {children}
     </div>
   </div>
@@ -172,9 +172,9 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
   }, [safeStock, safePlans, safeRepairs, vehicles]);
 
   return (
-    <div className="space-y-12 animate-fade-in-up pb-12">
+    <div className="space-y-6 sm:space-y-8 lg:space-y-12 animate-fade-in-up pb-8 sm:pb-12">
       {/* Row 1: Key Stats Bento Grid */}
-      <div className="bento-grid h-auto lg:h-auto gap-8">
+      <div className="bento-grid h-auto lg:h-auto gap-4 sm:gap-6 lg:gap-8">
         <ModernStatCard delay="delay-100" theme="blue" title="แจ้งซ่อมวันนี้" value={stats.reportedToday} subtext="Reported Repairs" icon={<Clock size={150} />} />
         <ModernStatCard delay="delay-150" theme="green" title="ซ่อมเสร็จวันนี้" value={stats.completedToday} subtext="Completed Tasks" icon={<CheckCircle2 size={150} />} />
         <ModernStatCard delay="delay-200" theme="yellow" title="กำลังซ่อม" value={stats.inProgress} subtext="Currently Active" icon={<Activity size={150} />} />
@@ -184,11 +184,11 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
         <PremiumCard
           title="สถานะงานซ่อมปัจจุบัน"
           subTitle="Real-time Repair Distribution"
-          className="lg:col-span-2 lg:row-span-2 min-h-[450px]"
+          className="lg:col-span-2 lg:row-span-2 min-h-[350px] sm:min-h-[400px] lg:min-h-[450px]"
           delay="delay-300"
           icon={<PieChartIcon size={24} />}
         >
-          <div className="flex-1 w-full h-full min-h-[400px] relative">
+          <div className="flex-1 w-full h-full min-h-[300px] sm:min-h-[350px] lg:min-h-[400px] relative">
             {stats.statusDistData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -217,8 +217,8 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
               </div>
             )}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -mt-5 text-center pointer-events-none">
-              <span className="block text-6xl font-black text-slate-900 leading-none">{safeRepairs.filter(r => r.status !== 'ซ่อมเสร็จ').length}</span>
-              <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2 block">งานค้างสะสม</span>
+              <span className="block text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-none">{safeRepairs.filter(r => r.status !== 'ซ่อมเสร็จ').length}</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] mt-2 block">งานค้างสะสม</span>
             </div>
           </div>
         </PremiumCard>
@@ -227,28 +227,28 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
         <PremiumCard
           title="อินไซต์เร่งด่วน"
           subTitle="Urgent Operational Insights"
-          className="lg:col-span-2 lg:row-span-2 min-h-[450px]"
+          className="lg:col-span-2 lg:row-span-2 min-h-[350px] sm:min-h-[400px] lg:min-h-[450px]"
           delay="delay-400"
           icon={<AlertCircle size={24} />}
         >
-          <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar h-full">
+          <div className="space-y-4 sm:space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar h-full">
             {dynamicAlerts.length > 0 ? (
               dynamicAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`group flex flex-col xl:flex-row items-center p-6 rounded-[2.5rem] border border-white/40 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${alert.type === 'danger' ? 'bg-red-50/40 text-red-900 border-red-100' :
+                  className={`group flex flex-col sm:flex-row xl:flex-row items-center p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] border border-white/40 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${alert.type === 'danger' ? 'bg-red-50/40 text-red-900 border-red-100' :
                     alert.type === 'warning' ? 'bg-amber-50/40 text-amber-900 border-amber-100' :
                       'bg-blue-50/40 text-blue-900 border-blue-100'
                     }`}
                 >
-                  <div className={`flex items-center justify-center w-16 h-16 rounded-[1.5rem] shrink-0 xl:mr-6 shadow-2xl transition-transform group-hover:rotate-6 ${alert.type === 'danger' ? 'bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/20' :
+                  <div className={`flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-xl sm:rounded-[1.25rem] lg:rounded-[1.5rem] shrink-0 sm:mr-4 lg:mr-6 shadow-2xl transition-transform group-hover:rotate-6 ${alert.type === 'danger' ? 'bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/20' :
                     alert.type === 'warning' ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/20' :
                       'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/20'
                     }`}>
                     {alert.icon}
                   </div>
-                  <div className="flex-1 text-center xl:text-left mt-4 xl:mt-0">
-                    <div className="flex items-center gap-2 mb-1 justify-center xl:justify-start">
+                  <div className="flex-1 text-center sm:text-left mt-3 sm:mt-0">
+                    <div className="flex items-center gap-2 mb-1 justify-center sm:justify-start">
                       <span className="text-[9px] font-black uppercase tracking-widest opacity-50 italic">{alert.enLabel}</span>
                     </div>
                     <h4 className="font-black text-slate-800 text-base leading-tight">{alert.title}</h4>
@@ -257,7 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
                   <button
                     onClick={() => setActiveTab(alert.tab as Tab)}
                     title={alert.action}
-                    className="mt-6 xl:mt-0 xl:ml-6 flex items-center gap-3 py-4 px-8 bg-slate-950 text-white text-[10px] font-black rounded-2xl shadow-2xl hover:bg-slate-800 transition-all active:scale-95 uppercase tracking-widest whitespace-nowrap"
+                    className="mt-4 sm:mt-0 sm:ml-4 lg:ml-6 flex items-center gap-2 sm:gap-3 py-3 sm:py-3.5 lg:py-4 px-5 sm:px-6 lg:px-8 bg-slate-950 text-white text-[9px] sm:text-[10px] font-black rounded-xl sm:rounded-2xl shadow-2xl hover:bg-slate-800 transition-all active:scale-95 uppercase tracking-widest whitespace-nowrap"
                   >
                     {alert.action}
                     <ArrowRight size={14} />
@@ -266,8 +266,8 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
               ))
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mb-6 animate-pulse border-2 border-emerald-100 shadow-xl shadow-emerald-500/10">
-                  <CheckCircle2 size={48} />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-emerald-50 text-emerald-500 rounded-2xl sm:rounded-[1.5rem] lg:rounded-[2rem] flex items-center justify-center mb-4 sm:mb-6 animate-pulse border-2 border-emerald-100 shadow-xl shadow-emerald-500/10">
+                  <CheckCircle2 size={36} className="sm:w-10 sm:h-10 lg:w-12 lg:h-12" />
                 </div>
                 <p className="text-slate-800 font-black text-2xl mb-2 italic">Operation Perfect!</p>
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">ยังไม่มีรายการเร่งด่วนในขณะนี้</p>
@@ -277,21 +277,21 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
         </PremiumCard>
 
         {/* Stock Value Card - Premium Glass-Dark */}
-        <div className="lg:col-span-2 bg-slate-900 p-10 rounded-[4rem] text-white shadow-3xl flex flex-col md:flex-row items-center justify-between group overflow-hidden relative animate-scale-in delay-500 border border-white/10">
+        <div className="lg:col-span-2 bg-slate-900 p-5 sm:p-7 lg:p-10 rounded-2xl sm:rounded-[3rem] lg:rounded-[4rem] text-white shadow-3xl flex flex-col md:flex-row items-center justify-between group overflow-hidden relative animate-scale-in delay-500 border border-white/10">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
           <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left">
-            <span className="text-blue-400 font-black uppercase tracking-[0.4em] text-[10px] mb-4 flex items-center gap-2 italic">
+            <span className="text-blue-400 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-[9px] sm:text-[10px] mb-2 sm:mb-4 flex items-center gap-2 italic">
               <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
-              Total Inventory Value Asset
+              Total Inventory Value
             </span>
-            <div className="flex items-baseline gap-4">
-              <span className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-slate-400">
+            <div className="flex items-baseline gap-2 sm:gap-4">
+              <span className="text-3xl sm:text-4xl lg:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-slate-400">
                 {stats.totalStockValue.toLocaleString()}
               </span>
-              <span className="text-xl font-black text-slate-500 uppercase tracking-widest">บาท (THB)</span>
+              <span className="text-sm sm:text-lg lg:text-xl font-black text-slate-500 uppercase tracking-widest">บาท</span>
             </div>
           </div>
-          <div className="w-24 h-24 bg-white/5 rounded-3xl flex items-center justify-center text-5xl group-hover:rotate-12 transition-all duration-500 shadow-2xl border border-white/10 mt-8 md:mt-0 backdrop-blur-xl">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-white/5 rounded-2xl sm:rounded-3xl flex items-center justify-center text-3xl sm:text-4xl lg:text-5xl group-hover:rotate-12 transition-all duration-500 shadow-2xl border border-white/10 mt-4 sm:mt-6 md:mt-0 backdrop-blur-xl">
             💰
           </div>
         </div>
@@ -300,15 +300,16 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
         <ModernStatCard delay="delay-600" theme="red" title="รายการหมดสต็อก" value={`${stats.outOfStockCount} ชิ้น`} subtext="Critical Out of Stock" icon={<Activity size={150} />} />
 
         {/* Quick Actions Navigator - High Contrast */}
-        <div className="lg:col-span-4 bg-slate-50 p-12 rounded-[4rem] border-2 border-dashed border-slate-200 animate-scale-in delay-700 relative overflow-hidden group">
+        <div className="lg:col-span-4 bg-slate-50 p-6 sm:p-8 lg:p-12 rounded-2xl sm:rounded-[3rem] lg:rounded-[4rem] border-2 border-dashed border-slate-200 animate-scale-in delay-700 relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
           <div className="relative z-10">
-            <h3 className="text-2xl font-black text-slate-800 mb-10 flex items-center gap-5 justify-center">
-              <span className="w-4 h-4 bg-amber-400 rounded-full animate-bounce"></span>
-              ทางลัดการจัดการคลังความรู้ (Intelligence Navigator)
-              <span className="w-4 h-4 bg-amber-400 rounded-full animate-bounce delay-75"></span>
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-800 mb-6 sm:mb-8 lg:mb-10 flex items-center gap-3 sm:gap-5 justify-center">
+              <span className="w-3 h-3 sm:w-4 sm:h-4 bg-amber-400 rounded-full animate-bounce"></span>
+              <span className="hidden sm:inline">ทางลัดการจัดการคลังความรู้</span>
+              <span className="sm:hidden">ทางลัด</span>
+              <span className="w-3 h-3 sm:w-4 sm:h-4 bg-amber-400 rounded-full animate-bounce delay-75"></span>
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6 lg:gap-10">
               {[
                 { id: 'form', icon: '📝', label: 'แจ้งซ่อมใหม่', en: 'Maint Request', color: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-500/20' },
                 { id: 'stock', icon: '📦', label: 'เช็คสต็อก', en: 'Inv Intel', color: 'from-slate-800 to-slate-950', shadow: 'shadow-slate-950/20' },
@@ -318,15 +319,15 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
                 <button
                   key={action.id}
                   onClick={() => setActiveTab(action.id as Tab)}
-                  className="group flex flex-col items-center gap-6 transition-all"
+                  className="group flex flex-col items-center gap-3 sm:gap-4 lg:gap-6 transition-all"
                 >
-                  <div className={`w-24 h-24 bg-gradient-to-br ${action.color} rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl ${action.shadow} group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500 relative overflow-hidden`}>
+                  <div className={`w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-br ${action.color} rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] flex items-center justify-center text-2xl sm:text-3xl lg:text-4xl shadow-2xl ${action.shadow} group-hover:-translate-y-2 sm:group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500 relative overflow-hidden`}>
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     {action.icon}
                   </div>
                   <div className="text-center group-hover:scale-105 transition-transform">
-                    <span className="block font-black text-slate-900 text-sm tracking-tight">{action.label}</span>
-                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-60">{action.en}</span>
+                    <span className="block font-black text-slate-900 text-xs sm:text-sm tracking-tight">{action.label}</span>
+                    <span className="block text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-60">{action.en}</span>
                   </div>
                 </button>
               ))}
@@ -348,14 +349,14 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
                     addToast('ส่ง Telegram ล้มเหลว! ตรวจสอบ Console เพื่อดู Error', 'error');
                   }
                 }}
-                className="group flex flex-col items-center gap-6 transition-all md:col-start-2 lg:col-start-2"
+                className="group flex flex-col items-center gap-3 sm:gap-4 lg:gap-6 transition-all md:col-start-2 lg:col-start-2"
               >
-                <div className="w-24 h-24 bg-gradient-to-br from-pink-500 to-rose-600 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl shadow-rose-500/20 group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500">
-                  <Send className="w-12 h-12 text-white" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] flex items-center justify-center text-2xl sm:text-3xl lg:text-4xl shadow-2xl shadow-rose-500/20 group-hover:-translate-y-2 sm:group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500">
+                  <Send className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-white" />
                 </div>
                 <div className="text-center group-hover:scale-105 transition-transform">
-                  <span className="block font-black text-slate-900 text-sm tracking-tight">ทดสอบ Bot</span>
-                  <span className="block text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1 opacity-60">Test Notification</span>
+                  <span className="block font-black text-slate-900 text-xs sm:text-sm tracking-tight">ทดสอบ Bot</span>
+                  <span className="block text-[8px] sm:text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1 opacity-60">Test Notification</span>
                 </div>
               </button>
 
@@ -383,14 +384,14 @@ const Dashboard: React.FC<DashboardProps> = ({ repairs, stock, maintenancePlans,
                     });
                   }
                 }}
-                className="group flex flex-col items-center gap-6 transition-all md:col-start-3 lg:col-start-3"
+                className="group flex flex-col items-center gap-3 sm:gap-4 lg:gap-6 transition-all md:col-start-3 lg:col-start-3"
               >
-                <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl shadow-emerald-500/20 group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500">
-                  <ShieldCheck className="w-12 h-12 text-white" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] flex items-center justify-center text-2xl sm:text-3xl lg:text-4xl shadow-2xl shadow-emerald-500/20 group-hover:-translate-y-2 sm:group-hover:-translate-y-4 group-hover:scale-110 group-hover:rotate-3 active:scale-95 transition-all duration-500">
+                  <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-white" />
                 </div>
                 <div className="text-center group-hover:scale-105 transition-transform">
-                  <span className="block font-black text-slate-900 text-sm tracking-tight">เช็คสถานะ Bot</span>
-                  <span className="block text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-1 opacity-60">Diagnostic</span>
+                  <span className="block font-black text-slate-900 text-xs sm:text-sm tracking-tight">เช็คสถานะ Bot</span>
+                  <span className="block text-[8px] sm:text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-1 opacity-60">Diagnostic</span>
                 </div>
               </button>
             </div>

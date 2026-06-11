@@ -72,15 +72,15 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
             </header>
 
             {/* Showcase Section with Feature Masking (Layer 3) */}
-            <section className="py-24 container mx-auto px-6">
+            <section className="py-12 sm:py-16 lg:py-24 container mx-auto px-4 sm:px-6">
                 <div className="text-center mb-16">
-                    <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">ระบบที่พร้อมตอบโจทย์คุณทุกด้าน</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-800 uppercase tracking-tight">ระบบที่พร้อมตอบโจทย์คุณทุกด้าน</h2>
                     <p className="text-slate-500 mt-2 font-medium">สัมผัสประสบการณ์การจัดการที่ง่ายและทรงพลัง</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Stat Card 1 */}
-                    <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
+                    <div className="bg-white rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
                         <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                             <Truck size={28} />
                         </div>
@@ -104,7 +104,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
                     </div>
 
                     {/* Stat Card 2 */}
-                    <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
+                    <div className="bg-white rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
                         <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                             <Wrench size={28} />
                         </div>
@@ -128,7 +128,7 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
                     </div>
 
                     {/* Stat Card 3 */}
-                    <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
+                    <div className="bg-white rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
                         <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                             <BarChart3 size={28} />
                         </div>
@@ -156,10 +156,10 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
             {/* Feature Teasers */}
             <section className="bg-slate-900 overflow-hidden relative border-y border-slate-800">
                 <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-500/5 blur-[120px] rounded-full -mr-64" />
-                <div className="container mx-auto px-6 py-16 lg:py-24 relative z-10">
+                <div className="container mx-auto px-4 sm:px-6 py-12 lg:py-24 relative z-10">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
                         <div>
-                            <h3 className="text-3xl lg:text-4xl font-black text-white mb-8 text-center lg:text-left">ทำไมถึงต้องเลือกระบบของเรา?</h3>
+                            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white mb-6 sm:mb-8 text-center lg:text-left">ทำไมถึงต้องเลือกระบบของเรา?</h3>
                             <div className="space-y-6">
                                 <div className="flex gap-4">
                                     <div className="mt-1 w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
@@ -191,10 +191,10 @@ const Home: React.FC<HomeProps> = ({ user, onLoginClick, onNavigate }) => {
                             </div>
                         </div>
                         <div className="relative">
-                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-[3rem] p-2 border border-slate-700 shadow-2xl relative z-10">
+                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl sm:rounded-[3rem] p-1.5 sm:p-2 border border-slate-700 shadow-2xl relative z-10">
                                 <img
                                     src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070"
-                                    className="rounded-[2.5rem] w-full shadow-inner opacity-60 grayscale hover:grayscale-0 transition-all duration-700 hover:opacity-100"
+                                    className="rounded-xl sm:rounded-[2.5rem] w-full shadow-inner opacity-60 grayscale hover:grayscale-0 transition-all duration-700 hover:opacity-100"
                                     alt="Dashboard Preview"
                                     onError={(e) => {
                                         e.currentTarget.src = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070";

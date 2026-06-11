@@ -428,24 +428,24 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
     return (
         <div className="space-y-8 animate-fade-in-up">
             {/* Header */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8">
+            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 mb-4 sm:mb-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-800">
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800">
                         จัดการช่าง
                     </h2>
-                    <p className="text-gray-500 mt-1">จัดการข้อมูลช่างและการมอบหมายงาน</p>
+                    <p className="text-gray-500 mt-1 text-sm">จัดการข้อมูลช่างและการมอบหมายงาน</p>
                 </div>
 
                 {/* Filters Section */}
-                <div className="mt-8 pt-6 border-t border-slate-100">
-                    <div className="flex flex-col xl:flex-row justify-between gap-6">
-                        <div className="flex flex-wrap items-center gap-4">
+                <div className="mt-4 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-100">
+                    <div className="flex flex-col xl:flex-row justify-between gap-4 sm:gap-6">
+                        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-slate-600">สถานะ:</span>
+                                <span className="text-xs sm:text-sm font-bold text-slate-600">สถานะ:</span>
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                                    className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
                                     aria-label="กรองตามสถานะช่าง"
                                 >
                                     <option value="all">ทั้งหมด</option>
@@ -455,11 +455,11 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                                 </select>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-slate-600">เรียงตาม:</span>
+                                <span className="text-xs sm:text-sm font-bold text-slate-600">เรียง:</span>
                                 <select
                                     value={sortOption}
                                     onChange={(e) => setSortOption(e.target.value)}
-                                    className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                                    className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
                                     aria-label="เรียงลำดับข้อมูล"
                                 >
                                     <option value="rating_desc">เรตติ้ง (สูง-ต่ำ)</option>
@@ -469,19 +469,19 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                                 </select>
                             </div>
                         </div>
-                        <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center gap-2">
+                        <button className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 text-sm">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             เพิ่มช่างใหม่
                         </button>
                     </div>
 
                     {/* Skill Tags */}
-                    <div className="mt-6 flex items-start gap-4">
-                        <span className="text-sm font-bold text-slate-600 mt-2 whitespace-nowrap">ทักษะ:</span>
-                        <div className="flex flex-wrap gap-2">
+                    <div className="mt-4 sm:mt-6 flex items-start gap-2 sm:gap-4">
+                        <span className="text-xs sm:text-sm font-bold text-slate-600 mt-1.5 sm:mt-2 whitespace-nowrap">ทักษะ:</span>
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
                             <button
                                 onClick={() => setSelectedSkill(null)}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${selectedSkill === null
+                                className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all border ${selectedSkill === null
                                     ? 'bg-slate-800 text-white border-slate-800 shadow-md'
                                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                     }`}
@@ -492,7 +492,7 @@ const TechnicianView: React.FC<TechnicianViewProps> = ({ repairs, setRepairs, te
                                 <button
                                     key={skill}
                                     onClick={() => setSelectedSkill(skill === selectedSkill ? null : skill)}
-                                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${selectedSkill === skill
+                                    className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all border ${selectedSkill === skill
                                         ? 'bg-blue-600 text-white border-blue-600 shadow-md'
                                         : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                         }`}

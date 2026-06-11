@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import PhotoUpload from './PhotoUpload';
 import ReactDOM from 'react-dom';
 import ReactDOMServer from 'react-dom/server';
 import type { IncidentInvestigationReport, Vehicle, InsuranceClaim, CargoInsuranceClaim, Driver } from '../types';
@@ -135,13 +134,6 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
         preventiveActions: [],
         recommendations: [],
         investigationTeam: [],
-
-        evidence: {
-            accidentPhotos: [],
-            skidMarkPhotos: [],
-            transportManifest: [],
-            gpsData: [],
-        },
 
         siteConditions: {},
         managementReview: {
@@ -300,8 +292,8 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
     };
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-2 sm:p-4" onClick={onClose}>
+            <div className="bg-white rounded-[2rem] shadow-2xl w-[95vw] max-w-6xl max-h-[95vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
                 <div className="p-4 sm:p-6 border-b border-gray-100 bg-gradient-to-r from-red-50 to-orange-50 flex-shrink-0 space-y-3">
@@ -347,7 +339,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Section 1: Date/Time/Title */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">1. วันที่เกิดเหตุ & ข้อมูลเบื้องต้น</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">วันที่ (Date)</label>
                                             <input type="date" value={formData.incidentDate} onChange={e => setFormData({ ...formData, incidentDate: e.target.value })} className="w-full form-input" required title="วันที่เกิดเหตุ" aria-label="วันที่เกิดเหตุ" />
@@ -388,7 +380,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Section 2: Type of Incident Checklist */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">ประเภทของอุบัติเหตุ (Type of Incident)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <label className="flex items-center gap-2 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer">
                                             <input type="checkbox" checked={formData.incidentType?.injuryFatality} onChange={e => updateIncidentType('injuryFatality', e.target.checked)} className="text-red-600 rounded focus:ring-red-500" />
                                             <span className="font-medium text-slate-700">บาดเจ็บ / เสียชีวิต</span>
@@ -419,7 +411,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Section 3: Driver & Vehicle */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">3. ผู้ประสบเหตุ / พนักงานขับรถ & ยานพาหนะ</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         <div ref={driverSuggestionsRef} className="relative">
                                             <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อพนักงานขับรถ (Driver Name)</label>
                                             <div className="relative">
@@ -550,7 +542,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Notification */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">5.1 การติดต่อผู้เกี่ยวข้อง (Notification)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <input
                                             type="text"
                                             placeholder="ผู้บังคับบัญชา (Line Management)"
@@ -596,57 +588,25 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                     </div>
                                 </div>
 
-                                {/* Evidences (Uploads) */}
+                                {/* Evidences (Mock Uploads) */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">5.2 หลักฐาน (Evidences)</h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
-                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปที่เกิดเหตุ</p>
-                                            <PhotoUpload
-                                                photos={formData.evidence?.accidentPhotos || []}
-                                                onChange={(photos) => setFormData(prev => ({
-                                                    ...prev,
-                                                    evidence: { ...prev.evidence, accidentPhotos: photos }
-                                                }))}
-                                                entity="incident-investigation"
-                                                entityId={formData.reportNo || 'new'}
-                                            />
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
+                                            <span className="text-2xl">📸</span>
+                                            <span className="text-xs mt-2">รูปที่เกิดเหตุ</span>
                                         </div>
-                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
-                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> รูปแนวเบรก</p>
-                                            <PhotoUpload
-                                                photos={formData.evidence?.skidMarkPhotos || []}
-                                                onChange={(photos) => setFormData(prev => ({
-                                                    ...prev,
-                                                    evidence: { ...prev.evidence, skidMarkPhotos: photos }
-                                                }))}
-                                                entity="incident-investigation"
-                                                entityId={(formData.reportNo || 'new') + '-skid'}
-                                            />
+                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
+                                            <span className="text-2xl">🛣️</span>
+                                            <span className="text-xs mt-2">รูปแนวเบรก</span>
                                         </div>
-                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
-                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> ใบกำกับขนส่ง</p>
-                                            <PhotoUpload
-                                                photos={formData.evidence?.transportManifest || []}
-                                                onChange={(photos) => setFormData(prev => ({
-                                                    ...prev,
-                                                    evidence: { ...prev.evidence, transportManifest: photos }
-                                                }))}
-                                                entity="incident-investigation"
-                                                entityId={(formData.reportNo || 'new') + '-docs'}
-                                            />
+                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
+                                            <span className="text-2xl">📄</span>
+                                            <span className="text-xs mt-2">ใบกำกับขนส่ง</span>
                                         </div>
-                                        <div className="p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
-                                            <p className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"> กราฟ GPS</p>
-                                            <PhotoUpload
-                                                photos={formData.evidence?.gpsData || []}
-                                                onChange={(photos) => setFormData(prev => ({
-                                                    ...prev,
-                                                    evidence: { ...prev.evidence, gpsData: photos }
-                                                }))}
-                                                entity="incident-investigation"
-                                                entityId={(formData.reportNo || 'new') + '-gps'}
-                                            />
+                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center text-slate-400 hover:bg-slate-50 cursor-pointer h-32">
+                                            <span className="text-2xl">🛰️</span>
+                                            <span className="text-xs mt-2">กราฟ GPS</span>
                                         </div>
                                     </div>
                                 </div>
@@ -654,7 +614,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Drug & Alcohol */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">6. ตรวจหาสารเสพติด/แอลกอฮอล์ (Drug & Alcohol Test)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                                         <div className="p-4 bg-slate-50 rounded-xl space-y-3">
                                             <h5 className="font-bold text-slate-600">🍺 แอลกอฮอล์ (Alcohol)</h5>
                                             <select
@@ -692,7 +652,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Damages List */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">ความเสียหาย (Damages)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                                         {/* Product Damage */}
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">สินค้าเสียหาย (Product)</label>
@@ -1013,7 +973,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* 14.1 Personal Factors */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200">
                                     <h4 className="font-bold text-blue-900 mb-4">14.1 เกิดจากคน (Personal Factors)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {[
                                             'ความรู้ไม่เพียงพอ/ ไม่ชำนาญพอ (Lack of Skill / Knowledge)',
                                             'ฝ่าฝืนกฎหมาย/ข้อบังคับของบริษัท (Violation of rules)',
@@ -1046,7 +1006,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* 14.2 Route */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200">
                                     <h4 className="font-bold text-blue-900 mb-4">14.2 เกิดจากเส้นทางการขนส่ง (Route Hazardous)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {[
                                             'ขาดการประเมินความเสี่ยงเส้นทางการขนส่ง (Lack of Risk Assessment)',
                                             'จุดจอดที่มีอยู่ไม่เหมาะสม (Inadequate Parking Point)',
@@ -1078,7 +1038,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* 14.3 Truck */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200">
                                     <h4 className="font-bold text-blue-900 mb-4">14.3 เกิดจากสภาพรถขนส่ง (Truck Condition)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {[
                                             'รถขนส่งไม่ได้ตามมาตรฐาน (Not Standard)',
                                             'ขาดการตรวจความพร้อมของรถขนส่งก่อนรับผลิตภัณฑ์ (Lack of Daily Inspection)',
@@ -1110,7 +1070,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* 14.4 Environment */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200">
                                     <h4 className="font-bold text-blue-900 mb-4">14.4 เกิดจากสภาพแวดล้อม (Environment)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {[
                                             'ฝนตก / หมอกลง (Rain / Fog)',
                                             'ความมืด / ไม่มีแสงไฟส่องสว่าง (Darkness)',
@@ -1142,7 +1102,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* 14.5 Company Policy (New) */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200">
                                     <h4 className="font-bold text-blue-900 mb-4">14.5 เกิดจากนโยบายบริษัท (Company Policy)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {[
                                             'ชั่วโมงการทำงาน/การพักผ่อนไม่เหมาะสม (Inappropriate Working Hour)',
                                             'ขาดการตรวจสอบการปฏิบัติงาน (Lack of Transportation control)',
@@ -1260,7 +1220,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
 
                                         <div className="p-4 bg-slate-50 rounded-xl space-y-3 border border-slate-100">
                                             <h5 className="font-bold text-slate-600 text-sm">อนุมัติรายงานโดย (Reviewed / Approved by)</h5>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                                 <input type="text" placeholder="ชื่อ-นามสกุล (Name)" value={formData.managementReview?.reviewerName} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewerName: e.target.value } })} className="form-input" />
                                                 <input type="text" placeholder="ตำแหน่ง (Position)" value={formData.managementReview?.reviewerPosition || ''} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewerPosition: e.target.value } })} className="form-input" />
                                                 <input type="text" placeholder="บริษัท (Company)" value={formData.managementReview?.reviewerCompany || ''} onChange={e => setFormData({ ...formData, managementReview: { ...formData.managementReview!, reviewerCompany: e.target.value } })} className="form-input" />
@@ -1288,7 +1248,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                 {/* Site Conditions */}
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
                                     <h4 className="font-bold text-slate-800 border-b pb-2">สภาพแวดล้อมที่เกิดเหตุ (Site Conditions)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">สภาพผิวถนน</label>
                                             <select
@@ -1381,7 +1341,7 @@ const AddIncidentInvestigationModal: React.FC<AddIncidentInvestigationModalProps
                                     <h4 className="text-lg font-bold text-blue-900 flex items-center gap-2 mb-4">
                                         🔗 ความเชื่อมโยงกับการเคลมประกัน (Linked Claims)
                                     </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-2">ใบเคลมประกันรถยนต์ (Vehicle Claim)</label>
                                             <select
