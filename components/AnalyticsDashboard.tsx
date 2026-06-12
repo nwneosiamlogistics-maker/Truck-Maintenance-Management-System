@@ -36,7 +36,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
         switch (activeTab) {
             case 'fleet': return <FleetKPIDashboard {...props} />;
             case 'reports': return <Reports {...props} />;
-            case 'vehicle-expense': return <VehicleExpenseReport repairs={props.repairs} vehicles={props.vehicles} />;
+            case 'vehicle-expense': return <VehicleExpenseReport repairs={props.repairs} vehicles={props.vehicles} technicians={props.technicians} />;
             case 'kpi': return <KPIDashboard {...props} />;
             case 'stock-history': return <StockHistory {...props} />;
             case 'used-parts': return <UsedPartReport usedParts={props.usedParts} deleteUsedPartDisposition={props.deleteUsedPartDisposition} />;

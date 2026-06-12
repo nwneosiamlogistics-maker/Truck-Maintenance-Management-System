@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Repair, Vehicle } from '../types';
+import type { Repair, Vehicle, Technician } from '../types';
 import { formatHoursToHHMM, formatCurrency } from '../utils';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,6 +10,7 @@ import { TrendingUp, Clock, DollarSign, Activity, AlertCircle, Award } from 'luc
 interface KPIDashboardProps {
     repairs: Repair[];
     vehicles: Vehicle[];
+    technicians?: Technician[];
 }
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#f43f5e'];
@@ -104,8 +105,24 @@ const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
     return null;
 };
 
-const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
+const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles, technicians = [] }) => {
     const kpiData = useMemo(() => {
+        // แผนที่ ID ช่าง → ชื่อ
+        const techMap = new Map<string, string>();
+        (Array.isArray(technicians) ? technicians : []).forEach(t => techMap.set(t.id, t.name));
+        const getTechNames = (r: Repair): string[] => {
+            const names: string[] = [];
+            if (r.assignedTechnicianId) {
+                const n = techMap.get(r.assignedTechnicianId);
+                if (n) names.push(n);
+            }
+            (r.assistantTechnicianIds || []).forEach(id => {
+                const n = techMap.get(id);
+                if (n) names.push(n);
+            });
+            if (r.externalTechnicianName) names.push(`${r.externalTechnicianName} (ภายนอก)`);
+            return names;
+        };
         const completedRepairs = (Array.isArray(repairs) ? repairs : []).filter(
             r => r.status === 'ซ่อมเสร็จ' && r.repairStartDate && r.repairEndDate && r.createdAt
         );
@@ -155,46 +172,147 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
             .map(([plate, cost]) => ({ name: plate, value: cost }))
             .sort((a, b) => b.value - a.value).slice(0, 5);
 
-        // --- Rework Logic ---
-        const areProblemsSimilar = (desc1: string, desc2: string): boolean => {
-            if (!desc1 || !desc2) return false;
-            const normalize = (str: string) => str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").replace(/\s+/g, ' ').split(' ').filter(w => w.length > 2);
-            const words1 = new Set(normalize(desc1));
-            const words2 = new Set(normalize(desc2));
-            const intersection = new Set([...words1].filter(x => words2.has(x)));
-            const union = new Set([...words1, ...words2]);
-            return union.size > 0 && (intersection.size / union.size) > 0.4;
+        // --- Rework Logic (จับซ่อมซ้ำตามระบบจริงจากคีย์เวิร์ด, ตัดงาน PM/บำรุงตามแผนออก) ---
+        // ระบุงาน PM / ซ่อมบำรุงตามแผน เพื่อตัดออก (ไม่ใช่การซ่อมซ้ำจากของเสีย)
+        const isPlannedMaintenance = (r: Repair): boolean => {
+            const desc = (r.problemDescription || '').trim();
+            return r.reportedBy === 'ระบบแผนซ่อมบำรุง' || desc.startsWith('ซ่อมบำรุงตามแผน');
         };
 
-        const reworkList: { plate: string, clusters: { description: string, count: number }[] }[] = [];
-        const repairsByVehicleForRework = allRepairs.reduce((acc: Record<string, Repair[]>, r) => {
+        // จำแนก "ระบบ" ที่ซ่อมจริง จากคีย์เวิร์ดในหมวดงาน + อาการ + ชื่ออะไหล่ (1 ใบอาจพบหลายระบบ)
+        const SYSTEM_KEYWORDS: { system: string, keywords: string[] }[] = [
+            { system: '🛑 ระบบเบรก', keywords: ['เบรค', 'เบรก', 'ดิสเบรก', 'ดรัมเบรก', 'ลูกสูบเบรก'] },
+            { system: '🔧 เครื่องยนต์', keywords: ['เครื่องยนต์', 'น้ำมันเครื่อง', 'เทอร์โบ', 'หม้อน้ำ', 'สตาร์ทไม่ติด', 'ปะเก็น', 'ลูกสูบ', 'วาล์ว', 'ปั๊มน้ำ', 'สายพาน', 'กรองอากาศ', 'กรองโซล่า', 'หัวฉีด', 'แคร้ง'] },
+            { system: '🔩 ช่วงล่าง', keywords: ['ช่วงล่าง', 'โช้ค', 'โช๊ค', 'แหนบ', 'ลูกหมาก', 'บุชยาง', 'คันชัก', 'ปีกนก', 'ยูโบลท์', 'คานหน้า'] },
+            { system: '⚡ ระบบไฟฟ้า', keywords: ['แบตเตอรี่', 'แบต', 'ไดชาร์จ', 'ไดสตาร์ท', 'สายไฟ', 'ไฟหน้า', 'ไฟท้าย', 'ไฟเลี้ยว', 'ฟิวส์', 'รีเลย์', 'หลอดไฟ'] },
+            { system: '⚙️ ระบบส่งกำลัง', keywords: ['เกียร์', 'คลัตช์', 'คลัช', 'ครัช', 'เพลา', 'เฟืองท้าย', 'pto', 'ลูกปืน'] },
+            { system: '🛞 ยาง/ล้อ', keywords: ['ยาง', 'ลมยาง', 'ปะยาง', 'สลับยาง', 'กระทะล้อ', 'ดุมล้อ'] },
+            { system: '❄️ ระบบแอร์', keywords: ['แอร์', 'น้ำยาแอร์', 'คอมแอร์', 'คอมเพรสเซอร์', 'คอนเดนเซอร์', 'ตู้แอร์', 'r134'] },
+            { system: '🚛 หางลาก/ตัวถัง', keywords: ['หาง', 'คิงพิน', 'ขาช้าง', 'ตัวถัง', 'ประตู', 'ผ้าใบ', 'กระบะ', 'คอก', 'เพลาหาง'] },
+        ];
+        const detectSystems = (r: Repair): string[] => {
+            const haystack = [
+                r.repairCategory || '',
+                r.problemDescription || '',
+                ...(r.parts || []).map(p => p.name || '')
+            ].join(' ').toLowerCase();
+            const found = SYSTEM_KEYWORDS
+                .filter(s => s.keywords.some(k => haystack.includes(k.toLowerCase())))
+                .map(s => s.system);
+            return found.length > 0 ? found : ['🔧 อื่นๆ/ทั่วไป'];
+        };
+
+        // normalize อาการ: ตัดสัญลักษณ์นำหน้า (- • เว้นวรรค) + ยุบช่องว่าง
+        const normalizeProblem = (desc: string): string =>
+            (desc || '').replace(/^[\s\-–—•.]+/, '').replace(/\s+/g, ' ').trim();
+        // คีย์เทียบอาการ (ตัดช่องว่าง + ตัวพิมพ์เล็ก เพื่อรวม "ตรวจเช็ค ลมยาง" = "ตรวจเช็คลมยาง")
+        const problemKey = (desc: string): string =>
+            normalizeProblem(desc).toLowerCase().replace(/\s+/g, '');
+
+        // งานบำรุง/ตรวจเช็คประจำ (routine) — ไม่ใช่ "อาการเสียกลับมาซ้ำ" จึงตัดออก
+        const isRoutineWork = (desc: string): boolean => {
+            const d = normalizeProblem(desc);
+            if (!d) return false;
+            const routinePrefixes = ['ตรวจเช็ค', 'ตรวจเชค', 'เช็ค', 'เช็ก', 'เติม'];
+            if (routinePrefixes.some(p => d.startsWith(p))) return true;
+            if (d.includes('เปลี่ยนถ่าย') || d.includes('ถ่ายน้ำมัน')) return true;
+            return false;
+        };
+
+        const reworkRepairs = allRepairs.filter(r => !isPlannedMaintenance(r) && !isRoutineWork(r.problemDescription || ''));
+        const repairsByVehicleForRework = reworkRepairs.reduce((acc: Record<string, Repair[]>, r) => {
             if (!acc[r.licensePlate]) acc[r.licensePlate] = [];
             acc[r.licensePlate].push(r);
             return acc;
         }, {});
 
-        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, any]) => {
-            if (vehicleRepairs.length > 1) {
-                let remaining = [...vehicleRepairs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                const clusters: any[] = [];
-                while (remaining.length > 0) {
-                    const current = remaining[0];
-                    remaining = remaining.slice(1);
-                    const group = [current];
-                    const nextRemaining: any[] = [];
-                    for (const r of remaining) {
-                        if (areProblemsSimilar(current.problemDescription, r.problemDescription)) group.push(r);
-                        else nextRemaining.push(r);
-                    }
-                    if (group.length > 1) clusters.push({ description: current.problemDescription, count: group.length });
-                    remaining = nextRemaining;
-                }
-                if (clusters.length > 0) reworkList.push({ plate, clusters });
-            }
+        // สถิติรายช่าง (ซ่อมซ้ำกี่ครั้ง / อาการ@ทะเบียนใดบ้าง / กี่คัน)
+        const techReworkStats = new Map<string, { reworkJobs: number, pairCounts: Map<string, { problem: string, plate: string, count: number }>, vehicles: Set<string> }>();
+
+        const reworkList: { plate: string, problems: { problem: string, system: string, count: number, technicians: string[], items: { date: string, description: string, repairOrderNo: string, technicians: string }[] }[] }[] = [];
+        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, Repair[]]) => {
+            // จัดกลุ่มตาม "อาการที่เสีย" (problemDescription ที่ normalize แล้ว)
+            const byProblem: Record<string, { display: string, repairs: Repair[] }> = {};
+            vehicleRepairs.forEach(r => {
+                const display = normalizeProblem(r.problemDescription || '');
+                const key = problemKey(r.problemDescription || '');
+                if (!key) return; // ข้ามใบที่ไม่มีอาการ
+                if (!byProblem[key]) byProblem[key] = { display, repairs: [] };
+                byProblem[key].repairs.push(r);
+            });
+
+            // อาการที่ซ่อม > 1 ครั้ง = ซ่อมซ้ำ
+            const problems = Object.values(byProblem)
+                .filter(p => p.repairs.length > 1)
+                .map(({ display, repairs: rs }) => {
+                    const techSet = new Set<string>();
+                    rs.forEach(r => {
+                        getTechNames(r).forEach(n => {
+                            techSet.add(n);
+                            // สะสมสถิติช่าง (ผูกอาการกับทะเบียนรถ)
+                            const e = techReworkStats.get(n) || { reworkJobs: 0, pairCounts: new Map<string, { problem: string, plate: string, count: number }>(), vehicles: new Set<string>() };
+                            e.reworkJobs += 1;
+                            const pkey = `${plate}||${display}`;
+                            const cur = e.pairCounts.get(pkey) || { problem: display, plate, count: 0 };
+                            cur.count += 1;
+                            e.pairCounts.set(pkey, cur);
+                            e.vehicles.add(plate);
+                            techReworkStats.set(n, e);
+                        });
+                    });
+                    // รายละเอียดการซ่อมแต่ละครั้ง (เรียงตามวันที่ เก่า→ใหม่)
+                    const items = [...rs]
+                        .sort((a, b) => new Date(a.repairEndDate || a.createdAt).getTime() - new Date(b.repairEndDate || b.createdAt).getTime())
+                        .map(r => ({
+                            date: r.repairEndDate || r.createdAt,
+                            description: (r.problemDescription || '').trim() || '-',
+                            repairOrderNo: r.repairOrderNo || '-',
+                            technicians: getTechNames(r).join(', ') || 'ไม่ระบุช่าง',
+                        }));
+                    return { problem: display, system: detectSystems(rs[0])[0], count: rs.length, technicians: Array.from(techSet), items };
+                })
+                .sort((a, b) => b.count - a.count);
+
+            if (problems.length > 0) reworkList.push({ plate, problems });
         });
 
-        return { mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost, vehicleDowntime, mostRepairedVehicles, mostExpensiveVehicles, reworkList };
-    }, [repairs]);
+        const techReworkSummary = Array.from(techReworkStats.entries())
+            .map(([name, e]) => ({
+                name,
+                reworkJobs: e.reworkJobs,
+                vehiclesCount: e.vehicles.size,
+                problemBreakdown: Array.from(e.pairCounts.values())
+                    .sort((a, b) => b.count - a.count),
+            }))
+            .sort((a, b) => b.reworkJobs - a.reworkJobs);
+
+        // --- มุมมองที่ 2: ซ่อมซ้ำตาม "ระบบ" (รวมทุกอาการในระบบเดียวกัน — จับเบรก/เครื่องที่เขียนข้อความต่างกัน) ---
+        const reworkBySystemList: { plate: string, system: string, count: number, technicians: string[], problems: string[] }[] = [];
+        Object.entries(repairsByVehicleForRework).forEach(([plate, vehicleRepairs]: [string, Repair[]]) => {
+            const bySystem: Record<string, Repair[]> = {};
+            vehicleRepairs.forEach(r => {
+                detectSystems(r).forEach(sys => {
+                    if (!bySystem[sys]) bySystem[sys] = [];
+                    bySystem[sys].push(r);
+                });
+            });
+            Object.entries(bySystem)
+                .filter(([, rs]) => rs.length > 1)
+                .forEach(([system, rs]) => {
+                    const techSet = new Set<string>();
+                    const problemSet = new Set<string>();
+                    rs.forEach(r => {
+                        getTechNames(r).forEach(n => techSet.add(n));
+                        const p = normalizeProblem(r.problemDescription || '');
+                        if (p) problemSet.add(p);
+                    });
+                    reworkBySystemList.push({ plate, system, count: rs.length, technicians: Array.from(techSet), problems: Array.from(problemSet) });
+                });
+        });
+        reworkBySystemList.sort((a, b) => b.count - a.count);
+
+        return { mttr: mttrHours, avgDowntime: avgDowntimeHours, avgCost, vehicleDowntime, mostRepairedVehicles, mostExpensiveVehicles, reworkList, reworkBySystemList, techReworkSummary };
+    }, [repairs, technicians]);
 
     return (
         <div className="space-y-6 sm:space-y-8 lg:space-y-12 animate-fade-in-up pb-8 sm:pb-12">
@@ -280,30 +398,93 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                     </ResponsiveContainer>
                 </Card>
 
-                {/* Rework Detailed Report */}
-                <Card title="รายงานการซ่อมซ้ำ" className="col-span-1 lg:col-span-3 min-h-[300px] sm:min-h-[400px] lg:min-h-[600px]" delay="delay-800">
+                {/* Rework by System — ภาพรวม */}
+                <Card title="ภาพรวมซ่อมซ้ำตามระบบ (รวมทุกอาการในระบบเดียวกัน)" className="col-span-1 lg:col-span-3 min-h-[300px] sm:min-h-[400px]" delay="delay-750">
+                    {kpiData.reworkBySystemList.length > 0 ? (
+                        <div className="overflow-x-auto custom-scrollbar h-full">
+                            <table className="w-full text-left">
+                                <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10">
+                                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                        <th className="py-5 px-4">ทะเบียนรถ</th>
+                                        <th className="py-5 px-4">ระบบที่ซ่อมซ้ำ</th>
+                                        <th className="py-5 px-4 min-w-[260px]">อาการที่พบในระบบนี้</th>
+                                        <th className="py-5 px-4">ช่างผู้ซ่อม</th>
+                                        <th className="py-5 px-4 text-center">ความถี่</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {kpiData.reworkBySystemList.map((s, i) => (
+                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="py-5 px-4 font-black text-slate-900 text-sm align-top">{s.plate}</td>
+                                            <td className="py-5 px-4 align-top whitespace-nowrap">
+                                                <span className="text-slate-700 text-xs font-black">{s.system}</span>
+                                            </td>
+                                            <td className="py-5 px-4 align-top">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {s.problems.map((p, pi) => (
+                                                        <span key={pi} className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-100 rounded px-2 py-0.5">{p}</span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-4 text-[11px] font-bold text-slate-500 align-top">{s.technicians.length > 0 ? s.technicians.join(', ') : 'ไม่ระบุช่าง'}</td>
+                                            <td className="py-5 px-4 text-center align-top">
+                                                <span className="bg-orange-50 text-orange-600 px-4 py-2 rounded-full font-black text-xs shadow-sm border border-orange-100 whitespace-nowrap">{s.count} ครั้ง</span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-300">
+                            <Award size={60} className="mb-4 opacity-20" />
+                            <p className="font-black uppercase tracking-widest text-[11px]">ไม่พบระบบที่ซ่อมซ้ำ</p>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Rework Detailed Report — ตามอาการ */}
+                <Card title="รายงานการซ่อมซ้ำ (เจาะตามอาการ — ไม่รวมงานบำรุง/ตรวจเช็ค)" className="col-span-1 lg:col-span-3 min-h-[300px] sm:min-h-[400px] lg:min-h-[600px]" delay="delay-800">
                     {kpiData.reworkList.length > 0 ? (
                         <div className="overflow-x-auto custom-scrollbar h-full">
                             <table className="w-full text-left">
                                 <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10">
                                     <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
                                         <th className="py-6 px-4">ทะเบียนรถ (License Plate)</th>
-                                        <th className="py-6 px-4">อาการที่พบปัญหาเดิม (Recurrent Problem)</th>
+                                        <th className="py-6 px-4 min-w-[180px]">อาการที่ซ่อมซ้ำ (Recurrent Problem)</th>
+                                        <th className="py-6 px-4 min-w-[300px]">รายละเอียดการซ่อมแต่ละครั้ง (วันที่ + ช่าง)</th>
                                         <th className="py-6 px-4 text-center">ความถี่ (Freq)</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {kpiData.reworkList.flatMap((item, i) =>
-                                        item.clusters.map((cluster, ci) => (
-                                            <tr key={`${i}-${ci}`} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="py-6 px-4 font-black text-slate-900 text-sm">{ci === 0 ? item.plate : ''}</td>
-                                                <td className="py-6 px-4 text-slate-600 text-xs font-bold flex items-center gap-3">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0"></div>
-                                                    {cluster.description}
+                                        item.problems.map((p, si) => (
+                                            <tr key={`${i}-${si}`} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="py-6 px-4 font-black text-slate-900 text-sm align-top">{si === 0 ? item.plate : ''}</td>
+                                                <td className="py-6 px-4 align-top">
+                                                    <div className="flex items-start gap-2.5">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0 mt-1.5"></div>
+                                                        <div>
+                                                            <p className="text-slate-800 text-xs font-black leading-snug">{p.problem}</p>
+                                                            <span className="inline-block mt-1 text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md whitespace-nowrap">{p.system}</span>
+                                                        </div>
+                                                    </div>
                                                 </td>
-                                                <td className="py-6 px-4 text-center">
-                                                    <span className="bg-red-50 text-red-600 px-4 py-2 rounded-full font-black text-xs shadow-sm border border-red-100">
-                                                        {cluster.count} ครั้ง
+                                                <td className="py-4 px-4 align-top">
+                                                    <div className="space-y-2">
+                                                        {p.items.map((it, ii) => (
+                                                            <div key={ii} className="flex items-center gap-2.5 border-l-2 border-slate-100 pl-3">
+                                                                <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md whitespace-nowrap shrink-0">
+                                                                    {new Date(it.date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                </span>
+                                                                <p className="text-[10px] font-bold text-slate-500 leading-snug">ช่าง: {it.technicians} · {it.repairOrderNo}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="py-6 px-4 text-center align-top">
+                                                    <span className="bg-red-50 text-red-600 px-4 py-2 rounded-full font-black text-xs shadow-sm border border-red-100 whitespace-nowrap">
+                                                        {p.count} ครั้ง
                                                     </span>
                                                 </td>
                                             </tr>
@@ -316,6 +497,63 @@ const KPIDashboard: React.FC<KPIDashboardProps> = ({ repairs, vehicles }) => {
                         <div className="flex flex-col items-center justify-center h-full text-slate-300">
                             <Award size={60} className="mb-4 opacity-20" />
                             <p className="font-black uppercase tracking-widest text-[11px]">ไม่พบข้อมูลการซ่อมซ้ำ (Excellent Integrity)</p>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Technician Rework Summary */}
+                <Card title="สรุปประสิทธิภาพช่าง (เกี่ยวข้องกับงานซ่อมซ้ำ)" className="col-span-1 lg:col-span-3 min-h-[300px] sm:min-h-[400px]" delay="delay-900">
+                    {kpiData.techReworkSummary.length > 0 ? (
+                        <div className="overflow-x-auto custom-scrollbar h-full">
+                            <table className="w-full text-left">
+                                <thead className="sticky top-0 bg-white/80 backdrop-blur-md z-10">
+                                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                        <th className="py-5 px-4">ช่าง (Technician)</th>
+                                        <th className="py-5 px-4 text-center">งานซ่อมซ้ำ (Rework Jobs)</th>
+                                        <th className="py-5 px-4 min-w-[340px]">อาการที่เกี่ยวข้อง (อาการ + จำนวนครั้ง)</th>
+                                        <th className="py-5 px-4 text-center">จำนวนรถ</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {kpiData.techReworkSummary.map((t, i) => (
+                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="py-5 px-4 align-top">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-600 font-black text-xs shadow-sm shrink-0">
+                                                        {t.name.substring(0, 1)}
+                                                    </div>
+                                                    <span className="font-black text-slate-800 text-sm">{t.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-4 text-center align-top">
+                                                <span className={`px-4 py-2 rounded-full font-black text-xs shadow-sm border whitespace-nowrap ${t.reworkJobs >= 5 ? 'bg-red-50 text-red-600 border-red-100' : t.reworkJobs >= 3 ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
+                                                    {t.reworkJobs} ครั้ง
+                                                </span>
+                                            </td>
+                                            <td className="py-5 px-4 align-top">
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {t.problemBreakdown.map((pb, pi) => (
+                                                        <span key={pi} className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                                                            <span className="text-slate-700">{pb.problem}</span>
+                                                            <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 rounded">{pb.plate}</span>
+                                                            <span className="bg-red-100 text-red-600 font-black px-1.5 rounded-md text-[9px]">×{pb.count}</span>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-4 text-center text-sm font-black text-slate-600 align-top">{t.vehiclesCount} คัน</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <p className="text-[10px] font-bold text-slate-400 mt-4 px-4 leading-relaxed">
+                                * นับจำนวนใบซ่อมในระบบที่เกิดซ่อมซ้ำที่ช่างแต่ละคนรับผิดชอบ — ตัวเลขสูงควรตรวจสอบเพิ่มเติม (อาจเกิดจากงานยาก/รถเก่า ไม่ใช่ความผิดช่างเสมอไป)
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-300">
+                            <Award size={60} className="mb-4 opacity-20" />
+                            <p className="font-black uppercase tracking-widest text-[11px]">ไม่มีข้อมูลช่างที่เกี่ยวข้องกับงานซ่อมซ้ำ</p>
                         </div>
                     )}
                 </Card>

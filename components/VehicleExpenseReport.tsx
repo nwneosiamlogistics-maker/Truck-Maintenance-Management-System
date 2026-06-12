@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Repair, Vehicle } from '../types';
+import type { Repair, Vehicle, Technician } from '../types';
 import { formatCurrency } from '../utils';
 import {
     Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -13,6 +13,7 @@ import type { XLSXSheet } from '../utils/exportUtils';
 interface VehicleExpenseReportProps {
     repairs: Repair[];
     vehicles: Vehicle[];
+    technicians?: Technician[];
 }
 
 interface MonthlyTotal {
@@ -85,10 +86,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 // --- Main Component ---
-const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, vehicles }) => {
+const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, vehicles, technicians = [] }) => {
     const currentYear = new Date().getFullYear();
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
+    const [expandedVehicle, setExpandedVehicle] = useState<string | null>(null);
     const [sortField, setSortField] = useState<'totalCost' | 'repairCount' | 'licensePlate'>('totalCost');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -246,6 +248,88 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
         }
     };
 
+    // รวมยอดรายการอะไหล่ของรถ 1 คัน (group ตามชื่อ + แหล่งที่มา)
+    interface PartBreakdownRow {
+        name: string;
+        source: 'สต็อกอู่' | 'ร้านค้า';
+        unit: string;
+        quantity: number;
+        totalPrice: number;
+        avgPrice: number;
+        suppliers: string[];
+        orders: string[];
+    }
+    const getVehiclePartsBreakdown = (detail: VehicleMonthlyDetail): PartBreakdownRow[] => {
+        const map = new Map<string, { name: string; source: 'สต็อกอู่' | 'ร้านค้า'; unit: string; quantity: number; totalPrice: number; suppliers: Set<string>; orders: Set<string>; }>();
+        detail.repairs.forEach(r => {
+            (r.parts || []).forEach(p => {
+                const source = (p.source === 'สต็อกอู่' ? 'สต็อกอู่' : 'ร้านค้า') as 'สต็อกอู่' | 'ร้านค้า';
+                const key = `${p.name}||${source}`;
+                if (!map.has(key)) {
+                    map.set(key, { name: p.name, source, unit: p.unit || '', quantity: 0, totalPrice: 0, suppliers: new Set(), orders: new Set() });
+                }
+                const e = map.get(key)!;
+                const qty = Number(p.quantity) || 0;
+                e.quantity += qty;
+                e.totalPrice += qty * (Number(p.unitPrice) || 0);
+                if (p.supplierName) e.suppliers.add(p.supplierName);
+                if (r.repairOrderNo) e.orders.add(r.repairOrderNo);
+            });
+        });
+        return Array.from(map.values())
+            .map(e => ({
+                name: e.name,
+                source: e.source,
+                unit: e.unit,
+                quantity: e.quantity,
+                totalPrice: e.totalPrice,
+                avgPrice: e.quantity > 0 ? e.totalPrice / e.quantity : 0,
+                suppliers: Array.from(e.suppliers),
+                orders: Array.from(e.orders),
+            }))
+            .sort((a, b) => b.totalPrice - a.totalPrice);
+    };
+
+    const toggleVehicle = (plate: string) => {
+        setExpandedVehicle(prev => prev === plate ? null : plate);
+    };
+
+    // แผนที่ ID ช่าง → ชื่อ
+    const techMap = useMemo(() => {
+        const map = new Map<string, string>();
+        (Array.isArray(technicians) ? technicians : []).forEach(t => map.set(t.id, t.name));
+        return map;
+    }, [technicians]);
+
+    // ดึงรายชื่อช่างของใบซ่อม (ช่างหลัก + ผู้ช่วย + ช่างภายนอก)
+    const getLaborTechNames = (r: Repair): string => {
+        const names: string[] = [];
+        if (r.assignedTechnicianId) {
+            const n = techMap.get(r.assignedTechnicianId);
+            if (n) names.push(n);
+        }
+        (r.assistantTechnicianIds || []).forEach(id => {
+            const n = techMap.get(id);
+            if (n) names.push(n);
+        });
+        if (r.externalTechnicianName) names.push(`${r.externalTechnicianName} (ภายนอก)`);
+        return names.length > 0 ? names.join(', ') : 'ไม่ระบุช่าง';
+    };
+
+    // รายการค่าแรงแยกตามใบซ่อม (เฉพาะใบที่มีค่าแรง > 0)
+    const getVehicleLaborRows = (detail: VehicleMonthlyDetail) => {
+        return detail.repairs
+            .filter(r => (Number(r.repairCost) || 0) > 0)
+            .map(r => ({
+                repairOrderNo: r.repairOrderNo || '-',
+                technicians: getLaborTechNames(r),
+                category: r.repairCategory || '',
+                description: r.problemDescription || '',
+                cost: Number(r.repairCost) || 0,
+            }))
+            .sort((a, b) => b.cost - a.cost);
+    };
+
     // Export: selected month
     const handleExportMonth = (month: number) => {
         const details = monthlyVehicleDetails[month] || [];
@@ -267,11 +351,55 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                 'รวมทั้งสิ้น (บาท)': Number(v.totalCost.toFixed(2))
             }));
 
-        exportToXLSX(`ค่าใช้จ่ายรถ_${THAI_MONTHS[month]}_${selectedYear + 543}`, [{
+        // Sheet 2: รายการอะไหล่รายชิ้น (รวมยอดตามชื่อ+แหล่ง ของแต่ละคัน)
+        const partsRows: any[] = [];
+        [...details]
+            .sort((a, b) => b.totalCost - a.totalCost)
+            .forEach(v => {
+                // แถวค่าแรงซ่อม (แยกตามใบซ่อม พร้อมชื่อช่าง)
+                getVehicleLaborRows(v).forEach(lr => {
+                    partsRows.push({
+                        'ทะเบียนรถ': v.licensePlate,
+                        'ประเภทรถ': v.vehicleType,
+                        'ชื่ออะไหล่': `ค่าแรงซ่อม${lr.category ? ` (${lr.category})` : ''}${lr.description ? `: ${lr.description}` : ''}`,
+                        'แหล่ง': 'ค่าแรง',
+                        'ผู้จำหน่าย': `ช่าง: ${lr.technicians}`,
+                        'จำนวน': '',
+                        'หน่วย': '',
+                        'ราคา/หน่วย (บาท)': '',
+                        'รวม (บาท)': Number(lr.cost.toFixed(2)),
+                        'ใบซ่อม': lr.repairOrderNo
+                    });
+                });
+                getVehiclePartsBreakdown(v).forEach(p => {
+                    partsRows.push({
+                        'ทะเบียนรถ': v.licensePlate,
+                        'ประเภทรถ': v.vehicleType,
+                        'ชื่ออะไหล่': p.name,
+                        'แหล่ง': p.source,
+                        'ผู้จำหน่าย': p.suppliers.join(', '),
+                        'จำนวน': p.quantity,
+                        'หน่วย': p.unit,
+                        'ราคา/หน่วย (บาท)': Number(p.avgPrice.toFixed(2)),
+                        'รวม (บาท)': Number(p.totalPrice.toFixed(2)),
+                        'ใบซ่อม': p.orders.join(', ')
+                    });
+                });
+            });
+
+        const sheets: XLSXSheet[] = [{
             sheetName: monthName,
             data: rows,
             columnWidths: [6, 16, 18, 14, 16, 16, 18, 18, 14, 18]
-        }]);
+        }];
+        if (partsRows.length > 0) {
+            sheets.push({
+                sheetName: `รายการอะไหล่`,
+                data: partsRows,
+                columnWidths: [16, 18, 28, 12, 22, 10, 10, 16, 16, 20]
+            });
+        }
+        exportToXLSX(`ค่าใช้จ่ายรถ_${THAI_MONTHS[month]}_${selectedYear + 543}`, sheets);
     };
 
     // Export: full year (separate sheet per month)
@@ -309,6 +437,53 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
             data: summaryRows,
             columnWidths: [6, 22, 14, 16, 16, 18, 18, 14, 18]
         });
+
+        // Sheet: รายการอะไหล่ทั้งปี (รวมทุกเดือน/ทุกคัน)
+        const allPartsRows: any[] = [];
+        for (let mm = 0; mm < 12; mm++) {
+            const details = monthlyVehicleDetails[mm] || [];
+            [...details]
+                .sort((a, b) => b.totalCost - a.totalCost)
+                .forEach(v => {
+                    getVehicleLaborRows(v).forEach(lr => {
+                        allPartsRows.push({
+                            'เดือน': THAI_MONTHS[mm],
+                            'ทะเบียนรถ': v.licensePlate,
+                            'ประเภทรถ': v.vehicleType,
+                            'ชื่ออะไหล่': `ค่าแรงซ่อม${lr.category ? ` (${lr.category})` : ''}${lr.description ? `: ${lr.description}` : ''}`,
+                            'แหล่ง': 'ค่าแรง',
+                            'ผู้จำหน่าย': `ช่าง: ${lr.technicians}`,
+                            'จำนวน': '',
+                            'หน่วย': '',
+                            'ราคา/หน่วย (บาท)': '',
+                            'รวม (บาท)': Number(lr.cost.toFixed(2)),
+                            'ใบซ่อม': lr.repairOrderNo
+                        });
+                    });
+                    getVehiclePartsBreakdown(v).forEach(p => {
+                        allPartsRows.push({
+                            'เดือน': THAI_MONTHS[mm],
+                            'ทะเบียนรถ': v.licensePlate,
+                            'ประเภทรถ': v.vehicleType,
+                            'ชื่ออะไหล่': p.name,
+                            'แหล่ง': p.source,
+                            'ผู้จำหน่าย': p.suppliers.join(', '),
+                            'จำนวน': p.quantity,
+                            'หน่วย': p.unit,
+                            'ราคา/หน่วย (บาท)': Number(p.avgPrice.toFixed(2)),
+                            'รวม (บาท)': Number(p.totalPrice.toFixed(2)),
+                            'ใบซ่อม': p.orders.join(', ')
+                        });
+                    });
+                });
+        }
+        if (allPartsRows.length > 0) {
+            sheets.push({
+                sheetName: `รายการอะไหล่ทั้งปี`,
+                data: allPartsRows,
+                columnWidths: [12, 16, 18, 28, 12, 22, 10, 10, 16, 16, 20]
+            });
+        }
 
         // Per-month sheets
         for (let m = 0; m < 12; m++) {
@@ -598,10 +773,21 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
-                                                                {sortedVehicleDetails.map((v, idx) => (
-                                                                    <tr key={v.licensePlate} className="hover:bg-emerald-50/50 transition-colors">
+                                                                {sortedVehicleDetails.map((v, idx) => {
+                                                                    const isVehicleOpen = expandedVehicle === v.licensePlate;
+                                                                    const partRows = isVehicleOpen ? getVehiclePartsBreakdown(v) : [];
+                                                                    return (
+                                                                    <React.Fragment key={v.licensePlate}>
+                                                                    <tr onClick={() => toggleVehicle(v.licensePlate)} className={`cursor-pointer transition-colors ${isVehicleOpen ? 'bg-emerald-50' : 'hover:bg-emerald-50/50'}`}>
                                                                         <td className="px-6 py-3.5 text-sm text-slate-400 font-bold">{idx + 1}</td>
-                                                                        <td className="px-6 py-3.5 text-sm font-black text-slate-800">{v.licensePlate}</td>
+                                                                        <td className="px-6 py-3.5">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className={`inline-flex items-center justify-center w-5 h-5 rounded-md transition-all ${isVehicleOpen ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                                                    {isVehicleOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                                                                                </span>
+                                                                                <span className="text-sm font-black text-slate-800">{v.licensePlate}</span>
+                                                                            </div>
+                                                                        </td>
                                                                         <td className="px-6 py-3.5">
                                                                             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">{v.vehicleType}</span>
                                                                         </td>
@@ -615,7 +801,75 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                                                         <td className="px-6 py-3.5 text-right text-sm font-bold text-purple-600 tabular-nums">{formatCurrency(v.vatCost)}</td>
                                                                         <td className="px-6 py-3.5 text-right text-sm font-black text-slate-900 tabular-nums">฿{formatCurrency(v.totalCost)}</td>
                                                                     </tr>
-                                                                ))}
+                                                                    {isVehicleOpen && (
+                                                                        <tr>
+                                                                            <td colSpan={10} className="px-0 py-0 bg-slate-50/60">
+                                                                                <div className="px-6 py-4 animate-fade-in-up">
+                                                                                    <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                                                        <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
+                                                                                        รายการอะไหล่ที่ใช้ — {v.licensePlate} ({partRows.length} รายการ)
+                                                                                    </div>
+                                                                                    {(partRows.length > 0 || v.laborCost > 0) ? (
+                                                                                        <table className="min-w-full bg-white rounded-xl overflow-hidden border border-slate-200">
+                                                                                            <thead className="bg-slate-100">
+                                                                                                <tr className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                                                                                                    <th className="px-4 py-2.5 text-left">รายการ</th>
+                                                                                                    <th className="px-4 py-2.5 text-center">แหล่ง</th>
+                                                                                                    <th className="px-4 py-2.5 text-left">ผู้จำหน่าย</th>
+                                                                                                    <th className="px-4 py-2.5 text-center">จำนวน</th>
+                                                                                                    <th className="px-4 py-2.5 text-right">ราคา/หน่วย</th>
+                                                                                                    <th className="px-4 py-2.5 text-right">รวม</th>
+                                                                                                    <th className="px-4 py-2.5 text-left">ใบซ่อม</th>
+                                                                                                </tr>
+                                                                                            </thead>
+                                                                                            <tbody className="divide-y divide-slate-50">
+                                                                                                {getVehicleLaborRows(v).map((lr, li) => (
+                                                                                                    <tr key={`labor-${li}`} className="bg-orange-50/50">
+                                                                                                        <td className="px-4 py-2.5">
+                                                                                                            <div className="flex items-center gap-2">
+                                                                                                                <span className="text-[12px] font-black text-orange-700">🔧 ค่าแรงซ่อม</span>
+                                                                                                                {lr.category && <span className="px-2 py-0.5 rounded-md text-[8px] font-black bg-slate-100 text-slate-500">{lr.category}</span>}
+                                                                                                            </div>
+                                                                                                            {lr.description && <div className="text-[10px] font-bold text-slate-600 mt-0.5 max-w-[280px]">งาน: {lr.description}</div>}
+                                                                                                            <div className="text-[10px] font-bold text-slate-500">ช่าง: {lr.technicians}</div>
+                                                                                                        </td>
+                                                                                                        <td className="px-4 py-2.5 text-center">
+                                                                                                            <span className="px-2.5 py-1 rounded-full text-[9px] font-black bg-orange-100 text-orange-700">ค่าแรง</span>
+                                                                                                        </td>
+                                                                                                        <td className="px-4 py-2.5 text-[11px] font-bold text-slate-400">-</td>
+                                                                                                        <td className="px-4 py-2.5 text-center text-[12px] font-black text-slate-400">-</td>
+                                                                                                        <td className="px-4 py-2.5 text-right text-[12px] font-bold text-slate-400">-</td>
+                                                                                                        <td className="px-4 py-2.5 text-right text-[12px] font-black text-orange-700 tabular-nums">฿{formatCurrency(lr.cost)}</td>
+                                                                                                        <td className="px-4 py-2.5 text-[10px] font-bold text-slate-400">{lr.repairOrderNo}</td>
+                                                                                                    </tr>
+                                                                                                ))}
+                                                                                                {partRows.map((p, pi) => (
+                                                                                                    <tr key={pi} className="hover:bg-slate-50">
+                                                                                                        <td className="px-4 py-2.5 text-[12px] font-bold text-slate-800">{p.name}</td>
+                                                                                                        <td className="px-4 py-2.5 text-center">
+                                                                                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black ${p.source === 'สต็อกอู่' ? 'bg-cyan-100 text-cyan-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                                                                {p.source}
+                                                                                                            </span>
+                                                                                                        </td>
+                                                                                                        <td className="px-4 py-2.5 text-[11px] font-bold text-slate-500">{p.suppliers.length > 0 ? p.suppliers.join(', ') : '-'}</td>
+                                                                                                        <td className="px-4 py-2.5 text-center text-[12px] font-black text-slate-700">{p.quantity} <span className="text-[9px] font-bold text-slate-400">{p.unit}</span></td>
+                                                                                                        <td className="px-4 py-2.5 text-right text-[12px] font-bold text-slate-600 tabular-nums">{formatCurrency(p.avgPrice)}</td>
+                                                                                                        <td className="px-4 py-2.5 text-right text-[12px] font-black text-slate-900 tabular-nums">฿{formatCurrency(p.totalPrice)}</td>
+                                                                                                        <td className="px-4 py-2.5 text-[10px] font-bold text-slate-400">{p.orders.join(', ')}</td>
+                                                                                                    </tr>
+                                                                                                ))}
+                                                                                            </tbody>
+                                                                                        </table>
+                                                                                    ) : (
+                                                                                        <div className="text-[11px] font-bold text-slate-400 py-4 text-center bg-white rounded-xl border border-slate-100">ไม่มีรายการ</div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                    </React.Fragment>
+                                                                    );
+                                                                })}
                                                             </tbody>
                                                             <tfoot className="bg-slate-50 border-t-2 border-slate-200">
                                                                 <tr>
@@ -765,6 +1019,63 @@ const VehicleExpenseReport: React.FC<VehicleExpenseReportProps> = ({ repairs, ve
                                                         <div className="text-[10px] font-black text-amber-700 tabular-nums">{v.partsCostStore > 0 ? formatCurrency(v.partsCostStore) : '-'}</div>
                                                     </div>
                                                 </div>
+
+                                                {/* ปุ่มกางดูรายการอะไหล่ + ค่าแรง */}
+                                                {(v.partsCost > 0 || v.laborCost > 0) && (() => {
+                                                    const isVehicleOpen = expandedVehicle === v.licensePlate;
+                                                    const partRows = isVehicleOpen ? getVehiclePartsBreakdown(v) : [];
+                                                    return (
+                                                        <>
+                                                            <button
+                                                                onClick={() => toggleVehicle(v.licensePlate)}
+                                                                className={`mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isVehicleOpen ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+                                                            >
+                                                                {isVehicleOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                                                รายการ (ค่าแรง+อะไหล่)
+                                                            </button>
+                                                            {isVehicleOpen && (
+                                                                <div className="mt-2 space-y-1.5 animate-fade-in-up">
+                                                                    {getVehicleLaborRows(v).map((lr, li) => (
+                                                                        <div key={`mlabor-${li}`} className="bg-orange-50 rounded-xl p-2.5 border border-orange-100">
+                                                                            <div className="flex justify-between items-start gap-2">
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="text-[11px] font-black text-orange-700 leading-tight">🔧 ค่าแรงซ่อม{lr.category ? ` · ${lr.category}` : ''}</div>
+                                                                                    {lr.description && <div className="text-[9px] font-bold text-slate-600 mt-0.5">งาน: {lr.description}</div>}
+                                                                                    <div className="text-[9px] font-bold text-slate-500 mt-0.5">ช่าง: {lr.technicians}</div>
+                                                                                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black bg-orange-100 text-orange-700 mt-1 inline-block">ค่าแรง</span>
+                                                                                </div>
+                                                                                <div className="text-right shrink-0">
+                                                                                    <div className="text-[11px] font-black text-orange-700 tabular-nums">฿{formatCurrency(lr.cost)}</div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="text-[8px] font-bold text-slate-300 mt-1 truncate">ใบซ่อม: {lr.repairOrderNo}</div>
+                                                                        </div>
+                                                                    ))}
+                                                                    {partRows.map((p, pi) => (
+                                                                        <div key={pi} className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                                                                            <div className="flex justify-between items-start gap-2">
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="text-[11px] font-black text-slate-800 leading-tight">{p.name}</div>
+                                                                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black ${p.source === 'สต็อกอู่' ? 'bg-cyan-100 text-cyan-700' : 'bg-amber-100 text-amber-700'}`}>{p.source}</span>
+                                                                                        {p.suppliers.length > 0 && <span className="text-[8px] font-bold text-slate-400">{p.suppliers.join(', ')}</span>}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="text-right shrink-0">
+                                                                                    <div className="text-[11px] font-black text-slate-900 tabular-nums">฿{formatCurrency(p.totalPrice)}</div>
+                                                                                    <div className="text-[8px] font-bold text-slate-400">{p.quantity} {p.unit} × {formatCurrency(p.avgPrice)}</div>
+                                                                                </div>
+                                                                            </div>
+                                                                            {p.orders.length > 0 && (
+                                                                                <div className="text-[8px] font-bold text-slate-300 mt-1 truncate">ใบซ่อม: {p.orders.join(', ')}</div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         ))}
                                     </div>
