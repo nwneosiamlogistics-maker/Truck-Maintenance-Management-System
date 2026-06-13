@@ -63,12 +63,31 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
 }) => {
     const [viewMode, setViewMode] = useState<'current' | 'monthly'>('current');
     const [showRepeatedDetails, setShowRepeatedDetails] = useState(false);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+    // รายการปีที่เลือกได้ (auto จากข้อมูลจริง + ปีปัจจุบัน)
+    const availableYears = useMemo(() => {
+        const years = new Set<number>();
+        const addY = (dateStr?: string) => {
+            if (!dateStr) return;
+            const y = new Date(dateStr).getFullYear();
+            if (y > 2000 && y < 2100) years.add(y);
+        };
+        repairs.forEach(r => addY(r.createdAt));
+        incidents.forEach(i => addY(i.date));
+        pmHistory.forEach(p => addY(p.serviceDate));
+        checklists.forEach(c => addY(c.inspectionDate));
+        fuelRecords.forEach(f => addY(f.date));
+        years.add(new Date().getFullYear());
+        return Array.from(years).sort((a, b) => b - a);
+    }, [repairs, incidents, pmHistory, checklists, fuelRecords]);
 
     // --- Identify exact repeat repair items for inspection ---
     const duplicateRepairsList = useMemo(() => {
-        const rollingYearStart = new Date();
-        rollingYearStart.setFullYear(rollingYearStart.getFullYear() - 1);
-        const ytdRep = repairs.filter(r => new Date(r.createdAt) >= rollingYearStart);
+        const curYear = new Date().getFullYear();
+        const yStart = new Date(selectedYear, 0, 1);
+        const yEnd = selectedYear === curYear ? new Date() : new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        const ytdRep = repairs.filter(r => { const d = new Date(r.createdAt); return d >= yStart && d <= yEnd; });
 
         return ytdRep.filter(r => {
             // Exclude PM categories as they are expected to be repeated
@@ -101,16 +120,15 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
                 diffDays: prev ? Math.round((new Date(r.createdAt).getTime() - new Date(prev.createdAt).getTime()) / (1000 * 3600 * 24)) : 0
             };
         });
-    }, [repairs]);
+    }, [repairs, selectedYear]);
 
     // --- Helper for Calculations ---
     const monthlyHistory = useMemo(() => {
         const months = [];
-        const now = new Date();
         const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
-        for (let i = 11; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        for (let mi = 0; mi < 12; mi++) {
+            const d = new Date(selectedYear, mi, 1);
             const m = d.getMonth();
             const y = d.getFullYear() + 543;
             const label = `${thMonths[m]} ${y.toString().slice(-2)}`;
@@ -214,15 +232,21 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
             months.push({ month: label, hs3, hs4: Math.min(100, hs4), hs6: repeatedThisMonth, hs2: mInc.length, op1 });
         }
         return months;
-    }, [checklists, incidents, repairs, pmHistory, vehicles, maintenancePlans, fuelRecords]);
+    }, [checklists, incidents, repairs, pmHistory, vehicles, maintenancePlans, fuelRecords, selectedYear]);
 
     const realTimeStats = useMemo(() => {
-        const now = new Date();
-        const rollingYearStart = new Date();
-        rollingYearStart.setFullYear(rollingYearStart.getFullYear() - 1);
+        const realNow = new Date();
+        const curYear = realNow.getFullYear();
+        const isCurrentYear = selectedYear === curYear;
+        const yearStart = new Date(selectedYear, 0, 1);
+        // ปีปัจจุบัน → ถึงปัจจุบัน (real-time) / ปีอดีต → ทั้งปี (ม.ค.–ธ.ค.)
+        const now = isCurrentYear ? realNow : new Date(selectedYear, 11, 31, 23, 59, 59, 999);
+        const rollingYearStart = yearStart;
 
-        // HS3 Logic: Find the latest month with data if current month is empty
-        const latestCheckDate = [...checklists].sort((a, b) => new Date(b.inspectionDate).getTime() - new Date(a.inspectionDate).getTime())[0]?.inspectionDate;
+        // HS3 Logic: หาเดือนล่าสุดที่มีข้อมูลภายในปีที่เลือก
+        const latestCheckDate = [...checklists]
+            .filter(c => { const d = new Date(c.inspectionDate); return d >= yearStart && d <= now; })
+            .sort((a, b) => new Date(b.inspectionDate).getTime() - new Date(a.inspectionDate).getTime())[0]?.inspectionDate;
         const targetDate = latestCheckDate ? new Date(latestCheckDate) : now;
         const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
         const currentMonthChecks = checklists.filter(c => {
@@ -247,11 +271,12 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
         const hs3 = Math.min(100, Math.round((successfulSoFar / (activeFleet.length || 1)) * 100));
 
         const ytdInc = incidents.filter(i => {
-            const isYTD = new Date(i.date) >= rollingYearStart;
+            const d = new Date(i.date);
+            const isYTD = d >= rollingYearStart && d <= now;
             const isSerious = (i.lostWorkDays !== undefined && i.lostWorkDays > 2) || (i.severity === 'critical');
             return isYTD && isSerious;
         }).length;
-        const ytdRep = repairs.filter(r => new Date(r.createdAt) >= rollingYearStart);
+        const ytdRep = repairs.filter(r => { const d = new Date(r.createdAt); return d >= rollingYearStart && d <= now; });
         const hs6 = ytdRep.filter(r => {
             if (r.repairCategory.includes('PM') || r.repairCategory.includes('เช็คระยะ') || r.repairCategory.includes('ซ่อมบำรุงตามระยะ')) return false;
 
@@ -268,47 +293,42 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
             });
         }).length;
 
-        // HS4: Accurate PM Compliance (Mileage-Based)
-        const vMileage: Record<string, number> = {};
-        fuelRecords.forEach(f => {
-            if (!vMileage[f.licensePlate] || f.odometerAfter > vMileage[f.licensePlate]) {
-                vMileage[f.licensePlate] = f.odometerAfter;
+        // HS4: PM Compliance — วัด "ความตรงเวลาของการทำ PM" (นิยามเดียวกับ Analytics) สะสมทั้งปีถึงช่วงที่เลือก
+        const yearPM = pmHistory.filter(pm => { const d = new Date(pm.serviceDate); return d >= yearStart && d <= now; });
+        const compliantPMs = yearPM.filter(pm => {
+            let mileageCompliant = true;
+            let dateCompliant = true;
+            if (pm.targetMileage) {
+                mileageCompliant = Math.abs(pm.mileage - pm.targetMileage) <= 2000;
             }
-        });
-        // Fallback: use repair mileage if no fuel records available
-        repairs.forEach(r => {
-            const mileage = typeof r.currentMileage === 'string' ? parseFloat(r.currentMileage) : (r.currentMileage || 0);
-            if (mileage > 0 && (!vMileage[r.licensePlate] || mileage > vMileage[r.licensePlate])) {
-                vMileage[r.licensePlate] = mileage;
+            if (pm.targetServiceDate) {
+                const diffDays = Math.ceil((new Date(pm.serviceDate).getTime() - new Date(pm.targetServiceDate).getTime()) / (1000 * 3600 * 24));
+                dateCompliant = Math.abs(diffDays) <= 7;
             }
-        });
-
-        const activePlans = maintenancePlans.filter(plan =>
-            activeFleet.some(v => v.licensePlate === plan.vehicleLicensePlate)
-        );
-
-        const overduePMCount = activePlans.filter(plan => {
-            const curr = vMileage[plan.vehicleLicensePlate] || 0;
-            const target = plan.lastServiceMileage + plan.mileageFrequency;
-            const dueDate = new Date(plan.lastServiceDate);
-            if (plan.frequencyUnit === 'months') dueDate.setMonth(dueDate.getMonth() + plan.frequencyValue);
-            else if (plan.frequencyUnit === 'weeks') dueDate.setDate(dueDate.getDate() + (plan.frequencyValue * 7));
-            else dueDate.setDate(dueDate.getDate() + plan.frequencyValue);
-
-            // Time Tolerance: Allow 7 days grace period
-            const gracePeriodDate = new Date(dueDate);
-            gracePeriodDate.setDate(gracePeriodDate.getDate() + 7);
-
-            // Overdue if mileage > target + 2000 OR if current date > due date + 7 days
-            const isMileageOverdue = plan.mileageFrequency > 0 && curr > (target + 2000);
-            const isDateOverdue = plan.frequencyValue > 0 && now > gracePeriodDate;
-
-            return isMileageOverdue || isDateOverdue;
+            return (pm.targetMileage || pm.targetServiceDate) ? (mileageCompliant || dateCompliant) : true;
         }).length;
-        const hs4 = activePlans.length > 0 ? Math.max(0, Math.round(((activePlans.length - overduePMCount) / activePlans.length) * 100)) : 0;
+        // PM ที่ครบกำหนดในช่วง แต่ยังไม่ได้ทำ (พลาดเป้า)
+        let missedPMs = 0;
+        maintenancePlans.forEach(plan => {
+            const lastDate = new Date(plan.lastServiceDate);
+            let nextDue = new Date(lastDate);
+            if (plan.frequencyUnit === 'days') nextDue.setDate(lastDate.getDate() + plan.frequencyValue);
+            else if (plan.frequencyUnit === 'weeks') nextDue.setDate(lastDate.getDate() + plan.frequencyValue * 7);
+            else nextDue.setMonth(lastDate.getMonth() + plan.frequencyValue);
+            if (nextDue >= yearStart && nextDue <= now) {
+                const isDone = yearPM.some(h => {
+                    const hTarget = h.targetServiceDate ? new Date(h.targetServiceDate).toISOString().split('T')[0] : null;
+                    return h.vehicleLicensePlate === plan.vehicleLicensePlate && hTarget === nextDue.toISOString().split('T')[0];
+                });
+                if (!isDone && nextDue < realNow) missedPMs++;
+            }
+        });
+        const totalPMOpp = yearPM.length + missedPMs;
+        const hs4 = totalPMOpp > 0 ? Math.min(100, Math.round((compliantPMs / totalPMOpp) * 100)) : 0;
 
-        const totalDist = fuelRecords.reduce((sum, f) => sum + (f.distanceTraveled || 0), 0);
-        const totalFuel = fuelRecords.reduce((sum, f) => sum + (f.liters || 0), 0);
+        const yearFuel = fuelRecords.filter(f => { const d = new Date(f.date); return d >= yearStart && d <= now; });
+        const totalDist = yearFuel.reduce((sum, f) => sum + (f.distanceTraveled || 0), 0);
+        const totalFuel = yearFuel.reduce((sum, f) => sum + (f.liters || 0), 0);
         const op1 = totalFuel > 0 ? (totalDist / totalFuel) : 0;
 
         // Find the latest transaction date across all relevant datasets for "Last Updated"
@@ -322,7 +342,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
         const lastUpdatedDate = allDates.length > 0 ? new Date(Math.max(...allDates)).toISOString() : new Date().toISOString();
 
         return { hs2: ytdInc, hs6: hs6, hs3, hs4, op1: parseFloat(op1.toFixed(2)), lastUpdatedDate };
-    }, [incidents, repairs, checklists, vehicles, maintenancePlans, fuelRecords]);
+    }, [incidents, repairs, checklists, vehicles, maintenancePlans, fuelRecords, selectedYear]);
 
     // Data availability flags
     const hasChecklistData = checklists.length > 0;
@@ -347,7 +367,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
         if (hasChecklistData) hsScores.push(Math.min(100, getVal(realTimeStats.hs3, avg12.hs3)));
         if (hasPMData) hsScores.push(Math.min(100, getVal(realTimeStats.hs4, avg12.hs4)));
         if (hasRepairData) hsScores.push(getVal(realTimeStats.hs6, avg12.hs6) <= 10 ? 100 : Math.max(0, 100 - (getVal(realTimeStats.hs6, avg12.hs6) - 10) * 5));
-        if (hasIncidentData || incidents.length === 0) hsScores.push(getVal(realTimeStats.hs2, avg12.hs2) <= 2 ? 100 : 0);
+        if (hasIncidentData) hsScores.push(getVal(realTimeStats.hs2, avg12.hs2) <= 2 ? 100 : 0);
         const hsProgress = hsScores.length > 0 ? Math.round(hsScores.reduce((a, b) => a + b, 0) / hsScores.length) : 0;
 
         const getStatus = (value: number, target: number, isLowerBetter: boolean, hasData: boolean): 'On Track' | 'At Risk' | 'Behind' | 'Completed' | 'Not Started' => {
@@ -412,13 +432,17 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
 
     const statsSummary = useMemo(() => {
         const all = okrData.flatMap(o => o.metrics);
+        // เฉลี่ย Success Rate เฉพาะ objective ที่มีข้อมูลจริง (ไม่ฉุดคะแนนด้วยตัวที่ยังไม่มีข้อมูล)
+        const hsHasData = hasChecklistData || hasPMData || hasRepairData || hasIncidentData;
+        const objWithData = okrData.filter(o => o.category === 'Performance' ? hasFuelData : hsHasData);
+        const denom = objWithData.length || 1;
         return {
             total: all.length,
             onTrack: all.filter(m => m.status === 'On Track' || m.status === 'Completed').length,
             attention: all.filter(m => m.status === 'At Risk' || m.status === 'Behind').length,
-            avg: Math.round(okrData.reduce((p, c) => p + c.progress, 0) / okrData.length)
+            avg: Math.round(objWithData.reduce((p, c) => p + c.progress, 0) / denom)
         };
-    }, [okrData]);
+    }, [okrData, hasChecklistData, hasPMData, hasRepairData, hasIncidentData, hasFuelData]);
 
     const getStatusStyles = (status: OKRStatus) => {
         switch (status) {
@@ -453,20 +477,45 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
                         <Target className="w-12 h-12 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter">OKR Strategy 2025</h1>
+                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter">OKR Strategy {selectedYear}</h1>
                         <p className="text-slate-500 font-bold text-lg mt-1 tracking-tight flex items-center gap-2">
                             <Activity className="w-5 h-5 text-emerald-500" /> Real-time Performance & Operational Audit
                         </p>
                     </div>
                 </div>
 
-                <div className="bg-slate-50 p-2.5 rounded-3xl flex gap-1.5 border border-slate-200 shadow-inner">
-                    <button onClick={() => setViewMode('current')} className={`px-8 py-3.5 rounded-2xl text-[13px] font-black transition-all flex items-center gap-2.5 ${viewMode === 'current' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
-                        <LayoutDashboard className="w-5 h-5" /> Live Overview
-                    </button>
-                    <button onClick={() => setViewMode('monthly')} className={`px-8 py-3.5 rounded-2xl text-[13px] font-black transition-all flex items-center gap-2.5 ${viewMode === 'monthly' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
-                        <Calendar className="w-5 h-5" /> Analytics
-                    </button>
+                <div className="flex items-center gap-4">
+                    {/* เลือกปี */}
+                    <div className="bg-slate-50 px-5 py-3 rounded-3xl border border-slate-200 shadow-inner flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-slate-400" />
+                        <select
+                            value={selectedYear}
+                            onChange={e => setSelectedYear(Number(e.target.value))}
+                            title="เลือกปี"
+                            className="bg-transparent text-[15px] font-black text-slate-900 outline-none cursor-pointer"
+                        >
+                            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-3xl flex gap-1.5 border border-slate-200 shadow-inner">
+                        <button onClick={() => setViewMode('current')} className={`px-6 py-2.5 rounded-2xl text-[13px] font-black transition-all flex items-center gap-2.5 ${viewMode === 'current' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+                            <LayoutDashboard className="w-5 h-5 shrink-0" />
+                            <span className="flex flex-col items-start leading-tight">
+                                <span>{selectedYear === new Date().getFullYear() ? 'Live Overview' : 'สรุปทั้งปี'}</span>
+                                <span className="text-[9px] font-bold opacity-60">
+                                    {selectedYear === new Date().getFullYear() ? 'ตอนนี้เป็นยังไง' : `ทั้งปี ${selectedYear} เป็นยังไง`}
+                                </span>
+                            </span>
+                        </button>
+                        <button onClick={() => setViewMode('monthly')} className={`px-6 py-2.5 rounded-2xl text-[13px] font-black transition-all flex items-center gap-2.5 ${viewMode === 'monthly' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+                            <Calendar className="w-5 h-5 shrink-0" />
+                            <span className="flex flex-col items-start leading-tight">
+                                <span>Analytics</span>
+                                <span className="text-[9px] font-bold opacity-60">ดูแยกรายเดือน + เทรนด์</span>
+                            </span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex gap-6">
@@ -523,7 +572,7 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
 
                                     <div className="grid grid-cols-2 gap-6 mb-10 bg-white/60 p-6 rounded-[2.5rem] border border-slate-100/50">
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Target 2025</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Target {selectedYear}</p>
                                             <p className="text-xl font-black text-blue-600">{metric.target2025}</p>
                                         </div>
                                         <div>
@@ -646,16 +695,16 @@ const OKRManagement: React.FC<OKRManagementProps> = ({
                     <div className="flex-1 text-center md:text-left">
                         <div className="flex items-center justify-center md:justify-start gap-5 mb-8">
                             <ShieldCheck className="w-12 h-12 text-emerald-400" />
-                            <h3 className="text-3xl font-black italic tracking-tighter uppercase">Enterprise Grade Audit</h3>
+                            <h3 className="text-3xl font-black italic tracking-tighter uppercase">Data-Driven OKR</h3>
                         </div>
                         <p className="text-xl text-slate-300 font-medium leading-relaxed max-w-2xl">
-                            Dashboard นี้ถูกเชื่อมโยงข้อมูลแบบ <span className="text-white font-black">Native-Sync</span> กับระบบจัดการคลัง (Inventory), บันทึกงานสารบรรณ (Daily Log) และข้อมูลประกันภัยแบบเรียลไทม์ 100% เพื่อประกันคุณภาพสูงสุดของธุรกิจ
+                            ดัชนีทั้งหมดคำนวณจากข้อมูลจริงในระบบ — <span className="text-white font-black">ประวัติซ่อม (Repair), แผนซ่อมบำรุง (PM), รายการตรวจเช็ครถ (Checklist), บันทึกอุบัติเหตุ (Incident) และข้อมูลน้ำมัน (Fuel)</span> โดยอัปเดตตามข้อมูลที่บันทึกเข้าระบบ
                         </p>
                     </div>
                     <div className="bg-white/5 backdrop-blur-2xl p-10 rounded-[4rem] border border-white/10 text-center min-w-[280px]">
                         <BarChart3 className="w-20 h-20 text-blue-400 mx-auto mb-6" />
-                        <p className="text-[12px] font-black text-blue-300 uppercase tracking-[0.3em] mb-2">Audit Status</p>
-                        <p className="text-3xl font-black text-white">System Verified</p>
+                        <p className="text-[12px] font-black text-blue-300 uppercase tracking-[0.3em] mb-2">แหล่งข้อมูลที่เชื่อม</p>
+                        <p className="text-3xl font-black text-white">{[hasRepairData, hasPMData, hasChecklistData, hasIncidentData, hasFuelData].filter(Boolean).length} / 5 แหล่ง</p>
                     </div>
                 </div>
             </div>
