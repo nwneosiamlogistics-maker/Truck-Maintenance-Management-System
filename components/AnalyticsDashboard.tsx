@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Repair, MaintenancePlan, Vehicle, PMHistory, StockItem, Technician, AnnualPMPlan, PurchaseOrder, Supplier, StockTransaction, UsedPart, Driver } from '../types';
-import { BarChart2, TrendingUp, Truck, Target, Wrench, Package, RotateCcw, Users, ClipboardList } from 'lucide-react';
+import { BarChart2, TrendingUp, Truck, Target, Wrench, Package, RotateCcw, Users, ClipboardList, Scale } from 'lucide-react';
 
 import FleetKPIDashboard from './FleetKPIDashboard';
 import Reports from './Reports';
@@ -11,6 +11,7 @@ import UsedPartReport from './UsedPartReport';
 import DriverLeaveReport from './DriverLeaveReport';
 import VehicleExpenseReport from './VehicleExpenseReport';
 import VehicleRegistryReport from './VehicleRegistryReport';
+import MaintenanceDecisionHub from './MaintenanceDecisionHub';
 
 interface AnalyticsDashboardProps {
     repairs: Repair[];
@@ -28,7 +29,7 @@ interface AnalyticsDashboardProps {
     drivers: Driver[];
 }
 
-type AnalyticsTab = 'fleet' | 'vehicle-registry' | 'reports' | 'vehicle-expense' | 'kpi' | 'stock-history' | 'used-parts' | 'technician-kpi' | 'driver-leave';
+type AnalyticsTab = 'fleet' | 'vehicle-registry' | 'reports' | 'vehicle-expense' | 'kpi' | 'decision-hub' | 'stock-history' | 'used-parts' | 'technician-kpi' | 'driver-leave';
 
 const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('fleet');
@@ -40,6 +41,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
             case 'reports': return <Reports {...props} />;
             case 'vehicle-expense': return <VehicleExpenseReport repairs={props.repairs} vehicles={props.vehicles} technicians={props.technicians} />;
             case 'kpi': return <KPIDashboard {...props} />;
+            case 'decision-hub': return <MaintenanceDecisionHub repairs={props.repairs} technicians={props.technicians} />;
             case 'stock-history': return <StockHistory {...props} />;
             case 'used-parts': return <UsedPartReport usedParts={props.usedParts} deleteUsedPartDisposition={props.deleteUsedPartDisposition} />;
             case 'technician-kpi': return <TechnicianPerformance {...props} />;
@@ -54,6 +56,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
         { id: 'reports', label: 'Analysis Hub', short: 'Analysis', sub: 'รายงานและสถิติ', icon: <BarChart2 size={16} /> },
         { id: 'vehicle-expense', label: 'Vehicle Expense', short: 'Expense', sub: 'ค่าใช้จ่ายเกี่ยวกับรถ', icon: <TrendingUp size={16} /> },
         { id: 'kpi', label: 'Repair KPI', short: 'KPI', sub: 'ภาพรวมดัชนีการซ่อม', icon: <Target size={16} /> },
+        { id: 'decision-hub', label: 'Decision Hub', short: 'Decide', sub: 'ตัดสินใจซ่อม/ยกชุด', icon: <Scale size={16} /> },
         { id: 'technician-kpi', label: 'Technician Hub', short: 'Tech', sub: 'ประสิทธิภาพงานช่าง', icon: <Wrench size={16} /> },
         { id: 'stock-history', label: 'Inventory Log', short: 'Stock', sub: 'ประวัติเบิกจ่าย', icon: <Package size={16} /> },
         { id: 'used-parts', label: 'Parts Lifecycle', short: 'Parts', sub: 'รายงานอะไหล่เก่า', icon: <RotateCcw size={16} /> },
