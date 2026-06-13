@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Repair, MaintenancePlan, Vehicle, PMHistory, StockItem, Technician, AnnualPMPlan, PurchaseOrder, Supplier, StockTransaction, UsedPart, Driver } from '../types';
-import { BarChart2, TrendingUp, Truck, Target, Wrench, Package, RotateCcw, Users } from 'lucide-react';
+import { BarChart2, TrendingUp, Truck, Target, Wrench, Package, RotateCcw, Users, ClipboardList } from 'lucide-react';
 
 import FleetKPIDashboard from './FleetKPIDashboard';
 import Reports from './Reports';
@@ -10,6 +10,7 @@ import StockHistory from './StockHistory';
 import UsedPartReport from './UsedPartReport';
 import DriverLeaveReport from './DriverLeaveReport';
 import VehicleExpenseReport from './VehicleExpenseReport';
+import VehicleRegistryReport from './VehicleRegistryReport';
 
 interface AnalyticsDashboardProps {
     repairs: Repair[];
@@ -27,7 +28,7 @@ interface AnalyticsDashboardProps {
     drivers: Driver[];
 }
 
-type AnalyticsTab = 'fleet' | 'reports' | 'vehicle-expense' | 'kpi' | 'stock-history' | 'used-parts' | 'technician-kpi' | 'driver-leave';
+type AnalyticsTab = 'fleet' | 'vehicle-registry' | 'reports' | 'vehicle-expense' | 'kpi' | 'stock-history' | 'used-parts' | 'technician-kpi' | 'driver-leave';
 
 const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('fleet');
@@ -35,6 +36,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
     const renderContent = () => {
         switch (activeTab) {
             case 'fleet': return <FleetKPIDashboard {...props} />;
+            case 'vehicle-registry': return <VehicleRegistryReport repairs={props.repairs} vehicles={props.vehicles} />;
             case 'reports': return <Reports {...props} />;
             case 'vehicle-expense': return <VehicleExpenseReport repairs={props.repairs} vehicles={props.vehicles} technicians={props.technicians} />;
             case 'kpi': return <KPIDashboard {...props} />;
@@ -48,6 +50,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = (props) => {
 
     const tabs: { id: AnalyticsTab, label: string, short: string, sub: string, icon: React.ReactNode }[] = [
         { id: 'fleet', label: 'Fleet Performance', short: 'Fleet', sub: 'ประสิทธิภาพกลุ่มรถ', icon: <Truck size={16} /> },
+        { id: 'vehicle-registry', label: 'Fleet Registry', short: 'Registry', sub: 'ทะเบียนรถ & สถานะ', icon: <ClipboardList size={16} /> },
         { id: 'reports', label: 'Analysis Hub', short: 'Analysis', sub: 'รายงานและสถิติ', icon: <BarChart2 size={16} /> },
         { id: 'vehicle-expense', label: 'Vehicle Expense', short: 'Expense', sub: 'ค่าใช้จ่ายเกี่ยวกับรถ', icon: <TrendingUp size={16} /> },
         { id: 'kpi', label: 'Repair KPI', short: 'KPI', sub: 'ภาพรวมดัชนีการซ่อม', icon: <Target size={16} /> },
