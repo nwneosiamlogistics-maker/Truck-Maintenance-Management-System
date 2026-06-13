@@ -1,6 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import type { Repair, MaintenancePlan, Vehicle, PMHistory, AnnualPMPlan } from '../types';
-import { calculateDurationHours, formatHoursToHHMM, formatCurrency } from '../utils';
+import { calculateDurationHours, formatCurrency } from '../utils';
+
+// แปลงชั่วโมงเป็นรูปแบบอ่านง่าย เช่น "5 วัน 13 ชม. 15 นาที"
+const formatDowntime = (hours: number): string => {
+    if (!hours || hours <= 0) return '-';
+    const totalMinutes = Math.round(hours * 60);
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const h = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const m = totalMinutes % 60;
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${days} วัน`);
+    if (h > 0) parts.push(`${h} ชม.`);
+    if (m > 0) parts.push(`${m} นาที`);
+    return parts.length > 0 ? parts.join(' ') : '0 นาที';
+};
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, ComposedChart
@@ -153,22 +167,23 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
 
         const fleetAvailability = totalPossibleHours > 0 ? ((totalPossibleHours - totalDowntimeHours) / totalPossibleHours) * 100 : 100;
 
-        const periodHistory = safeHistory.filter(h => {
-            const serviceDate = new Date(h.serviceDate);
-            return serviceDate >= startDate && serviceDate <= endDate;
+        // PM Compliance จากสถานะจริงใน annualPlans (planned / completed / completed_unplanned)
+        // เดิมคำนวณจาก lastServiceDate + รอบ ซึ่งพอทำ PM เสร็จแล้วแผนจะหลุดออกจากช่วง ทำให้ "สำเร็จ" เกือบ 0 เสมอ
+        const pmStatus = { planned: 0, completed: 0 };
+        safeAnnualPlans.forEach(plan => {
+            Object.entries(plan.months || {}).forEach(([mi, status]) => {
+                const monthStart = new Date(plan.year, parseInt(mi), 1);
+                const monthEnd = new Date(plan.year, parseInt(mi) + 1, 0, 23, 59, 59);
+                // นับเดือนที่ทับซ้อนกับช่วงเวลาที่เลือก
+                if (monthEnd >= startDate && monthStart <= endDate) {
+                    if (status === 'planned') pmStatus.planned++;
+                    else if (status === 'completed' || status === 'completed_unplanned') pmStatus.completed++;
+                }
+            });
         });
-
-        const duePlansInPeriod = safePlans.filter(plan => {
-            const lastDate = new Date(plan.lastServiceDate);
-            let nextServiceDate = new Date(lastDate);
-            if (plan.frequencyUnit === 'days') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue);
-            else if (plan.frequencyUnit === 'weeks') nextServiceDate.setDate(lastDate.getDate() + plan.frequencyValue * 7);
-            else nextServiceDate.setMonth(lastDate.getMonth() + plan.frequencyValue);
-            return nextServiceDate >= startDate && nextServiceDate <= endDate;
-        });
-
-        const completedDuePlansCount = duePlansInPeriod.filter(plan => periodHistory.some(h => h.maintenancePlanId === plan.id)).length;
-        const pmCompletionRate = duePlansInPeriod.length > 0 ? (completedDuePlansCount / duePlansInPeriod.length) * 100 : 100;
+        const totalDuePM = pmStatus.planned + pmStatus.completed;
+        const completedDuePlansCount = pmStatus.completed;
+        const pmCompletionRate = totalDuePM > 0 ? (pmStatus.completed / totalDuePM) * 100 : 100;
 
         // Rework Rate
         const repairsByVehicleForRework = periodRepairs.reduce((acc: Record<string, { desc: string, date: string }[]>, r) => {
@@ -228,7 +243,7 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
 
         const pmChartData = [
             { name: 'สำเร็จตามแผน', value: completedDuePlansCount },
-            { name: 'ค้าง/พลาดเป้า', value: Math.max(0, duePlansInPeriod.length - completedDuePlansCount) }
+            { name: 'ค้าง/พลาดเป้า', value: pmStatus.planned }
         ];
 
         const topDowntime = Object.entries(completedPeriodRepairs.reduce((acc: any, r) => {
@@ -239,10 +254,18 @@ const FleetKPIDashboard: React.FC<FleetKPIDashboardProps> = ({ repairs, maintena
 
         // Alerts
         const alerts: AlertItem[] = [];
-        periodRepairs.forEach(r => {
-            // Summary logic for alerts based on vehicle
+        // แจ้งเตือน PM ค้างดำเนินการ
+        if (pmStatus.planned > 0) {
+            alerts.push({ type: 'PM', vehicle: `${pmStatus.planned} แผน`, details: `มีแผนซ่อมบำรุง (PM) ค้างดำเนินการในช่วงนี้`, value: pmStatus.planned, priority: 'high' });
+        }
+        // แจ้งเตือนรถจอดซ่อมนาน (Downtime สูง) — Top 3 ที่เกิน 24 ชม.
+        topDowntime.slice(0, 3).forEach((d: any) => {
+            const hrs = Number(d.value) || 0;
+            if (hrs >= 24) {
+                alerts.push({ type: 'Downtime', vehicle: String(d.name), details: `จอดซ่อมสะสมนาน ${formatDowntime(hrs)}`, value: hrs, priority: hrs >= 72 ? 'high' : 'medium' });
+            }
         });
-        // Simplified alerts for brevity but keeping same structure
+        // แจ้งเตือนรถซ่อมซ้ำ
         reworkedVehicles.forEach(rw => alerts.push({ type: 'Rework', vehicle: rw.plate, details: `ซ่อมซ้ำ: ${rw.descriptions.join(', ')}`, value: rw.descriptions.length, priority: 'high' }));
 
         return {
