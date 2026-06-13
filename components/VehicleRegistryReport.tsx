@@ -82,14 +82,49 @@ const Card: React.FC<{ title: string; children: React.ReactNode; className?: str
     </div>
 );
 
+type PeriodType = 'all' | 'week' | 'month' | 'year';
+
 const VehicleRegistryReport: React.FC<VehicleRegistryReportProps> = ({ repairs, vehicles }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedPlate, setExpandedPlate] = useState<string | null>(null);
+    const [periodType, setPeriodType] = useState<PeriodType>('all');
+    const [periodOffset, setPeriodOffset] = useState(0);
+
+    const changePeriodType = (t: PeriodType) => { setPeriodType(t); setPeriodOffset(0); };
 
     const data = useMemo(() => {
         const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
-        const safeRepairs = Array.isArray(repairs) ? repairs : [];
+        const allRepairs = Array.isArray(repairs) ? repairs : [];
         const now = new Date();
+
+        // คำนวณช่วงเวลาที่เลือก (กรอง repairs ตาม createdAt)
+        let start: Date | null = null, end: Date | null = null, periodLabel = 'ทั้งหมด';
+        if (periodType === 'year') {
+            const y = now.getFullYear() + periodOffset;
+            start = new Date(y, 0, 1, 0, 0, 0, 0);
+            end = new Date(y, 11, 31, 23, 59, 59, 999);
+            periodLabel = `ปี ${y + 543}`;
+        } else if (periodType === 'month') {
+            const base = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
+            start = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0);
+            end = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999);
+            periodLabel = `${start.toLocaleDateString('th-TH', { month: 'long' })} ${start.getFullYear() + 543}`;
+        } else if (periodType === 'week') {
+            const base = new Date(now);
+            base.setDate(now.getDate() + periodOffset * 7);
+            const dow = (base.getDay() + 6) % 7; // จันทร์ = 0
+            start = new Date(base); start.setDate(base.getDate() - dow); start.setHours(0, 0, 0, 0);
+            end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999);
+            const fmt = (d: Date) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+            periodLabel = `${fmt(start)} - ${fmt(end)} ${end.getFullYear() + 543}`;
+        }
+
+        const inPeriod = (r: Repair): boolean => {
+            if (!start || !end || !r.createdAt) return periodType === 'all';
+            const d = new Date(r.createdAt);
+            return d >= start && d <= end;
+        };
+        const safeRepairs = periodType === 'all' ? allRepairs : allRepairs.filter(inPeriod);
 
         const repairCost = (r: Repair): number => {
             const partsCost = (r.parts || []).reduce((s, p) => s + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0);
@@ -105,8 +140,15 @@ const VehicleRegistryReport: React.FC<VehicleRegistryReportProps> = ({ repairs, 
             return null;
         };
 
-        // กลุ่มงานซ่อมรายทะเบียน
+        // กลุ่มงานซ่อมรายทะเบียน (ตามช่วงเวลา — ใช้คำนวณสถิติ)
         const repairsByPlate = safeRepairs.reduce((acc: Record<string, Repair[]>, r) => {
+            const plate = r.licensePlate || 'ไม่ระบุ';
+            if (!acc[plate]) acc[plate] = [];
+            acc[plate].push(r);
+            return acc;
+        }, {});
+        // กลุ่มงานซ่อมทั้งหมด (ใช้คำนวณสถานะปัจจุบัน real-time)
+        const repairsByPlateAll = allRepairs.reduce((acc: Record<string, Repair[]>, r) => {
             const plate = r.licensePlate || 'ไม่ระบุ';
             if (!acc[plate]) acc[plate] = [];
             acc[plate].push(r);
@@ -134,14 +176,16 @@ const VehicleRegistryReport: React.FC<VehicleRegistryReportProps> = ({ repairs, 
 
         // สถิติรายคัน
         const registry = safeVehicles.map(v => {
-            const reps = repairsByPlate[v.licensePlate] || [];
+            const reps = repairsByPlate[v.licensePlate] || [];       // ช่วงเวลา → สถิติ
+            const allReps = repairsByPlateAll[v.licensePlate] || []; // ทั้งหมด → สถานะปัจจุบัน
             const completed = reps.filter(r => r.status === 'ซ่อมเสร็จ' && r.repairEndDate);
             const downtimeHours = completed.reduce((s, r) => s + calculateDurationHours(r.createdAt, r.repairEndDate ?? null), 0);
             const totalCost = reps.reduce((s, r) => s + repairCost(r), 0);
-            const activeRepair = reps.find(r => ACTIVE_STATUSES.includes(r.status));
-            const isExternal = reps.some(r => r.dispatchType === 'ภายนอก' && ACTIVE_STATUSES.includes(r.status));
-            const lastRepair = reps.length > 0
-                ? reps.reduce((latest, r) => new Date(r.createdAt) > new Date(latest.createdAt) ? r : latest)
+            // สถานะปัจจุบันคิดจากงานที่ค้างอยู่จริง (ไม่ขึ้นกับช่วงเวลาที่เลือก)
+            const activeRepair = allReps.find(r => ACTIVE_STATUSES.includes(r.status));
+            const isExternal = allReps.some(r => r.dispatchType === 'ภายนอก' && ACTIVE_STATUSES.includes(r.status));
+            const lastRepair = allReps.length > 0
+                ? allReps.reduce((latest, r) => new Date(r.createdAt) > new Date(latest.createdAt) ? r : latest)
                 : null;
             const taxDays = daysLeft(v.taxExpiryDate);
             const insDays = daysLeft(v.insuranceExpiryDate);
@@ -209,19 +253,23 @@ const VehicleRegistryReport: React.FC<VehicleRegistryReportProps> = ({ repairs, 
             topParts,
             topDowntime,
             repairCost,
+            periodLabel,
+            totalRepairsInPeriod: safeRepairs.length,
         };
-    }, [repairs, vehicles]);
+    }, [repairs, vehicles, periodType, periodOffset]);
 
     const filteredRegistry = useMemo(() => {
         const term = searchTerm.toLowerCase();
-        if (!term) return data.registry;
-        return data.registry.filter(r =>
+        // เมื่อเลือกช่วงเวลา → ซ่อนรถที่ไม่มีงานซ่อมในช่วงนั้น
+        let list = periodType === 'all' ? data.registry : data.registry.filter(r => r.repairCount > 0);
+        if (!term) return list;
+        return list.filter(r =>
             r.plate.toLowerCase().includes(term) ||
             (r.vehicle.vehicleType || '').toLowerCase().includes(term) ||
             (r.vehicle.make || '').toLowerCase().includes(term) ||
             (r.vehicle.model || '').toLowerCase().includes(term)
         );
-    }, [data.registry, searchTerm]);
+    }, [data.registry, searchTerm, periodType]);
 
     const statusPieData = STATUS_LABELS.map(s => ({
         name: s.label,
@@ -249,6 +297,18 @@ const VehicleRegistryReport: React.FC<VehicleRegistryReportProps> = ({ repairs, 
     const docAlerts = data.registry.filter(r => (r.taxDays !== null && r.taxDays <= 30) || (r.insDays !== null && r.insDays <= 30));
     const repairAlerts = data.registry.filter(r => r.currentStatus === 'กำลังซ่อม' || r.currentStatus === 'ส่งซ่อมนอก');
     const focusVehicle = (plate: string) => { setSearchTerm(plate); setExpandedPlate(plate); };
+
+    // ตัวช่วยเลือกปี/เดือนตรงๆ จาก dropdown
+    const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    const _now = new Date();
+    const curYear = _now.getFullYear();
+    const curMonth = _now.getMonth();
+    const yearOptions = Array.from({ length: 7 }, (_, i) => curYear - i); // 7 ปีย้อนหลัง
+    const monthBase = new Date(curYear, curMonth + periodOffset, 1); // ช่วงเดือนที่เลือกอยู่
+    const selYear = monthBase.getFullYear();
+    const selMonth = monthBase.getMonth();
+    const setMonthSelection = (y: number, m: number) => setPeriodOffset((y - curYear) * 12 + (m - curMonth));
+    const setYearSelection = (y: number) => setPeriodOffset(y - curYear);
 
     return (
         <div className="space-y-6 lg:space-y-10 animate-fade-in-up pb-12">
@@ -319,12 +379,63 @@ const VehicleRegistryReport: React.FC<VehicleRegistryReportProps> = ({ repairs, 
                 </div>
             )}
 
+            {/* ตัวกรองช่วงเวลา (มีผลเฉพาะสถิติการซ่อม) */}
+            <div className="glass p-3 rounded-[1.5rem] border border-white/50 shadow-lg flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-slate-100/60 p-1 rounded-2xl w-full sm:w-auto">
+                    {([
+                        { id: 'all', label: 'ทั้งหมด' },
+                        { id: 'week', label: 'รายสัปดาห์' },
+                        { id: 'month', label: 'รายเดือน' },
+                        { id: 'year', label: 'รายปี' },
+                    ] as { id: PeriodType, label: string }[]).map(p => (
+                        <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => changePeriodType(p.id)}
+                            className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wide sm:tracking-widest transition-all whitespace-nowrap ${periodType === p.id ? 'bg-slate-950 text-white shadow-md' : 'text-slate-400 hover:text-slate-700'}`}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+                {periodType !== 'all' && (
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 w-full sm:w-auto">
+                        <button type="button" onClick={() => setPeriodOffset(o => o - 1)} title="ช่วงก่อนหน้า" className="p-2 bg-white border border-slate-100 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95">
+                            <ChevronDown size={16} className="rotate-90" />
+                        </button>
+
+                        {periodType === 'week' && (
+                            <span className="min-w-[130px] text-center text-xs font-black text-slate-700 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">{data.periodLabel}</span>
+                        )}
+                        {periodType === 'month' && (
+                            <>
+                                <select value={selMonth} onChange={e => setMonthSelection(selYear, Number(e.target.value))} title="เลือกเดือน" className="bg-blue-50 border border-blue-100 text-xs font-black text-slate-700 px-3 py-2 rounded-xl outline-none cursor-pointer">
+                                    {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                </select>
+                                <select value={selYear} onChange={e => setMonthSelection(Number(e.target.value), selMonth)} title="เลือกปี" className="bg-blue-50 border border-blue-100 text-xs font-black text-slate-700 px-3 py-2 rounded-xl outline-none cursor-pointer">
+                                    {yearOptions.map(y => <option key={y} value={y}>{y + 543}</option>)}
+                                </select>
+                            </>
+                        )}
+                        {periodType === 'year' && (
+                            <select value={curYear + periodOffset} onChange={e => setYearSelection(Number(e.target.value))} title="เลือกปี" className="bg-blue-50 border border-blue-100 text-xs font-black text-slate-700 px-4 py-2 rounded-xl outline-none cursor-pointer min-w-[110px]">
+                                {yearOptions.map(y => <option key={y} value={y}>ปี {y + 543}</option>)}
+                            </select>
+                        )}
+
+                        <button type="button" onClick={() => setPeriodOffset(o => Math.min(0, o + 1))} disabled={periodOffset >= 0} title="ช่วงถัดไป" className="p-2 bg-white border border-slate-100 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed">
+                            <ChevronDown size={16} className="-rotate-90" />
+                        </button>
+                    </div>
+                )}
+            </div>
+
             {/* ① ภาพรวมกองรถ */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 <ModernStatCard theme="blue" title="รถทั้งหมด" value={`${data.totalVehicles} คัน`} subtext={`ใช้งาน ${data.activeCount} · จอด ${data.inactiveCount}`} icon={<Truck size={120} />} />
                 <ModernStatCard theme="green" title="อายุเฉลี่ยกองรถ" value={data.avgAge > 0 ? `${data.avgAge.toFixed(1)} ปี` : '-'} subtext="Average Fleet Age" icon={<Calendar size={120} />} />
                 <ModernStatCard theme="orange" title="กำลังซ่อม/ส่งนอก" value={`${data.inServiceNow} คัน`} subtext="In Service Now" icon={<Wrench size={120} />} />
-                <ModernStatCard theme="purple" title="งานซ่อมรวม" value={`${(Array.isArray(repairs) ? repairs.length : 0).toLocaleString()}`} subtext="Total Repair Orders" icon={<Activity size={120} />} />
+                <ModernStatCard theme="purple" title="งานซ่อมรวม" value={`${data.totalRepairsInPeriod.toLocaleString()}`} subtext={periodType === 'all' ? 'Total Repair Orders' : data.periodLabel} icon={<Activity size={120} />} />
             </div>
 
             {/* ② สถานะงานซ่อม 5 ประเภท */}
